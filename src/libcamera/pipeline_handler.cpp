@@ -525,6 +525,13 @@ void PipelineHandler::completeRequest(Request *request)
 
 	Camera::Private *data = camera->_d();
 
+	if (camera->requestCompletionMode() == Camera::Immediately) {
+		camera->requestComplete(request);
+		data->queuedRequests_.remove(request);
+		return;
+	}
+
+	/* camera->requestCompletionMode() == Camera::InSubmissionOrder */
 	while (!data->queuedRequests_.empty()) {
 		Request *req = data->queuedRequests_.front();
 		if (req->status() == Request::RequestPending)

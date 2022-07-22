@@ -427,7 +427,8 @@ CameraConfiguration::Status CameraConfiguration::validateColorSpaces(ColorSpaceF
  */
 Camera::Private::Private(PipelineHandler *pipe)
 	: requestSequence_(0), pipe_(pipe->shared_from_this()),
-	  disconnected_(false), state_(CameraAvailable)
+	  disconnected_(false), state_(CameraAvailable),
+	  requestCompletionMode_(Camera::InSubmissionOrder)
 {
 }
 
@@ -571,6 +572,28 @@ void Camera::Private::setState(State state)
 }
 
 /**
+ * \brief Set the request completion mode
+ * \param[in] mode The RequestCompletionMode
+ *
+ * This function sets the request completion mode.
+ * InSubmissionOrder is the default mode.
+ */
+void Camera::Private::setRequestCompletionMode(RequestCompletionMode mode)
+{
+	requestCompletionMode_ = mode;
+}
+
+/**
+ * \brief Get the request completion mode
+ *
+ * \return The current RequestCompletionMode.
+ */
+Camera::RequestCompletionMode Camera::Private::requestCompletionMode() const
+{
+	return requestCompletionMode_;
+}
+
+/**
  * \class Camera
  * \brief Camera device
  *
@@ -698,6 +721,15 @@ std::shared_ptr<Camera> Camera::create(std::unique_ptr<Private> d,
 
 	return std::shared_ptr<Camera>(camera, Deleter());
 }
+
+/**
+ * \enum Camera::RequestCompletionMode
+ * \brief The mode of request completion behavior
+ * \var libcamera::Camera::InSubmissionOrder
+ * \brief requestCompleted will be emited according to the request submission order
+ * \var libcamera::Camera::Immediately
+ * \brief requestCompleted will be emited immediately when a request is completed.
+ */
 
 /**
  * \brief Retrieve the ID of the camera
@@ -1244,6 +1276,40 @@ int Camera::stop()
 	d->setState(Private::CameraConfigured);
 
 	return 0;
+}
+
+/**
+ * \brief Set the request completion mode
+ * \param[in] mode The RequestCompletionMode
+ *
+ * This function sets the request completion mode.
+ * InSubmissionOrder is the default mode.
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -EACCES The camera is running so can't change the behavior
+ */
+int Camera::setRequestCompletionMode(RequestCompletionMode mode)
+{
+	Private *const d = _d();
+
+	int ret = d->isAccessAllowed(Private::CameraAvailable,
+				     Private::CameraConfigured);
+	if (ret < 0)
+		return -EACCES;
+
+	d->setRequestCompletionMode(mode);
+
+	return 0;
+}
+
+/**
+ * \brief Get the request completion mode
+ *
+ * \return The current RequestCompletionMode.
+ */
+Camera::RequestCompletionMode Camera::requestCompletionMode() const
+{
+	return _d()->requestCompletionMode();
 }
 
 /**

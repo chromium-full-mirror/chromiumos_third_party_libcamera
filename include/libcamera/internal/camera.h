@@ -33,6 +33,9 @@ public:
 
 	PipelineHandler *pipe() { return pipe_.get(); }
 
+	void setRequestCompletionMode(RequestCompletionMode mode);
+	RequestCompletionMode requestCompletionMode() const;
+
 	std::list<Request *> queuedRequests_;
 	ControlInfoMap controlInfo_;
 	ControlList properties_;
@@ -68,6 +71,7 @@ private:
 
 	bool disconnected_;
 	std::atomic<State> state_;
+	RequestCompletionMode requestCompletionMode_;
 
 	std::unique_ptr<CameraControlValidator> validator_;
 };

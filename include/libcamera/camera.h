@@ -89,6 +89,11 @@ class Camera final : public Object, public std::enable_shared_from_this<Camera>,
 	LIBCAMERA_DECLARE_PRIVATE()
 
 public:
+	enum RequestCompletionMode {
+		InSubmissionOrder,
+		Immediately,
+	};
+
 	static std::shared_ptr<Camera> create(std::unique_ptr<Private> d,
 					      const std::string &id,
 					      const std::set<Stream *> &streams);
@@ -101,6 +106,9 @@ public:
 
 	int acquire();
 	int release();
+
+	int setRequestCompletionMode(RequestCompletionMode order);
+	RequestCompletionMode requestCompletionMode() const;
 
 	const ControlInfoMap &controls() const;
 	const ControlList &properties() const;
