@@ -763,6 +763,11 @@ const std::string &Camera::id() const
  */
 
 /**
+ * \var Camera::partialResultCompleted
+ * \brief Signal emitted when a partial result for a request is completed
+ */
+
+/**
  * \var Camera::requestCompleted
  * \brief Signal emitted when a request queued to the camera has completed
  */

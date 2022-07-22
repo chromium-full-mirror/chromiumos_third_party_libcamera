@@ -336,8 +336,9 @@ void PipelineHandler::stop(Camera *camera)
 		Request *request = waitingRequests_.front();
 		waitingRequests_.pop();
 
-		request->_d()->cancel();
-		completeRequest(request);
+		cancelRequest(request);
+		request->_d()->complete();
+		camera->requestCompleted.emit(request);
 	}
 
 	/* Make sure no requests are pending. */
@@ -433,14 +434,30 @@ void PipelineHandler::doQueueRequest(Request *request)
 	request->_d()->sequence_ = data->requestSequence_++;
 
 	if (request->_d()->cancelled_) {
+		cancelRequest(request);
 		completeRequest(request);
 		return;
 	}
 
 	int ret = queueRequestDevice(camera, request);
 	if (ret) {
-		request->_d()->cancel();
+		cancelRequest(request);
 		completeRequest(request);
+	}
+}
+
+/**
+ * \brief Cancel buffers of a request and complete all the buffers
+ *
+ * The private helper function is called to cancel requests not sending to
+ * platform specific pipeline handler.
+ */
+void PipelineHandler::cancelRequest(Request *request)
+{
+	request->_d()->cancel();
+	for (auto it : request->buffers()) {
+		FrameBuffer *buffer = it.second;
+		completeBuffer(request, buffer);
 	}
 }
 
@@ -484,9 +501,10 @@ void PipelineHandler::doQueueRequests()
  * \param[in] request The request the buffer belongs to
  * \param[in] buffer The buffer that has completed
  *
- * This function shall be called by pipeline handlers to signal completion of
+ * This function could be called by pipeline handlers to signal completion of
  * the \a buffer part of the \a request. It notifies applications of buffer
- * completion and updates the request's internal buffer tracking. The request
+ * completion and updates the request's internal buffer tracking. The function
+ * notifies completion of a partial result including the buffer. The request
  * is not completed automatically when the last buffer completes to give
  * pipeline handlers a chance to perform any operation that may still be
  * needed. They shall complete requests explicitly with completeRequest().
@@ -498,9 +516,69 @@ void PipelineHandler::doQueueRequests()
  */
 bool PipelineHandler::completeBuffer(Request *request, FrameBuffer *buffer)
 {
+	Result result(request);
+	result.addBuffer(buffer);
+	completePartialResult(request, std::move(result));
+
+	return !request->_d()->hasPendingBuffers();
+}
+
+/**
+ * \brief Complete part of metadata for a request
+ * \param[in] request The request the buffer belongs to
+ * \param[in] metadata The partial metadata that has completed
+ *
+ * This function could be called by pipeline handlers to signal completion of
+ * the \a metadata part of the \a request. It notifies applications of metadata
+ * completion. The function notifies completion of a partial result including
+ * the metadata. The request is not completed automatically when the last
+ * metadata completes to give pipeline handlers a chance to perform any
+ * operation that may still be needed. They shall complete requests explicitly
+ * with completeRequest().
+ *
+ * \context This function shall be called from the CameraManager thread.
+ */
+void PipelineHandler::completeMetadata(Request *request, const ControlList &metadata)
+{
+	Result result = Result(request);
+	result.merge(metadata);
+	completePartialResult(request, std::move(result));
+}
+
+/**
+ * \brief Complete part of metadata and buffer for a request
+ * \param[in] request The request the buffer belongs to
+ * \param[in] result The partial result that has completed
+ *
+ * This function could be called by pipeline handlers to signal completion of
+ * the \a result part of the \a request. It notifies applications of partial
+ * completion. The function notifies completion of buffers and metadata included
+ * in the result. The request is not completed automatically when the last
+ * result completes to give pipeline handlers a chance to perform any operation
+ * that may still be needed. They shall complete requests explicitly with
+ * completeRequest(). The function only accepts rvalue of a Result type and
+ * its interval content will be moved to the internal store to avoid copying
+ * big metadata.
+ *
+ * \context This function shall be called from the CameraManager thread.
+ */
+void PipelineHandler::completePartialResult(Request *request, Result &&result)
+{
+	ASSERT(result.request() == request);
+	ASSERT(!result.buffers().empty() || !result.metadata().empty());
+
 	Camera *camera = request->_d()->camera();
-	camera->bufferCompleted.emit(request, buffer);
-	return request->_d()->completeBuffer(buffer);
+	Result *movedResult = request->addResult(std::move(result));
+
+	for (auto buffer : movedResult->buffers()) {
+		request->_d()->completeBuffer(buffer);
+		camera->bufferCompleted.emit(request, buffer);
+	}
+
+	if (!movedResult->metadata().empty())
+		request->metadata().merge(movedResult->metadata());
+
+	camera->partialResultCompleted.emit(request, movedResult);
 }
 
 /**
@@ -524,6 +602,33 @@ void PipelineHandler::completeRequest(Request *request)
 	request->_d()->complete();
 
 	Camera::Private *data = camera->_d();
+
+	/*
+	 * Collect metadata which is not yet completed by the Camera, and
+	 * create one partial result to cover the missing metadata before
+	 * completing the whole request. This guarantees the aggregation of
+	 * metadata in completed partial results equals to the global metadata
+	 * in the request.
+	 *
+	 * \todo: Forbid merging metadata into request.metadata() directly and
+	 * force calling completeMetadata() and completePartialResult() to
+	 * report metadata.
+	 */
+	std::unordered_set<unsigned int> completedMetadata;
+	for (auto &result : request->resultList()) {
+		for (auto &[id, _] : result.metadata())
+			completedMetadata.insert(id);
+	}
+
+	ControlList &requestMetadata = request->metadata();
+	if (requestMetadata.size() > completedMetadata.size()) {
+		Result result(request);
+		for (auto &[id, value] : requestMetadata)
+			if (!completedMetadata.count(id))
+				result.set(id, value);
+
+		completePartialResult(request, std::move(result));
+	}
 
 	if (camera->requestCompletionMode() == Camera::Immediately) {
 		camera->requestComplete(request);

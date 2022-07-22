@@ -33,6 +33,7 @@ class FrameBuffer;
 class MediaDevice;
 class PipelineHandler;
 class Request;
+class Result;
 
 class PipelineHandler : public std::enable_shared_from_this<PipelineHandler>,
 			public Object
@@ -62,7 +63,9 @@ public:
 	void registerRequest(Request *request);
 	void queueRequest(Request *request);
 
+	void completeMetadata(Request *request, const ControlList &metadata);
 	bool completeBuffer(Request *request, FrameBuffer *buffer);
+	void completePartialResult(Request *request, Result &&result);
 	void completeRequest(Request *request);
 
 	std::string configurationFile(const std::string &subdir,
@@ -87,6 +90,7 @@ private:
 	void mediaDeviceDisconnected(MediaDevice *media);
 	virtual void disconnect();
 
+	void cancelRequest(Request *request);
 	void doQueueRequest(Request *request);
 	void doQueueRequests();
 

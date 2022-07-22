@@ -126,15 +126,10 @@ void Request::Private::complete()
 
 void Request::Private::doCancelRequest()
 {
-	Request *request = _o<Request>();
-
-	for (FrameBuffer *buffer : pending_) {
+	for (FrameBuffer *buffer : pending_)
 		buffer->_d()->cancel();
-		camera_->bufferCompleted.emit(request, buffer);
-	}
 
 	cancelled_ = true;
-	pending_.clear();
 	notifiers_.clear();
 	timer_.reset();
 }
@@ -144,8 +139,8 @@ void Request::Private::doCancelRequest()
  *
  * Mark the request and its associated buffers as cancelled and complete it.
  *
- * Set each pending buffer in error state and emit the buffer completion signal
- * before completing the Request.
+ * Set each pending buffer in error state. The pipeline handler shall complete
+ * the cancelled buffers to notice the application.
  */
 void Request::Private::cancel()
 {
@@ -327,6 +322,11 @@ void Request::Private::timeout()
  */
 
 /**
+ * \typedef Request::ResultList
+ * \brief A list of partial results associated with a request
+ */
+
+/**
  * \class Request
  * \brief A frame capture request
  *
@@ -397,6 +397,7 @@ void Request::reuse(ReuseFlag flags)
 
 	status_ = RequestPending;
 
+	results_.clear();
 	controls_->clear();
 	metadata_->clear();
 }
@@ -425,6 +426,12 @@ void Request::reuse(ReuseFlag flags)
  * request to the FrameBuffer the Stream output should be directed to.
  *
  * \return The map of Stream to FrameBuffer
+ */
+
+/**
+ * \fn Request::resultList()
+ * \brief Retrieve the request's partial results
+ * \return A reference to the list of results that associates with the request
  */
 
 /**
@@ -493,12 +500,31 @@ int Request::addBuffer(const Stream *stream, FrameBuffer *buffer,
 }
 
 /**
+ * \brief Add result into the internal result list
+ * \param[in] result The result to add into the request
+ *
+ * The function only accepts rvalue and moves its content into the request
+ *
+ * \return The result moved into the request
+ */
+Result *Request::addResult(Result &&result)
+{
+	results_.emplace_back(std::move(result));
+	return &results_.back();
+}
+
+/**
  * \var Request::bufferMap_
  * \brief Mapping of streams to buffers for this request
  *
  * The bufferMap_ tracks the buffers associated with each stream. If a stream is
  * not utilised in this request there will be no buffer for that stream in the
  * map.
+ */
+
+/**
+ * \var Request::results_
+ * \brief The list of partial results associated with the request
  */
 
 /**
@@ -514,6 +540,21 @@ FrameBuffer *Request::findBuffer(const Stream *stream) const
 		return nullptr;
 
 	return it->second;
+}
+
+/**
+ * \brief Return the stream associated with a buffer
+ * \param[in] buffer The buffer the stream is associated to
+ * \return The stream associated with the buffer, or nullptr if the buffer is
+ * not part of this request
+ */
+const Stream *Request::findStream(const FrameBuffer *buffer) const
+{
+	for (auto &[key, value] : bufferMap_)
+		if (buffer == value)
+			return key;
+
+	return nullptr;
 }
 
 /**
@@ -605,6 +646,124 @@ std::ostream &operator<<(std::ostream &out, const Request &r)
 	out << "Request(" << r.sequence() << ":" << statuses[r.status()] << ":"
 	    << r._d()->pending_.size() << "/" << r.buffers().size() << ":"
 	    << r.cookie() << ")";
+
+	return out;
+}
+
+/**
+ * \class Result
+ * \brief A partial result of a frame capture request
+ *
+ * A Result allows pipeline handler to report partial results to the application
+ */
+
+/**
+ * \brief Create a partial result for a capture request
+ * \param[in] request The request the result associated to
+ */
+Result::Result(Request *request)
+	: request_(request)
+{
+}
+
+/**
+ * \brief Move constructor of a Result
+ * \param[in] result The other result
+ */
+Result::Result(Result &&result) = default;
+
+Result::~Result() = default;
+
+/**
+ * \fn Result::request()
+ * \brief Retrieve the result's associated request
+ * \return The Request pointer associated with the result
+ */
+
+/**
+ * \fn Result::metadata()
+ * \brief Retrieve the result's metadata
+ * \return The metadata contained in the result
+ */
+
+/**
+ * \fn Result::buffers()
+ * \brief Retrieve the result's buffers
+ * \return The buffers contained in the result
+ */
+
+/**
+ * \fn Result::set(const Control<T> &ctrl, const V &value)
+ * \brief Set the control \a ctrl value to \a value into metadata
+ * \param[in] ctrl The control
+ * \param[in] value The control value
+ */
+
+/**
+ * \brief Add a FrameBuffer with its associated Stream to the Result
+ * \param[in] buffer The FrameBuffer to add to the result
+ *
+ * \return 0 on success or a negative error code otherwise
+ * \retval -EINVAL The buffer does not reference a valid Stream in the request
+ */
+int Result::addBuffer(FrameBuffer *buffer)
+{
+	if (!buffer || !request_->findStream(buffer)) {
+		LOG(Request, Error) << "Invalid buffer reference";
+		return -EINVAL;
+	}
+
+	buffers_.emplace_back(buffer);
+	return 0;
+}
+
+/**
+ * \brief Set the control \a id to \a value into the metadata
+ * \param[in] id The control id
+ * \param[in] value The control value
+ */
+void Result::set(unsigned int id, const ControlValue &value)
+{
+	metadata_.set(id, value);
+}
+
+/**
+ * \brief Merge the \a source into the metadata of the result
+ * \param[in] source The ControlList to merge into this metadata
+ */
+void Result::merge(const ControlList &source)
+{
+	metadata_.merge(source);
+}
+
+/**
+ * \brief Generate a string representation of the Result internals
+ *
+ * This function facilitates debugging of Result state while it is used
+ * internally within libcamera.
+ *
+ * \return A string representing the current state of the result
+ */
+std::string Result::toString() const
+{
+	std::stringstream ss;
+	ss << *this;
+
+	return ss.str();
+}
+
+/**
+ * \brief Insert a text representation of a Result into an output stream
+ * \param[in] out The output stream
+ * \param[in] r The Result
+ * \return The output stream \a out
+ */
+std::ostream &operator<<(std::ostream &out, const Result &r)
+{
+	/* Example Output: Result(55:1/2) */
+	out << "Result(" << r.request()->sequence() << ":"
+	    << r.buffers().size() << "/"
+	    << const_cast<Result &>(r).metadata().size() << ")";
 
 	return out;
 }
