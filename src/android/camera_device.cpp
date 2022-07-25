@@ -1222,6 +1222,10 @@ void CameraDevice::requestComplete(Request *request)
 		CameraStream *stream = iter->first;
 		StreamBuffer *buffer = iter->second;
 
+		if (stream->isJpegStream()) {
+			generateJpegExifMetadata(descriptor, buffer);
+		}
+
 		FrameBuffer *src = request->findBuffer(stream->stream());
 		if (!src) {
 			LOG(HAL, Error) << "Failed to find a source stream buffer";
@@ -1409,6 +1413,28 @@ void CameraDevice::notifyError(uint32_t frameNumber, camera3_stream_t *stream,
 	notify.message.error.error_code = code;
 
 	callbacks_->notify(callbacks_, &notify);
+}
+
+/*
+ * Set jpeg metadata used to generate EXIF in the JPEG post processing.
+ */
+void CameraDevice::generateJpegExifMetadata(Camera3RequestDescriptor *request,
+					    StreamBuffer *buffer) const
+{
+	const ControlList &metadata = request->request_->metadata();
+	auto &jpegExifMetadata = buffer->jpegExifMetadata;
+	jpegExifMetadata.emplace(StreamBuffer::JpegExifMetadata());
+
+	const int64_t exposureTime = metadata.get(controls::ExposureTime).value_or(0);
+	jpegExifMetadata->sensorExposureTime = exposureTime;
+
+	/*
+	 * todo: Android Sensitivity should only include analog gain X digital
+	 * gain from sensor. Digital gain on ISP shouldn't be included.
+	 * Calculate sensitivity accordingly when we can differentiate
+	 * the source of digital gains.
+	 */
+	jpegExifMetadata->sensorSensitivityISO = 100;
 }
 
 /*

@@ -125,6 +125,10 @@ public:
 	const libcamera::StreamConfiguration &configuration() const;
 	libcamera::Stream *stream() const;
 	CameraStream *sourceStream() const { return sourceStream_; }
+	bool isJpegStream() const
+	{
+		return camera3Stream_->format == HAL_PIXEL_FORMAT_BLOB;
+	}
 
 	int configure();
 	int process(StreamBuffer *streamBuffer);

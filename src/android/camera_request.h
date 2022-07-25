@@ -43,6 +43,11 @@ public:
 	StreamBuffer(StreamBuffer &&);
 	StreamBuffer &operator=(StreamBuffer &&);
 
+	struct JpegExifMetadata {
+		int64_t sensorExposureTime;
+		int32_t sensorSensitivityISO;
+	};
+
 	CameraStream *stream;
 	buffer_handle_t *camera3Buffer;
 	std::unique_ptr<HALFrameBuffer> frameBuffer;
@@ -51,6 +56,7 @@ public:
 	libcamera::FrameBuffer *internalBuffer = nullptr;
 	const libcamera::FrameBuffer *srcBuffer = nullptr;
 	std::unique_ptr<CameraBuffer> dstBuffer;
+	std::optional<JpegExifMetadata> jpegExifMetadata;
 	Camera3RequestDescriptor *request;
 
 private:

@@ -98,6 +98,8 @@ private:
 		LIBCAMERA_TSA_EXCLUDES(descriptorsMutex_);
 	void sendCaptureResults() LIBCAMERA_TSA_REQUIRES(descriptorsMutex_);
 	void setBufferStatus(StreamBuffer &buffer, StreamBuffer::Status status);
+	void generateJpegExifMetadata(Camera3RequestDescriptor *request,
+				      StreamBuffer *buffer) const;
 	std::unique_ptr<CameraMetadata> getResultMetadata(
 		const Camera3RequestDescriptor &descriptor) const;
 

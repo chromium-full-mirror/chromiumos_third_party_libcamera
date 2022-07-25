@@ -112,8 +112,11 @@ void PostProcessorJpeg::process(StreamBuffer *streamBuffer)
 
 	const FrameBuffer &source = *streamBuffer->srcBuffer;
 	CameraBuffer *destination = streamBuffer->dstBuffer.get();
+	const std::optional<StreamBuffer::JpegExifMetadata> &jpegExifMetadata =
+		streamBuffer->jpegExifMetadata;
 
 	ASSERT(destination->numPlanes() == 1);
+	ASSERT(jpegExifMetadata.has_value());
 
 	const CameraMetadata &requestMetadata = streamBuffer->request->settings_;
 	CameraMetadata *resultMetadata = streamBuffer->request->resultMetadata_.get();
@@ -139,14 +142,13 @@ void PostProcessorJpeg::process(StreamBuffer *streamBuffer)
 	 */
 	exif.setTimestamp(std::time(nullptr), 0ms);
 
-	ret = resultMetadata->getEntry(ANDROID_SENSOR_EXPOSURE_TIME, &entry);
-	exif.setExposureTime(ret ? *entry.data.i64 : 0);
+	/* Exif requires nsec for exposure time */
+	exif.setExposureTime(jpegExifMetadata->sensorExposureTime * 1000);
+	exif.setISO(jpegExifMetadata->sensorSensitivityISO);
+
 	ret = requestMetadata.getEntry(ANDROID_LENS_APERTURE, &entry);
 	if (ret)
 		exif.setAperture(*entry.data.f);
-
-	ret = resultMetadata->getEntry(ANDROID_SENSOR_SENSITIVITY, &entry);
-	exif.setISO(ret ? *entry.data.i32 : 100);
 
 	exif.setFlash(Exif::Flash::FlashNotPresent);
 	exif.setWhiteBalance(Exif::WhiteBalance::Auto);
