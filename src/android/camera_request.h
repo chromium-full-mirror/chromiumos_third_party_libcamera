@@ -25,8 +25,9 @@
 
 class CameraBuffer;
 class CameraStream;
+class Camera3RequestDescriptor;
 
-class Camera3RequestDescriptor
+class StreamBuffer
 {
 public:
 	enum class Status {
@@ -34,27 +35,34 @@ public:
 		Error,
 	};
 
-	struct StreamBuffer {
-		StreamBuffer(CameraStream *stream,
-			     const camera3_stream_buffer_t &buffer,
-			     Camera3RequestDescriptor *request);
-		~StreamBuffer();
+	StreamBuffer(CameraStream *stream,
+		     const camera3_stream_buffer_t &buffer,
+		     Camera3RequestDescriptor *request);
+	~StreamBuffer();
 
-		StreamBuffer(StreamBuffer &&);
-		StreamBuffer &operator=(StreamBuffer &&);
+	StreamBuffer(StreamBuffer &&);
+	StreamBuffer &operator=(StreamBuffer &&);
 
-		CameraStream *stream;
-		buffer_handle_t *camera3Buffer;
-		std::unique_ptr<HALFrameBuffer> frameBuffer;
-		libcamera::UniqueFD fence;
-		Status status = Status::Success;
-		libcamera::FrameBuffer *internalBuffer = nullptr;
-		const libcamera::FrameBuffer *srcBuffer = nullptr;
-		std::unique_ptr<CameraBuffer> dstBuffer;
-		Camera3RequestDescriptor *request;
+	CameraStream *stream;
+	buffer_handle_t *camera3Buffer;
+	std::unique_ptr<HALFrameBuffer> frameBuffer;
+	libcamera::UniqueFD fence;
+	Status status = Status::Success;
+	libcamera::FrameBuffer *internalBuffer = nullptr;
+	const libcamera::FrameBuffer *srcBuffer = nullptr;
+	std::unique_ptr<CameraBuffer> dstBuffer;
+	Camera3RequestDescriptor *request;
 
-	private:
-		LIBCAMERA_DISABLE_COPY(StreamBuffer)
+private:
+	LIBCAMERA_DISABLE_COPY(StreamBuffer)
+};
+
+class Camera3RequestDescriptor
+{
+public:
+	enum class Status {
+		Success,
+		Error,
 	};
 
 	/* Keeps track of streams requiring post-processing. */

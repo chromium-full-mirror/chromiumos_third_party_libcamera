@@ -180,7 +180,7 @@ void EncoderLibJpeg::compressNV(const std::vector<Span<uint8_t>> &planes)
 	}
 }
 
-int EncoderLibJpeg::encode(Camera3RequestDescriptor::StreamBuffer *buffer,
+int EncoderLibJpeg::encode(StreamBuffer *buffer,
 			   libcamera::Span<const uint8_t> exifData,
 			   unsigned int quality)
 {

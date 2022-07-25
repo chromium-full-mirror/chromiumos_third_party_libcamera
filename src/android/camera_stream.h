@@ -127,7 +127,7 @@ public:
 	CameraStream *sourceStream() const { return sourceStream_; }
 
 	int configure();
-	int process(Camera3RequestDescriptor::StreamBuffer *streamBuffer);
+	int process(StreamBuffer *streamBuffer);
 	libcamera::FrameBuffer *getBuffer();
 	void putBuffer(libcamera::FrameBuffer *buffer);
 	void flush();
@@ -146,7 +146,7 @@ private:
 		~PostProcessorWorker();
 
 		void start();
-		void queueRequest(Camera3RequestDescriptor::StreamBuffer *request);
+		void queueRequest(StreamBuffer *request);
 		void flush();
 
 	protected:
@@ -158,7 +158,7 @@ private:
 		libcamera::Mutex mutex_;
 		libcamera::ConditionVariable cv_;
 
-		std::queue<Camera3RequestDescriptor::StreamBuffer *> requests_
+		std::queue<StreamBuffer *> requests_
 			LIBCAMERA_TSA_GUARDED_BY(mutex_);
 
 		State state_ LIBCAMERA_TSA_GUARDED_BY(mutex_) = State::Stopped;

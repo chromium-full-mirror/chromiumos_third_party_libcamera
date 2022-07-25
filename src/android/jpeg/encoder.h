@@ -20,7 +20,7 @@ public:
 	virtual ~Encoder() = default;
 
 	virtual int configure(const libcamera::StreamConfiguration &cfg) = 0;
-	virtual int encode(Camera3RequestDescriptor::StreamBuffer *buffer,
+	virtual int encode(StreamBuffer *buffer,
 			   libcamera::Span<const uint8_t> exifData,
 			   unsigned int quality) = 0;
 };

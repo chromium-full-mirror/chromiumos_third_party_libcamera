@@ -106,7 +106,7 @@ void PostProcessorJpeg::generateThumbnail(const FrameBuffer &source,
 	}
 }
 
-void PostProcessorJpeg::process(Camera3RequestDescriptor::StreamBuffer *streamBuffer)
+void PostProcessorJpeg::process(StreamBuffer *streamBuffer)
 {
 	ASSERT(encoder_);
 

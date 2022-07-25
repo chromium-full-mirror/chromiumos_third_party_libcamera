@@ -65,8 +65,8 @@ public:
 	int configureStreams(camera3_stream_configuration_t *stream_list);
 	int processCaptureRequest(camera3_capture_request_t *request);
 	void requestComplete(libcamera::Request *request);
-	void streamProcessingComplete(Camera3RequestDescriptor::StreamBuffer *bufferStream,
-				      Camera3RequestDescriptor::Status status);
+	void streamProcessingComplete(StreamBuffer *bufferStream,
+				      StreamBuffer::Status status);
 
 protected:
 	std::string logPrefix() const override;
@@ -97,8 +97,7 @@ private:
 	void completeDescriptor(Camera3RequestDescriptor *descriptor)
 		LIBCAMERA_TSA_EXCLUDES(descriptorsMutex_);
 	void sendCaptureResults() LIBCAMERA_TSA_REQUIRES(descriptorsMutex_);
-	void setBufferStatus(Camera3RequestDescriptor::StreamBuffer &buffer,
-			     Camera3RequestDescriptor::Status status);
+	void setBufferStatus(StreamBuffer &buffer, StreamBuffer::Status status);
 	std::unique_ptr<CameraMetadata> getResultMetadata(
 		const Camera3RequestDescriptor &descriptor) const;
 

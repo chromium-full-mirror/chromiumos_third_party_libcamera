@@ -141,7 +141,7 @@ Camera3RequestDescriptor::Camera3RequestDescriptor(
 Camera3RequestDescriptor::~Camera3RequestDescriptor() = default;
 
 /**
- * \struct Camera3RequestDescriptor::StreamBuffer
+ * \class StreamBuffer
  * \brief Group information for per-stream buffer of Camera3RequestDescriptor
  *
  * A capture request placed to the libcamera HAL can contain multiple streams.
@@ -150,35 +150,35 @@ Camera3RequestDescriptor::~Camera3RequestDescriptor() = default;
  * generation. The generation of the stream will depend on its type (refer to
  * the CameraStream::Type documentation).
  *
- * \var Camera3RequestDescriptor::StreamBuffer::stream
+ * \var StreamBuffer::stream
  * \brief Pointer to the corresponding CameraStream
  *
- * \var Camera3RequestDescriptor::StreamBuffer::camera3Buffer
+ * \var StreamBuffer::camera3Buffer
  * \brief Native handle to the buffer
  *
- * \var Camera3RequestDescriptor::StreamBuffer::frameBuffer
+ * \var StreamBuffer::frameBuffer
  * \brief Encapsulate the dmabuf handle inside a libcamera::FrameBuffer for
  * direct streams
  *
- * \var Camera3RequestDescriptor::StreamBuffer::fence
+ * \var StreamBuffer::fence
  * \brief Acquire fence of the buffer
  *
- * \var Camera3RequestDescriptor::StreamBuffer::status
+ * \var StreamBuffer::status
  * \brief Track the status of the buffer
  *
- * \var Camera3RequestDescriptor::StreamBuffer::internalBuffer
+ * \var StreamBuffer::internalBuffer
  * \brief Pointer to a buffer internally handled by CameraStream (if any)
  *
- * \var Camera3RequestDescriptor::StreamBuffer::srcBuffer
+ * \var StreamBuffer::srcBuffer
  * \brief Pointer to the source frame buffer used for post-processing
  *
- * \var Camera3RequestDescriptor::StreamBuffer::dstBuffer
+ * \var StreamBuffer::dstBuffer
  * \brief Pointer to the destination frame buffer used for post-processing
  *
- * \var Camera3RequestDescriptor::StreamBuffer::request
+ * \var StreamBuffer::request
  * \brief Back pointer to the Camera3RequestDescriptor to which the StreamBuffer belongs
  */
-Camera3RequestDescriptor::StreamBuffer::StreamBuffer(
+StreamBuffer::StreamBuffer(
 	CameraStream *cameraStream, const camera3_stream_buffer_t &buffer,
 	Camera3RequestDescriptor *requestDescriptor)
 	: stream(cameraStream), camera3Buffer(buffer.buffer),
@@ -186,9 +186,8 @@ Camera3RequestDescriptor::StreamBuffer::StreamBuffer(
 {
 }
 
-Camera3RequestDescriptor::StreamBuffer::~StreamBuffer() = default;
+StreamBuffer::~StreamBuffer() = default;
 
-Camera3RequestDescriptor::StreamBuffer::StreamBuffer(StreamBuffer &&) = default;
+StreamBuffer::StreamBuffer(StreamBuffer &&) = default;
 
-Camera3RequestDescriptor::StreamBuffer &
-Camera3RequestDescriptor::StreamBuffer::operator=(Camera3RequestDescriptor::StreamBuffer &&) = default;
+StreamBuffer &StreamBuffer::operator=(StreamBuffer &&) = default;

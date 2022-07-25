@@ -112,14 +112,14 @@ int CameraStream::configure()
 
 		worker_ = std::make_unique<PostProcessorWorker>(postProcessor_.get());
 		postProcessor_->processComplete.connect(
-			this, [&](Camera3RequestDescriptor::StreamBuffer *streamBuffer,
+			this, [&](StreamBuffer *streamBuffer,
 				  PostProcessor::Status status) {
-				Camera3RequestDescriptor::Status bufferStatus;
+				StreamBuffer::Status bufferStatus;
 
 				if (status == PostProcessor::Status::Success)
-					bufferStatus = Camera3RequestDescriptor::Status::Success;
+					bufferStatus = StreamBuffer::Status::Success;
 				else
-					bufferStatus = Camera3RequestDescriptor::Status::Error;
+					bufferStatus = StreamBuffer::Status::Error;
 
 				cameraDevice_->streamProcessingComplete(streamBuffer,
 									bufferStatus);
@@ -165,7 +165,7 @@ int CameraStream::waitFence(int fence)
 	return -errno;
 }
 
-int CameraStream::process(Camera3RequestDescriptor::StreamBuffer *streamBuffer)
+int CameraStream::process(StreamBuffer *streamBuffer)
 {
 	ASSERT(type_ != Type::Direct);
 
@@ -283,7 +283,7 @@ void CameraStream::PostProcessorWorker::start()
 	Thread::start();
 }
 
-void CameraStream::PostProcessorWorker::queueRequest(Camera3RequestDescriptor::StreamBuffer *dest)
+void CameraStream::PostProcessorWorker::queueRequest(StreamBuffer *dest)
 {
 	{
 		MutexLocker lock(mutex_);
@@ -306,7 +306,7 @@ void CameraStream::PostProcessorWorker::run()
 		if (state_ != State::Running)
 			break;
 
-		Camera3RequestDescriptor::StreamBuffer *streamBuffer = requests_.front();
+		StreamBuffer *streamBuffer = requests_.front();
 		requests_.pop();
 		locker.unlock();
 
@@ -316,8 +316,7 @@ void CameraStream::PostProcessorWorker::run()
 	}
 
 	if (state_ == State::Flushing) {
-		std::queue<Camera3RequestDescriptor::StreamBuffer *> requests =
-			std::move(requests_);
+		std::queue<StreamBuffer *> requests = std::move(requests_);
 		locker.unlock();
 
 		while (!requests.empty()) {

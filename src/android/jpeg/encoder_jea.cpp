@@ -33,7 +33,7 @@ int EncoderJea::configure(const libcamera::StreamConfiguration &cfg)
 	return 0;
 }
 
-int EncoderJea::encode(Camera3RequestDescriptor::StreamBuffer *buffer,
+int EncoderJea::encode(StreamBuffer *buffer,
 		       libcamera::Span<const uint8_t> exifData,
 		       unsigned int quality)
 {
