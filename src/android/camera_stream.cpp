@@ -121,8 +121,9 @@ int CameraStream::configure()
 				else
 					bufferStatus = StreamBuffer::Status::Error;
 
-				cameraDevice_->streamProcessingComplete(streamBuffer,
-									bufferStatus);
+				cameraDevice_->streamProcessingCompleteDelegate(
+						streamBuffer,
+						bufferStatus);
 			});
 
 		worker_->start();

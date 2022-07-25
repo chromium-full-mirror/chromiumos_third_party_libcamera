@@ -23,6 +23,8 @@
 class CameraCapabilities
 {
 public:
+	static constexpr int32_t MaxMetadataPackIndex = 64;
+
 	CameraCapabilities() = default;
 
 	int initialize(std::shared_ptr<libcamera::Camera> camera,

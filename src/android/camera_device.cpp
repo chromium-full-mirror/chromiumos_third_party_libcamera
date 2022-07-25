@@ -24,9 +24,8 @@
 #include <libcamera/formats.h>
 #include <libcamera/property_ids.h>
 
-#include "system/graphics.h"
-
 #include "camera_buffer.h"
+#include "camera_capabilities.h"
 #include "camera_hal_config.h"
 #include "camera_ops.h"
 #include "camera_request.h"
@@ -250,7 +249,11 @@ CameraDevice::CameraDevice(unsigned int id, std::shared_ptr<Camera> camera)
 	: id_(id), state_(State::Stopped), camera_(std::move(camera)),
 	  facing_(CAMERA_FACING_FRONT), orientation_(0)
 {
+	/* Set RequestCompletionMode to Immediately to send results early */
+	camera_->setRequestCompletionMode(Camera::Immediately);
+
 	camera_->requestCompleted.connect(this, &CameraDevice::requestComplete);
+	camera_->partialResultCompleted.connect(this, &CameraDevice::partialResultComplete);
 
 	maker_ = "libcamera";
 	model_ = "cameraModel";
@@ -439,8 +442,10 @@ void CameraDevice::stop()
 	camera_->stop();
 
 	{
-		MutexLocker descriptorsLock(descriptorsMutex_);
-		descriptors_ = {};
+		MutexLocker descriptorsLock(pendingRequestMutex_);
+		pendingRequests_.clear();
+		pendingPartialResults_.clear();
+		pendingStreamBuffers_.clear();
 	}
 
 	streams_.clear();
@@ -527,6 +532,19 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 {
 	/* Before any configuration attempt, stop the camera. */
 	stop();
+
+	/* Configure streams can only be called after all pending requests
+	 * from the previous session finish. */
+	{
+		MutexLocker descriptorsLock(pendingRequestMutex_);
+
+		ASSERT(pendingRequests_.empty());
+		ASSERT(pendingPartialResults_.empty());
+		for (auto& [_, streamBuffers] : pendingStreamBuffers_)
+			ASSERT(streamBuffers.empty());
+
+		pendingStreamBuffers_.clear();
+	}
 
 	if (stream_list->num_streams == 0) {
 		LOG(HAL, Error) << "No streams in configuration";
@@ -856,14 +874,38 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 	return 0;
 }
 
-void CameraDevice::abortRequest(Camera3RequestDescriptor *descriptor) const
+/* abortRequest() is only called before the request is queued into the device,
+ * i.e., there is no need to remove it from pendingRequests_ and
+ * pendingStreamBuffers_.
+ */
+void CameraDevice::abortRequest(Camera3RequestDescriptor *descriptor)
 {
+	/*
+	 * Since the failed buffers do not have to follow the strict ordering
+	 * valid buffers do, and could be out-of-order with respect to valid
+	 * buffers, it's safe to send the aborted result back to the framework
+	 * immediately.
+	 */
+	descriptor->status_ = Camera3RequestDescriptor::Status::Cancelled;
+	descriptor->finalResult_ = std::make_unique<Camera3ResultDescriptor>(descriptor);
+
+	Camera3ResultDescriptor *result = descriptor->finalResult_.get();
+
+	result->metadataPackIndex_ = 0;
+	for (auto &buffer : descriptor->buffers_) {
+		setBufferStatus(buffer, StreamBuffer::Status::Error);
+		result->buffers_.emplace_back(&buffer);
+	}
+
+	/*
+	 * After CAMERA3_MSG_ERROR_REQUEST is notified, for a given frame,
+	 * only process_capture_results with buffers of the status
+	 * CAMERA3_BUFFER_STATUS_ERROR are allowed. No further notifies or
+	 * process_capture_result with non-null metadata is allowed.
+	 */
 	notifyError(descriptor->frameNumber_, nullptr, CAMERA3_MSG_ERROR_REQUEST);
 
-	for (auto &buffer : descriptor->buffers_)
-		buffer.status = StreamBuffer::Status::Error;
-
-	descriptor->status_ = Camera3RequestDescriptor::Status::Error;
+	sendCaptureResult(result);
 }
 
 bool CameraDevice::isValidRequest(camera3_capture_request_t *camera3Request) const
@@ -963,9 +1005,10 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 	 * to a libcamera stream. Streams of type Mapped will be handled later.
 	 *
 	 * Collect the CameraStream associated to each requested capture stream.
-	 * Since requestedStreams is an std:set<>, no duplications can happen.
+	 * Since requestedDirectBuffers is an std:map<>, no duplications can
+	 * happen.
 	 */
-	std::set<CameraStream *> requestedStreams;
+	std::map<CameraStream *, libcamera::FrameBuffer *> requestedDirectBuffers;
 	for (const auto &[i, buffer] : utils::enumerate(descriptor->buffers_)) {
 		CameraStream *cameraStream = buffer.stream;
 		camera3_stream_t *camera3Stream = cameraStream->camera3Stream();
@@ -983,8 +1026,6 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 		 */
 		FrameBuffer *frameBuffer = nullptr;
 		UniqueFD acquireFence;
-
-		MutexLocker lock(descriptor->streamsProcessMutex_);
 
 		switch (cameraStream->type()) {
 		case CameraStream::Type::Mapped:
@@ -1004,23 +1045,25 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 						  cameraStream->configuration().size);
 			frameBuffer = buffer.frameBuffer.get();
 			acquireFence = std::move(buffer.fence);
+
+			requestedDirectBuffers[cameraStream] = frameBuffer;
 			LOG(HAL, Debug) << ss.str() << " (direct)";
 			break;
 
 		case CameraStream::Type::Internal:
 			/*
-			 * Get the frame buffer from the CameraStream internal
-			 * buffer pool.
-			 *
-			 * The buffer has to be returned to the CameraStream
-			 * once it has been processed.
+			 * Get the frame buffer from the source stream's
+			 * internal buffer pool. The buffer has to be returned
+			 * to the source stream once it has been processed.
 			 */
 			frameBuffer = cameraStream->getBuffer();
-			buffer.internalBuffer = frameBuffer;
-			LOG(HAL, Debug) << ss.str() << " (internal)";
+			buffer.srcBuffer = frameBuffer;
 
-			descriptor->pendingStreamsToProcess_.insert(
-				{ cameraStream, &buffer });
+			/* Track the allocated internal buffers, which will be
+			 * recycled when the descriptor destroyed.
+			 * */
+			descriptor->internalBuffers_[cameraStream] = frameBuffer;
+			LOG(HAL, Debug) << ss.str() << " (internal)";
 			break;
 		}
 
@@ -1032,8 +1075,6 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 		auto fence = std::make_unique<Fence>(std::move(acquireFence));
 		descriptor->request_->addBuffer(cameraStream->stream(),
 						frameBuffer, std::move(fence));
-
-		requestedStreams.insert(cameraStream);
 	}
 
 	/*
@@ -1055,29 +1096,53 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 				<< cameraStream->configuration().pixelFormat << "]"
 				<< " (mapped)";
 
-		MutexLocker lock(descriptor->streamsProcessMutex_);
-		descriptor->pendingStreamsToProcess_.insert({ cameraStream, &buffer });
-
 		/*
 		 * Make sure the CameraStream this stream is mapped on has been
 		 * added to the request.
 		 */
 		CameraStream *sourceStream = cameraStream->sourceStream();
 		ASSERT(sourceStream);
-		if (requestedStreams.find(sourceStream) != requestedStreams.end())
-			continue;
+		ASSERT(sourceStream->type() == CameraStream::Type::Direct);
 
 		/*
-		 * If that's not the case, we need to add a buffer to the request
-		 * for this stream.
+		 * If the buffer for the source stream has been requested as
+		 * Direct, use its framebuffer as the source buffer for
+		 * post-processing. No need to recycle the buffer since it's
+		 * owned by Android.
 		 */
-		FrameBuffer *frameBuffer = cameraStream->getBuffer();
-		buffer.internalBuffer = frameBuffer;
+		auto iterDirectBuffer = requestedDirectBuffers.find(sourceStream);
+		if (iterDirectBuffer != requestedDirectBuffers.end()) {
+			buffer.srcBuffer = iterDirectBuffer->second;
+			continue;
+		}
+
+		/*
+		 * If that's not the case, we use an internal buffer allocated
+		 * from the source stream.
+		 *
+		 * If an internal buffer has been requested for the source
+		 * stream before, we should reuse it.
+		 */
+		auto iterInternalBuffer = descriptor->internalBuffers_.find(sourceStream);
+		if (iterInternalBuffer != descriptor->internalBuffers_.end()) {
+			buffer.srcBuffer = iterInternalBuffer->second;
+			continue;
+		}
+
+		/*
+		 * Otherwise, we need to create an internal buffer to the
+		 * request for the source stream. Get the frame buffer from the
+		 * source stream's internal buffer pool. The buffer has to be
+		 * returned to the source stream once it has been processed.
+		 */
+		FrameBuffer *frameBuffer = sourceStream->getBuffer();
+		buffer.srcBuffer = frameBuffer;
 
 		descriptor->request_->addBuffer(sourceStream->stream(),
 						frameBuffer, nullptr);
 
-		requestedStreams.erase(sourceStream);
+		/* Track the allocated internal buffer. */
+		descriptor->internalBuffers_[sourceStream] = frameBuffer;
 	}
 
 	/*
@@ -1096,14 +1161,7 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 	MutexLocker stateLock(stateMutex_);
 
 	if (state_ == State::Flushing) {
-		Camera3RequestDescriptor *rawDescriptor = descriptor.get();
-		{
-			MutexLocker descriptorsLock(descriptorsMutex_);
-			descriptors_.push(std::move(descriptor));
-		}
-		abortRequest(rawDescriptor);
-		completeDescriptor(rawDescriptor);
-
+		abortRequest(descriptor.get());
 		return 0;
 	}
 
@@ -1120,8 +1178,10 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 	Request *request = descriptor->request_.get();
 
 	{
-		MutexLocker descriptorsLock(descriptorsMutex_);
-		descriptors_.push(std::move(descriptor));
+		MutexLocker descriptorsLock(pendingRequestMutex_);
+		for (auto &buffer : descriptor->buffers_)
+			pendingStreamBuffers_[buffer.stream].push_back(&buffer);
+		pendingRequests_.emplace_back(std::move(descriptor));
 	}
 
 	camera_->queueRequest(request);
@@ -1129,223 +1189,365 @@ int CameraDevice::processCaptureRequest(camera3_capture_request_t *camera3Reques
 	return 0;
 }
 
-void CameraDevice::requestComplete(Request *request)
+void CameraDevice::partialResultComplete(Request *request, Result *result)
 {
+	ASSERT(!result->buffers().empty() || !result->metadata().empty());
+
 	Camera3RequestDescriptor *descriptor =
 		reinterpret_cast<Camera3RequestDescriptor *>(request->cookie());
 
-	/*
-	 * Prepare the capture result for the Android camera stack.
-	 *
-	 * The buffer status is set to Success and later changed to Error if
-	 * post-processing/compression fails.
-	 */
+	descriptor->partialResults_.emplace_back(new Camera3ResultDescriptor(descriptor));
+	Camera3ResultDescriptor *camera3Result = descriptor->partialResults_.back().get();
+
+	const ControlList &metadata = result->metadata();
+	if (!metadata.empty()) {
+		/*
+		 * Notify shutter as soon as we have received SensorTimestamp.
+		 */
+		const auto &timestamp = metadata.get(controls::SensorTimestamp);
+		if (timestamp) {
+			notifyShutter(descriptor->frameNumber_, *timestamp);
+			LOG(HAL, Debug) << "Request " << request->cookie() << " notifies shutter";
+		}
+
+		camera3Result->resultMetadata_ = getPartialResultMetadata(metadata);
+	}
+
 	for (auto &buffer : descriptor->buffers_) {
-		CameraStream *stream = buffer.stream;
+		CameraStream *cameraStream = buffer.stream;
+		for (auto *frameBuffer : result->buffers()) {
+			if (buffer.srcBuffer != frameBuffer &&
+			    buffer.frameBuffer.get() != frameBuffer)
+				continue;
 
-		/*
-		 * Streams of type Direct have been queued to the
-		 * libcamera::Camera and their acquire fences have
-		 * already been waited on by the library.
-		 *
-		 * Acquire fences of streams of type Internal and Mapped
-		 * will be handled during post-processing.
-		 */
-		if (stream->type() == CameraStream::Type::Direct) {
-			/* If handling of the fence has failed restore buffer.fence. */
-			std::unique_ptr<Fence> fence = buffer.frameBuffer->releaseFence();
-			if (fence)
-				buffer.fence = fence->release();
+			buffer.result = camera3Result;
+			camera3Result->buffers_.emplace_back(&buffer);
+
+			StreamBuffer::Status status = StreamBuffer::Status::Success;
+			if (frameBuffer->metadata().status != FrameMetadata::FrameSuccess) {
+				status = StreamBuffer::Status::Error;
+			}
+			setBufferStatus(buffer, status);
+
+			switch (cameraStream->type()) {
+			case CameraStream::Type::Direct: {
+				ASSERT(buffer.frameBuffer.get() == frameBuffer);
+				/*
+				 * Streams of type Direct have been queued to the
+				 * libcamera::Camera and their acquire fences have
+				 * already been waited on by the library.
+				 */
+				std::unique_ptr<Fence> fence = buffer.frameBuffer->releaseFence();
+				if (fence)
+					buffer.fence = fence->release();
+				break;
+			}
+			case CameraStream::Type::Mapped:
+			case CameraStream::Type::Internal:
+				ASSERT(buffer.srcBuffer == frameBuffer);
+				if (status == StreamBuffer::Status::Error)
+					break;
+
+				/*
+				 * Acquire fences of streams of type Internal and Mapped
+				 * will be handled during post-processing.
+				 */
+				camera3Result->pendingBuffersToProcess_.emplace_back(&buffer);
+
+				if (cameraStream->isJpegStream()) {
+					generateJpegExifMetadata(descriptor, &buffer);
+
+					/*
+					 * Allocate for post-processor to fill
+					 * in JPEG related metadata.
+					 */
+					if (!camera3Result->resultMetadata_)
+						camera3Result->resultMetadata_ = getPartialResultMetadata(metadata);
+				}
+				break;
+			}
 		}
-		buffer.status = StreamBuffer::Status::Success;
 	}
 
-	/*
-	 * If the Request has failed, abort the request by notifying the error
-	 * and complete the request with all buffers in error state.
-	 */
-	if (request->status() != Request::RequestComplete) {
-		LOG(HAL, Error) << "Request " << request->cookie()
-				<< " not successfully completed: "
-				<< request->status();
-
-		abortRequest(descriptor);
-		completeDescriptor(descriptor);
-
-		return;
-	}
-
-	/*
-	 * Notify shutter as soon as we have verified we have a valid request.
-	 *
-	 * \todo The shutter event notification should be sent to the framework
-	 * as soon as possible, earlier than request completion time.
-	 */
-	uint64_t sensorTimestamp = static_cast<uint64_t>(request->metadata()
-								 .get(controls::SensorTimestamp)
-								 .value_or(0));
-	notifyShutter(descriptor->frameNumber_, sensorTimestamp);
-
-	LOG(HAL, Debug) << "Request " << request->cookie() << " completed with "
-			<< descriptor->request_->buffers().size() << " streams";
-
-	/*
-	 * Generate the metadata associated with the captured buffers.
-	 *
-	 * Notify if the metadata generation has failed, but continue processing
-	 * buffers and return an empty metadata pack.
-	 */
-	descriptor->resultMetadata_ = getResultMetadata(*descriptor);
-	if (!descriptor->resultMetadata_) {
-		notifyError(descriptor->frameNumber_, nullptr, CAMERA3_MSG_ERROR_RESULT);
-
-		/*
-		 * The camera framework expects an empty metadata pack on error.
-		 *
-		 * \todo Check that the post-processor code handles this situation
-		 * correctly.
-		 */
-		descriptor->resultMetadata_ = std::make_unique<CameraMetadata>(0, 0);
-	}
-
-	/* Handle post-processing. */
-	MutexLocker locker(descriptor->streamsProcessMutex_);
-
-	/*
-	 * Queue all the post-processing streams request at once. The completion
-	 * slot streamProcessingComplete() can only execute when we are out
-	 * this critical section. This helps to handle synchronous errors here
-	 * itself.
-	 */
-	auto iter = descriptor->pendingStreamsToProcess_.begin();
-	while (iter != descriptor->pendingStreamsToProcess_.end()) {
-		CameraStream *stream = iter->first;
-		StreamBuffer *buffer = iter->second;
-
-		if (stream->isJpegStream()) {
-			generateJpegExifMetadata(descriptor, buffer);
-		}
-
-		FrameBuffer *src = request->findBuffer(stream->stream());
-		if (!src) {
-			LOG(HAL, Error) << "Failed to find a source stream buffer";
-			setBufferStatus(*buffer, StreamBuffer::Status::Error);
-			iter = descriptor->pendingStreamsToProcess_.erase(iter);
-			continue;
-		}
-
-		buffer->srcBuffer = src;
-
-		++iter;
-		int ret = stream->process(buffer);
+	for (auto iter = camera3Result->pendingBuffersToProcess_.begin();
+	     iter != camera3Result->pendingBuffersToProcess_.end();) {
+		StreamBuffer *buffer = *iter;
+		int ret = buffer->stream->process(buffer);
 		if (ret) {
+			iter = camera3Result->pendingBuffersToProcess_.erase(iter);
 			setBufferStatus(*buffer, StreamBuffer::Status::Error);
-			descriptor->pendingStreamsToProcess_.erase(stream);
-
-			/*
-			 * If the framebuffer is internal to CameraStream return
-			 * it back now that we're done processing it.
-			 */
-			if (buffer->internalBuffer)
-				stream->putBuffer(buffer->internalBuffer);
+			LOG(HAL, Error) << "Failed to run post process of request "
+					<< descriptor->frameNumber_;
+		} else {
+			iter++;
 		}
 	}
 
-	if (descriptor->pendingStreamsToProcess_.empty()) {
-		locker.unlock();
-		completeDescriptor(descriptor);
+	if (camera3Result->pendingBuffersToProcess_.empty())
+		checkAndCompleteReadyPartialResults(camera3Result);
+}
+
+void CameraDevice::requestComplete(Request *request)
+{
+	Camera3RequestDescriptor *camera3Request =
+		reinterpret_cast<Camera3RequestDescriptor *>(request->cookie());
+
+	switch (request->status()) {
+	case Request::RequestComplete:
+		camera3Request->status_ = Camera3RequestDescriptor::Status::Success;
+		break;
+	case Request::RequestCancelled:
+		camera3Request->status_ = Camera3RequestDescriptor::Status::Cancelled;
+		break;
+	case Request::RequestPending:
+		LOG(HAL, Fatal) << "Try to complete an unfinished request";
+		break;
 	}
+
+	camera3Request->finalResult_ = std::make_unique<Camera3ResultDescriptor>(camera3Request);
+	Camera3ResultDescriptor *result = camera3Request->finalResult_.get();
+
+	/*
+	 * On Android, The final result with metadata has to set the field as
+	 * CameraCapabilities::MaxMetadataPackIndex, and should be returned by
+	 * the submission order of the requests. Create a result as the final
+	 * result which is guranteed be sent in order by CompleteRequestDescriptor().
+	 */
+	result->resultMetadata_ = getFinalResultMetadata(camera3Request->settings_);
+	result->metadataPackIndex_ = CameraCapabilities::MaxMetadataPackIndex;
+
+	/*
+	 * We need to check whether there are partial results pending for
+	 * post-processing, before we complete the request descriptor. Otherwise,
+	 * the callback of post-processing will complete the request instead.
+	 */
+	for (auto &r : camera3Request->partialResults_)
+		if (!r->completed_)
+			return;
+
+	completeRequestDescriptor(camera3Request);
+}
+
+void CameraDevice::checkAndCompleteReadyPartialResults(Camera3ResultDescriptor *result)
+{
+	/*
+	 * Android requires buffers for a given stream must be returned in FIFO
+	 * order. However, different streams are independent of each other, so
+	 * it is acceptable and expected that the buffer for request 5 for
+	 * stream A may be returned after the buffer for request 6 for stream
+	 * B is. And it is acceptable that the result metadata for request 6
+	 * for stream B is returned before the buffer for request 5 for stream
+	 * A is. As a result, if all buffers of a result are the most front
+	 * buffers of each stream, or the result contains no buffers, the result
+	 * is allowed to send. Collect ready results to send in the order which
+	 * follows the above rule.
+	 *
+	 * \todo The reprocessing result can be returned ahead of the pending
+	 * normal output results. But the FIFO ordering must be maintained for
+	 * all reprocessing results. Track the reprocessing buffer's order
+	 * independently when we have reprocessing API.
+	 */
+	MutexLocker lock(pendingRequestMutex_);
+
+	pendingPartialResults_.emplace_front(result);
+	std::list<Camera3ResultDescriptor *> readyResults;
+
+	/*
+	 * Error buffers do not have to follow the strict ordering as valid
+	 * buffers do. They're ready to be sent directly. Therefore, remove them
+	 * from the pendingBuffers so it won't block following valid buffers.
+	 */
+	for (auto &buffer : result->buffers_)
+		if (buffer->status == StreamBuffer::Status::Error)
+			pendingStreamBuffers_[buffer->stream].remove(buffer);
+
+	/*
+	 * Exhaustly collect results which is ready to sent.
+	 */
+	bool keepChecking;
+	do {
+		keepChecking = false;
+		auto iter = pendingPartialResults_.begin();
+		while (iter != pendingPartialResults_.end()) {
+			/*
+			 * A result is considered as ready when all of the valid
+			 * buffers of the result are at the front of the pending
+			 * buffers associated with its stream.
+			 */
+			bool ready = true;
+			for (auto &buffer : (*iter)->buffers_) {
+				if (buffer->status == StreamBuffer::Status::Error)
+					continue;
+
+				auto &pendingBuffers = pendingStreamBuffers_[buffer->stream];
+
+				ASSERT(!pendingBuffers.empty());
+
+				if (pendingBuffers.front() != buffer) {
+					ready = false;
+					break;
+				}
+			}
+
+			if (!ready) {
+				iter++;
+				continue;
+			}
+
+			for (auto &buffer : (*iter)->buffers_)
+				if (buffer->status != StreamBuffer::Status::Error)
+					pendingStreamBuffers_[buffer->stream].pop_front();
+
+			/* Keep checking since pendingStreamBuffers has updated */
+			keepChecking = true;
+
+			readyResults.emplace_back(*iter);
+			iter = pendingPartialResults_.erase(iter);
+		}
+	} while (keepChecking);
+
+	lock.unlock();
+
+	for (auto &res : readyResults) {
+		completePartialResultDescriptor(res);
+	}
+}
+
+void CameraDevice::completePartialResultDescriptor(Camera3ResultDescriptor *result)
+{
+	Camera3RequestDescriptor *request = result->request_;
+	result->completed_ = true;
+
+	/*
+	 * Android requires value of metadataPackIndex of partial results
+	 * set it to 0 if the result contains only buffers, Otherwise set it
+	 * Incrementally from 1 to MaxMetadataPackIndex - 1.
+	 */
+	if (result->resultMetadata_)
+		result->metadataPackIndex_ = request->nextPartialResultIndex_++;
+	else
+		result->metadataPackIndex_ = 0;
+
+	sendCaptureResult(result);
+
+	/*
+	 * The Status would be changed from Pending to Success or Cancelled only
+	 * when the requestComplete() has been called. It's garanteed that no
+	 * more partial results will be added to the request and the final result
+	 * is ready. In the case, if all partial results are completed, we can
+	 * complete the request.
+	 */
+	if (request->status_ == Camera3RequestDescriptor::Status::Pending)
+		return;
+
+	for (auto &r : request->partialResults_)
+		if (!r->completed_)
+			return;
+
+	completeRequestDescriptor(request);
 }
 
 /**
  * \brief Complete the Camera3RequestDescriptor
- * \param[in] descriptor The Camera3RequestDescriptor that has completed
+ * \param[in] descriptor The Camera3RequestDescriptor
  *
- * The function marks the Camera3RequestDescriptor as 'complete'. It shall be
- * called when all the streams in the Camera3RequestDescriptor have completed
- * capture (or have been generated via post-processing) and the request is ready
- * to be sent back to the framework.
- *
- * \context This function is \threadsafe.
+ * The function shall complete the descriptor only when all of the partial
+ * result has sent back to the framework, and send the final result according
+ * to the submission order of the requests.
  */
-void CameraDevice::completeDescriptor(Camera3RequestDescriptor *descriptor)
+void CameraDevice::completeRequestDescriptor(Camera3RequestDescriptor *request)
 {
-	MutexLocker lock(descriptorsMutex_);
-	descriptor->complete_ = true;
+	MutexLocker locker(pendingRequestMutex_);
+	request->completed_ = true;
 
-	sendCaptureResults();
-}
+	while (!pendingRequests_.empty()) {
+		auto &descriptor = pendingRequests_.front();
+		if (!descriptor->completed_)
+			break;
 
-/**
- * \brief Sequentially send capture results to the framework
- *
- * Iterate over the descriptors queue to send completed descriptors back to the
- * framework, in the same order as they have been queued. For each complete
- * descriptor, populate a locally-scoped camera3_capture_result_t from the
- * descriptor, send the capture result back by calling the
- * process_capture_result() callback, and remove the descriptor from the queue.
- * Stop iterating if the descriptor at the front of the queue is not complete.
- *
- * This function should never be called directly in the codebase. Use
- * completeDescriptor() instead.
- */
-void CameraDevice::sendCaptureResults()
-{
-	while (!descriptors_.empty() && !descriptors_.front()->isPending()) {
-		auto descriptor = std::move(descriptors_.front());
-		descriptors_.pop();
+		/*
+		 * Android requires the final result of each request returns in
+		 * their submission order.
+		 */
+		if (descriptor->finalResult_)
+			sendCaptureResult(descriptor->finalResult_.get());
 
-		camera3_capture_result_t captureResult = {};
+		/*
+		 * Call notify with CAMERA3_MSG_ERROR_RESULT to indicate some
+		 * of the expected result metadata might not be available
+		 * because the capture is cancelled by the camera. Only notify
+		 * it when the final result is sent, since Android will ignore
+		 * the following metadata.
+		 */
+		if (descriptor->status_ == Camera3RequestDescriptor::Status::Cancelled)
+			notifyError(descriptor->frameNumber_, nullptr, CAMERA3_MSG_ERROR_RESULT);
 
-		captureResult.frame_number = descriptor->frameNumber_;
-
-		if (descriptor->resultMetadata_)
-			captureResult.result =
-				descriptor->resultMetadata_->getMetadata();
-
-		std::vector<camera3_stream_buffer_t> resultBuffers;
-		resultBuffers.reserve(descriptor->buffers_.size());
-
-		for (auto &buffer : descriptor->buffers_) {
-			camera3_buffer_status status = CAMERA3_BUFFER_STATUS_ERROR;
-
-			if (buffer.status == StreamBuffer::Status::Success)
-				status = CAMERA3_BUFFER_STATUS_OK;
-
-			/*
-			 * Pass the buffer fence back to the camera framework as
-			 * a release fence. This instructs the framework to wait
-			 * on the acquire fence in case we haven't done so
-			 * ourselves for any reason.
-			 */
-			resultBuffers.push_back({ buffer.stream->camera3Stream(),
-						  buffer.camera3Buffer, status,
-						  -1, buffer.fence.release() });
-		}
-
-		captureResult.num_output_buffers = resultBuffers.size();
-		captureResult.output_buffers = resultBuffers.data();
-
-		if (descriptor->status_ == Camera3RequestDescriptor::Status::Success)
-			captureResult.partial_result = 1;
-
-		callbacks_->process_capture_result(callbacks_, &captureResult);
+		pendingRequests_.pop_front();
 	}
 }
 
 void CameraDevice::setBufferStatus(StreamBuffer &streamBuffer,
-				   StreamBuffer::Status status)
+				   StreamBuffer::Status status) const
 {
 	streamBuffer.status = status;
 	if (status != StreamBuffer::Status::Success) {
 		notifyError(streamBuffer.request->frameNumber_,
 			    streamBuffer.stream->camera3Stream(),
 			    CAMERA3_MSG_ERROR_BUFFER);
-
-		/* Also set error status on entire request descriptor. */
-		streamBuffer.request->status_ =
-			Camera3RequestDescriptor::Status::Error;
 	}
+}
+
+void CameraDevice::sendCaptureResult(Camera3ResultDescriptor *result) const
+{
+	std::vector<camera3_stream_buffer_t> resultBuffers;
+	resultBuffers.reserve(result->buffers_.size());
+
+	for (auto &buffer : result->buffers_) {
+		camera3_buffer_status status = CAMERA3_BUFFER_STATUS_ERROR;
+
+		if (buffer->status == StreamBuffer::Status::Success)
+			status = CAMERA3_BUFFER_STATUS_OK;
+
+		/*
+		 * Pass the buffer fence back to the camera framework as
+		 * a release fence. This instructs the framework to wait
+		 * on the acquire fence in case we haven't done so
+		 * ourselves for any reason.
+		 */
+		resultBuffers.push_back({ buffer->stream->camera3Stream(),
+					  buffer->camera3Buffer, status,
+					  -1, buffer->fence.release() });
+	}
+
+	camera3_capture_result_t captureResult = {};
+
+	captureResult.frame_number = result->request_->frameNumber_;
+	captureResult.num_output_buffers = resultBuffers.size();
+	captureResult.output_buffers = resultBuffers.data();
+	captureResult.partial_result = result->metadataPackIndex_;
+
+	if (result->resultMetadata_)
+		captureResult.result = result->resultMetadata_->getMetadata();
+
+	callbacks_->process_capture_result(callbacks_, &captureResult);
+
+	LOG(HAL, Debug) << "Send result of frameNumber: "
+			<< captureResult.frame_number
+			<< " index: " << captureResult.partial_result
+			<< " has metadata: " << (!!captureResult.result)
+			<< " has buffers " << captureResult.num_output_buffers;
+}
+
+void CameraDevice::streamProcessingCompleteDelegate(StreamBuffer *streamBuffer,
+						    StreamBuffer::Status status)
+{
+	/*
+	 * Delegate the callback to the camera manager thread to simplify race condition.
+	 */
+	auto *method = new BoundMethodMember{
+    this, camera_.get(), &CameraDevice::streamProcessingComplete, ConnectionTypeQueued};
+
+	method->activate(streamBuffer, status);
 }
 
 /**
@@ -1353,37 +1555,25 @@ void CameraDevice::setBufferStatus(StreamBuffer &streamBuffer,
  * \param[in] streamBuffer The StreamBuffer for which processing is complete
  * \param[in] status Stream post-processing status
  *
- * This function is called from the post-processor's thread whenever a camera
+ * This function is called from the camera's thread whenever a camera
  * stream has finished post processing. The corresponding entry is dropped from
- * the descriptor's pendingStreamsToProcess_ map.
+ * the result's pendingBufferToProcess_ list.
  *
- * If the pendingStreamsToProcess_ map is then empty, all streams requiring to
- * be generated from post-processing have been completed. Mark the descriptor as
- * complete using completeDescriptor() in that case.
+ * If the pendingBufferToProcess_ list is then empty, all streams requiring to
+ * be generated from post-processing have been completed.
  */
 void CameraDevice::streamProcessingComplete(StreamBuffer *streamBuffer,
-					    StreamBuffer::Status status)
+					     StreamBuffer::Status status)
 {
 	setBufferStatus(*streamBuffer, status);
 
-	/*
-	 * If the framebuffer is internal to CameraStream return it back now
-	 * that we're done processing it.
-	 */
-	if (streamBuffer->internalBuffer)
-		streamBuffer->stream->putBuffer(streamBuffer->internalBuffer);
+	Camera3ResultDescriptor *result = streamBuffer->result;
+	result->pendingBuffersToProcess_.remove(streamBuffer);
 
-	Camera3RequestDescriptor *request = streamBuffer->request;
+	if (!result->pendingBuffersToProcess_.empty())
+		return;
 
-	{
-		MutexLocker locker(request->streamsProcessMutex_);
-
-		request->pendingStreamsToProcess_.erase(streamBuffer->stream);
-		if (!request->pendingStreamsToProcess_.empty())
-			return;
-	}
-
-	completeDescriptor(streamBuffer->request);
+	checkAndCompleteReadyPartialResults(result);
 }
 
 std::string CameraDevice::logPrefix() const
@@ -1415,6 +1605,99 @@ void CameraDevice::notifyError(uint32_t frameNumber, camera3_stream_t *stream,
 	callbacks_->notify(callbacks_, &notify);
 }
 
+std::unique_ptr<CameraMetadata>
+CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
+{
+	/*
+	 * \todo Keep this in sync with the actual number of entries.
+	 *
+	 * Reserve capacity for the metadata larger than 4 bytes which cannot
+	 * store in entries.
+	 * Currently: 6 entries, 40 bytes extra capaticy.
+	 *
+	 * ANDROID_SENSOR_TIMESTAMP (int64) = 8 bytes
+	 * ANDROID_SENSOR_EXPOSURE_TIME (int64) = 8 bytes
+	 * ANDROID_SENSOR_FRAME_DURATION (int64) = 8 bytes
+	 * ANDROID_SCALER_CROP_REGION (int32 X 4) = 16 bytes
+	 * Total bytes for capacity: 40
+	 *
+	 * Reserve more capacity for the JPEG metadata set by the post-processor.
+	 * Currently: 8 entries, 72 bytes extra capaticy.
+	 *
+	 * ANDROID_JPEG_GPS_COORDINATES (double x 3) = 24 bytes
+	 * ANDROID_JPEG_GPS_PROCESSING_METHOD (byte x 32) = 32 bytes
+	 * ANDROID_JPEG_GPS_TIMESTAMP (int64) = 8 bytes
+	 * ANDROID_JPEG_SIZE (int32_t) = 4 bytes
+	 * ANDROID_JPEG_QUALITY (byte) = 1 byte
+	 * ANDROID_JPEG_ORIENTATION (int32_t) = 4 bytes
+	 * ANDROID_JPEG_THUMBNAIL_QUALITY (byte) = 1 byte
+	 * ANDROID_JPEG_THUMBNAIL_SIZE (int32 x 2) = 8 bytes
+	 * Total bytes for JPEG metadata: 72
+	 *
+	 * \todo Calculate the entries and capacity by the input ControlList.
+	 */
+	std::unique_ptr<CameraMetadata> resultMetadata =
+		std::make_unique<CameraMetadata>(14, 112);
+	if (!resultMetadata->isValid()) {
+		LOG(HAL, Error) << "Failed to allocate result metadata";
+		return nullptr;
+	}
+
+	/* Add metadata tags reported by libcamera. */
+	const auto &timestamp = metadata.get(controls::SensorTimestamp);
+	if (timestamp)
+		resultMetadata->addEntry(ANDROID_SENSOR_TIMESTAMP, *timestamp);
+
+	const auto &pipelineDepth = metadata.get(controls::draft::PipelineDepth);
+	if (pipelineDepth)
+		resultMetadata->addEntry(ANDROID_REQUEST_PIPELINE_DEPTH,
+					 *pipelineDepth);
+
+	const auto &exposureTime = metadata.get(controls::ExposureTime);
+	if (exposureTime)
+		resultMetadata->addEntry(ANDROID_SENSOR_EXPOSURE_TIME,
+					 *exposureTime * 1000ULL);
+
+	const auto &frameDuration = metadata.get(controls::FrameDuration);
+	if (frameDuration)
+		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION,
+					 *frameDuration * 1000);
+
+	const auto &scalerCrop = metadata.get(controls::ScalerCrop);
+	if (scalerCrop) {
+		const Rectangle &crop = *scalerCrop;
+		int32_t cropRect[] = {
+			crop.x,
+			crop.y,
+			static_cast<int32_t>(crop.width),
+			static_cast<int32_t>(crop.height),
+		};
+		resultMetadata->addEntry(ANDROID_SCALER_CROP_REGION, cropRect);
+	}
+
+	const auto &testPatternMode = metadata.get(controls::draft::TestPatternMode);
+	if (testPatternMode)
+		resultMetadata->addEntry(ANDROID_SENSOR_TEST_PATTERN_MODE,
+					 *testPatternMode);
+
+	/*
+	 * Return the result metadata pack even is not valid: get() will return
+	 * nullptr.
+	 */
+	if (!resultMetadata->isValid()) {
+		LOG(HAL, Error) << "Failed to construct result metadata";
+	}
+
+	if (resultMetadata->resized()) {
+		auto [entryCount, dataCount] = resultMetadata->usage();
+		LOG(HAL, Info)
+			<< "Result metadata resized: " << entryCount
+			<< " entries and " << dataCount << " bytes used";
+	}
+
+	return resultMetadata;
+}
+
 /*
  * Set jpeg metadata used to generate EXIF in the JPEG post processing.
  */
@@ -1438,34 +1721,29 @@ void CameraDevice::generateJpegExifMetadata(Camera3RequestDescriptor *request,
 }
 
 /*
- * Produce a set of fixed result metadata.
+ * Produce a result metadata for the final result.
  */
 std::unique_ptr<CameraMetadata>
-CameraDevice::getResultMetadata(const Camera3RequestDescriptor &descriptor) const
+CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 {
-	const ControlList &metadata = descriptor.request_->metadata();
-	const CameraMetadata &settings = descriptor.settings_;
 	camera_metadata_ro_entry_t entry;
 	bool found;
 
 	/*
+	 * \todo Retrieve metadata from corresponding libcamera controls.
 	 * \todo Keep this in sync with the actual number of entries.
-	 * Currently: 40 entries, 156 bytes
 	 *
-	 * Reserve more space for the JPEG metadata set by the post-processor.
-	 * Currently:
-	 * ANDROID_JPEG_GPS_COORDINATES (double x 3) = 24 bytes
-	 * ANDROID_JPEG_GPS_PROCESSING_METHOD (byte x 32) = 32 bytes
-	 * ANDROID_JPEG_GPS_TIMESTAMP (int64) = 8 bytes
-	 * ANDROID_JPEG_SIZE (int32_t) = 4 bytes
-	 * ANDROID_JPEG_QUALITY (byte) = 1 byte
-	 * ANDROID_JPEG_ORIENTATION (int32_t) = 4 bytes
-	 * ANDROID_JPEG_THUMBNAIL_QUALITY (byte) = 1 byte
-	 * ANDROID_JPEG_THUMBNAIL_SIZE (int32 x 2) = 8 bytes
-	 * Total bytes for JPEG metadata: 82
+	 * Reserve capacity for the metadata larger than 4 bytes which cannot
+	 * store in entries.
+	 * Currently: 31 entries, 16 bytes
+	 *
+	 * ANDROID_CONTROL_AE_TARGET_FPS_RANGE (int32 X 2) = 8 bytes
+	 * ANDROID_SENSOR_ROLLING_SHUTTER_SKEW (int64) = 8 bytes
+	 *
+	 * Total bytes: 16
 	 */
 	std::unique_ptr<CameraMetadata> resultMetadata =
-		std::make_unique<CameraMetadata>(88, 166);
+		std::make_unique<CameraMetadata>(31, 16);
 	if (!resultMetadata->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate result metadata";
 		return nullptr;
@@ -1563,9 +1841,6 @@ CameraDevice::getResultMetadata(const Camera3RequestDescriptor &descriptor) cons
 	resultMetadata->addEntry(ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 				 value);
 
-	value32 = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
-	resultMetadata->addEntry(ANDROID_SENSOR_TEST_PATTERN_MODE, value32);
-
 	value = ANDROID_STATISTICS_FACE_DETECT_MODE_OFF;
 	resultMetadata->addEntry(ANDROID_STATISTICS_FACE_DETECT_MODE, value);
 
@@ -1586,40 +1861,6 @@ CameraDevice::getResultMetadata(const Camera3RequestDescriptor &descriptor) cons
 	const int64_t rolling_shutter_skew = 33300000;
 	resultMetadata->addEntry(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW,
 				 rolling_shutter_skew);
-
-	/* Add metadata tags reported by libcamera. */
-	const int64_t timestamp = metadata.get(controls::SensorTimestamp).value_or(0);
-	resultMetadata->addEntry(ANDROID_SENSOR_TIMESTAMP, timestamp);
-
-	const auto &pipelineDepth = metadata.get(controls::draft::PipelineDepth);
-	if (pipelineDepth)
-		resultMetadata->addEntry(ANDROID_REQUEST_PIPELINE_DEPTH,
-					 *pipelineDepth);
-
-	const auto &exposureTime = metadata.get(controls::ExposureTime);
-	if (exposureTime)
-		resultMetadata->addEntry(ANDROID_SENSOR_EXPOSURE_TIME,
-					 *exposureTime * 1000ULL);
-
-	const auto &frameDuration = metadata.get(controls::FrameDuration);
-	if (frameDuration)
-		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION,
-					 *frameDuration * 1000);
-
-	const auto &scalerCrop = metadata.get(controls::ScalerCrop);
-	if (scalerCrop) {
-		const Rectangle &crop = *scalerCrop;
-		int32_t cropRect[] = {
-			crop.x, crop.y, static_cast<int32_t>(crop.width),
-			static_cast<int32_t>(crop.height),
-		};
-		resultMetadata->addEntry(ANDROID_SCALER_CROP_REGION, cropRect);
-	}
-
-	const auto &testPatternMode = metadata.get(controls::draft::TestPatternMode);
-	if (testPatternMode)
-		resultMetadata->addEntry(ANDROID_SENSOR_TEST_PATTERN_MODE,
-					 *testPatternMode);
 
 	/*
 	 * Return the result metadata pack even is not valid: get() will return

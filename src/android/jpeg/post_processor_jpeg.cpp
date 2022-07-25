@@ -119,7 +119,7 @@ void PostProcessorJpeg::process(StreamBuffer *streamBuffer)
 	ASSERT(jpegExifMetadata.has_value());
 
 	const CameraMetadata &requestMetadata = streamBuffer->request->settings_;
-	CameraMetadata *resultMetadata = streamBuffer->request->resultMetadata_.get();
+	CameraMetadata *resultMetadata = streamBuffer->result->resultMetadata_.get();
 	camera_metadata_ro_entry_t entry;
 	int ret;
 

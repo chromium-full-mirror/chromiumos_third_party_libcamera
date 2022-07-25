@@ -1380,7 +1380,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_SCALER_CROPPING_TYPE, croppingType);
 
 	/* Request static metadata. */
-	int32_t partialResultCount = 1;
+	int32_t partialResultCount = MaxMetadataPackIndex;
 	staticMetadata_->addEntry(ANDROID_REQUEST_PARTIAL_RESULT_COUNT,
 				  partialResultCount);
 
