@@ -72,7 +72,7 @@ static int hal_dev_flush(const struct camera3_device *dev)
 		return -EINVAL;
 
 	CameraDevice *camera = reinterpret_cast<CameraDevice *>(dev->priv);
-	camera->flush();
+	camera->flushAndStop();
 
 	return 0;
 }

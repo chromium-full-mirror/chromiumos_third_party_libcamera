@@ -47,7 +47,7 @@ public:
 
 	int open(const hw_module_t *hardwareModule);
 	void close();
-	void flush();
+	void flushAndStop();
 
 	unsigned int id() const { return id_; }
 	camera3_device_t *camera3Device() { return &camera3Device_; }
@@ -86,8 +86,6 @@ private:
 		Flushing,
 		Running,
 	};
-
-	void stop() LIBCAMERA_TSA_EXCLUDES(stateMutex_);
 
 	std::unique_ptr<HALFrameBuffer>
 	createFrameBuffer(const buffer_handle_t camera3buffer,

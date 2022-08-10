@@ -412,12 +412,12 @@ int CameraDevice::open(const hw_module_t *hardwareModule)
 
 void CameraDevice::close()
 {
-	stop();
+	flushAndStop();
 
 	camera_->release();
 }
 
-void CameraDevice::flush()
+void CameraDevice::flushAndStop()
 {
 	{
 		MutexLocker stateLock(stateMutex_);
@@ -427,29 +427,20 @@ void CameraDevice::flush()
 		state_ = State::Flushing;
 	}
 
-	camera_->stop();
-
-	MutexLocker stateLock(stateMutex_);
-	state_ = State::Stopped;
-}
-
-void CameraDevice::stop()
-{
-	MutexLocker stateLock(stateMutex_);
-	if (state_ == State::Stopped)
-		return;
-
-	camera_->stop();
-
+	/* TODO: Add a flush() method in pipeline handler to do the flushing */
 	{
-		MutexLocker descriptorsLock(pendingRequestMutex_);
-		pendingRequests_.clear();
-		pendingPartialResults_.clear();
-		pendingStreamBuffers_.clear();
+		MutexLocker locker(pendingRequestMutex_);
+		pendingRequestsCv_.wait(
+			locker,
+			[&]() LIBCAMERA_TSA_REQUIRES(pendingRequestMutex_) {
+				return pendingRequests_.empty();
+			});
+		ASSERT(pendingRequests_.empty());
 	}
 
-	streams_.clear();
+	camera_->stop();
 
+	MutexLocker stateLock(stateMutex_);
 	state_ = State::Stopped;
 }
 
@@ -531,7 +522,7 @@ const camera_metadata_t *CameraDevice::constructDefaultRequestSettings(int type)
 int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 {
 	/* Before any configuration attempt, stop the camera. */
-	stop();
+	flushAndStop();
 
 	/* Configure streams can only be called after all pending requests
 	 * from the previous session finish. */
@@ -1483,6 +1474,12 @@ void CameraDevice::completeRequestDescriptor(Camera3RequestDescriptor *request)
 			notifyError(descriptor->frameNumber_, nullptr, CAMERA3_MSG_ERROR_RESULT);
 
 		pendingRequests_.pop_front();
+	}
+
+	if (pendingRequests_.empty()) {
+		locker.unlock();
+		pendingRequestsCv_.notify_one();
+		return;
 	}
 }
 
