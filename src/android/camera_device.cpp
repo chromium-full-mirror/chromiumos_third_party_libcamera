@@ -192,6 +192,167 @@ const char *directionToString(int stream_type)
 	}
 }
 
+[[maybe_unused]]int buildStreamConfigsDefault(const CameraCapabilities &capabilities,
+					      camera3_stream_configuration_t *stream_list,
+					      std::vector<Camera3StreamConfig>& streamConfigs)
+{
+	/* First handle all non-MJPEG streams. */
+	camera3_stream_t *jpegStream = nullptr;
+	for (unsigned int i = 0; i < stream_list->num_streams; ++i) {
+		camera3_stream_t *stream = stream_list->streams[i];
+		Size size(stream->width, stream->height);
+
+		PixelFormat format = capabilities.toPixelFormat(stream->format);
+
+		/* Defer handling of MJPEG streams until all others are known. */
+		if (stream->format == HAL_PIXEL_FORMAT_BLOB) {
+			if (jpegStream) {
+				LOG(HAL, Error)
+					<< "Multiple JPEG streams are not supported";
+				return -EINVAL;
+			}
+
+			stream->usage |= (GRALLOC_USAGE_HW_CAMERA_WRITE |
+					  GRALLOC_USAGE_SW_READ_OFTEN |
+					  GRALLOC_USAGE_SW_WRITE_NEVER);
+
+			jpegStream = stream;
+			continue;
+		}
+
+		/*
+		 * If a CameraStream with the same size and format as the
+		 * current stream has already been requested, associate the two.
+		 */
+		auto iter = std::find_if(
+			streamConfigs.begin(), streamConfigs.end(),
+			[&size, &format](const Camera3StreamConfig &streamConfig) {
+				return streamConfig.config.size == size &&
+				       streamConfig.config.pixelFormat == format;
+			});
+		if (iter != streamConfigs.end()) {
+			/* Add usage to copy the buffer in streams[0] to stream. */
+			iter->streams[0].stream->usage |= (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
+			stream->usage |= (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
+			iter->streams.push_back({ stream, CameraStream::Type::Mapped });
+			continue;
+		}
+
+		Camera3StreamConfig streamConfig;
+		streamConfig.streams = { { stream, CameraStream::Type::Direct } };
+		streamConfig.config.size = size;
+		streamConfig.config.pixelFormat = format;
+		streamConfigs.push_back(std::move(streamConfig));
+	}
+
+	/* Now handle the MJPEG streams, adding a new stream if required. */
+	if (jpegStream) {
+		CameraStream::Type type;
+		int index = -1;
+
+		/* Search for a compatible stream in the non-JPEG ones. */
+		for (size_t i = 0; i < streamConfigs.size(); ++i) {
+			Camera3StreamConfig &streamConfig = streamConfigs[i];
+			const auto &cfg = streamConfig.config;
+
+			/*
+			 * \todo The PixelFormat must also be compatible with
+			 * the encoder.
+			 */
+			if (cfg.size.width != jpegStream->width ||
+			    cfg.size.height != jpegStream->height)
+				continue;
+
+			LOG(HAL, Info)
+				<< "Android JPEG stream mapped to libcamera stream " << i;
+
+			type = CameraStream::Type::Mapped;
+			index = i;
+
+			/*
+			 * The source stream will be read by software to
+			 * produce the JPEG stream.
+			 */
+			camera3_stream_t *stream = streamConfig.streams[0].stream;
+			stream->usage |= GRALLOC_USAGE_SW_READ_OFTEN;
+			break;
+		}
+
+		/*
+		 * Without a compatible match for JPEG encoding we must
+		 * introduce a new stream to satisfy the request requirements.
+		 */
+		if (index < 0) {
+			/*
+			 * \todo The pixelFormat should be a 'best-fit' choice
+			 * and may require a validation cycle. This is not yet
+			 * handled, and should be considered as part of any
+			 * stream configuration reworks.
+			 */
+			Camera3StreamConfig streamConfig;
+			streamConfig.config.size.width = jpegStream->width;
+			streamConfig.config.size.height = jpegStream->height;
+			streamConfig.config.pixelFormat = formats::NV12;
+			streamConfigs.push_back(std::move(streamConfig));
+
+			LOG(HAL, Info) << "Adding " << streamConfig.config.toString()
+				       << " for MJPEG support";
+
+			type = CameraStream::Type::Internal;
+			index = streamConfigs.size() - 1;
+		}
+
+		/* The JPEG stream will be produced by software. */
+		jpegStream->usage |= GRALLOC_USAGE_SW_WRITE_OFTEN;
+
+		streamConfigs[index].streams.push_back({ jpegStream, type });
+	}
+
+	sortCamera3StreamConfigs(streamConfigs, jpegStream);
+	return 0;
+}
+
+int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
+			    camera3_stream_configuration_t *stream_list,
+			    std::vector<Camera3StreamConfig>& streamConfigs)
+{
+	for (unsigned int i = 0; i < stream_list->num_streams; ++i) {
+		camera3_stream_t *stream = stream_list->streams[i];
+		Size size(stream->width, stream->height);
+
+		PixelFormat format = capabilities.toPixelFormat(stream->format);
+
+		/*
+		 * While gralloc usage flags are supposed to report usage
+		 * patterns to select a suitable buffer allocation strategy, in
+		 * practice they're also used to make other decisions, such as
+		 * selecting the actual format for the IMPLEMENTATION_DEFINED
+		 * HAL pixel format. To avoid issues, we thus have to set the
+		 * GRALLOC_USAGE_HW_CAMERA_WRITE flag unconditionally, even for
+		 * streams that will be produced in software.
+		 */
+		stream->usage |= (GRALLOC_USAGE_HW_CAMERA_WRITE |
+				  GRALLOC_USAGE_SW_READ_OFTEN |
+				  GRALLOC_USAGE_SW_WRITE_NEVER);
+
+		Camera3StreamConfig streamConfig;
+		streamConfig.config.size = size;
+		streamConfig.config.pixelFormat = format;
+
+		/* \todo Add suitable helpers to check the roles */
+		if (stream->format == HAL_PIXEL_FORMAT_BLOB) {
+			streamConfig.streams = { { stream, CameraStream::Type::Internal } };
+			streamConfig.config.role = StreamRole::StillCapture;
+		} else {
+			streamConfig.streams = { { stream, CameraStream::Type::Direct } };
+			streamConfig.config.role = StreamRole::Viewfinder;
+		}
+		streamConfigs.push_back(std::move(streamConfig));
+	}
+
+	return 0;
+}
+
 #if defined(OS_CHROMEOS)
 /*
  * Check whether the crop_rotate_scale_degrees values for all streams in
@@ -555,29 +716,6 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 		return -EINVAL;
 #endif
 
-	/*
-	 * Generate an empty configuration, and construct a StreamConfiguration
-	 * for each camera3_stream to add to it.
-	 */
-	std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration();
-	if (!config) {
-		LOG(HAL, Error) << "Failed to generate camera configuration";
-		return -EINVAL;
-	}
-
-	/*
-	 * Clear and remove any existing configuration from previous calls, and
-	 * ensure the required entries are available without further
-	 * reallocation.
-	 */
-	streams_.clear();
-	streams_.reserve(stream_list->num_streams);
-
-	std::vector<Camera3StreamConfig> streamConfigs;
-	streamConfigs.reserve(stream_list->num_streams);
-
-	/* First handle all non-MJPEG streams. */
-	camera3_stream_t *jpegStream = nullptr;
 	for (unsigned int i = 0; i < stream_list->num_streams; ++i) {
 		camera3_stream_t *stream = stream_list->streams[i];
 		Size size(stream->width, stream->height);
@@ -610,125 +748,32 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 			return -EINVAL;
 		}
 #endif
-
-		/* Defer handling of MJPEG streams until all others are known. */
-		if (stream->format == HAL_PIXEL_FORMAT_BLOB) {
-			if (jpegStream) {
-				LOG(HAL, Error)
-					<< "Multiple JPEG streams are not supported";
-				return -EINVAL;
-			}
-
-			stream->usage |= (GRALLOC_USAGE_HW_CAMERA_WRITE |
-					  GRALLOC_USAGE_SW_READ_OFTEN |
-					  GRALLOC_USAGE_SW_WRITE_NEVER);
-
-			jpegStream = stream;
-			continue;
-		}
-
-		/*
-		 * While gralloc usage flags are supposed to report usage
-		 * patterns to select a suitable buffer allocation strategy, in
-		 * practice they're also used to make other decisions, such as
-		 * selecting the actual format for the IMPLEMENTATION_DEFINED
-		 * HAL pixel format. To avoid issues, we thus have to set the
-		 * GRALLOC_USAGE_HW_CAMERA_WRITE flag unconditionally, even for
-		 * streams that will be produced in software.
-		 */
-		stream->usage |= (GRALLOC_USAGE_HW_CAMERA_WRITE |
-				  GRALLOC_USAGE_SW_READ_OFTEN |
-				  GRALLOC_USAGE_SW_WRITE_NEVER);
-
-		/*
-		 * If a CameraStream with the same size and format as the
-		 * current stream has already been requested, associate the two.
-		 */
-		auto iter = std::find_if(
-			streamConfigs.begin(), streamConfigs.end(),
-			[&size, &format](const Camera3StreamConfig &streamConfig) {
-				return streamConfig.config.size == size &&
-				       streamConfig.config.pixelFormat == format;
-			});
-		if (iter != streamConfigs.end()) {
-			/* Add usage to copy the buffer in streams[0] to stream. */
-			iter->streams[0].stream->usage |= (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
-			stream->usage |= (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
-			iter->streams.push_back({ stream, CameraStream::Type::Mapped });
-			continue;
-		}
-
-		Camera3StreamConfig streamConfig;
-		streamConfig.streams = { { stream, CameraStream::Type::Direct } };
-		streamConfig.config.size = size;
-		streamConfig.config.pixelFormat = format;
-		streamConfigs.push_back(std::move(streamConfig));
 	}
 
-	/* Now handle the MJPEG streams, adding a new stream if required. */
-	if (jpegStream) {
-		CameraStream::Type type;
-		int index = -1;
+	/*
+	 * Clear and remove any existing configuration from previous calls, and
+	 * ensure the required entries are available without further
+	 * reallocation.
+	 */
+	streams_.clear();
+	streams_.reserve(stream_list->num_streams);
 
-		/* Search for a compatible stream in the non-JPEG ones. */
-		for (size_t i = 0; i < streamConfigs.size(); ++i) {
-			Camera3StreamConfig &streamConfig = streamConfigs[i];
-			const auto &cfg = streamConfig.config;
+	std::vector<Camera3StreamConfig> streamConfigs;
+	streamConfigs.reserve(stream_list->num_streams);
 
-			/*
-			 * \todo The PixelFormat must also be compatible with
-			 * the encoder.
-			 */
-			if (cfg.size.width != jpegStream->width ||
-			    cfg.size.height != jpegStream->height)
-				continue;
+	if (buildStreamConfigsNoMap(capabilities_, stream_list, streamConfigs))
+		return -EINVAL;
 
-			LOG(HAL, Info)
-				<< "Android JPEG stream mapped to libcamera stream " << i;
-
-			type = CameraStream::Type::Mapped;
-			index = i;
-
-			/*
-			 * The source stream will be read by software to
-			 * produce the JPEG stream.
-			 */
-			camera3_stream_t *stream = streamConfig.streams[0].stream;
-			stream->usage |= GRALLOC_USAGE_SW_READ_OFTEN;
-			break;
-		}
-
-		/*
-		 * Without a compatible match for JPEG encoding we must
-		 * introduce a new stream to satisfy the request requirements.
-		 */
-		if (index < 0) {
-			/*
-			 * \todo The pixelFormat should be a 'best-fit' choice
-			 * and may require a validation cycle. This is not yet
-			 * handled, and should be considered as part of any
-			 * stream configuration reworks.
-			 */
-			Camera3StreamConfig streamConfig;
-			streamConfig.config.size.width = jpegStream->width;
-			streamConfig.config.size.height = jpegStream->height;
-			streamConfig.config.pixelFormat = formats::NV12;
-			streamConfigs.push_back(std::move(streamConfig));
-
-			LOG(HAL, Info) << "Adding " << streamConfig.config.toString()
-				       << " for MJPEG support";
-
-			type = CameraStream::Type::Internal;
-			index = streamConfigs.size() - 1;
-		}
-
-		/* The JPEG stream will be produced by software. */
-		jpegStream->usage |= GRALLOC_USAGE_SW_WRITE_OFTEN;
-
-		streamConfigs[index].streams.push_back({ jpegStream, type });
+	/*
+	 * Generate an empty configuration, and construct a StreamConfiguration
+	 * for each camera3_stream to add to it.
+	 */
+	std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration();
+	if (!config) {
+		LOG(HAL, Error) << "Failed to generate camera configuration";
+		return -EINVAL;
 	}
 
-	sortCamera3StreamConfigs(streamConfigs, jpegStream);
 	for (const auto &streamConfig : streamConfigs) {
 		config->addConfiguration(streamConfig.config);
 
