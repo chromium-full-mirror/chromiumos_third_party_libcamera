@@ -511,27 +511,13 @@ int CameraCapabilities::initializeStreamConfigurations()
 	 * Augment the list by adding resolutions calculated from the camera
 	 * maximum one.
 	 */
+
+	/* TODO: Read configure file when camera has custom resolution list */
 	std::vector<Size> cameraResolutions;
 	std::copy_if(camera3Resolutions.begin(), camera3Resolutions.end(),
 		     std::back_inserter(cameraResolutions),
 		     [&](const Size &res) { return res < maxRes; });
 
-	/*
-	 * The Camera3 specification suggests adding 1/2 and 1/4 of the maximum
-	 * resolution.
-	 */
-	for (unsigned int divider = 2;; divider <<= 1) {
-		Size derivedSize{
-			maxRes.width / divider,
-			maxRes.height / divider,
-		};
-
-		if (derivedSize.width < 320 ||
-		    derivedSize.height < 240)
-			break;
-
-		cameraResolutions.push_back(derivedSize);
-	}
 	cameraResolutions.push_back(maxRes);
 
 	/* Remove duplicated entries from the list of supported resolutions. */
@@ -750,8 +736,10 @@ int CameraCapabilities::initializeStreamConfigurations()
 
 	LOG(HAL, Debug) << "Collected stream configuration map: ";
 	for (const auto &entry : streamConfigurations_)
-		LOG(HAL, Debug) << "{ " << entry.resolution << " - "
-				<< utils::hex(entry.androidFormat) << " }";
+		LOG(HAL, Error) << "{ " << entry.resolution << " - "
+				<< utils::hex(entry.androidFormat)
+				<< " - " << entry.maxFrameDurationNsec
+				<< " - " << entry.minFrameDurationNsec << " }";
 
 	return 0;
 }
