@@ -619,6 +619,10 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 				return -EINVAL;
 			}
 
+			stream->usage |= (GRALLOC_USAGE_HW_CAMERA_WRITE |
+					  GRALLOC_USAGE_SW_READ_OFTEN |
+					  GRALLOC_USAGE_SW_WRITE_NEVER);
+
 			jpegStream = stream;
 			continue;
 		}
@@ -632,7 +636,9 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 		 * GRALLOC_USAGE_HW_CAMERA_WRITE flag unconditionally, even for
 		 * streams that will be produced in software.
 		 */
-		stream->usage |= GRALLOC_USAGE_HW_CAMERA_WRITE;
+		stream->usage |= (GRALLOC_USAGE_HW_CAMERA_WRITE |
+				  GRALLOC_USAGE_SW_READ_OFTEN |
+				  GRALLOC_USAGE_SW_WRITE_NEVER);
 
 		/*
 		 * If a CameraStream with the same size and format as the
@@ -646,8 +652,8 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 			});
 		if (iter != streamConfigs.end()) {
 			/* Add usage to copy the buffer in streams[0] to stream. */
-			iter->streams[0].stream->usage |= GRALLOC_USAGE_SW_READ_OFTEN;
-			stream->usage |= GRALLOC_USAGE_SW_WRITE_OFTEN;
+			iter->streams[0].stream->usage |= (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
+			stream->usage |= (GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
 			iter->streams.push_back({ stream, CameraStream::Type::Mapped });
 			continue;
 		}
