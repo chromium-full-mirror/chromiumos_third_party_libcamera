@@ -292,19 +292,21 @@ void Exif::setSize(const Size &size)
 
 void Exif::setTimestamp(time_t timestamp, std::chrono::milliseconds msec)
 {
-	struct tm tm;
-	localtime_r(&timestamp, &tm);
+	time(&timestamp);
+	auto tm = localtime(&timestamp);
 
 	char str[20];
-	strftime(str, sizeof(str), "%Y:%m:%d %H:%M:%S", &tm);
+	strftime(str, sizeof(str), "%Y:%m:%d %H:%M:%S", tm);
 	std::string ts(str);
+
+	LOG(EXIF, Debug) << "Jpeg Date: " << str;
 
 	setString(EXIF_IFD_0, EXIF_TAG_DATE_TIME, EXIF_FORMAT_ASCII, ts);
 	setString(EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_ORIGINAL, EXIF_FORMAT_ASCII, ts);
 	setString(EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_DIGITIZED, EXIF_FORMAT_ASCII, ts);
 
 	/* Query and set timezone information if available. */
-	int r = strftime(str, sizeof(str), "%z", &tm);
+	int r = strftime(str, sizeof(str), "%z", tm);
 	if (r <= 0)
 		return;
 
