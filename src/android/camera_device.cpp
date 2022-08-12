@@ -386,11 +386,18 @@ int CameraDevice::initialize(const CameraConfigData *cameraConfigData)
  * Open a camera device. The static information on the camera shall have been
  * initialized with a call to CameraDevice::initialize().
  */
+static bool opened_ = false;
 int CameraDevice::open(const hw_module_t *hardwareModule)
 {
+	if (opened_)
+		return -EUSERS;
+
+	opened_ = true;
+
 	int ret = camera_->acquire();
 	if (ret) {
 		LOG(HAL, Error) << "Failed to acquire the camera";
+		opened_ = false;
 		return ret;
 	}
 
@@ -415,6 +422,7 @@ void CameraDevice::close()
 	flushAndStop();
 
 	camera_->release();
+	opened_ = false;
 }
 
 void CameraDevice::flushAndStop()
