@@ -28,6 +28,7 @@ public:
 	virtual void unregisterTimer(Timer *timer) = 0;
 
 	virtual void processEvents() = 0;
+	virtual void processEventsOnNotifier(EventNotifier* notifier) = 0;
 
 	virtual void interrupt() = 0;
 };

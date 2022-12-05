@@ -26,7 +26,7 @@ LOG_DECLARE_CATEGORY(IPCPipe)
 
 IPCPipeUnixSocket::IPCPipeUnixSocket(const char *ipaModulePath,
 				     const char *ipaProxyWorkerPath)
-	: IPCPipe()
+	: IPCPipe(), inCall_(false)
 {
 	std::vector<int> fds;
 	std::vector<std::string> args;
@@ -99,17 +99,26 @@ void IPCPipeUnixSocket::readyRead()
 		return;
 	}
 
-	IPCMessage ipcMessage(payload);
-
-	auto callData = callData_.find(ipcMessage.header().cookie);
+	std::shared_ptr<IPCMessage> ipcMessage = std::make_shared<IPCMessage>(payload);
+	auto callData = callData_.find(ipcMessage->header().cookie);
 	if (callData != callData_.end()) {
 		*callData->second.response = std::move(payload);
 		callData->second.done = true;
 		return;
 	}
 
-	/* Received unexpected data, this means it's a call from the IPA. */
-	recv.emit(ipcMessage);
+	if (!inCall_) {
+		emitRecv(ipcMessage);
+		return;
+	}
+
+	/* During synchronous call, queue other tasks to process later. */
+	Object::invokeMethod(&IPCPipeUnixSocket::emitRecv, ConnectionTypeQueued, ipcMessage);
+}
+
+void IPCPipeUnixSocket::emitRecv(std::shared_ptr<IPCMessage>& msg)
+{
+	recv.emit(msg);
 }
 
 int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &message,
@@ -127,17 +136,13 @@ int IPCPipeUnixSocket::call(const IPCUnixSocket::Payload &message,
 		return ret;
 	}
 
-	/* \todo Make this less dangerous, see IPCPipe::sendSync() */
-	timeout.start(2000ms);
-	while (!iter->second.done) {
-		if (!timeout.isRunning()) {
-			LOG(IPCPipe, Error) << "Call timeout!";
-			callData_.erase(iter);
-			return -ETIMEDOUT;
-		}
+	inCall_ = true;
 
-		Thread::current()->eventDispatcher()->processEvents();
+	while (!iter->second.done) {
+		Thread::current()->eventDispatcher()->processEventsOnNotifier(socket_->notifier_);
 	}
+
+	inCall_ = false;
 
 	callData_.erase(iter);
 

@@ -38,6 +38,7 @@ public:
 	int receive(Payload *payload);
 
 	Signal<> readyRead;
+	EventNotifier *notifier_;
 
 private:
 	struct Header {
@@ -53,7 +54,6 @@ private:
 	UniqueFD fd_;
 	bool headerReceived_;
 	struct Header header_;
-	EventNotifier *notifier_;
 };
 
 } /* namespace libcamera */

@@ -36,6 +36,7 @@ public:
 	void unregisterTimer(Timer *timer);
 
 	void processEvents();
+	void processEventsOnNotifier(EventNotifier* notifier);
 	void interrupt();
 
 private:

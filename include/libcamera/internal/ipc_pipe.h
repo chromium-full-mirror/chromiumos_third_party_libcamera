@@ -59,9 +59,10 @@ public:
 
 	virtual int sendAsync(const IPCMessage &data) = 0;
 
-	Signal<const IPCMessage &> recv;
+	Signal<std::shared_ptr<IPCMessage> &> recv;
 
 protected:
+
 	bool connected_;
 };
 

@@ -172,6 +172,34 @@ void EventDispatcherPoll::processEvents()
 	processTimers();
 }
 
+void EventDispatcherPoll::processEventsOnNotifier(EventNotifier* notifier)
+{
+	int ret;
+
+	/* Create the pollfd array. */
+	std::vector<struct pollfd> pollfds;
+	pollfds.reserve(1);
+
+	auto iter = notifiers_.find(notifier->fd());
+	if (iter == notifiers_.end()) {
+		LOG(Event, Error) << "notifier doesn't exist";
+		return;
+	}
+	pollfds.push_back({ iter->first, iter->second.events(), 0 });
+
+	/* Wait for events and process notifiers and timers. */
+	do {
+		ret = ppoll(pollfds.data(), pollfds.size(), nullptr, nullptr);
+	} while (ret == -1 && errno == EINTR);
+
+	if (ret < 0) {
+		ret = -errno;
+		LOG(Event, Error) << "poll() failed with " << strerror(-ret);
+	} else if (ret > 0) {
+		processNotifiers(pollfds);
+	}
+}
+
 void EventDispatcherPoll::interrupt()
 {
 	uint64_t value = 1;

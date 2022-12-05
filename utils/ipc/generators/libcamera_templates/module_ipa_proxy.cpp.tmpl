@@ -105,15 +105,15 @@ namespace {{ns}} {
 }
 
 {% if interface_event.methods|length > 0 %}
-void {{proxy_name}}::recvMessage(const IPCMessage &data)
+void {{proxy_name}}::recvMessage(std::shared_ptr<IPCMessage> &data)
 {
-	size_t dataSize = data.data().size();
-	{{cmd_event_enum_name}} _cmd = static_cast<{{cmd_event_enum_name}}>(data.header().cmd);
+	size_t dataSize = data->data().size();
+	{{cmd_event_enum_name}} _cmd = static_cast<{{cmd_event_enum_name}}>(data->header().cmd);
 
 	switch (_cmd) {
 {%- for method in interface_event.methods %}
 	case {{cmd_event_enum_name}}::{{method.mojom_name|cap}}: {
-		{{method.mojom_name}}IPC(data.data().cbegin(), dataSize, data.fds());
+		{{method.mojom_name}}IPC(data->data().cbegin(), dataSize, data->fds());
 		break;
 	}
 {%- endfor %}

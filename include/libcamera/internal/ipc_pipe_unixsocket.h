@@ -18,7 +18,7 @@ namespace libcamera {
 
 class Process;
 
-class IPCPipeUnixSocket : public IPCPipe
+class IPCPipeUnixSocket : public IPCPipe, public Object
 {
 public:
 	IPCPipeUnixSocket(const char *ipaModulePath, const char *ipaProxyWorkerPath);
@@ -39,9 +39,12 @@ private:
 	int call(const IPCUnixSocket::Payload &message,
 		 IPCUnixSocket::Payload *response, uint32_t seq);
 
+	void emitRecv(std::shared_ptr<IPCMessage>& msg);
+
 	std::unique_ptr<Process> proc_;
 	std::unique_ptr<IPCUnixSocket> socket_;
 	std::map<uint32_t, CallData> callData_;
+	bool inCall_;
 };
 
 } /* namespace libcamera */

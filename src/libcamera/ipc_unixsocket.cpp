@@ -69,7 +69,7 @@ LOG_DEFINE_CATEGORY(IPCUnixSocket)
  */
 
 IPCUnixSocket::IPCUnixSocket()
-	: headerReceived_(false), notifier_(nullptr)
+	: notifier_(nullptr), headerReceived_(false)
 {
 }
 
