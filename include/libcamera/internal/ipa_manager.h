@@ -32,13 +32,22 @@ public:
 	template<typename T>
 	static std::unique_ptr<T> createIPA(PipelineHandler *pipe,
 					    uint32_t minVersion,
-					    uint32_t maxVersion)
+					    uint32_t maxVersion,
+					    bool useUnixSocketConnection = false)
 	{
 		IPAModule *m = self_->module(pipe, minVersion, maxVersion);
 		if (!m)
 			return nullptr;
 
-		std::unique_ptr<T> proxy = std::make_unique<T>(m, !self_->isSignatureValid(m));
+		IPAProxy::IPAIsolation ipaIsolation;
+		if (useUnixSocketConnection)
+			ipaIsolation = IPAProxy::IPAIsolation::UnixSocketProcess;
+		else if (self_->isSignatureValid(m))
+			ipaIsolation = IPAProxy::IPAIsolation::InThread;
+		else
+			ipaIsolation = IPAProxy::IPAIsolation::ForkProcess;
+
+		std::unique_ptr<T> proxy = std::make_unique<T>(m, ipaIsolation);
 		if (!proxy->isValid()) {
 			LOG(IPAManager, Error) << "Failed to load proxy";
 			return nullptr;

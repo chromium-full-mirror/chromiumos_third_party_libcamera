@@ -11,6 +11,7 @@
 #include <poll.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include <libcamera/base/event_notifier.h>
@@ -111,6 +112,67 @@ UniqueFD IPCUnixSocket::create()
 		return {};
 
 	return std::move(socketFds[1]);
+}
+
+bool MakeUnixAddrForPath(const std::string &socket_name,
+			 struct sockaddr_un *unix_addr,
+			 size_t *unix_addr_len)
+{
+	if (socket_name.length() == 0) {
+		LOG(IPCUnixSocket, Error) << "Empty socket name provided for unix socket address.";
+		return false;
+	}
+
+	// We reject socket_name.length() == kMaxSocketNameLength to make room for
+	// the NUL terminator at the end of the string.
+	if (socket_name.length() >= 104) {
+		LOG(IPCUnixSocket, Error) << "Socket name too long: " << socket_name;
+		return false;
+	}
+
+	// Create unix_addr structure.
+	memset(unix_addr, 0, sizeof(struct sockaddr_un));
+	unix_addr->sun_family = AF_UNIX;
+	strncpy(unix_addr->sun_path, socket_name.c_str(), 104);
+	*unix_addr_len =
+		offsetof(struct sockaddr_un, sun_path) + socket_name.length();
+
+	return true;
+}
+
+bool IPCUnixSocket::connectRemote(const std::string &socketName)
+{
+	struct sockaddr_un unix_addr;
+	size_t unix_addr_len;
+
+	if (!MakeUnixAddrForPath(socketName, &unix_addr, &unix_addr_len))
+		return false;
+
+	UniqueFD fd(socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0));
+	if (!fd.isValid()) {
+		LOG(IPCUnixSocket, Error)
+			<< "Failed to create AF_UNIX socket";
+		return false;
+	}
+
+	int ret;
+	do {
+		ret = connect(fd.get(),
+			      reinterpret_cast<sockaddr *>(&unix_addr),
+			      unix_addr_len);
+
+	} while (ret == -1 && errno == EINTR);
+
+	if (ret < 0) {
+		LOG(IPCUnixSocket, Error) << "connect socket failed";
+		return false;
+	}
+
+	if (bind(std::move(fd)) < 0)
+		return false;
+
+	LOG(IPCUnixSocket, Info) << "Connect Successfully!!!!";
+	return true;
 }
 
 /**

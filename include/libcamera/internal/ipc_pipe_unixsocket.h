@@ -22,6 +22,7 @@ class IPCPipeUnixSocket : public IPCPipe, public Object
 {
 public:
 	IPCPipeUnixSocket(const char *ipaModulePath, const char *ipaProxyWorkerPath);
+	IPCPipeUnixSocket();
 	~IPCPipeUnixSocket();
 
 	int sendSync(const IPCMessage &in,
@@ -39,7 +40,7 @@ private:
 	int call(const IPCUnixSocket::Payload &message,
 		 IPCUnixSocket::Payload *response, uint32_t seq);
 
-	void emitRecv(std::shared_ptr<IPCMessage>& msg);
+	void emitRecv(std::shared_ptr<IPCMessage> &msg);
 
 	std::unique_ptr<Process> proc_;
 	std::unique_ptr<IPCUnixSocket> socket_;

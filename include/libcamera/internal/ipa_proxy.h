@@ -26,6 +26,12 @@ public:
 		ProxyRunning,
 	};
 
+	enum IPAIsolation {
+		InThread,
+		ForkProcess,
+		UnixSocketProcess,
+	};
+
 	IPAProxy(IPAModule *ipam);
 	~IPAProxy();
 
