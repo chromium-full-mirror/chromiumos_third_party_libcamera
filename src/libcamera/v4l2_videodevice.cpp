@@ -1697,6 +1697,8 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer)
 		LOG(V4L2, Error)
 			<< "Failed to queue buffer " << buf.index << ": "
 			<< strerror(-ret);
+
+		cache_->put(buf.index);
 		return ret;
 	}
 
