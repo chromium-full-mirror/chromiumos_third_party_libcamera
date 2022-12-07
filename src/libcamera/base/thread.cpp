@@ -126,11 +126,6 @@ public:
 	 * \brief Protects the \ref list_
 	 */
 	Mutex mutex_;
-	/**
-	 * \brief The recursion level for recursive Thread::dispatchMessages()
-	 * calls
-	 */
-	unsigned int recursion_ = 0;
 };
 
 /**
@@ -603,24 +598,33 @@ void Thread::dispatchMessages(Message::Type type)
 {
 	ASSERT(data_ == ThreadData::current());
 
-	++data_->messages_.recursion_;
-
 	MutexLocker locker(data_->messages_.mutex_);
 
+	/*
+	 * Since the function may be called recursively, the messages may
+	 * increase during dispatching messages. Move current messages from
+	 * the list before dispatch them. The recursively generated messages
+	 * will be added to the message list and be processed in next run.
+	 */
 	std::list<std::unique_ptr<Message>> &messages = data_->messages_.list_;
+	std::list<std::unique_ptr<Message>> readyMessages;
 
-	for (std::unique_ptr<Message> &msg : messages) {
-		if (!msg)
+	for (auto iter = messages.begin(); iter != messages.end(); ) {
+		if (!*iter) {
+			iter = messages.erase(iter);
 			continue;
+		}
 
-		if (type != Message::Type::None && msg->type() != type)
+		if (type != Message::Type::None && (*iter)->type() != type) {
+			iter++;
 			continue;
+		}
 
-		/*
-		 * Move the message, setting the entry in the list to null. It
-		 * will cause recursive calls to ignore the entry, and the erase
-		 * loop at the end of the function to delete it from the list.
-		 */
+		readyMessages.emplace_back(std::move(*iter));
+		iter = messages.erase(iter);
+	}
+
+	for (std::unique_ptr<Message> &msg : readyMessages) {
 		std::unique_ptr<Message> message = std::move(msg);
 
 		Object *receiver = message->receiver_;
@@ -631,20 +635,6 @@ void Thread::dispatchMessages(Message::Type type)
 		receiver->message(message.get());
 		message.reset();
 		locker.lock();
-	}
-
-	/*
-	 * If the recursion level is 0, erase all null messages in the list. We
-	 * can't do so during recursion, as it would invalidate the iterator of
-	 * the outer calls.
-	 */
-	if (!--data_->messages_.recursion_) {
-		for (auto iter = messages.begin(); iter != messages.end(); ) {
-			if (!*iter)
-				iter = messages.erase(iter);
-			else
-				++iter;
-		}
 	}
 }
 
