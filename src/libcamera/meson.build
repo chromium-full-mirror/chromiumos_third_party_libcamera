@@ -74,6 +74,7 @@ libthreads = dependency('threads')
 subdir('base')
 subdir('converter')
 subdir('ipa')
+subdir('perfetto')
 subdir('pipeline')
 subdir('proxy')
 
@@ -106,11 +107,19 @@ else
     summary({'IPA modules signed with' : libcrypto.name()}, section : 'Configuration')
 endif
 
-if liblttng.found()
+if libperfetto.found()
+    perfetto_enabled = true
+    tracing_enabled = false
+    config_h.set('HAVE_PERFETTO', 1)
+    libcamera_sources += perfetto_sources
+    libcamera_sources += files(['tracepoints.cpp'])
+elif liblttng.found()
+    perfetto_enabled = false
     tracing_enabled = true
-    config_h.set('HAVE_TRACING', 1)
+    config_h.set('HAVE_LTTNG', 1)
     libcamera_sources += files(['tracepoints.cpp'])
 else
+    perfetto_enabled = false
     tracing_enabled = false
 endif
 
@@ -171,6 +180,7 @@ libcamera_deps += [
     libcrypto,
     libdl,
     liblttng,
+    libperfetto,
     libudev,
     libyaml,
 ]

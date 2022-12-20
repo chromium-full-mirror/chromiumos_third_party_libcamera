@@ -5,6 +5,8 @@
  * camera3_hal.cpp - cros-specific components of Android Camera HALv3 module
  */
 
+#include "libcamera/internal/tracepoints.h"
+
 #include <cros-camera/cros_camera_hal.h>
 
 #include "../camera_hal_manager.h"
@@ -13,6 +15,11 @@
 static void set_up(cros::CameraMojoChannelManagerToken *token)
 {
 	gCrosMojoToken = token;
+
+	perfetto::TracingInitArgs args;
+	args.backends |= perfetto::kSystemBackend;
+	perfetto::Tracing::Initialize(args);
+	perfetto::TrackEvent::Register();
 }
 
 static void tear_down()

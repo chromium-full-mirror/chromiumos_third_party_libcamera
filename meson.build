@@ -210,7 +210,11 @@ libcamera_includes = include_directories(
 py_modules = []
 
 # Libraries used by multiple components
-liblttng = dependency('lttng-ust', required : get_option('tracing'))
+libperfetto = dependency('perfetto', required : get_option('tracing').enabled()
+    and get_option('android').enabled()
+    and get_option('android_platform') == 'cros')
+liblttng = cc.find_library('lttng-ust', required : get_option('tracing').enabled()
+    and not libperfetto.found())
 
 # Pipeline handlers
 #
@@ -291,6 +295,7 @@ py_mod.find_installation('python3', modules : py_modules)
 summary({
             'Enabled pipelines': pipelines,
             'Enabled IPA modules': enabled_ipa_names,
+            'Perfetto support': perfetto_enabled,
             'Hotplug support': libudev.found(),
             'Tracing support': tracing_enabled,
             'Android support': android_enabled,
