@@ -54,6 +54,10 @@ public:
 	MediaLink *link(const MediaPad *source, const MediaPad *sink);
 	int disableLinks();
 
+	int allocateRequests(unsigned int count, std::vector<UniqueFD> &requests);
+	int queueRequest(int requestFd);
+	int reInitRequest(int requestFd);
+
 	Signal<> disconnected;
 
 protected:

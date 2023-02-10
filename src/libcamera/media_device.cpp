@@ -836,4 +836,38 @@ int MediaDevice::setupLink(const MediaLink *link, unsigned int flags)
 	return 0;
 }
 
+int MediaDevice::allocateRequests(unsigned int count, std::vector<UniqueFD> &requests)
+{
+	for (unsigned int i = 0; i < count; i++) {
+		int fd;
+		int ret = ioctl(fd_.get(), MEDIA_IOC_REQUEST_ALLOC, &fd);
+		if (ret) {
+			LOG(MediaDevice, Error) << "Allocate request failed "
+						<< strerror(-ret);
+			return -EBUSY;
+		}
+		requests.emplace_back(fd);
+	}
+
+	return 0;
+}
+
+int MediaDevice::queueRequest(int requestFd) {
+	int ret = ioctl(requestFd, MEDIA_REQUEST_IOC_QUEUE, NULL);
+	if (ret)
+	LOG(MediaDevice, Error) << "QueueRequest fd" << requestFd
+				<< "failed: " << strerror(-ret);
+	return ret;
+}
+
+int MediaDevice::reInitRequest(int requestFd) {
+	int ret = ::ioctl(requestFd, MEDIA_REQUEST_IOC_REINIT, NULL);
+	if (ret) {
+	LOG(MediaDevice, Error) << "The request" << requestFd
+				<< " is queued but not yet completed: "
+				<< strerror(-ret);
+	}
+	return ret;
+}
+
 } /* namespace libcamera */
