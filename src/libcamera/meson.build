@@ -42,6 +42,7 @@ libcamera_sources = files([
     'source_paths.cpp',
     'stream.cpp',
     'sysfs.cpp',
+    'task_scheduler.cpp',
     'transform.cpp',
     'v4l2_device.cpp',
     'v4l2_pixelformat.cpp',
