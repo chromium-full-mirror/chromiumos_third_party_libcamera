@@ -747,10 +747,32 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_QC10C    v4l2_fourcc('Q', '1', '0', 'C') /* Qualcomm 10-bit compressed */
 
 /* 10bit raw packed, 32 bytes for every 25 pixels, last LSB 6 bits unused */
-#define V4L2_PIX_FMT_IPU3_SBGGR10	v4l2_fourcc('i', 'p', '3', 'b') /* IPU3 packed 10-bit BGGR bayer */
-#define V4L2_PIX_FMT_IPU3_SGBRG10	v4l2_fourcc('i', 'p', '3', 'g') /* IPU3 packed 10-bit GBRG bayer */
-#define V4L2_PIX_FMT_IPU3_SGRBG10	v4l2_fourcc('i', 'p', '3', 'G') /* IPU3 packed 10-bit GRBG bayer */
-#define V4L2_PIX_FMT_IPU3_SRGGB10	v4l2_fourcc('i', 'p', '3', 'r') /* IPU3 packed 10-bit RGGB bayer */
+#define V4L2_PIX_FMT_IPU3_SBGGR10  v4l2_fourcc('i', 'p', '3', 'b') /* IPU3 packed 10-bit BGGR bayer */
+#define V4L2_PIX_FMT_IPU3_SGBRG10  v4l2_fourcc('i', 'p', '3', 'g') /* IPU3 packed 10-bit GBRG bayer */
+#define V4L2_PIX_FMT_IPU3_SGRBG10  v4l2_fourcc('i', 'p', '3', 'G') /* IPU3 packed 10-bit GRBG bayer */
+#define V4L2_PIX_FMT_IPU3_SRGGB10  v4l2_fourcc('i', 'p', '3', 'r') /* IPU3 packed 10-bit RGGB bayer */
+
+#define V4L2_PIX_FMT_MTISP_SBGGR10   v4l2_fourcc('M', 'B', 'B', 'A')
+#define V4L2_PIX_FMT_MTISP_SGBRG10   v4l2_fourcc('M', 'B', 'G', 'A')
+#define V4L2_PIX_FMT_MTISP_SGRBG10   v4l2_fourcc('M', 'B', 'g', 'A')
+#define V4L2_PIX_FMT_MTISP_SRGGB10   v4l2_fourcc('M', 'B', 'R', 'A')
+
+#define V4L2_PIX_FMT_MTISP_NV12_10P  v4l2_fourcc('1', '2', 'A', 'P') /* Y/CbCr 4:2:0 10 bits packed */
+#define V4L2_PIX_FMT_MTISP_NV12_12P  v4l2_fourcc('1', '2', 'C', 'P') /* Y/CbCr 4:2:0 12 bits packed */
+
+#define V4L2_META_FMT_MTISP_PARAMS   v4l2_fourcc('M', 'T', 'f', 'p')
+#define V4L2_META_FMT_MTISP_3A       v4l2_fourcc('M', 'T', 'f', 'a')
+#define V4L2_META_FMT_MTISP_AF       v4l2_fourcc('M', 'T', 'f', 'f')
+
+#define V4L2_META_FMT_MTISP_DESC     v4l2_fourcc('M', 'T', 'f', 'd')
+#define V4L2_META_FMT_MTISP_SD       v4l2_fourcc('M', 'T', 'f', 's')
+#define V4L2_META_FMT_MTISP_DESCNORM v4l2_fourcc('M', 'T', 'f', 'r')
+#define V4L2_META_FMT_MTISP_SDNORM   v4l2_fourcc('M', 'T', 's', 'r')
+
+#define V4L2_PIX_FMT_WARP2P          v4l2_fourcc('M', 'W', '2', 'P')
+#define V4L2_PIX_FMT_MTISP_Y8        v4l2_fourcc('M', 'T', '0', '8')
+#define V4L2_PIX_FMT_MTISP_Y16       v4l2_fourcc('M', 'T', '1', '6')
+#define V4L2_PIX_FMT_MTISP_Y32       v4l2_fourcc('M', 'T', '3', '2')
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */

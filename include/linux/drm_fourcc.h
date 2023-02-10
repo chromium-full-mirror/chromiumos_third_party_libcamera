@@ -424,6 +424,32 @@ extern "C" {
 #define DRM_FORMAT_SGBRG16	fourcc_code('G', 'B', '1', '6')
 #define DRM_FORMAT_SBGGR16	fourcc_code('B', 'Y', 'R', '2')
 
+/* MTK extention */
+
+#define DRM_FORMAT_MTISP_SBGGR10	fourcc_code('M', 'B', 'B', 'A')
+#define DRM_FORMAT_MTISP_SGBRG10	fourcc_code('M', 'B', 'G', 'A')
+#define DRM_FORMAT_MTISP_SGRBG10	fourcc_code('M', 'B', 'g', 'A')
+#define DRM_FORMAT_MTISP_SRGGB10	fourcc_code('M', 'B', 'R', 'A')
+
+#define DRM_FORMAT_MTISP_NV12_10P	fourcc_code('1', '2', 'A', 'P')
+#define DRM_FORMAT_MTISP_NV12_12P	fourcc_code('1', '2', 'C', 'P')
+
+#define DRM_FORMAT_GREY			fourcc_code('G', 'R', 'E', 'Y')
+
+#define DRM_FORMAT_MTISP_PARAMS		fourcc_code('M', 'T', 'f', 'p')
+#define DRM_FORMAT_MTISP_3A		fourcc_code('M', 'T', 'f', 'a')
+#define DRM_FORMAT_MTISP_AF		fourcc_code('M', 'T', 'f', 'f')
+
+#define DRM_FORMAT_MTISP_DESC		fourcc_code('M', 'T', 'f', 'd')
+#define DRM_FORMAT_MTISP_SD		fourcc_code('M', 'T', 'f', 's')
+#define DRM_FORMAT_MTISP_DESC_NORM	fourcc_code('M', 'T', 'f', 'r')
+#define DRM_FORMAT_MTISP_SDNORM		fourcc_code('M', 'T', 's', 'r')
+
+#define DRM_FORMAT_MTISP_WARP2P		fourcc_code('M', 'W', '2', 'P')
+#define DRM_FORMAT_MTISP_Y8		fourcc_code('M', 'T', '0', '8')
+#define DRM_FORMAT_MTISP_Y16		fourcc_code('M', 'T', '1', '6')
+#define DRM_FORMAT_MTISP_Y32		fourcc_code('M', 'T', '3', '2')
+
 /*
  * Format Modifiers:
  *
