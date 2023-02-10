@@ -29,7 +29,5 @@ private:
 	libcamera::Size sourceSize_;
 	libcamera::Size destinationSize_;
 	unsigned int sourceLength_[2] = {};
-	unsigned int destinationLength_[2] = {};
 	unsigned int sourceStride_[2] = {};
-	unsigned int destinationStride_[2] = {};
 };
