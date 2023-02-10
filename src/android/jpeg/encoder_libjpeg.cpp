@@ -99,6 +99,8 @@ int EncoderLibJpeg::configure(const StreamConfiguration &cfg)
 
 	pixelFormatInfo_ = &info.pixelFormatInfo;
 
+	stride_ = cfg.stride;
+
 	nv_ = pixelFormatInfo_->numPlanes() == 2;
 	nvSwap_ = info.nvSwap;
 
@@ -108,13 +110,10 @@ int EncoderLibJpeg::configure(const StreamConfiguration &cfg)
 void EncoderLibJpeg::compressRGB(const std::vector<Span<uint8_t>> &planes)
 {
 	unsigned char *src = const_cast<unsigned char *>(planes[0].data());
-	/* \todo Stride information should come from buffer configuration. */
-	unsigned int stride = pixelFormatInfo_->stride(compress_.image_width, 0);
-
 	JSAMPROW row_pointer[1];
 
 	while (compress_.next_scanline < compress_.image_height) {
-		row_pointer[0] = &src[compress_.next_scanline * stride];
+		row_pointer[0] = &src[compress_.next_scanline * stride_];
 		jpeg_write_scanlines(&compress_, row_pointer, 1);
 	}
 }
@@ -135,13 +134,9 @@ void EncoderLibJpeg::compressNV(const std::vector<Span<uint8_t>> &planes)
 	 * Possible hints at:
 	 * https://sourceforge.net/p/libjpeg/mailman/message/30815123/
 	 */
-	unsigned int y_stride = pixelFormatInfo_->stride(compress_.image_width, 0);
-	unsigned int c_stride = pixelFormatInfo_->stride(compress_.image_width, 1);
+	unsigned int y_stride = stride_;
+	unsigned int c_stride = stride_;
 
-	unsigned int horzSubSample = 2 * compress_.image_width / c_stride;
-	unsigned int vertSubSample = pixelFormatInfo_->planes[1].verticalSubSampling;
-
-	unsigned int c_inc = horzSubSample == 1 ? 2 : 0;
 	unsigned int cb_pos = nvSwap_ ? 1 : 0;
 	unsigned int cr_pos = nvSwap_ ? 0 : 1;
 
@@ -155,16 +150,14 @@ void EncoderLibJpeg::compressNV(const std::vector<Span<uint8_t>> &planes)
 		unsigned char *dst = &tmprowbuf[0];
 
 		const unsigned char *src_y = src + y * y_stride;
-		const unsigned char *src_cb = src_c + (y / vertSubSample) * c_stride + cb_pos;
-		const unsigned char *src_cr = src_c + (y / vertSubSample) * c_stride + cr_pos;
+		const unsigned char *src_cb = src_c + (y / 2) * c_stride + cb_pos;
+		const unsigned char *src_cr = src_c + (y / 2) * c_stride + cr_pos;
 
 		for (unsigned int x = 0; x < compress_.image_width; x += 2) {
 			dst[0] = *src_y;
 			dst[1] = *src_cb;
 			dst[2] = *src_cr;
 			src_y++;
-			src_cb += c_inc;
-			src_cr += c_inc;
 			dst += 3;
 
 			dst[0] = *src_y;

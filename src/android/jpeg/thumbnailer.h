@@ -9,6 +9,7 @@
 
 #include <libcamera/framebuffer.h>
 #include <libcamera/geometry.h>
+#include <libcamera/stream.h>
 
 #include "libcamera/internal/formats.h"
 
@@ -17,7 +18,7 @@ class Thumbnailer
 public:
 	Thumbnailer();
 
-	void configure(const libcamera::Size &sourceSize,
+	void configure(const libcamera::StreamConfiguration &cfg,
 		       libcamera::PixelFormat pixelFormat);
 	void createThumbnail(const libcamera::FrameBuffer &source,
 			     const libcamera::Size &targetSize,
@@ -27,6 +28,7 @@ public:
 private:
 	libcamera::PixelFormat pixelFormat_;
 	libcamera::Size sourceSize_;
+	uint32_t stride_;
 
 	bool valid_;
 };

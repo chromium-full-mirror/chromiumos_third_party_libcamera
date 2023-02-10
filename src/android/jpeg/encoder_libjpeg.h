@@ -39,6 +39,8 @@ private:
 
 	const libcamera::PixelFormatInfo *pixelFormatInfo_;
 
+	uint32_t stride_;
+
 	bool nv_;
 	bool nvSwap_;
 };

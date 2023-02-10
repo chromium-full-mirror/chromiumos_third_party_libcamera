@@ -22,10 +22,11 @@ Thumbnailer::Thumbnailer()
 {
 }
 
-void Thumbnailer::configure(const Size &sourceSize, PixelFormat pixelFormat)
+void Thumbnailer::configure(const libcamera::StreamConfiguration &cfg, PixelFormat pixelFormat)
 {
-	sourceSize_ = sourceSize;
+	sourceSize_ = cfg.size;
 	pixelFormat_ = pixelFormat;
+	stride_ = cfg.stride;
 
 	if (pixelFormat_ != formats::NV12) {
 		LOG(Thumbnailer, Error)
@@ -54,6 +55,7 @@ void Thumbnailer::createThumbnail(const FrameBuffer &source,
 		return;
 	}
 
+	const unsigned int stride = stride_;
 	const unsigned int sw = sourceSize_.width;
 	const unsigned int sh = sourceSize_.height;
 	const unsigned int tw = targetSize.width;
@@ -77,9 +79,9 @@ void Thumbnailer::createThumbnail(const FrameBuffer &source,
 		unsigned int sourceY = (sh * y + th / 2) / th;
 
 		dstY = dst + y * tw;
-		srcY = src + sw * sourceY;
-		srcCb = srcC + (sourceY / 2) * sw + 0;
-		srcCr = srcC + (sourceY / 2) * sw + 1;
+		srcY = src + stride * sourceY;
+		srcCb = srcC + (sourceY / 2) * stride + 0;
+		srcCr = srcC + (sourceY / 2) * stride + 1;
 
 		for (unsigned int x = 0; x < tw; x += 2) {
 			unsigned int sourceX = (sw * x + tw / 2) / tw;
