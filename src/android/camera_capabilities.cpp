@@ -45,7 +45,8 @@ const std::vector<Size> camera3Resolutions = {
 	{ 1280, 720 },
 	{ 1280, 960 },
 	{ 1600, 1200 },
-	{ 1920, 1080 }
+	{ 1920, 1080 },
+	{ 2560, 1440 },
 };
 
 /*
@@ -629,18 +630,6 @@ int CameraCapabilities::initializeStreamConfigurations()
 		}
 
 		for (const Size &res : resolutions) {
-			/*
-			 * Configure the Camera with the collected format and
-			 * resolution to get an updated list of controls.
-			 *
-			 * \todo Avoid the need to configure the camera when
-			 * redesigning the configuration API.
-			 */
-			cfg.size = res;
-			int ret = camera_->configure(cameraConfig.get());
-			if (ret)
-				return ret;
-
 			const ControlInfoMap &controls = camera_->controls();
 			const auto frameDurations = controls.find(
 				&controls::FrameDurationLimits);
@@ -751,25 +740,6 @@ int CameraCapabilities::initializeStaticMetadata()
 		LOG(HAL, Error) << "Failed to allocate static metadata";
 		staticMetadata_.reset();
 		return -EINVAL;
-	}
-
-	/*
-	 * Generate and apply a new configuration for the Viewfinder role to
-	 * collect control limits and properties from a known state.
-	 */
-	std::unique_ptr<CameraConfiguration> cameraConfig =
-		camera_->generateConfiguration({ StreamRole::Viewfinder });
-	if (!cameraConfig) {
-		LOG(HAL, Error) << "Failed to generate camera configuration";
-		staticMetadata_.reset();
-		return -ENODEV;
-	}
-
-	int ret = camera_->configure(cameraConfig.get());
-	if (ret) {
-		LOG(HAL, Error) << "Failed to initialize the camera state";
-		staticMetadata_.reset();
-		return ret;
 	}
 
 	const ControlInfoMap &controlsInfo = camera_->controls();
