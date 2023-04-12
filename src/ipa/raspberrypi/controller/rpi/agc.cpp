@@ -31,17 +31,12 @@ LOG_DEFINE_CATEGORY(RPiAgc)
 int AgcMeteringMode::read(const libcamera::YamlObject &params)
 {
 	const YamlObject &yamlWeights = params["weights"];
-	if (yamlWeights.size() != AgcStatsSize) {
-		LOG(RPiAgc, Error) << "AgcMeteringMode: Incorrect number of weights";
-		return -EINVAL;
-	}
 
-	unsigned int num = 0;
 	for (const auto &p : yamlWeights.asList()) {
 		auto value = p.get<double>();
 		if (!value)
 			return -EINVAL;
-		weights[num++] = *value;
+		weights.push_back(*value);
 	}
 
 	return 0;
@@ -223,8 +218,7 @@ Agc::Agc(Controller *controller)
 	: AgcAlgorithm(controller), meteringMode_(nullptr),
 	  exposureMode_(nullptr), constraintMode_(nullptr),
 	  frameCount_(0), lockCount_(0),
-	  lastTargetExposure_(0s), lastSensitivity_(0.0),
-	  ev_(1.0), flickerPeriod_(0s),
+	  lastTargetExposure_(0s), ev_(1.0), flickerPeriod_(0s),
 	  maxShutter_(0s), fixedShutter_(0s), fixedAnalogueGain_(0.0)
 {
 	memset(&awb_, 0, sizeof(awb_));
@@ -248,6 +242,14 @@ int Agc::read(const libcamera::YamlObject &params)
 	int ret = config_.read(params);
 	if (ret)
 		return ret;
+
+	const Size &size = getHardwareConfig().agcZoneWeights;
+	for (auto const &modes : config_.meteringModes) {
+		if (modes.second.weights.size() != size.width * size.height) {
+			LOG(RPiAgc, Error) << "AgcMeteringMode: Incorrect number of weights";
+			return -EINVAL;
+		}
+	}
 
 	/*
 	 * Set the config's defaults (which are the first ones it read) as our
@@ -309,14 +311,14 @@ void Agc::setFixedShutter(Duration fixedShutter)
 {
 	fixedShutter_ = fixedShutter;
 	/* Set this in case someone calls disableAuto() straight after. */
-	status_.shutterTime = clipShutter(fixedShutter_);
+	status_.shutterTime = limitShutter(fixedShutter_);
 }
 
 void Agc::setFixedAnalogueGain(double fixedAnalogueGain)
 {
 	fixedAnalogueGain_ = fixedAnalogueGain;
 	/* Set this in case someone calls disableAuto() straight after. */
-	status_.analogueGain = fixedAnalogueGain;
+	status_.analogueGain = limitGain(fixedAnalogueGain);
 }
 
 void Agc::setMeteringMode(std::string const &meteringModeName)
@@ -342,7 +344,14 @@ void Agc::switchMode(CameraMode const &cameraMode,
 
 	housekeepConfig();
 
-	Duration fixedShutter = clipShutter(fixedShutter_);
+	/*
+	 * Store the mode in the local state. We must cache the sensitivity of
+	 * of the previous mode for the calculations below.
+	 */
+	double lastSensitivity = mode_.sensitivity;
+	mode_ = cameraMode;
+
+	Duration fixedShutter = limitShutter(fixedShutter_);
 	if (fixedShutter && fixedAnalogueGain_) {
 		/* We're going to reset the algorithm here with these fixed values. */
 
@@ -371,7 +380,7 @@ void Agc::switchMode(CameraMode const &cameraMode,
 		 * current exposure profile, which takes care of everything else.
 		 */
 
-		double ratio = lastSensitivity_ / cameraMode.sensitivity;
+		double ratio = lastSensitivity / cameraMode.sensitivity;
 		target_.totalExposureNoDG *= ratio;
 		target_.totalExposure *= ratio;
 		filtered_.totalExposureNoDG *= ratio;
@@ -392,9 +401,6 @@ void Agc::switchMode(CameraMode const &cameraMode,
 	}
 
 	writeAndFinish(metadata, false);
-
-	/* We must remember the sensitivity of this mode for the next SwitchMode. */
-	lastSensitivity_ = cameraMode.sensitivity;
 }
 
 void Agc::prepare(Metadata *imageMetadata)
@@ -516,7 +522,7 @@ void Agc::housekeepConfig()
 {
 	/* First fetch all the up-to-date settings, so no one else has to do it. */
 	status_.ev = ev_;
-	status_.fixedShutter = clipShutter(fixedShutter_);
+	status_.fixedShutter = limitShutter(fixedShutter_);
 	status_.fixedAnalogueGain = fixedAnalogueGain_;
 	status_.flickerPeriod = flickerPeriod_;
 	LOG(RPiAgc, Debug) << "ev " << status_.ev << " fixedShutter "
@@ -582,9 +588,12 @@ void Agc::fetchAwbStatus(Metadata *imageMetadata)
 }
 
 static double computeInitialY(StatisticsPtr &stats, AwbStatus const &awb,
-			      double weights[], double gain)
+			      std::vector<double> &weights, double gain)
 {
 	constexpr uint64_t maxVal = 1 << Statistics::NormalisationFactorPow2;
+
+	ASSERT(weights.size() == stats->agcRegions.numRegions());
+
 	/*
 	 * Note how the calculation below means that equal weights give you
 	 * "average" metering (i.e. all pixels equally important).
@@ -703,7 +712,7 @@ void Agc::computeTargetExposure(double gain)
 		Duration maxShutter = status_.fixedShutter
 					      ? status_.fixedShutter
 					      : exposureMode_->shutter.back();
-		maxShutter = clipShutter(maxShutter);
+		maxShutter = limitShutter(maxShutter);
 		Duration maxTotalExposure =
 			maxShutter *
 			(status_.fixedAnalogueGain != 0.0
@@ -803,15 +812,16 @@ void Agc::divideUpExposure()
 	double analogueGain;
 	shutterTime = status_.fixedShutter ? status_.fixedShutter
 					   : exposureMode_->shutter[0];
-	shutterTime = clipShutter(shutterTime);
+	shutterTime = limitShutter(shutterTime);
 	analogueGain = status_.fixedAnalogueGain != 0.0 ? status_.fixedAnalogueGain
 							: exposureMode_->gain[0];
+	analogueGain = limitGain(analogueGain);
 	if (shutterTime * analogueGain < exposureValue) {
 		for (unsigned int stage = 1;
 		     stage < exposureMode_->gain.size(); stage++) {
 			if (!status_.fixedShutter) {
 				Duration stageShutter =
-					clipShutter(exposureMode_->shutter[stage]);
+					limitShutter(exposureMode_->shutter[stage]);
 				if (stageShutter * analogueGain >= exposureValue) {
 					shutterTime = exposureValue / analogueGain;
 					break;
@@ -824,6 +834,7 @@ void Agc::divideUpExposure()
 					break;
 				}
 				analogueGain = exposureMode_->gain[stage];
+				analogueGain = limitGain(analogueGain);
 			}
 		}
 	}
@@ -846,6 +857,7 @@ void Agc::divideUpExposure()
 			 * gain as a side-effect.
 			 */
 			analogueGain = std::min(analogueGain, exposureMode_->gain.back());
+			analogueGain = limitGain(analogueGain);
 			shutterTime = newShutterTime;
 		}
 		LOG(RPiAgc, Debug) << "After flicker avoidance, shutter "
@@ -872,11 +884,34 @@ void Agc::writeAndFinish(Metadata *imageMetadata, bool desaturate)
 			   << " analogue gain " << filtered_.analogueGain;
 }
 
-Duration Agc::clipShutter(Duration shutter)
+Duration Agc::limitShutter(Duration shutter)
 {
-	if (maxShutter_)
-		shutter = std::min(shutter, maxShutter_);
+	/*
+	 * shutter == 0 is a special case for fixed shutter values, and must pass
+	 * through unchanged
+	 */
+	if (!shutter)
+		return shutter;
+
+	shutter = std::clamp(shutter, mode_.minShutter, maxShutter_);
 	return shutter;
+}
+
+double Agc::limitGain(double gain) const
+{
+	/*
+	 * Only limit the lower bounds of the gain value to what the sensor limits.
+	 * The upper bound on analogue gain will be made up with additional digital
+	 * gain applied by the ISP.
+	 *
+	 * gain == 0.0 is a special case for fixed shutter values, and must pass
+	 * through unchanged
+	 */
+	if (!gain)
+		return gain;
+
+	gain = std::max(gain, mode_.minAnalogueGain);
+	return gain;
 }
 
 /* Register algorithm with the system. */
