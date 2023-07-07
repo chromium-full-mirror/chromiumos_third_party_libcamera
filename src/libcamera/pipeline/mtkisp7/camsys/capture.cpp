@@ -17,7 +17,7 @@
 
 #include <libcamera/internal/info_frame.h>
 
-#include "linux/mtkisp7/mtk_cam-meta-mt8188.h"
+#include "mt8188/mtk_cam_metabuf.h"
 
 #include "camsys.h"
 

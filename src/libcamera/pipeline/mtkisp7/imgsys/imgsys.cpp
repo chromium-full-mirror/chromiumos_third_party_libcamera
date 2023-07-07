@@ -19,7 +19,7 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pools.h"
 
-#include "linux/mtkisp7/mtk_imgsys.h"
+#include "kernel-headers/mtk_imgsys.h"
 #include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/ImgPortDef.h"

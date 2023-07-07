@@ -17,7 +17,7 @@
 #ifndef INCLUDE_MTKCAM_CORE_HW_IMGSTREAM_IIMGSTREAMDEF_H_
 #define INCLUDE_MTKCAM_CORE_HW_IMGSTREAM_IIMGSTREAMDEF_H_
 
-#include "BuiltinTypes.h"
+#include "mtkcam-halif/def/BuiltinTypes.h"
 #include "eightcc.h"
 
 #include <cstdint>

@@ -20,12 +20,12 @@
 #include <cstddef>
 #include <stdint.h>
 
-#include "UITypes.h"
-#include "BuiltinTypes.h"
+#include "mtkcam-halif/def/UITypes.h"
+#include "mtkcam-halif/def/BuiltinTypes.h"
 #include "eightcc.h"
 #include "IImgStreamDef.h"
 #include "ImgPortDef.h"
-#include "ImageFormat.h"
+#include "mtkcam-interfaces/def/ImageFormat.h"
 
 #include "linux/mtkisp7/drv/7.1/hw_definition.h"
 #include "linux/mtkisp7/drv/7.1/common.h"
@@ -171,8 +171,8 @@ public:
  public:
   /**
    * Obtain image format of image buffer.
-   *  @return The image format in `EImageFormat`.
-   *  @see enum NSCam::EImageFormat.
+   *  @return The image format in `Emtkcam-interfaces/def/ImageFormat`.
+   *  @see enum NSCam::Emtkcam-interfaces/def/ImageFormat.
    */
   MINT getImgFormat() const;
 

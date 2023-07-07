@@ -185,12 +185,21 @@ add_project_arguments(c_arguments, language : 'c')
 add_project_arguments(cpp_arguments, language : 'cpp')
 add_project_link_arguments(cpp_arguments, language : 'cpp')
 
+# TODO(chenghaoyang): Remove detailed paths after cleaning up header files.
 libcamera_includes = include_directories(
     'include',
+    'include/linux/mtkisp7',
     'include/platform/mtkisp7',
-    'include/platform/mtkisp7/mtkcam-core/libcamera/mt8188/include'
+    'include/platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc',
+    'include/platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/aaa',
+    'include/platform/mtkisp7/mtkcam-core/aaa',
+    'include/platform/mtkisp7/mtkcam-core/aaa/aaahal/include',
+    'include/platform/mtkisp7/mtkcam-core/aaa/aaahal/include/mt8188',
+    'include/platform/mtkisp7/mtkcam-core/libcamera/mt8188/include',
+    'include/platform/mtkisp7/mtkcam-core/include',
+    'include/platform/mtkisp7/mtkcam-interfaces/mtkcam-halif/include',
+    'include/platform/mtkisp7/mtkcam-interfaces/include',
 )
-
 
 # Sub-directories fill py_modules with their dependencies.
 py_modules = []

@@ -17,8 +17,8 @@
 
 #include <libcamera/internal/formats.h>
 
-#include "linux/mtkisp7/mtk_header_desc.h"
-#include "platform/mtkisp7/ImageFormat.h"
+#include "kernel-headers/mtk_header_desc.h"
+#include "mtkcam-halif/def/ImageFormat.h"
 #include "platform/mtkisp7/ImgPortDef.h"
 
 using namespace NSCam;

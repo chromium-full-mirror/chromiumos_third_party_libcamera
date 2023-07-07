@@ -22,17 +22,17 @@
 
 #define IMGSYS_VER_ISP71
 
+#include "kernel-headers/mtk_cam-meta-mt8188.h"
+#include "kernel-headers/mtk_header_desc.h"
+#include "kernel-headers/mtk_imgsys-vnode_id.h"
+#include "kernel-headers/mtk_imgsys.h"
 #include "linux/mtkisp7/camsys/camsys_videodev2.h"
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
-#include "linux/mtkisp7/mtk_cam-meta-mt8188.h"
-#include "linux/mtkisp7/mtk_header_desc.h"
-#include "linux/mtkisp7/mtk_imgsys-vnode_id.h"
-#include "linux/mtkisp7/mtk_imgsys.h"
+#include "mtkcam-halif/def/ImageFormat.h"
+#include "mtkcam-halif/def/UITypes.h"
 #include "platform/mtkisp7/IImgStreamDef.h"
-#include "platform/mtkisp7/ImageFormat.h"
 #include "platform/mtkisp7/ImgPortDef.h"
 #include "platform/mtkisp7/Tuning_Helper.h"
-#include "platform/mtkisp7/UITypes.h"
 #include "platform/mtkisp7/eightcc.h"
 #include "platform/mtkisp7/single_device_helper.h"
 

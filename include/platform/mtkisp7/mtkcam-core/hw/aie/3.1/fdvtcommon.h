@@ -17,7 +17,7 @@
 #ifndef HW_AIE_3_1_FDVTCOMMON_H_
 #define HW_AIE_3_1_FDVTCOMMON_H_
 
-#include "platform/mtkisp7/BuiltinTypes.h"
+#include "mtkcam-halif/def/BuiltinTypes.h"
 
 #define DRV_TRACE_NAME_LENGTH 32
 #define DRV_TRACE_CALL()

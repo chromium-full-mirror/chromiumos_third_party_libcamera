@@ -10,8 +10,7 @@
 #include <memory>
 
 #include "mtkcam-core/feature/common/faceeffect/FaceDetection/FD_Tuning/TuningPara.h"
-
-#include "BuiltinTypes.h"
+#include "mtkcam-halif/def/BuiltinTypes.h"
 
 namespace libcamera {
 

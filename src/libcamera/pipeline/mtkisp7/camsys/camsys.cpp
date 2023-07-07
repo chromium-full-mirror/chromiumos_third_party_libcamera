@@ -14,7 +14,7 @@
 #include "libcamera/internal/camera_sensor_properties.h"
 #include "libcamera/internal/media_device.h"
 
-#include "linux/mtkisp7/imgsensor-user.h"
+#include "kernel-headers/imgsensor-user.h"
 #include "linux/v4l2-controls.h"
 
 namespace libcamera {
