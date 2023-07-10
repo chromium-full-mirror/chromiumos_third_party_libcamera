@@ -12,6 +12,7 @@
 #include <libcamera/base/log.h>
 #include <libcamera/base/span.h>
 #include <libcamera/control_ids.h>
+#include <libcamera/property_ids.h>
 
 #include "controller/af_algorithm.h"
 #include "controller/af_status.h"
@@ -60,17 +61,20 @@ const ControlInfoMap::Map ipaControls{
 	{ &controls::AeConstraintMode, ControlInfo(controls::AeConstraintModeValues) },
 	{ &controls::AeExposureMode, ControlInfo(controls::AeExposureModeValues) },
 	{ &controls::ExposureValue, ControlInfo(-8.0f, 8.0f, 0.0f) },
-	{ &controls::AwbEnable, ControlInfo(false, true) },
-	{ &controls::ColourGains, ControlInfo(0.0f, 32.0f) },
-	{ &controls::AwbMode, ControlInfo(controls::AwbModeValues) },
 	{ &controls::Brightness, ControlInfo(-1.0f, 1.0f, 0.0f) },
 	{ &controls::Contrast, ControlInfo(0.0f, 32.0f, 1.0f) },
-	{ &controls::Saturation, ControlInfo(0.0f, 32.0f, 1.0f) },
 	{ &controls::Sharpness, ControlInfo(0.0f, 16.0f, 1.0f) },
-	{ &controls::ColourCorrectionMatrix, ControlInfo(-16.0f, 16.0f) },
 	{ &controls::ScalerCrop, ControlInfo(Rectangle{}, Rectangle(65535, 65535, 65535, 65535), Rectangle{}) },
 	{ &controls::FrameDurationLimits, ControlInfo(INT64_C(33333), INT64_C(120000)) },
 	{ &controls::draft::NoiseReductionMode, ControlInfo(controls::draft::NoiseReductionModeValues) }
+};
+
+/* IPA controls handled conditionally, if the sensor is not mono */
+const ControlInfoMap::Map ipaColourControls{
+	{ &controls::AwbEnable, ControlInfo(false, true) },
+	{ &controls::AwbMode, ControlInfo(controls::AwbModeValues) },
+	{ &controls::ColourGains, ControlInfo(0.0f, 32.0f) },
+	{ &controls::Saturation, ControlInfo(0.0f, 32.0f, 1.0f) },
 };
 
 /* IPA controls handled conditionally, if the lens has a focus control */
@@ -146,6 +150,11 @@ int32_t IpaBase::init(const IPASettings &settings, const InitParams &params, Ini
 	ControlInfoMap::Map ctrlMap = ipaControls;
 	if (lensPresent_)
 		ctrlMap.merge(ControlInfoMap::Map(ipaAfControls));
+
+	monoSensor_ = params.sensorInfo.cfaPattern == properties::draft::ColorFilterArrangementEnum::MONO;
+	if (!monoSensor_)
+		ctrlMap.merge(ControlInfoMap::Map(ipaColourControls));
+
 	result->controlInfo = ControlInfoMap(std::move(ctrlMap), controls::controls);
 
 	return platformInit(params, result);
@@ -199,9 +208,29 @@ int32_t IpaBase::configure(const IPACameraSensorInfo &sensorInfo, const ConfigPa
 		agcStatus.shutterTime = defaultExposureTime;
 		agcStatus.analogueGain = defaultAnalogueGain;
 		applyAGC(&agcStatus, ctrls);
+
+		/*
+		 * Set the lens to the default (typically hyperfocal) position
+		 * on first start.
+		 */
+		if (lensPresent_) {
+			RPiController::AfAlgorithm *af =
+				dynamic_cast<RPiController::AfAlgorithm *>(controller_.getAlgorithm("af"));
+
+			if (af) {
+				float defaultPos =
+					ipaAfControls.at(&controls::LensPosition).def().get<float>();
+				ControlList lensCtrl(lensCtrls_);
+				int32_t hwpos;
+
+				af->setLensPosition(defaultPos, &hwpos);
+				lensCtrl.set(V4L2_CID_FOCUS_ABSOLUTE, hwpos);
+				result->lensControls = std::move(lensCtrl);
+			}
+		}
 	}
 
-	result->controls = std::move(ctrls);
+	result->sensorControls = std::move(ctrls);
 
 	/*
 	 * Apply the correct limits to the exposure, gain and frame duration controls
@@ -219,6 +248,10 @@ int32_t IpaBase::configure(const IPACameraSensorInfo &sensorInfo, const ConfigPa
 	ctrlMap[&controls::ExposureTime] =
 		ControlInfo(static_cast<int32_t>(mode_.minShutter.get<std::micro>()),
 			    static_cast<int32_t>(mode_.maxShutter.get<std::micro>()));
+
+	/* Declare colour processing related controls for non-mono sensors. */
+	if (!monoSensor_)
+		ctrlMap.merge(ControlInfoMap::Map(ipaColourControls));
 
 	/* Declare Autofocus controls, only if we have a controllable lens */
 	if (lensPresent_)
@@ -780,6 +813,10 @@ void IpaBase::applyControls(const ControlList &controls)
 		}
 
 		case controls::AWB_ENABLE: {
+			/* Silently ignore this control for a mono sensor. */
+			if (monoSensor_)
+				break;
+
 			RPiController::AwbAlgorithm *awb = dynamic_cast<RPiController::AwbAlgorithm *>(
 				controller_.getAlgorithm("awb"));
 			if (!awb) {
@@ -799,6 +836,10 @@ void IpaBase::applyControls(const ControlList &controls)
 		}
 
 		case controls::AWB_MODE: {
+			/* Silently ignore this control for a mono sensor. */
+			if (monoSensor_)
+				break;
+
 			RPiController::AwbAlgorithm *awb = dynamic_cast<RPiController::AwbAlgorithm *>(
 				controller_.getAlgorithm("awb"));
 			if (!awb) {
@@ -819,6 +860,10 @@ void IpaBase::applyControls(const ControlList &controls)
 		}
 
 		case controls::COLOUR_GAINS: {
+			/* Silently ignore this control for a mono sensor. */
+			if (monoSensor_)
+				break;
+
 			auto gains = ctrl.second.get<Span<const float>>();
 			RPiController::AwbAlgorithm *awb = dynamic_cast<RPiController::AwbAlgorithm *>(
 				controller_.getAlgorithm("awb"));
@@ -867,6 +912,10 @@ void IpaBase::applyControls(const ControlList &controls)
 		}
 
 		case controls::SATURATION: {
+			/* Silently ignore this control for a mono sensor. */
+			if (monoSensor_)
+				break;
+
 			RPiController::CcmAlgorithm *ccm = dynamic_cast<RPiController::CcmAlgorithm *>(
 				controller_.getAlgorithm("ccm"));
 			if (!ccm) {

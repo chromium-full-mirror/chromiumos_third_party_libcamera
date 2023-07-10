@@ -288,8 +288,8 @@ CameraConfiguration::Status RPiCameraConfiguration::validate()
 		unsigned int bitDepth = info.isValid() ? info.bitsPerPixel : defaultRawBitDepth;
 		V4L2SubdeviceFormat sensorFormat = findBestFormat(data_->sensorFormats_, cfg.size, bitDepth);
 
-		rawFormat.size = sensorFormat.size;
-		rawFormat.fourcc = raw.dev->toV4L2PixelFormat(cfg.pixelFormat);
+		BayerFormat::Packing packing = BayerFormat::fromPixelFormat(cfg.pixelFormat).packing;
+		rawFormat = PipelineHandlerBase::toV4L2DeviceFormat(raw.dev, sensorFormat, packing);
 
 		int ret = raw.dev->tryFormat(&rawFormat);
 		if (ret)
@@ -381,7 +381,7 @@ V4L2DeviceFormat PipelineHandlerBase::toV4L2DeviceFormat(const V4L2VideoDevice *
 }
 
 std::unique_ptr<CameraConfiguration>
-PipelineHandlerBase::generateConfiguration(Camera *camera, const StreamRoles &roles)
+PipelineHandlerBase::generateConfiguration(Camera *camera, Span<const StreamRole> roles)
 {
 	CameraData *data = cameraData(camera);
 	std::unique_ptr<CameraConfiguration> config =
@@ -888,15 +888,15 @@ int PipelineHandlerBase::registerCamera(std::unique_ptr<RPi::CameraData> &camera
 	}
 	data->nativeBayerOrder_ = bayerFormat.order;
 
+	ret = platformRegister(cameraData, frontend, backend);
+	if (ret)
+		return ret;
+
 	ret = data->loadPipelineConfiguration();
 	if (ret) {
 		LOG(RPI, Error) << "Unable to load pipeline configuration";
 		return ret;
 	}
-
-	ret = platformRegister(cameraData, frontend, backend);
-	if (ret)
-		return ret;
 
 	/* Setup the general IPA signal handlers. */
 	data->frontendDevice()->dequeueTimeout.connect(data, &RPi::CameraData::cameraTimeout);
@@ -1093,8 +1093,9 @@ int CameraData::loadPipelineConfiguration()
 	File file(filename);
 
 	if (!file.open(File::OpenModeFlag::ReadOnly)) {
-		LOG(RPI, Error) << "Failed to open configuration file '" << filename << "'";
-		return -EIO;
+		LOG(RPI, Warning) << "Failed to open configuration file '" << filename << "'"
+				  << ", using defaults";
+		return 0;
 	}
 
 	LOG(RPI, Info) << "Using configuration file '" << filename << "'";
@@ -1107,8 +1108,9 @@ int CameraData::loadPipelineConfiguration()
 
 	std::optional<double> ver = (*root)["version"].get<double>();
 	if (!ver || *ver != 1.0) {
-		LOG(RPI, Error) << "Unexpected configuration file version reported";
-		return -EINVAL;
+		LOG(RPI, Warning) << "Unexpected configuration file version reported: "
+				  << *ver;
+		return 0;
 	}
 
 	const YamlObject &phConfig = (*root)["pipeline_handler"];
@@ -1130,6 +1132,8 @@ int CameraData::loadPipelineConfiguration()
 
 int CameraData::loadIPA(ipa::RPi::InitResult *result)
 {
+	int ret;
+
 	ipa_ = IPAManager::createIPA<ipa::RPi::IPAProxyRPi>(pipe(), 1, 1);
 
 	if (!ipa_)
@@ -1153,8 +1157,14 @@ int CameraData::loadIPA(ipa::RPi::InitResult *result)
 	IPASettings settings(configurationFile, sensor_->model());
 	ipa::RPi::InitParams params;
 
+	ret = sensor_->sensorInfo(&params.sensorInfo);
+	if (ret) {
+		LOG(RPI, Error) << "Failed to retrieve camera sensor info";
+		return ret;
+	}
+
 	params.lensPresent = !!sensor_->focusLens();
-	int ret = platformInitIpa(params);
+	ret = platformInitIpa(params);
 	if (ret)
 		return ret;
 
@@ -1192,8 +1202,10 @@ int CameraData::configureIPA(const CameraConfiguration *config, ipa::RPi::Config
 		return -EPIPE;
 	}
 
-	if (!result->controls.empty())
-		setSensorControls(result->controls);
+	if (!result->sensorControls.empty())
+		setSensorControls(result->sensorControls);
+	if (!result->lensControls.empty())
+		setLensControls(result->lensControls);
 
 	return 0;
 }
