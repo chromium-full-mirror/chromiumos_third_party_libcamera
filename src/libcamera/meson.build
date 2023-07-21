@@ -66,6 +66,8 @@ libcamera_deps = []
 libatomic = cc.find_library('atomic', required : false)
 libthreads = dependency('threads')
 
+libcamera_deps = []
+
 subdir('base')
 subdir('converter')
 subdir('ipa')

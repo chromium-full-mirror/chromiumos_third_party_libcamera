@@ -27,6 +27,7 @@
 
 #include "camsys/camsys.h"
 #include "camsys/capture.h"
+#include "hal3a/hal_3a.h"
 #include "imgsys/imgsys.h"
 #include "imgsys/lpnr.h"
 #include "imgsys/mcnr.h"
@@ -108,11 +109,11 @@ class MtkISP7CameraData : public Camera::Private
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
 			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt,
-			  FaceDetector *faceDetector, DmaHeap *dmaHeap)
+			  FaceDetector *faceDetector, DmaHeap *dmaHeap, Hal3A *hal3A)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt), onDeviceTuner_(odt),
-		  faceDetector_(faceDetector), dmaHeap_(dmaHeap)
+		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A)
 	{
 	}
 
@@ -145,6 +146,8 @@ public:
 	OnDeviceTuner *onDeviceTuner_;
 	FaceDetector *faceDetector_;
 	DmaHeap *dmaHeap_;
+
+	Hal3A *hal3A_;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -189,6 +192,8 @@ public:
 
 	MediaDevice *camSysMedia_;
 	CamSysDevice camSysDev_[2];
+
+	std::unique_ptr<Hal3A> hal3A_[2];
 
 	MediaDevice *imgSysMedia_;
 	ImgSysDevice imgSysDev_;
@@ -485,6 +490,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
+	hal3A_[0] = std::make_unique<Hal3A>(0);
+	hal3A_[1] = std::make_unique<Hal3A>(1);
 
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i))
@@ -522,11 +529,10 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 		// Create CameraData
 		std::unique_ptr<MtkISP7CameraData> data =
-			std::make_unique<MtkISP7CameraData>(this, &camSysDev_[i],
-							    &imgSysDev_,
-							    &onDeviceTuner_,
-							    &faceDetector_,
-							    dmaHeap_.get());
+			std::make_unique<MtkISP7CameraData>(
+				this, &camSysDev_[i], &imgSysDev_,
+				&onDeviceTuner_, &faceDetector_,
+				dmaHeap_.get(), hal3A_[i].get());
 
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
@@ -554,6 +560,8 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 
 	camSysDev_->frameStart().disconnect(this);
 	camSysDev_->frameStart().connect(this, &MtkISP7CameraData::frameStart);
+
+	hal3A_->start();
 
 	camSysDev_->start();
 
