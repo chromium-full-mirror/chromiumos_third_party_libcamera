@@ -281,7 +281,7 @@ SizeRange StreamFormats::range(const PixelFormat &pixelformat) const
  */
 StreamConfiguration::StreamConfiguration()
 	: pixelFormat(0), stride(0), frameSize(0), bufferCount(0),
-	  stream_(nullptr)
+	  role(StreamRole::Viewfinder), stream_(nullptr)
 {
 }
 
@@ -290,7 +290,7 @@ StreamConfiguration::StreamConfiguration()
  */
 StreamConfiguration::StreamConfiguration(const StreamFormats &formats)
 	: pixelFormat(0), stride(0), frameSize(0), bufferCount(0),
-	  stream_(nullptr), formats_(formats)
+	  role(StreamRole::Viewfinder), stream_(nullptr), formats_(formats)
 {
 }
 

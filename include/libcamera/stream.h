@@ -22,6 +22,7 @@ namespace libcamera {
 
 class Camera;
 class Stream;
+enum class StreamRole;
 
 class StreamFormats
 {
@@ -51,6 +52,7 @@ struct StreamConfiguration {
 
 	std::optional<ColorSpace> colorSpace;
 
+	StreamRole role;
 	Stream *stream() const { return stream_; }
 	void setStream(Stream *stream) { stream_ = stream; }
 	const StreamFormats &formats() const { return formats_; }
