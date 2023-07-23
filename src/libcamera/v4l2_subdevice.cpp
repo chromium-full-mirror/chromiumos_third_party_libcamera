@@ -588,6 +588,26 @@ int V4L2Subdevice::setFormat(unsigned int pad, V4L2SubdeviceFormat *format,
 	return 0;
 }
 
+int V4L2Subdevice::setFrameInterval(uint32_t pad,
+				 uint32_t numerator,
+				 uint32_t denominator)
+{
+	struct v4l2_subdev_frame_interval frame_interval;
+	frame_interval.pad = pad;
+	frame_interval.interval.numerator = numerator;
+	frame_interval.interval.denominator = denominator;
+
+	int ret = ioctl(VIDIOC_SUBDEV_S_FRAME_INTERVAL, &frame_interval);
+	if (ret < 0) {
+		LOG(V4L2, Error)
+			<< "Failed to set interval: "
+			<< strerror(-ret);
+	  return -EINVAL;
+	}
+
+	return 0;
+}
+
 /**
  * \brief Retrieve the subdevice's internal routing table
  * \param[out] routing The routing table

@@ -97,6 +97,10 @@ public:
 	static std::unique_ptr<V4L2Subdevice>
 	fromEntityName(const MediaDevice *media, const std::string &entity);
 
+	int setFrameInterval(uint32_t pad,
+			     uint32_t numerator,
+			     uint32_t denominator);
+
 protected:
 	std::string logPrefix() const override;
 
