@@ -47,6 +47,8 @@ struct V4L2SubdeviceFormat {
 
 	const std::string toString() const;
 	uint8_t bitsPerPixel() const;
+
+	struct v4l2_subdev_format subdevFmt;
 };
 
 std::ostream &operator<<(std::ostream &out, const V4L2SubdeviceFormat &f);

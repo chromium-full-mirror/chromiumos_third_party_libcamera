@@ -959,7 +959,7 @@ CameraConfiguration::Status SimpleCameraConfiguration::validate()
 
 	LOG(SimplePipeline, Debug)
 		<< "Picked "
-		<< V4L2SubdeviceFormat{ pipeConfig_->code, pipeConfig_->sensorSize, {} }
+		<< V4L2SubdeviceFormat{ pipeConfig_->code, pipeConfig_->sensorSize, {}, {} }
 		<< " -> " << pipeConfig_->captureSize
 		<< "-" << pipeConfig_->captureFormat
 		<< " for max stream size " << maxStreamSize;
