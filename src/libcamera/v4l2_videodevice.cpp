@@ -1561,7 +1561,7 @@ int V4L2VideoDevice::releaseBuffers()
  *
  * \return 0 on success or a negative error code otherwise
  */
-int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer)
+int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
 {
 	struct v4l2_plane v4l2Planes[VIDEO_MAX_PLANES] = {};
 	struct v4l2_buffer buf = {};
@@ -1590,6 +1590,10 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer)
 	buf.type = bufferType_;
 	buf.memory = memoryType_;
 	buf.field = V4L2_FIELD_NONE;
+	if (requestFd >= 0) {
+		buf.flags |= V4L2_BUF_FLAG_REQUEST_FD;
+		buf.request_fd = requestFd;
+	}
 
 	bool multiPlanar = V4L2_TYPE_IS_MULTIPLANAR(buf.type);
 	const std::vector<FrameBuffer::Plane> &planes = buffer->planes();

@@ -279,7 +279,7 @@ ControlList V4L2Device::getControls(const std::vector<uint32_t> &ids)
  * \retval -EINVAL One of the control is not supported or not accessible
  * \retval i The index of the control that failed
  */
-int V4L2Device::setControls(ControlList *ctrls)
+int V4L2Device::setControls(ControlList *ctrls, int requestFd)
 {
 	if (ctrls->empty())
 		return 0;
@@ -343,6 +343,11 @@ int V4L2Device::setControls(ControlList *ctrls)
 	v4l2ExtCtrls.which = V4L2_CTRL_WHICH_CUR_VAL;
 	v4l2ExtCtrls.controls = v4l2Ctrls.data();
 	v4l2ExtCtrls.count = v4l2Ctrls.size();
+
+	if (requestFd >= 0) {
+		v4l2ExtCtrls.which = V4L2_CTRL_WHICH_REQUEST_VAL;
+		v4l2ExtCtrls.request_fd = requestFd;
+	}
 
 	int ret = ioctl(VIDIOC_S_EXT_CTRLS, &v4l2ExtCtrls);
 	if (ret) {

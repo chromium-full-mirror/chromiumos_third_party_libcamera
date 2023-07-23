@@ -217,7 +217,7 @@ public:
 	int importBuffers(unsigned int count);
 	int releaseBuffers();
 
-	int queueBuffer(FrameBuffer *buffer);
+	int queueBuffer(FrameBuffer *buffer, int requestFd = -1);
 	Signal<FrameBuffer *> bufferReady;
 
 	int streamOn();
