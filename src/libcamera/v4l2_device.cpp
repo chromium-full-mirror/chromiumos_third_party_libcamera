@@ -374,6 +374,40 @@ int V4L2Device::setControls(ControlList *ctrls, int requestFd)
 	return ret;
 }
 
+int V4L2Device::getExtControl(struct v4l2_ext_control* ext_control)
+{
+	struct v4l2_ext_controls controls = {};
+	controls.ctrl_class = V4L2_CTRL_ID2CLASS(ext_control->id);
+	controls.count = 1;
+	controls.controls = ext_control;
+
+	int ret = ioctl(VIDIOC_G_EXT_CTRLS, &controls);
+	if (ret)
+		LOG(V4L2, Error) << "Unable to get control " << utils::hex(ext_control->id)
+				 << " Reason " << strerror(-ret);
+	return ret;
+}
+
+int V4L2Device::setExtControl(struct v4l2_ext_control* ext_control, int request_fd)
+{
+	struct v4l2_ext_controls controls = {};
+	controls.count = 1;
+	controls.request_fd = request_fd;
+	controls.controls = ext_control;
+
+	if (request_fd < 0)
+		controls.ctrl_class = V4L2_CTRL_ID2CLASS(ext_control->id);
+	else
+	  controls.which = V4L2_CTRL_WHICH_REQUEST_VAL;
+
+	int ret = ioctl(VIDIOC_S_EXT_CTRLS, &controls);
+	if (ret)
+		LOG(V4L2, Error) << "Unable to set control " << utils::hex(ext_control->id)
+				 << ", reason: " << strerror(-ret);
+
+	return ret;
+}
+
 /**
  * \brief Retrieve the v4l2_query_ext_ctrl information for the given control
  * \param[in] id The V4L2 control id

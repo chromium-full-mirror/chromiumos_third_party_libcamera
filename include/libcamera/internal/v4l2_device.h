@@ -39,6 +39,9 @@ public:
 	ControlList getControls(const std::vector<uint32_t> &ids);
 	int setControls(ControlList *ctrls, int requestFd = -1);
 
+	int setExtControl(struct v4l2_ext_control* ext_control, int request_fd = -1);
+	int getExtControl(struct v4l2_ext_control* ext_control);
+
 	const struct v4l2_query_ext_ctrl *controlInfo(uint32_t id) const;
 
 	const std::string &deviceNode() const { return deviceNode_; }
