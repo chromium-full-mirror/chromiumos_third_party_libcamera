@@ -39,6 +39,8 @@ public:
 	ControlList getControls(const std::vector<uint32_t> &ids);
 	int setControls(ControlList *ctrls, int requestFd = -1);
 
+	int ioctl(unsigned long request, void *argp);
+
 	int setExtControl(struct v4l2_ext_control* ext_control, int request_fd = -1);
 	int getExtControl(struct v4l2_ext_control* ext_control);
 
@@ -58,8 +60,6 @@ protected:
 
 	int open(unsigned int flags);
 	int setFd(UniqueFD fd);
-
-	int ioctl(unsigned long request, void *argp);
 
 	int fd() const { return fd_.get(); }
 
