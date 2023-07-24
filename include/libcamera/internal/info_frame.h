@@ -1,0 +1,91 @@
+/*
+ * Copyright (C) 2023, Google Inc.
+ *
+ * info_frame.h - InfoFrame and InfoFramePool
+ */
+
+#pragma once
+
+#include <unordered_map>
+#include <vector>
+
+#include "libcamera/framebuffer.h"
+#include "libcamera/geometry.h"
+#include "libcamera/pixel_format.h"
+
+#include "libcamera/internal/dma_heaps.h"
+#include "libcamera/internal/mailbox.h"
+#include "libcamera/internal/pools.h"
+
+namespace libcamera {
+
+class InfoFrame {
+public:
+	struct Plane {
+		uint8_t *address;
+	};
+
+	InfoFrame();
+	InfoFrame(const PixelFormat &format, const Size &size, FrameBuffer *buffers);
+
+	void setAddress(unsigned int plane, uint8_t *address);
+	uint8_t *address(unsigned int plane) const;
+
+	Size size() const { return size_; }
+	PixelFormat format() const { return format_; }
+	FrameBuffer *buffer() const { return buffer_; }
+	unsigned int numPlanes() const { return numPlanes_; }
+
+private:
+	Size size_;
+	PixelFormat format_;
+	FrameBuffer *buffer_;
+
+	unsigned int numPlanes_;
+	std::array<Plane, 3> planes_;
+};
+
+class InfoFramePool {
+public:
+	struct MappedBufferInfo {
+		uint8_t *address = nullptr;
+		size_t dmabufLength = 0;
+	};
+
+	InfoFramePool();
+	~InfoFramePool();
+
+	int createBuffers(DmaHeap* dmaHeap, const PixelFormat &format,
+			  const Size &size, uint32_t count,
+			  DmaHeap::Type type = DmaHeap::System);
+	int createFlatBuffers(DmaHeap* dmaHeap, const PixelFormat &format,
+			      const Size &size, uint32_t count,
+			      DmaHeap::Type type = DmaHeap::System);
+	void release() { pool_.release(); }
+
+	void fetch(SharedMailBox<InfoFrame> &mailBox);
+
+	InfoFrame get();
+	void put(InfoFrame& frameInfo);
+
+	int mmap();
+	int unmap();
+
+	std::vector<int> collectFds();
+
+	bool mapped() const { return 0 != mappedBuffers_.size(); }
+
+private:
+	LIBCAMERA_DISABLE_COPY_AND_MOVE(InfoFramePool)
+
+	int setBuffers(const PixelFormat &format, const Size &size,
+		       std::vector<std::unique_ptr<FrameBuffer>> &buffers);
+
+	Size size_;
+	PixelFormat format_;
+	Pool<FrameBuffer *, std::unique_ptr<FrameBuffer>> pool_;
+
+	std::unordered_map<int, MappedBufferInfo> mappedBuffers_;
+};
+
+} /* namespace libcamera */

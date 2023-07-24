@@ -23,6 +23,7 @@ libcamera_sources = files([
     'framebuffer.cpp',
     'framebuffer_allocator.cpp',
     'geometry.cpp',
+    'info_frame.cpp',
     'ipa_controls.cpp',
     'ipa_data_serializer.cpp',
     'ipa_interface.cpp',
