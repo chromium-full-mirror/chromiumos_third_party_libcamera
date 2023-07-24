@@ -1,0 +1,1175 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/*
+ * Copyright (C) 2023, Google Inc.
+ *
+ * mcnr.cpp - MtkISP7 ImgSys Device Motion Compensation Noise Reduction
+ */
+
+#include "mcnr.h"
+
+#include <libcamera/control_ids.h>
+#include <libcamera/formats.h>
+#include <libcamera/request.h>
+
+#include "libcamera/internal/dma_heaps.h"
+#include "libcamera/internal/framebuffer.h"
+#include "libcamera/internal/media_device.h"
+
+#include "single-device/single_device.h"
+
+namespace libcamera {
+
+LOG_DECLARE_CATEGORY(MtkISP7)
+
+namespace {
+
+constexpr Size kMeL0Size{576, 432};
+constexpr Size kMeL1Size{144, 108};
+
+constexpr Size kMeMapSize0{289, 217};
+constexpr Size kMeMapSize1{145, 109};
+constexpr Size kMeMapSize2{73, 55};
+constexpr Size kMeMapSize3{37, 28};
+
+constexpr Size kFmbSize{36, 27};
+constexpr Size kFstSize{1, 112};
+constexpr Size kTnrsoSize{40, 1};
+
+constexpr Size kTunSize{219348, 1};
+constexpr Size kTrawSttSize{738624, 1};
+
+static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
+{
+	InfoFrame &info = mailBox->get();
+
+	void *dest = info.address(0);
+	size_t length = info.buffer()->planes()[0].length;
+
+	assert(dest);
+	assert(mailBox->valid());
+
+	libcamera::DmaHeap::sync(
+			info.buffer()->planes()[0].fd.get(),
+			libcamera::DmaHeap::Start,
+			libcamera::DmaHeap::SyncReadWrite);
+
+	memset(dest, 0, length);
+
+	libcamera::DmaHeap::sync(
+			info.buffer()->planes()[0].fd.get(),
+			libcamera::DmaHeap::End,
+			libcamera::DmaHeap::SyncReadWrite);
+}
+
+static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t* tuning)
+{
+	assert(tuning);
+
+	InfoFrame &info = mailBox->get();
+
+	void *dest = info.address(0);
+	size_t length = info.buffer()->planes()[0].length;
+
+	assert(dest);
+	assert(mailBox->valid());
+
+	libcamera::DmaHeap::sync(
+			info.buffer()->planes()[0].fd.get(),
+			libcamera::DmaHeap::Start,
+			libcamera::DmaHeap::SyncReadWrite);
+
+	memcpy(dest, tuning, length);
+
+	libcamera::DmaHeap::sync(
+			info.buffer()->planes()[0].fd.get(),
+			libcamera::DmaHeap::End,
+			libcamera::DmaHeap::SyncReadWrite);
+}
+
+class TuningBuffers {
+public:
+	TuningBuffers();
+	void readBuffer(uint8_t *dest, size_t length, const char* file);
+	void readAll();
+
+	uint8_t HW_DIP_F0_tunbufi[219348];
+	uint8_t HW_DIP_F1_tunbufi[219348];
+	uint8_t HW_DIP_F2_tunbufi[219348];
+	uint8_t HW_DIP_F3_tunbufi[219348];
+	uint8_t HW_DIP_F4_tunbufi[219348];
+	uint8_t HW_DIP_IDI2_tunbufi[219348];
+	uint8_t HW_DIP_IDI_tunbufi[219348];
+	uint8_t HW_LTR_F1_tunbufi[219348];
+	uint8_t HW_LTR_F4_tunbufi[219348];
+	uint8_t HW_LTR_VBI_tunbufi[219348];
+	uint8_t HW_ME_3PASS_MODE_0_tunbufi[219348];
+	uint8_t HW_ME_3PASS_MODE_1_tunbufi[219348];
+	uint8_t HW_ME_3PASS_MODE_1_me_mili[15552];
+	uint8_t HW_TR_F1_tunbufi[219348];
+	uint8_t HW_TR_F4_tunbufi[219348];
+	uint8_t HW_LTR_ME_L1_tunbufi[219348];
+};
+
+TuningBuffers::TuningBuffers()
+{
+	readAll();
+}
+
+void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char* filename)
+{
+	FILE *file = nullptr;
+	std::string filePath = std::string("/etc/camera/back_settings/") + filename;
+	file = fopen(filePath.c_str(), "rb");
+
+	if (!file)
+		LOG(MtkISP7, Error) << "Fail to open file " << filePath;
+
+	size_t size = fread(dest, length , 1, file);
+	LOG(MtkISP7, Error) << "Read" << filename << " with size " << size;
+	fclose(file);
+}
+
+void TuningBuffers::readAll()
+{
+	readBuffer(HW_DIP_F0_tunbufi, 219348, "HW_DIP_F0_tunbufi.bin");
+	readBuffer(HW_DIP_F1_tunbufi, 219348, "HW_DIP_F1_tunbufi.bin");
+	readBuffer(HW_DIP_F2_tunbufi, 219348, "HW_DIP_F2_tunbufi.bin");
+	readBuffer(HW_DIP_F3_tunbufi, 219348, "HW_DIP_F3_tunbufi.bin");
+	readBuffer(HW_DIP_F4_tunbufi, 219348, "HW_DIP_F4_tunbufi.bin");
+	readBuffer(HW_DIP_IDI2_tunbufi, 219348, "HW_DIP_IDI2_tunbufi.bin");
+	readBuffer(HW_DIP_IDI_tunbufi, 219348, "HW_DIP_IDI_tunbufi.bin");
+	readBuffer(HW_LTR_F1_tunbufi, 219348, "HW_LTR_F1_tunbufi.bin");
+	readBuffer(HW_LTR_F4_tunbufi, 219348, "HW_LTR_F4_tunbufi.bin");
+	readBuffer(HW_LTR_VBI_tunbufi, 219348, "HW_LTR_VBI_tunbufi.bin");
+	readBuffer(HW_ME_3PASS_MODE_0_tunbufi, 219348, "HW_ME_3PASS_MODE_0_tunbufi.bin");
+	readBuffer(HW_ME_3PASS_MODE_1_me_mili, 15552, "HW_ME_3PASS_MODE_1_me_mili.bin");
+	readBuffer(HW_ME_3PASS_MODE_1_tunbufi, 219348, "HW_ME_3PASS_MODE_1_tunbufi.bin");
+	readBuffer(HW_TR_F1_tunbufi, 219348, "HW_TR_F1_tunbufi.bin");
+	readBuffer(HW_TR_F4_tunbufi, 219348, "HW_TR_F4_tunbufi.bin");
+	readBuffer(HW_LTR_ME_L1_tunbufi, 219348, "HW_LTR_ME_L1_tunbufi.bin");
+}
+
+static TuningBuffers tuningBuffers;
+
+} // namespace
+
+/* todo: hide the NSCam::NSImgStream namespace in the single device interface. */
+using namespace NSCam::NSImgStream;
+
+McnrTasksManager::McnrTasksManager(ImgSysDevice *imgSys, DmaHeap *dmaHeap)
+{
+	imgSys_ = imgSys;
+	dmaHeap_ = dmaHeap;
+
+	allBufferPools_.emplace_back(&fwmmMil_);
+	allBufferPools_.emplace_back(&meIn_);
+	allBufferPools_.emplace_back(&meMv0_);
+	allBufferPools_.emplace_back(&meMv1_);
+
+	allBufferPools_.emplace_back(&meFst_);
+	allBufferPools_.emplace_back(&meFmb0_);
+	allBufferPools_.emplace_back(&meFmb1_);
+	allBufferPools_.emplace_back(&meLmi_);
+
+	allBufferPools_.emplace_back(&meMmap0_);
+	allBufferPools_.emplace_back(&meMmap1_);
+	allBufferPools_.emplace_back(&meMmap2_);
+	allBufferPools_.emplace_back(&meMmap3_);
+
+	allBufferPools_.emplace_back(&meConf0_);
+	allBufferPools_.emplace_back(&meConf4_);
+	allBufferPools_.emplace_back(&meConf5_);
+
+	allBufferPools_.emplace_back(&trawStt_);
+
+	allBufferPools_.emplace_back(&dipTun_);
+	allBufferPools_.emplace_back(&pqdipTun_);
+	allBufferPools_.emplace_back(&meTun_);
+	allBufferPools_.emplace_back(&trawTun_);
+	allBufferPools_.emplace_back(&wpeTun_);
+
+	allBufferPools_.emplace_back(&idi_);
+	allBufferPools_.emplace_back(&tnrSo_);
+
+	allBufferPools_.emplace_back(&img4oF0_);
+	allBufferPools_.emplace_back(&img4oF1_);
+
+	for (unsigned int i = 0; i < 7; i++) {
+		allBufferPools_.emplace_back(&wt_[i]);
+		allBufferPools_.emplace_back(&img3o_[i]);
+		allBufferPools_.emplace_back(&tnrmo_[i]);
+		allBufferPools_.emplace_back(&vbi_[i]);
+	}
+
+	poolsWritenByCpu_.emplace_back(&fwmmMil_);
+	poolsWritenByCpu_.emplace_back(&meTun_);
+	poolsWritenByCpu_.emplace_back(&wpeTun_);
+	poolsWritenByCpu_.emplace_back(&dipTun_);
+	poolsWritenByCpu_.emplace_back(&trawTun_);
+	poolsWritenByCpu_.emplace_back(&pqdipTun_);
+
+	// Read/Written by the FWMVP
+	poolsWritenByCpu_.emplace_back(&meMmap0_);
+	poolsWritenByCpu_.emplace_back(&meMmap1_);
+	poolsWritenByCpu_.emplace_back(&meMmap2_);
+	poolsWritenByCpu_.emplace_back(&meMmap3_);
+
+	// Need to memset to zero for the first frame
+	poolsWritenByCpu_.emplace_back(&meMv0_);
+	poolsWritenByCpu_.emplace_back(&meMv1_);
+
+	// Need to memset to zero for the first frame
+	for (unsigned int i = 0; i < 7; i++)
+		poolsWritenByCpu_.emplace_back(&wt_[i]);
+
+	// Need to memset to zero for the first frame
+	poolsWritenByCpu_.emplace_back(&tnrSo_);
+}
+
+int McnrTasksManager::configure(const Size yuvInputSize, const Size videoOut1Size,
+				const Size videoOut2Size)
+{
+	videoOut1Size_ = videoOut1Size;
+	videoOut2Size_ = videoOut2Size;
+	yuvInputSize_ = yuvInputSize;
+
+	mcnrSizes.resize(7);
+	Size size = yuvInputSize_;
+
+	/* Assign the size to 1/2 of the previous level.
+	 * Align to 2 for hardware's requirement */
+	for (size_t i = 0; i < mcnrSizes.size(); i++) {
+		mcnrSizes[i] = size;
+		size.width = (size.width + 1) / 2;
+		size.height = (size.height + 1) / 2;
+		size.alignUpTo(2, 2);
+	}
+
+	meMmapSizes.resize(4);
+	meMmapSizes[0] = kMeMapSize0;
+	meMmapSizes[1] = kMeMapSize1;
+	meMmapSizes[2] = kMeMapSize2;
+	meMmapSizes[3] = kMeMapSize3;
+
+	wtSizes.resize(7);
+	wtSizes[0]= mcnrSizes[3];
+	wtSizes[1]= mcnrSizes[3];
+	wtSizes[2]= mcnrSizes[3];
+	wtSizes[3]= mcnrSizes[3];
+	wtSizes[4]= mcnrSizes[4];
+	wtSizes[5]= mcnrSizes[5];
+	wtSizes[6]= mcnrSizes[5];
+
+	configureBuffers();
+
+	return 0;
+}
+
+int McnrTasksManager::configureBuffers()
+{
+	fwmmMil_.createFlatBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8);
+	dipTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21);
+	pqdipTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 3);
+	meTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
+	trawTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 30);
+	wpeTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
+
+	meFst_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFstSize, 8);
+	meFmb0_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
+	meFmb1_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
+	meLmi_.createFlatBuffers(dmaHeap_, formats::Y16_MTISP, kMeL1Size, 8);
+	meIn_.createFlatBuffers(dmaHeap_, formats::GREY, kMeL1Size, 10);
+	meMv0_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kMeL1Size, 24);
+	meMv1_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 24);
+
+	meMmap0_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[0], 8);
+	meMmap1_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[1], 8);
+	meMmap2_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[2], 8);
+	meMmap3_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[3], 8);
+
+	meConf0_.createFlatBuffers(dmaHeap_, formats::GREY, kMeL1Size, 12);
+	meConf4_.createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[4].boundedTo(kMeL1Size), 12);
+	meConf5_.createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5].boundedTo(kMeL1Size), 12);
+
+	idi_.createFlatBuffers(dmaHeap_, formats::NV21, mcnrSizes[6], 21);
+	tnrSo_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 4);
+
+	img4oF0_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 4);
+	img4oF1_.createFlatBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 4);
+
+	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4);
+
+	wt_[0].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[0], 6);
+	wt_[1].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[1], 6);
+	wt_[2].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[2], 6);
+	wt_[3].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[3], 6);
+
+	wt_[4].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[4], 6);
+	wt_[5].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 6);
+	wt_[6].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 6);
+
+	img3o_[0].createBuffers(dmaHeap_, formats::NV21, mcnrSizes[0], 3);
+	img3o_[1].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 12);
+	img3o_[2].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[2], 12);
+	img3o_[3].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[3], 12);
+	img3o_[4].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[4], 12);
+	img3o_[5].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[5], 12);
+	img3o_[6].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[6], 12);
+
+	tnrmo_[1].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[1], 3);
+	tnrmo_[2].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 3);
+	tnrmo_[3].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 3);
+	tnrmo_[4].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 3);
+	tnrmo_[5].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 3);
+	tnrmo_[6].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 3);
+
+	vbi_[1].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4);
+	vbi_[2].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4);
+	vbi_[3].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 4);
+	vbi_[4].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 4);
+	vbi_[5].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 4);
+	vbi_[6].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 4);
+
+	for (auto &pool : poolsWritenByCpu_)
+		pool->mmap();
+
+	return 0;
+}
+
+int McnrTasksManager::start()
+{
+	for (auto &pool : allBufferPools_)
+		imgSys_->handleIova(ImgSysDevice::Add, *pool);
+	return 0;
+}
+
+int McnrTasksManager::stop()
+{
+	for (auto &pool : allBufferPools_)
+		imgSys_->handleIova(ImgSysDevice::Delete, *pool);
+	return 0;
+}
+
+int McnrTasksManager::releaseBuffers()
+{
+	for (auto &pool : allBufferPools_)
+		pool->release();
+
+	return 0;
+}
+
+void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
+				  MCNRPrevOutput &prev,
+				  SharedMailBox<InfoFrame> &meL0,
+				  SharedMailBox<InfoFrame> &p1F0,
+				  SharedMailBox<InfoFrame> &p1F1,
+				  FrameBuffer* videoOut1,
+				  FrameBuffer* videoOut2)
+{
+	/* Prepare mailboxes shared among MCNR tasks */
+	mcnr.videoOut1 = videoOut1;
+	mcnr.videoOut2 = videoOut2;
+
+	/* todo: The tuning frames should be created by IPA */
+	TuningFrames tunings;
+	tunings.trMeTun = makeMailBox<InfoFrame>();
+	tunings.meATun = makeMailBox<InfoFrame>();
+	tunings.meBTun = makeMailBox<InfoFrame>();
+	tunings.trTunF1 = makeMailBox<InfoFrame>();
+	tunings.trTunF4 = makeMailBox<InfoFrame>();
+	tunings.ltrTunF1 = makeMailBox<InfoFrame>();
+	tunings.ltrTunF4 = makeMailBox<InfoFrame>();
+	tunings.meMil = makeMailBox<InfoFrame>();
+	tunings.ltrTunVbi = makeMailBox<InfoFrame>();
+	tunings.dipTun = makeMailBoxVector<InfoFrame>(7);
+
+	/* Outputs of ME, motion estimation confidence */
+	SharedMailBox<InfoFrame> meConf0 = makeMailBox<InfoFrame>();
+
+	/* Output of TR, downscaled from meConf0 */
+	SharedMailBox<InfoFrame> meConf4 = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> meConf5 = makeMailBox<InfoFrame>();
+
+	/* meMmap[0] is an output of ME and it's downscaled
+	 * meMmap[1~3] are downscaled from meMmap[0] in TR.
+	 * DIP uses them as wrap maps to align the previous frame for TNR */
+	std::vector<SharedMailBox<InfoFrame>> meMmap = makeMailBoxVector<InfoFrame>(4);
+
+	/* Outputs of stage TR, Downscaled from P1F0 and P1F1.
+	 * The smaller index has larger size and downscaled to half from the
+	 * previous level, where dipImgi[0] = P1F0 and dipImgi[1] = P1F1.
+	 * Inputs of DIP1 and DIP2 for each level's TNR */
+	std::vector<SharedMailBox<InfoFrame>> dipImgi = makeMailBoxVector<InfoFrame>(7);
+	dipImgi[0] = p1F0;
+	dipImgi[1] = p1F1;
+
+	/* Downscaled from prevImgoF0 and prevImgoF1 DIP1, will be aligned to the
+	 * same level of dipImgi. Used in DIP1 and DIP2 */
+	std::vector<SharedMailBox<InfoFrame>> dipVipi = makeMailBoxVector<InfoFrame>(7);
+	dipVipi[0] = prev.prevImg4oF0;
+
+	std::vector<SharedMailBox<InfoFrame>> dipVbi = makeMailBoxVector<InfoFrame>(7);
+	dipVbi[0] = dipVbi[1] = dipVbi[2];
+
+	/* Intermediate frames shared by DIP1 and DIP2 */
+	SharedMailBox<InfoFrame> tnrlfdi = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> dipTnrso = makeMailBox<InfoFrame>();
+
+	std::vector<SharedMailBox<InfoFrame>> dipTnrwi = makeMailBoxVector<InfoFrame>(7);
+	std::vector<SharedMailBox<InfoFrame>> dipTnrwo = makeMailBoxVector<InfoFrame>(7);
+
+	/* Input of DIP1 and DIP2 tnrci, renamed from meconf for easier mapping
+	 * to DIP levels, where dipTnrci[0~3] = meConf0, dipTnrci[4] = meConf4
+	 * and dipTnrci[5~6] = meConf5. */
+	std::vector<SharedMailBox<InfoFrame>> dipTnrci;
+	dipTnrci.resize(7);
+	dipTnrci[0] = dipTnrci[1] = meConf0;
+	dipTnrci[2] = dipTnrci[3] = meConf0;
+	dipTnrci[4] = meConf4;
+	dipTnrci[5] = dipTnrci[6] = meConf5;
+
+	/* Inputs/outptus of DIP, propagate from low to high levels. Link
+	 * tnrmi[i] to the previous level tnrmo[i+1] for easier use. */
+	std::vector<SharedMailBox<InfoFrame>> dipTnrmo = makeMailBoxVector<InfoFrame>(7);
+	std::vector<SharedMailBox<InfoFrame>> dipTnrmi;
+	dipTnrmi.resize(7);
+	for (int i = 0; i < 6; i++)
+		dipTnrmi[i] = dipTnrmo[i+1];
+
+	/* Intermediate frames used by DIP, propagate from low to high levels.
+	 * Link reci[i] to the previous level img3o[i+1] for easier use. */
+	std::vector<SharedMailBox<InfoFrame>> img3o = makeMailBoxVector<InfoFrame>(7);
+	std::vector<SharedMailBox<InfoFrame>> reci;
+	reci.resize(7);
+	for (int i = 0; i < 6; i++)
+		reci[i] = img3o[i+1];
+
+	/* Rename of meMmap to 7 levels for easier assign as DIP inputs,
+	 * linked as the largest size which is smaller than the corresponding
+	 * level size. */
+	std::vector<SharedMailBox<InfoFrame>> wpeVeci;
+	wpeVeci.resize(7);
+	for (unsigned int i = 0; i < 7; i++) {
+		for (unsigned int j = 0; j < 4; j++) {
+			if (wtSizes[i] > meMmapSizes[j]) {
+				wpeVeci[i] = meMmap[j];
+				break;
+			}
+		}
+	}
+
+	/* Outputs down scaled from ME frame by stage HW_LTR_ME_L1*/
+	SharedMailBox<InfoFrame> meL1 = makeMailBox<InfoFrame>();
+
+	if (!prev.valid) {
+		prev.prevMeL0 = meL0;
+		prev.prevMeL1 = meL1;
+		prev.prevImg4oF0 = p1F0;
+		prev.prevImg4oF1 = p1F1;
+
+		prev.prevMeAMv1 = makeMailBox<InfoFrame>();
+		meMv1_.fetch(prev.prevMeAMv1);
+		zeroImage(prev.prevMeAMv1);
+
+		prev.prevMeBMv0 = makeMailBox<InfoFrame>();
+		meMv0_.fetch(prev.prevMeBMv0);
+		zeroImage(prev.prevMeBMv0);
+
+		prev.preDipTnrso = makeMailBox<InfoFrame>();
+		tnrSo_.fetch(prev.preDipTnrso);
+		zeroImage(prev.preDipTnrso);
+
+		prev.prevDipTnrwo.resize(7);
+		for (size_t i = 0; i < prev.prevDipTnrwo.size(); i++) {
+			prev.prevDipTnrwo[i] = makeMailBox<InfoFrame>();
+			wt_[i].fetch(prev.prevDipTnrwo[i]);
+			zeroImage(prev.prevDipTnrwo[i]);
+		}
+	}
+
+	/* Frames for ME task */
+	MeFrames &meFrames = mcnr.meFrames;
+
+	meFrames.in.trMeTun = tunings.trMeTun;
+	meFrames.in.meATun = tunings.meATun;
+	meFrames.in.meBTun = tunings.meBTun;
+	meFrames.in.meMil = tunings.meMil;
+	meFrames.in.prevMeAMv1 = prev.prevMeAMv1;
+	meFrames.in.prevMeBMv0 = prev.prevMeBMv0;
+	meFrames.in.prevMeL0 = prev.prevMeL0;
+	meFrames.in.prevMeL1 = prev.prevMeL1;
+	meFrames.in.meL0 = meL0;
+
+	meFrames.out.meAMv0 = makeMailBox<InfoFrame>();
+	meFrames.out.meAMv1 = makeMailBox<InfoFrame>();
+	meFrames.out.meAFst = makeMailBox<InfoFrame>();
+	meFrames.out.meAFmb0 = makeMailBox<InfoFrame>();
+	meFrames.out.meAFmb1 = makeMailBox<InfoFrame>();
+	meFrames.out.meALmi = makeMailBox<InfoFrame>();
+	meFrames.out.meBMv0 = makeMailBox<InfoFrame>();
+	meFrames.out.meBMv1 = makeMailBox<InfoFrame>();
+	meFrames.out.meBFst = makeMailBox<InfoFrame>();
+	meFrames.out.meBFmb0 = makeMailBox<InfoFrame>();
+	meFrames.out.meBFmb1 = makeMailBox<InfoFrame>();
+	meFrames.out.meBLmi = makeMailBox<InfoFrame>();
+	meFrames.out.meL1 = meL1;
+	meFrames.out.meMmap = meMmap;
+	meFrames.out.meConf0 = meConf0;
+
+	/* Frames for TR task */
+	TrFrames &trFrames = mcnr.trFrames;
+
+	trFrames.in.p1F1 = p1F1;
+	trFrames.in.trTunF1 = tunings.trTunF1;
+	trFrames.in.trTunF4 = tunings.trTunF4;
+	trFrames.in.meConf0 = meConf0;
+	trFrames.in.meMmap = meMmap;
+
+	trFrames.out.trawStt = makeMailBox<InfoFrame>();
+	trFrames.out.dipImgi = dipImgi;
+	trFrames.out.meConf4 = meConf4;
+	trFrames.out.meConf5 = meConf5;
+
+	/* Frames for DIP1 task */
+	Dip1Frames &dip1Frames = mcnr.dip1Frames;
+
+	dip1Frames.in.ltrTunF1 = tunings.ltrTunF1;
+	dip1Frames.in.ltrTunF4 = tunings.ltrTunF4;
+	dip1Frames.in.ltrTunVbi = tunings.ltrTunVbi;
+	dip1Frames.in.dipTun = tunings.dipTun;
+	dip1Frames.in.preDipTnrso = prev.preDipTnrso;
+	dip1Frames.in.prevImg4oF0 = prev.prevImg4oF0;
+	dip1Frames.in.prevImg4oF1 = prev.prevImg4oF1;
+	dip1Frames.in.prevDipTnrwo = prev.prevDipTnrwo;
+
+	dip1Frames.out.tnrlfdi = tnrlfdi;
+	dip1Frames.out.dipTnrso = dipTnrso;
+	dip1Frames.out.reci = reci;
+	dip1Frames.out.img3o = img3o;
+	dip1Frames.out.dipTnrwi = dipTnrwi;
+	dip1Frames.out.dipTnrwo = dipTnrwo;
+	dip1Frames.out.dipTnrmi = dipTnrmi;
+	dip1Frames.out.dipTnrmo = dipTnrmo;
+	dip1Frames.out.wpeVeci = wpeVeci;
+	dip1Frames.out.dipVbi = dipVbi;
+	dip1Frames.out.dipVipi = dipVipi;
+	dip1Frames.out.dipImgi = dipImgi;
+	dip1Frames.out.dipTnrci = dipTnrci;
+	dip1Frames.out.meMmap = meMmap;
+	dip1Frames.out.img4oF1 = makeMailBox<InfoFrame>();
+
+	/* Frames for DIP2 task */
+	Dip2Frames &dip2Frames = mcnr.dip2Frames;
+
+	dip2Frames.in.dipTun = tunings.dipTun;
+	dip2Frames.in.prevImg4oF0 = prev.prevImg4oF0;
+	dip2Frames.in.tnrlfdi = tnrlfdi;
+	dip2Frames.in.reci = reci;
+	dip2Frames.in.dipTnrwi = dipTnrwi;
+	dip2Frames.in.dipTnrmi = dipTnrmi;
+	dip2Frames.in.wpeVeci = wpeVeci;
+	dip2Frames.in.dipImgi = dipImgi;
+	dip2Frames.in.dipTnrci = dipTnrci;
+
+	dip2Frames.out.img4oF0 = makeMailBox<InfoFrame>();
+	dip2Frames.out.dipTnrso = dipTnrso;
+	dip2Frames.out.dipTnrwo = dipTnrwo;
+
+	/* Update prev */
+	prev.prevMeBMv0 = meFrames.out.meBMv0;
+	prev.prevMeAMv1 = meFrames.out.meAMv1;
+	prev.preDipTnrso = dip1Frames.out.dipTnrso;
+	prev.prevDipTnrwo = dip1Frames.out.dipTnrwo;
+	prev.prevMeL0 = meL0;
+	prev.prevMeL1 = meFrames.out.meL1;
+	prev.prevImg4oF1 = dip1Frames.out.img4oF1;
+	prev.prevImg4oF0 = dip2Frames.out.img4oF0;
+	prev.valid = true;
+
+}
+
+std::tuple<MeTask *, TrTask *, Dip1Task *, Dip2Task *>
+McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler* scheduler,
+				const std::string& id, Request* request,
+				ImgSysDevice* imgSys)
+{
+	(void)id;
+	std::string sequence = std::to_string(request->sequence());
+
+	MeTask *meTask = new MeTask(scheduler, "Me " + sequence, request, imgSys, mcnr, this);
+	TrTask *trTask = new TrTask(scheduler, "Tr " + sequence, request, imgSys, mcnr, this);
+	Dip1Task *dip1Task = new Dip1Task(scheduler, "Dip 1 " + sequence, request, imgSys, mcnr, this);
+
+	Dip2Task *dip2Task = new Dip2Task(scheduler, "Dip 2 " + sequence,
+						      request, imgSys, mcnr, this);
+
+	return std::make_tuple(meTask, trTask, dip1Task, dip2Task);
+}
+
+MeTask::MeTask(Scheduler* scheduler, const std::string& id, Request* request,
+	       ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+	       :Task(scheduler, id), requestHelper_(this, request, imgSys),
+		request_(request), manager_(manager), imgSys_(imgSys)
+{
+	/* Collect MailBoxes used for the task */
+	frames_ = mcnr.meFrames;
+	syncLtrMeA_ = 0;
+}
+
+void MeTask::allocateOutputBuffers()
+{
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	/* todo: The tuning buffer should be allocated and filled by IPA.
+	 * Remove the workaround once the IPA is ready */
+	manager_->trawTun_.fetch(in.trMeTun);
+	fillTuning(in.trMeTun, &tuningBuffers.HW_LTR_ME_L1_tunbufi[0]);
+	manager_->meTun_.fetch(in.meATun);
+	fillTuning(in.meATun, &tuningBuffers.HW_ME_3PASS_MODE_0_tunbufi[0]);
+	manager_->meTun_.fetch(in.meBTun);
+	fillTuning(in.meBTun, &tuningBuffers.HW_ME_3PASS_MODE_1_tunbufi[0]);
+	manager_->fwmmMil_.fetch(in.meMil);
+	fillTuning(in.meMil, &tuningBuffers.HW_ME_3PASS_MODE_1_me_mili[0]);
+
+	manager_->meIn_.fetch(out.meL1);
+	manager_->meMv0_.fetch(out.meAMv0);
+	manager_->meMv1_.fetch(out.meAMv1);
+	manager_->meFst_.fetch(out.meAFst);
+	manager_->meLmi_.fetch(out.meALmi);
+	manager_->meFmb0_.fetch(out.meAFmb0);
+	manager_->meFmb1_.fetch(out.meAFmb1);
+
+	manager_->meMv0_.fetch(out.meBMv0);
+	manager_->meMv1_.fetch(out.meBMv1);
+	manager_->meFst_.fetch(out.meBFst);
+	manager_->meLmi_.fetch(out.meBLmi);
+	manager_->meFmb0_.fetch(out.meBFmb0);
+	manager_->meFmb1_.fetch(out.meBFmb1);
+
+	manager_->meConf0_.fetch(out.meConf0);
+
+	manager_->meMmap0_.fetch(out.meMmap[0]);
+	manager_->meMmap1_.fetch(out.meMmap[1]);
+	manager_->meMmap2_.fetch(out.meMmap[2]);
+	manager_->meMmap3_.fetch(out.meMmap[3]);
+
+	syncLtrMeA_ = imgSys_->syncPool().get();
+}
+
+void MeTask::notifyDone()
+{
+	if (syncLtrMeA_)
+		imgSys_->syncPool().put(syncLtrMeA_);
+
+	Task::notifyDone();
+}
+
+void MeTask::run()
+{
+	allocateOutputBuffers();
+
+	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
+	SingleDeviceRequest sdRequest;
+
+	sdRequest.init(request_->sequence(), timestampMili, "MeTask");
+
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	/* HW_LTR_ME_L1 */
+	StageEx &HW_LTR_ME_L1 = sdRequest.emplaceStage(PEU_Stage::HW_LTR_ME_L1);
+
+	HW_LTR_ME_L1.input(in.trMeTun->get(), NSCam::NSImgStream::IMG_PORT_METAI, 0, Size{0, 0});
+	HW_LTR_ME_L1.input(in.meL0->get(), NSCam::NSImgStream::IMG_PORT_LTIMGI, 0, Size{0, 0});
+	HW_LTR_ME_L1.output(out.meL1->get(), NSCam::NSImgStream::IMG_PORT_LTYUV2O, 1, kMeL0Size);
+	HW_LTR_ME_L1.setAplInfo();
+
+	/* Set notify fence from HW_TR_ME_L1 to HW_ME_3PASS_MODE_0 */
+	HW_LTR_ME_L1.addNotify(syncLtrMeA_);
+
+	/* HW_ME_3PASS_MODE_0 */
+	StageEx &HW_ME_3PASS_MODE_0 = sdRequest.emplaceStage(PEU_Stage::HW_ME_3PASS_MODE_0);
+
+	HW_ME_3PASS_MODE_0.input(in.meATun->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.input(in.prevMeL0->get(), IMG_PORT_ME_L0_IMG0I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.input(in.meL0->get(), IMG_PORT_ME_L0_IMG1I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.input(in.prevMeL1->get(), IMG_PORT_ME_L1_IMG0I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.input(out.meL1->get(), IMG_PORT_ME_L1_IMG1I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.input(in.prevMeAMv1->get(), IMG_PORT_ME_L1_RMVI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.input(in.prevMeBMv0->get(), IMG_PORT_ME_L0_RMVI, 0, Size{0, 0});
+
+	HW_ME_3PASS_MODE_0.output(out.meAFst->get(), IMG_PORT_ME_FSTO, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.output(out.meAFmb0->get(), IMG_PORT_ME_L0_FMBO, 0, kFmbSize);
+	HW_ME_3PASS_MODE_0.output(out.meAFmb1->get(), IMG_PORT_ME_L1_FMBO, 0, kFmbSize);
+	HW_ME_3PASS_MODE_0.output(out.meALmi->get(), IMG_PORT_ME_LMIO, 0, kMeL1Size);
+	HW_ME_3PASS_MODE_0.output(out.meConf0->get(), IMG_PORT_ME_CONFO, 0, kMeL1Size);
+	HW_ME_3PASS_MODE_0.output(out.meAMv0->get(), IMG_PORT_ME_L0_WMVO, 0, kMeL1Size);
+	HW_ME_3PASS_MODE_0.output(out.meAMv1->get(), IMG_PORT_ME_L1_WMVO, 0, kFmbSize);
+
+	HW_ME_3PASS_MODE_0.setMeInfo(NSCam::NSImgStream::EME_MODE_0);
+
+	/* Set wait fence for HW_ME_3PASS_MODE_0 from HW_TR_ME_L1 */
+	HW_ME_3PASS_MODE_0.addWait(syncLtrMeA_);
+
+	/* HW_ME_3PASS_MODE_1 */
+	StageEx &HW_ME_3PASS_MODE_1 = sdRequest.emplaceStage(PEU_Stage::HW_ME_3PASS_MODE_1);
+
+	HW_ME_3PASS_MODE_1.input(in.meBTun->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(in.prevMeL0->get(), IMG_PORT_ME_L0_IMG0I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(in.meL0->get(), IMG_PORT_ME_L0_IMG1I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(in.prevMeL1->get(), IMG_PORT_ME_L1_IMG0I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(out.meL1->get(), IMG_PORT_ME_L1_IMG1I, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(out.meAFst->get(), IMG_PORT_ME_FSTO, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(out.meAFmb0->get(), IMG_PORT_ME_L0_FMBI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(out.meAFmb1->get(), IMG_PORT_ME_L1_FMBI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(out.meAMv0->get(), IMG_PORT_ME_L0_RMVI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(in.meMil->get(), IMG_PORT_ME_MEMILI, 0, Size{0, 0});
+
+	HW_ME_3PASS_MODE_1.output(out.meConf0->get(), IMG_PORT_ME_CONFO, 0, kMeL1Size);
+	HW_ME_3PASS_MODE_1.output(out.meMmap[0]->get(), IMG_PORT_ME_WMAPO, 0, kMeMapSize0);
+	HW_ME_3PASS_MODE_1.output(out.meBFst->get(), IMG_PORT_ME_FSTO, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.output(out.meBFmb0->get(), IMG_PORT_ME_L0_FMBO, 0, kFmbSize);
+	HW_ME_3PASS_MODE_1.output(out.meBFmb1->get(), IMG_PORT_ME_L1_FMBO, 0, kFmbSize);
+	HW_ME_3PASS_MODE_1.output(out.meBLmi->get(), IMG_PORT_ME_LMIO, 0, kMeL1Size);
+	HW_ME_3PASS_MODE_1.output(out.meBMv0->get(), IMG_PORT_ME_L0_WMVO, 0, kMeL1Size);
+	HW_ME_3PASS_MODE_1.output(out.meBMv1->get(), IMG_PORT_ME_L1_WMVO, 0, kFmbSize);
+
+	HW_ME_3PASS_MODE_1.setMeInfo(NSCam::NSImgStream::EME_MODE_1);
+
+	requestHelper_.queueRequest(sdRequest);
+}
+
+TrTask::TrTask(Scheduler* scheduler, const std::string& id, Request* request,
+	       ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+	       :Task(scheduler, id), requestHelper_(this, request, imgSys),
+		request_(request), manager_(manager), imgSys_(imgSys)
+{
+	(void)imgSys_;
+	frames_ = mcnr.trFrames;
+}
+
+void TrTask::allocateOutputBuffers()
+{
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	/* todo: The tuning buffer should be allocated and filled by IPA.
+	 * Remove the workaround once the IPA is ready */
+	manager_->trawTun_.fetch(in.trTunF1);
+	fillTuning(in.trTunF1, &tuningBuffers.HW_TR_F1_tunbufi[0]);
+	manager_->trawTun_.fetch(in.trTunF4);
+	fillTuning(in.trTunF4, &tuningBuffers.HW_TR_F4_tunbufi[0]);
+
+	/* dipImgi[0] (p1F0) and dipImgi[1] (p1F1) are from P1 */
+	manager_->img3o_[2].fetch(out.dipImgi[2]);
+	manager_->img3o_[3].fetch(out.dipImgi[3]);
+	manager_->img3o_[4].fetch(out.dipImgi[4]);
+	manager_->img3o_[5].fetch(out.dipImgi[5]);
+	manager_->img3o_[6].fetch(out.dipImgi[6]);
+
+	manager_->meConf4_.fetch(out.meConf4);
+	manager_->meConf5_.fetch(out.meConf5);
+
+	/* Statstistic */
+	manager_->trawStt_.fetch(out.trawStt);
+}
+
+void TrTask::run()
+{
+	allocateOutputBuffers();
+
+	auto &mcnrSizes = manager_->mcnrSizes;
+
+	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
+	SingleDeviceRequest sdRequest;
+
+	sdRequest.init(request_->sequence(), timestampMili, "TRTask");
+
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	/* HW_TR_F1 */
+	StageEx &HW_TR_F1 = sdRequest.emplaceStage(PEU_Stage::HW_TR_F1);
+
+	HW_TR_F1.input(in.trTunF1->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_TR_F1.input(in.p1F1->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+
+	HW_TR_F1.output(out.dipImgi[2]->get(), IMG_PORT_TYUV2O, 2, mcnrSizes[1]);
+	HW_TR_F1.output(out.dipImgi[3]->get(), IMG_PORT_TYUV3O, 2, mcnrSizes[2]);
+	HW_TR_F1.output(out.dipImgi[4]->get(), IMG_PORT_TYUV4O, 2, mcnrSizes[3]);
+	HW_TR_F1.output(out.trawStt->get(), IMG_PORT_IMGSTATO, 0, Size{0, 0});
+
+	/* HW_TR_F4 */
+	StageEx &HW_TR_F4 = sdRequest.emplaceStage(PEU_Stage::HW_TR_F4);
+
+	HW_TR_F4.input(in.trTunF4->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_TR_F4.input(out.dipImgi[4]->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+
+	HW_TR_F4.output(out.dipImgi[5]->get(), IMG_PORT_TYUV2O, 2, mcnrSizes[4]);
+	HW_TR_F4.output(out.dipImgi[6]->get(), IMG_PORT_TYUV3O, 2, mcnrSizes[5]);
+
+	/* HW_TR_HWMVP */
+	StageEx &HW_TR_HWMVP = sdRequest.emplaceStage(PEU_Stage::HW_TR_HWMVP);
+
+	HW_TR_HWMVP.input(in.meMmap[0]->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+
+	HW_TR_HWMVP.output(in.meMmap[1]->get(), IMG_PORT_TYUV2O, 0, kMeMapSize1);
+	HW_TR_HWMVP.output(in.meMmap[2]->get(), IMG_PORT_TYUV3O, 0, kMeMapSize2);
+	HW_TR_HWMVP.output(in.meMmap[3]->get(), IMG_PORT_TYUV4O, 0, kMeMapSize3);
+
+	/* HW_TR_CONF4 */
+	StageEx &HW_TR_CONF4 = sdRequest.emplaceStage(PEU_Stage::HW_TR_CONF4);
+
+	HW_TR_CONF4.input(in.meConf0->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+	HW_TR_CONF4.output(out.meConf4->get(), IMG_PORT_TYUV5O, 0, kMeL1Size);
+
+	HW_TR_CONF4.setMvFrame(mcnrSizes[0], kMeL0Size);
+
+	/* HW_TR_CONF5 */
+	StageEx &HW_TR_CONF5 = sdRequest.emplaceStage(PEU_Stage::HW_TR_CONF5);
+
+	HW_TR_CONF5.input(in.meConf0->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+	HW_TR_CONF5.output(out.meConf5->get(), IMG_PORT_TYUV5O, 0, kMeL1Size);
+
+	HW_TR_CONF5.setMvFrame(mcnrSizes[0], kMeL0Size);
+
+
+	requestHelper_.queueRequest(sdRequest);
+}
+
+Dip1Task::Dip1Task(Scheduler* scheduler, const std::string& id, Request* request,
+		   ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+		   :Task(scheduler, id), requestHelper_(this, request, imgSys),
+		    request_(request), manager_(manager), imgSys_(imgSys)
+{
+	frames_ = mcnr.dip1Frames;
+
+	syncLtrDip_ = 0;
+	syncWpeDip_ = 0;
+}
+
+void Dip1Task::allocateOutputBuffers()
+{
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	/* todo: The tuning buffer should be allocated and filled by IPA.
+	 * Remove the workaround once the IPA is ready */
+	manager_->trawTun_.fetch(in.ltrTunF1);
+	fillTuning(in.ltrTunF1, &tuningBuffers.HW_LTR_F1_tunbufi[0]);
+	manager_->trawTun_.fetch(in.ltrTunF4);
+	fillTuning(in.ltrTunF4, &tuningBuffers.HW_LTR_F4_tunbufi[0]);
+	manager_->trawTun_.fetch(in.ltrTunVbi);
+	fillTuning(in.ltrTunVbi, &tuningBuffers.HW_LTR_VBI_tunbufi[0]);
+
+	for (size_t i = 0; i < in.dipTun.size(); i++) {
+		manager_->dipTun_.fetch(in.dipTun[i]);
+	}
+
+	fillTuning(in.dipTun[0], &tuningBuffers.HW_DIP_F0_tunbufi[0]);
+	fillTuning(in.dipTun[1], &tuningBuffers.HW_DIP_F1_tunbufi[0]);
+	fillTuning(in.dipTun[2], &tuningBuffers.HW_DIP_F2_tunbufi[0]);
+	fillTuning(in.dipTun[3], &tuningBuffers.HW_DIP_F3_tunbufi[0]);
+	fillTuning(in.dipTun[4], &tuningBuffers.HW_DIP_F4_tunbufi[0]);
+	fillTuning(in.dipTun[5], &tuningBuffers.HW_DIP_IDI2_tunbufi[0]);
+	fillTuning(in.dipTun[6], &tuningBuffers.HW_DIP_IDI_tunbufi[0]);
+
+	/* dipVipi[0] is not used. */
+	for (int i = 1; i < 7; i++)
+		manager_->img3o_[i].fetch(out.dipVipi[i]);
+
+	/* dipVbi[0] is not used, dipVbi[1] = dipVbi[2]. */
+	for (int i = 2; i < 7; i++)
+		manager_->vbi_[i].fetch(out.dipVbi[i]);
+
+	/* dipTnrwi[0] uses manager_->wt0_, dipTnrwi[6] is not used */
+	for (int i = 0; i < 6; i++)
+		manager_->wt_[i].fetch(out.dipTnrwi[i]);
+
+	/* dipTnrwo[6] is not used */
+	for (int i = 0; i < 6; i++)
+		manager_->wt_[i].fetch(out.dipTnrwo[i]);
+
+	manager_->tnrSo_.fetch(out.dipTnrso);
+	manager_->idi_.fetch(out.tnrlfdi);
+
+	/* allocate tnrmo[] only since tnrmi is linked to it, tnrmo[0] is not used */
+	for (int i = 1; i < 7; i++)
+		manager_->tnrmo_[i].fetch(out.dipTnrmo[i]);
+
+	/* allocate img3o[] only since reci is linked to them */
+	for (int i = 0; i < 7; i++)
+		manager_->img3o_[i].fetch(out.img3o[i]);
+
+	manager_->img4oF1_.fetch(out.img4oF1);
+
+	syncLtrDip_ = imgSys_->syncPool().get();
+	syncWpeDip_ = imgSys_->syncPool().get();
+}
+
+void Dip1Task::notifyDone()
+{
+	if (syncLtrDip_)
+		imgSys_->syncPool().put(syncLtrDip_);
+
+	if (syncWpeDip_)
+		imgSys_->syncPool().put(syncWpeDip_);
+
+	Task::notifyDone();
+}
+
+void Dip1Task::run()
+{
+	allocateOutputBuffers();
+
+	auto &mcnrSizes = manager_->mcnrSizes;
+
+	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
+	SingleDeviceRequest sdRequest;
+
+	sdRequest.init(request_->sequence(), timestampMili, "DIPTask");
+
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	/* HW_LTR_F1 */
+	StageEx &HW_LTR_F1 = sdRequest.emplaceStage(PEU_Stage::HW_LTR_F1);
+
+	HW_LTR_F1.input(in.ltrTunF1->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_LTR_F1.input(in.prevImg4oF1->get(), IMG_PORT_WPE_WPEI, 0, Size{0, 0});
+	HW_LTR_F1.input(out.meMmap[0]->get(), IMG_PORT_WPE_VECI, 0, Size{0, 0});
+
+	HW_LTR_F1.output(out.dipVipi[2]->get(), IMG_PORT_LTYUV2O, 2, mcnrSizes[1]);
+	HW_LTR_F1.output(out.dipVipi[3]->get(), IMG_PORT_LTYUV3O, 2, mcnrSizes[2]);
+	HW_LTR_F1.output(out.dipVipi[4]->get(), IMG_PORT_LTYUV4O, 2, mcnrSizes[3]);
+	HW_LTR_F1.output(out.dipVbi[2]->get(), IMG_PORT_LTYUV5O, 2, mcnrSizes[2]);
+	HW_LTR_F1.output(out.dipVipi[1]->get(), IMG_PORT_WPE_WPEO, 0, mcnrSizes[1]);
+
+	HW_LTR_F1.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO,
+			     mcnrSizes[1], NSCam::NSImgStream::EWPE_HW_LITE,
+			     (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
+
+	HW_LTR_F1.setMvFrame(mcnrSizes[0], kMeL0Size);
+
+	/* HW_LTR_F4 */
+	StageEx &HW_LTR_F4 = sdRequest.emplaceStage(PEU_Stage::HW_LTR_F4);
+
+	HW_LTR_F4.input(in.ltrTunF4->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_LTR_F4.input(out.dipVipi[4]->get(), IMG_PORT_LTIMGI, 0, Size{0, 0});
+
+	HW_LTR_F4.output(out.dipVipi[5]->get(), IMG_PORT_LTYUV2O, 2, mcnrSizes[4]);
+	HW_LTR_F4.output(out.dipVipi[6]->get(), IMG_PORT_LTYUV3O, 2, mcnrSizes[5]);
+
+	/* HW_LTR_VBI */
+	StageEx &HW_LTR_VBI = sdRequest.emplaceStage(PEU_Stage::HW_LTR_VBI);
+
+	HW_LTR_VBI.input(in.ltrTunVbi->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_LTR_VBI.input(out.dipVbi[2]->get(), IMG_PORT_LTIMGI, 0, Size{0, 0});
+
+	HW_LTR_VBI.output(out.dipVbi[3]->get(), IMG_PORT_LTYUV2O, 2, mcnrSizes[2]);
+	HW_LTR_VBI.output(out.dipVbi[4]->get(), IMG_PORT_LTYUV3O, 2, mcnrSizes[3]);
+	HW_LTR_VBI.output(out.dipVbi[5]->get(), IMG_PORT_LTYUV4O, 2, mcnrSizes[4]);
+
+	HW_LTR_VBI.addNotify(syncLtrDip_);
+
+	/* HW_WPE_W_F1 */
+	StageEx &HW_WPE_W_F1 = sdRequest.emplaceStage(PEU_Stage::HW_WPE_W_F1);
+	setWpeParams(HW_WPE_W_F1, 1);
+
+	/* HW_WPE_W_F2 */
+	StageEx &HW_WPE_W_F2 = sdRequest.emplaceStage(PEU_Stage::HW_WPE_W_F2);
+	setWpeParams(HW_WPE_W_F2, 2);
+
+	/* HW_WPE_W_F3 */
+	StageEx &HW_WPE_W_F3 = sdRequest.emplaceStage(PEU_Stage::HW_WPE_W_F3);
+	setWpeParams(HW_WPE_W_F3, 3);
+
+	/* HW_WPE_W_F4 */
+	StageEx &HW_WPE_W_F4 = sdRequest.emplaceStage(PEU_Stage::HW_WPE_W_F4);
+	setWpeParams(HW_WPE_W_F4, 4);
+
+	/* HW_WPE_W_F5 */
+	StageEx &HW_WPE_W_F5 = sdRequest.emplaceStage(PEU_Stage::HW_WPE_W_F5);
+	setWpeParams(HW_WPE_W_F5, 5);
+
+	/* Set notify fence from WPE to DIP */
+	HW_WPE_W_F5.addNotify(syncWpeDip_);
+
+	/* HW_WPE_W_F0 */
+	StageEx &HW_WPE_W_F0 = sdRequest.emplaceStage(PEU_Stage::HW_WPE_W_F0);
+	setWpeParams(HW_WPE_W_F0, 0);
+
+	/* HW_DIP_IDI */
+	StageEx &HW_DIP_IDI = sdRequest.emplaceStage(PEU_Stage::HW_DIP_IDI);
+
+	HW_DIP_IDI.input(in.dipTun[6]->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_DIP_IDI.input(out.dipImgi[6]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
+	HW_DIP_IDI.input(out.dipVipi[6]->get(), IMG_PORT_VIPI, 0, Size{0, 0});
+	HW_DIP_IDI.input(in.preDipTnrso->get(), IMG_PORT_TNRSI, 0, Size{0, 0});
+
+	HW_DIP_IDI.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{0, 0});
+	HW_DIP_IDI.output(out.tnrlfdi->get(), IMG_PORT_IMG3O, 0, mcnrSizes[6]);
+
+	HW_DIP_IDI.setMultiScale(IMG_MULTI_SCALE_DOWN2, 6, 7);
+	HW_DIP_IDI.setPqInfo();
+
+	/* Set wait fence from LTR to DIP */
+	HW_DIP_IDI.addWait(syncLtrDip_);
+	/* Set wait fence from WPE to DIP */
+	HW_DIP_IDI.addWait(syncWpeDip_);
+
+	/* HW_DIP_IDI2 */
+	StageEx &HW_DIP_IDI2 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_IDI2);
+	setDipParams(HW_DIP_IDI2, 5);
+
+	/* HW_DIP_F4 */
+	StageEx &HW_DIP_F4 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F4);
+	setDipParams(HW_DIP_F4, 4);
+
+	/* HW_DIP_F3 */
+	StageEx &HW_DIP_F3 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F3);
+	setDipParams(HW_DIP_F3, 3);
+
+	/* HW_DIP_F2 */
+	StageEx &HW_DIP_F2 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F2);
+	setDipParams(HW_DIP_F2, 2);
+
+	/* HW_DIP_F1 */
+	StageEx &HW_DIP_F1 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F1);
+	setDipParams(HW_DIP_F1, 1);
+
+	requestHelper_.queueRequest(sdRequest);
+}
+
+void Dip1Task::setWpeParams(StageEx &stage, unsigned int level)
+{
+	auto &mcnrSizes = manager_->mcnrSizes;
+	auto &wtSizes = manager_->wtSizes;
+
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	stage.input(in.prevDipTnrwo[level]->get(), IMG_PORT_WPE_WPEI, 0, Size{0, 0});
+	stage.input(out.wpeVeci[level]->get(), IMG_PORT_WPE_VECI, 0, Size{0, 0});
+	stage.output(out.dipTnrwi[level]->get(), IMG_PORT_WPE_WPEO, 0, wtSizes[level]);
+	stage.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, wtSizes[level],
+			 NSCam::NSImgStream::EWPE_HW_LITE,
+			 (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
+	stage.setMvFrame(mcnrSizes[0], kMeL0Size);
+}
+
+void Dip1Task::setDipParams(StageEx &stage, unsigned int level)
+{
+	auto &mcnrSizes = manager_->mcnrSizes;
+
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	ASSERT(level != 0);
+
+	if (level == 1)
+		stage.output(out.img4oF1->get(), IMG_PORT_IMG4O, 0, mcnrSizes[level]);
+
+	if (level == 5)
+		stage.input(out.dipImgi[level + 1]->get(), IMG_PORT_REC_DSI, 2, Size{0, 0});
+	else
+		stage.input(out.reci[level]->get(), IMG_PORT_REC_DSI, 2, Size{0, 0});
+
+	stage.input(out.dipVipi[level]->get(), IMG_PORT_VIPI, 0, Size{0, 0});
+	stage.input(out.dipVbi[level]->get(), IMG_PORT_TNRVBI, 2, Size{0, 0});
+
+	stage.input(in.dipTun[level]->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	stage.input(out.dipImgi[level]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
+	stage.input(out.dipTnrwi[level]->get(), IMG_PORT_TNRWI, 2, Size{0, 0});
+	stage.input(out.dipTnrmi[level]->get(), IMG_PORT_TNRMI, 2, Size{0, 0});
+	stage.input(out.dipTnrso->get(), IMG_PORT_TNRSI, 0, Size{0, 0});
+	stage.input(out.dipTnrci[level]->get(), IMG_PORT_TNRCI, 2, Size{0, 0});
+	stage.input(out.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{0, 0});
+
+	stage.output(out.dipTnrwo[level]->get(), IMG_PORT_TNRWO, 0, mcnrSizes[level]);
+	stage.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{0, 0});
+
+	stage.output(out.dipTnrmo[level]->get(), IMG_PORT_TNRMO, 0, mcnrSizes[level]);
+	stage.output(out.img3o[level]->get(), IMG_PORT_IMG3O, 0, mcnrSizes[level]);
+
+	stage.setMultiScale(IMG_MULTI_SCALE_DOWN2, level, 7);
+	stage.setPqInfo();
+	stage.setMvFrame(mcnrSizes[0], kMeL0Size);
+}
+
+Dip2Task::Dip2Task(Scheduler* scheduler, const std::string& id, Request* request,
+		   ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+		   :Task(scheduler, id), requestHelper_(this, request, imgSys),
+		    request_(request), manager_(manager), imgSys_(imgSys)
+{
+	frames_ = mcnr.dip2Frames;
+	videoOut1 = mcnr.videoOut1;
+	videoOut2 = mcnr.videoOut2;
+}
+
+void Dip2Task::allocateOutputBuffers()
+{
+	manager_->img4oF0_.fetch(frames_.out.img4oF0);
+}
+
+void Dip2Task::run()
+{
+	allocateOutputBuffers();
+
+	auto &mcnrSizes = manager_->mcnrSizes;
+
+	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
+	SingleDeviceRequest sdRequest;
+
+	sdRequest.init(request_->sequence(), timestampMili, "DIPTask");
+
+	auto &in = frames_.in;
+	auto &out = frames_.out;
+
+	/* HW_DIP_F0 */
+	StageEx &HW_DIP_F0 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F0);
+
+	HW_DIP_F0.input(in.prevImg4oF0->get(), IMG_PORT_WPE_TNR_WPEI, 0, Size{0, 0});
+	HW_DIP_F0.input(in.reci[0]->get(), IMG_PORT_REC_DSI, 2, Size{0, 0});
+	HW_DIP_F0.input(in.dipTun[0]->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	HW_DIP_F0.input(in.dipImgi[0]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
+	HW_DIP_F0.input(in.dipTnrwi[0]->get(), IMG_PORT_TNRWI, 2, Size{0, 0});
+	HW_DIP_F0.input(in.dipTnrmi[0]->get(), IMG_PORT_TNRMI, 2, Size{0, 0});
+	HW_DIP_F0.input(out.dipTnrso->get(), IMG_PORT_TNRSI, 0, Size{0, 0});
+	HW_DIP_F0.input(in.dipTnrci[0]->get(), IMG_PORT_TNRCI, 2, Size{0, 0});
+	HW_DIP_F0.input(in.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{0, 0});
+	HW_DIP_F0.input(in.wpeVeci[0]->get(), IMG_PORT_WPE_TNR_VECI, 0, Size{0, 0});
+
+	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, mcnrSizes[0]);
+	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, mcnrSizes[0]);
+	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{0, 0});
+	HW_DIP_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
+	HW_DIP_F0.setPqInfo();
+	HW_DIP_F0.setMvFrame(mcnrSizes[0], kMeL0Size);
+
+	assert(videoOut1 || videoOut2);
+
+	if (videoOut1) {
+		InfoFrame info(formats::NV12, manager_->videoOut1Size_, videoOut1);
+		Rectangle crop = ImgSysDevice::getCrop(mcnrSizes[0], info.size());
+		HW_DIP_F0.output(info, IMG_PORT_WDMAO, 0, crop);
+	}
+
+	if (videoOut2) {
+		InfoFrame info(formats::NV12, manager_->videoOut2Size_, videoOut2);
+		Rectangle crop = ImgSysDevice::getCrop(mcnrSizes[0], info.size());
+		HW_DIP_F0.output(info, IMG_PORT_WROTO, 0, crop);
+	}
+
+	HW_DIP_F0.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_TNR_INFO, mcnrSizes[0],
+			     NSCam::NSImgStream::EWPE_HW_TNR,
+			     (unsigned int)NSCam::NSImgStream::EWPE_MVMAP | NSCam::NSImgStream::EWPE_IROI);
+
+	HW_DIP_F0.setCostLevel();
+	HW_DIP_F0.setImg4oCrop(Rectangle{0, 0, mcnrSizes[0].width, mcnrSizes[0].height});
+
+	requestHelper_.queueRequest(sdRequest);
+}
+
+} /* namespace libcamera */
