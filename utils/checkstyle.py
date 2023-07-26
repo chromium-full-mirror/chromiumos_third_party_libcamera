@@ -208,6 +208,17 @@ class Commit:
         self.commit = commit
         self._parse()
 
+    def _parse_trailers(self, lines):
+        self._trailers = []
+        for index in range(1, len(lines)):
+            line = lines[index]
+            if not line:
+                break
+
+            self._trailers.append(line)
+
+        return index
+
     def _parse(self):
         # Get the commit title and list of files.
         ret = subprocess.run(['git', 'show', '--format=%s%n%(trailers:only,unfold)', '--name-status',
@@ -217,14 +228,7 @@ class Commit:
 
         self._title = lines[0]
 
-        self._trailers = []
-        for index in range(1, len(lines)):
-            line = lines[index]
-            if not line:
-                break
-
-            self._trailers.append(line)
-
+        index = self._parse_trailers(lines)
         self._files = [CommitFile(f) for f in lines[index:] if f]
 
     def files(self, filter='AMR'):
@@ -253,6 +257,9 @@ class StagedChanges(Commit):
     def __init__(self):
         Commit.__init__(self, '')
 
+        # There are no trailers to parse on a Staged Change.
+        self._trailers = []
+
     def _parse(self):
         ret = subprocess.run(['git', 'diff', '--staged', '--name-status'],
                              stdout=subprocess.PIPE).stdout.decode('utf-8')
@@ -266,9 +273,9 @@ class StagedChanges(Commit):
         return parse_diff(diff.splitlines(True))
 
 
-class Amendment(StagedChanges):
+class Amendment(Commit):
     def __init__(self):
-        StagedChanges.__init__(self)
+        Commit.__init__(self, '')
 
     def _parse(self):
         # Create a title using HEAD commit
@@ -279,6 +286,12 @@ class Amendment(StagedChanges):
         ret = subprocess.run(['git', 'diff', '--staged', '--name-status', 'HEAD~'],
                              stdout=subprocess.PIPE).stdout.decode('utf-8')
         self._files = [CommitFile(f) for f in ret.splitlines()]
+
+        # Parse trailers from the existing commit only.
+        ret = subprocess.run(['git', 'show', '--format=%n%(trailers:only,unfold)',
+                             '--no-patch'],
+                             stdout=subprocess.PIPE).stdout.decode('utf-8')
+        self._parse_trailers(ret.splitlines())
 
     def get_diff(self, top_level, filename):
         diff = subprocess.run(['git', 'diff', '--staged', 'HEAD~', '--',
@@ -479,7 +492,8 @@ class TrailersChecker(CommitChecker):
         for trailer in commit.trailers:
             match = TrailersChecker.trailer_regex.fullmatch(trailer)
             if not match:
-                raise RuntimeError(f"Malformed commit trailer '{trailer}'")
+                issues.append(CommitIssue(f"Malformed commit trailer '{trailer}'"))
+                continue
 
             key, value = match.groups()
 
