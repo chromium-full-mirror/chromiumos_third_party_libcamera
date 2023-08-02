@@ -8,6 +8,8 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
+#include <cstdlib>
 #include <ostream>
 #include <string>
 
@@ -260,6 +262,14 @@ public:
 	constexpr explicit Rectangle(const Size &size)
 		: x(0), y(0), width(size.width), height(size.height)
 	{
+	}
+
+	constexpr Rectangle(const Point &topLeft, const Point &bottomRight)
+		: x(topLeft.x), y(topLeft.y),
+		  width(bottomRight.x - x),
+		  height(bottomRight.y - y)
+	{
+		assert(bottomRight.x >= x && bottomRight.y >= y);
 	}
 
 	int x;
