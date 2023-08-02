@@ -774,6 +774,48 @@ controls:
             Continuous AF is paused. No further state changes or lens movements
             will occur until the AfPauseResume control is sent.
 
+  - FaceDetectMode:
+      type: uint8_t
+      description: |
+        Reporting mode of face detection.
+
+      enum:
+        - name: FaceDetectModeOff
+          value: 0
+          description: |
+            Pipeline should not report face detection result.
+        - name: FaceDetectModeSimple
+          value: 1
+          description: |
+            Pipeline should at least report faces boundary rectangles and
+            confidence score for each of them.
+
+  - FaceDetectFaceRectangles:
+      type: Rectangle
+      description: |
+        Boundary rectangle of the detected faces.
+
+      size: [n]
+
+  - FaceDetectFaceScores:
+      type: uint8_t
+      description: |
+        Confidence score of each of the detected faces by face detector.
+        The range of score is [0, 100], but usually those with low confidence
+        scores will not be included.
+        Currently identical to ANDROID_STATISTICS_FACE_SCORES.
+
+      size: [n]
+
+  - FaceDetectFaceLandmark:
+      type: Point
+      description: |
+        Array of human face landmark coordinates in format:
+        [..., left_eye_i, right_eye_i, mouth_i, left_eye_i+1, ...],
+        with i = index of face.
+
+      size: [n]
+
   # ----------------------------------------------------------------------------
   # Draft controls section
 
