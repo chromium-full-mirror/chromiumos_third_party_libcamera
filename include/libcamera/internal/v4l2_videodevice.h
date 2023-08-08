@@ -212,6 +212,7 @@ public:
 	int getFormat(V4L2DeviceFormat *format);
 	int tryFormat(V4L2DeviceFormat *format);
 	int setFormat(V4L2DeviceFormat *format);
+    int setFormatVideo(V4L2DeviceFormat *format);
 	Formats formats(uint32_t code = 0);
 
 	int setSelection(unsigned int target, Rectangle *rect);
@@ -253,8 +254,12 @@ private:
 
 	int initFormats();
 
+	void cacheFormat(V4L2DeviceFormat *format);
+
 	int getFormatMeta(V4L2DeviceFormat *format);
 	int trySetFormatMeta(V4L2DeviceFormat *format, bool set);
+
+	int trySetFormatVideo(V4L2DeviceFormat *format, bool set);
 
 	int getFormatMultiplane(V4L2DeviceFormat *format);
 	int trySetFormatMultiplane(V4L2DeviceFormat *format, bool set);
@@ -304,7 +309,8 @@ public:
 	V4L2M2MDevice(const std::string &deviceNode);
 	~V4L2M2MDevice();
 
-	int open();
+	int open(enum v4l2_buf_type outputType = V4L2_BUF_TYPE_VIDEO_OUTPUT,
+	          enum v4l2_buf_type captureType = V4L2_BUF_TYPE_VIDEO_CAPTURE);
 	void close();
 
 	V4L2VideoDevice *output() { return output_; }

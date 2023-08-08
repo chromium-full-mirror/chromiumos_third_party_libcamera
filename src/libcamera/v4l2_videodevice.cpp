@@ -727,6 +727,14 @@ int V4L2VideoDevice::open(SharedFD handle, enum v4l2_buf_type type)
 			    ? V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE
 			    : V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		break;
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		notifierType = EventNotifier::Write;
+		bufferType_ = V4L2_BUF_TYPE_META_OUTPUT;
+		break;
+	case V4L2_BUF_TYPE_META_CAPTURE:
+		notifierType = EventNotifier::Read;
+		bufferType_ = V4L2_BUF_TYPE_META_CAPTURE;
+		break;
 	default:
 		LOG(V4L2, Error) << "Unsupported buffer type";
 		return -EINVAL;
@@ -843,10 +851,14 @@ int V4L2VideoDevice::tryFormat(V4L2DeviceFormat *format)
 {
 	if (caps_.isMeta())
 		return trySetFormatMeta(format, false);
-	else if (caps_.isMultiplanar())
-		return trySetFormatMultiplane(format, false);
 	else
-		return trySetFormatSingleplane(format, false);
+		return trySetFormatVideo(format, false);
+}
+
+void V4L2VideoDevice::cacheFormat(V4L2DeviceFormat *format)
+{
+	format_ = *format;
+	formatInfo_ = &PixelFormatInfo::info(format_.fourcc);
 }
 
 /**
@@ -863,17 +875,35 @@ int V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)
 	int ret = 0;
 	if (caps_.isMeta())
 		ret = trySetFormatMeta(format, true);
-	else if (caps_.isMultiplanar())
-		ret = trySetFormatMultiplane(format, true);
 	else
-		ret = trySetFormatSingleplane(format, true);
+		ret = trySetFormatVideo(format, true);
 
 	/* Cache the set format on success. */
 	if (ret)
 		return ret;
 
-	format_ = *format;
-	formatInfo_ = &PixelFormatInfo::info(format_.fourcc);
+	cacheFormat(format);
+
+	return 0;
+}
+
+/**
+ * \brief Configure an image format on the V4L2 video device
+ * \param[inout] format The image format to apply to the video device
+ *
+ * Same like \ref V4L2VideoDevice::setFormat, but only for video capture /
+ * output device. Useful for M2M device with both meta and video capabilities.
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+int V4L2VideoDevice::setFormatVideo(V4L2DeviceFormat *format)
+{
+	int ret = trySetFormatVideo(format, true);
+	/* Cache the set format on success. */
+	if (ret)
+		return ret;
+
+	cacheFormat(format);
 
 	return 0;
 }
@@ -930,6 +960,13 @@ int V4L2VideoDevice::trySetFormatMeta(V4L2DeviceFormat *format, bool set)
 	format->planes[0].size = pix->buffersize;
 
 	return 0;
+}
+
+int V4L2VideoDevice::trySetFormatVideo(V4L2DeviceFormat *format, bool set)
+{
+	if (caps_.isMultiplanar())
+		return trySetFormatMultiplane(format, set);
+	return trySetFormatSingleplane(format, set);
 }
 
 template<typename T>
@@ -2184,7 +2221,7 @@ V4L2M2MDevice::~V4L2M2MDevice()
  *
  * \return 0 on success or a negative error code otherwise
  */
-int V4L2M2MDevice::open()
+int V4L2M2MDevice::open(enum v4l2_buf_type outputType, enum v4l2_buf_type captureType)
 {
 	int ret;
 
@@ -2201,11 +2238,11 @@ int V4L2M2MDevice::open()
 		return ret;
 	}
 
-	ret = output_->open(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT);
+	ret = output_->open(fd, outputType);
 	if (ret)
 		goto err;
 
-	ret = capture_->open(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+	ret = capture_->open(fd, captureType);
 	if (ret)
 		goto err;
 
