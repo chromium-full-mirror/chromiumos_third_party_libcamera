@@ -9,12 +9,12 @@
 
 #include <algorithm>
 #include <fstream>
-#include <set>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <vector>
 
 #include <libcamera/base/log.h>
+#include <libcamera/base/span.h>
 #include <libcamera/base/unique_fd.h>
 #include <libcamera/base/utils.h>
 
@@ -22,6 +22,7 @@
 #include <libcamera/controls.h>
 #include <libcamera/fence.h>
 #include <libcamera/formats.h>
+#include <libcamera/geometry.h>
 #include <libcamera/property_ids.h>
 
 #include "camera_buffer.h"
@@ -883,6 +884,14 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::ScalerCrop, cropRegion);
 	}
 
+	if (settings.getEntry(ANDROID_STATISTICS_FACE_DETECT_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::FaceDetectMode, data[0]);
+		if (!controls.get(controls::FaceDetectMode)) {
+			LOG(HAL, Warning) << "Pipeline doesn't support controls::FaceDetectMode";
+		}
+	}
+
 	if (settings.getEntry(ANDROID_SENSOR_TEST_PATTERN_MODE, &entry)) {
 		const int32_t data = *entry.data.i32;
 		int32_t testPatternMode = controls::draft::TestPatternModeOff;
@@ -1601,7 +1610,8 @@ void CameraDevice::streamProcessingCompleteDelegate(StreamBuffer *streamBuffer,
 	 * Delegate the callback to the camera manager thread to simplify race condition.
 	 */
 	auto *method = new BoundMethodMember{
-    this, camera_.get(), &CameraDevice::streamProcessingComplete, ConnectionTypeQueued};
+		this, camera_.get(), &CameraDevice::streamProcessingComplete, ConnectionTypeQueued
+	};
 
 	method->activate(streamBuffer, status);
 }
@@ -1619,7 +1629,7 @@ void CameraDevice::streamProcessingCompleteDelegate(StreamBuffer *streamBuffer,
  * be generated from post-processing have been completed.
  */
 void CameraDevice::streamProcessingComplete(StreamBuffer *streamBuffer,
-					     StreamBuffer::Status status)
+					    StreamBuffer::Status status)
 {
 	setBufferStatus(*streamBuffer, status);
 	streamBuffer->dstBuffer = nullptr;
@@ -1719,6 +1729,54 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 	if (frameDuration)
 		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION,
 					 *frameDuration * 1000);
+
+	const auto &faceDetectRectangles =
+		metadata.get(controls::FaceDetectFaceRectangles);
+	if (faceDetectRectangles) {
+		const Span<const Rectangle> rectangles = *faceDetectRectangles;
+		std::vector<int32_t> flatRectangles;
+		for (const Rectangle &rect : rectangles) {
+			flatRectangles.push_back(rect.x);
+			flatRectangles.push_back(rect.y);
+			flatRectangles.push_back(rect.x + rect.width);
+			flatRectangles.push_back(rect.y + rect.height);
+		}
+		resultMetadata->addEntry(
+			ANDROID_STATISTICS_FACE_RECTANGLES, flatRectangles);
+	}
+
+	const auto &faceDetectFaceScores =
+		metadata.get(controls::FaceDetectFaceScores);
+	if (faceDetectRectangles && faceDetectFaceScores) {
+		const Span<const uint8_t> &scores = *faceDetectFaceScores;
+		if (scores.size() != faceDetectRectangles->size()) {
+			LOG(HAL, Error) << "Pipeline returned wrong number of face scores; "
+					<< "Expected: "
+					<< faceDetectRectangles->size()
+					<< ", got:" << scores.size();
+		}
+		resultMetadata->addEntry(ANDROID_STATISTICS_FACE_SCORES, scores);
+	}
+
+	const auto &faceDetectFaceLandmarks =
+		metadata.get(controls::FaceDetectFaceLandmark);
+	if (faceDetectFaceScores && faceDetectRectangles &&
+	    faceDetectFaceLandmarks) {
+		const auto &landmarks = *faceDetectFaceLandmarks;
+		size_t expectedLandmarks = faceDetectRectangles->size() * 3;
+		std::vector<int32_t> androidLandmarks;
+		for (const auto &landmark : landmarks) {
+			androidLandmarks.push_back(landmark.x);
+			androidLandmarks.push_back(landmark.y);
+		}
+		resultMetadata->addEntry(
+			ANDROID_STATISTICS_FACE_LANDMARKS, androidLandmarks);
+		if (landmarks.size() != expectedLandmarks) {
+			LOG(HAL, Error) << "Pipeline returned wrong number of face landmarks; "
+					<< "Expected: " << expectedLandmarks
+					<< ", got: " << landmarks.size();
+		}
+	}
 
 	const auto &scalerCrop = metadata.get(controls::ScalerCrop);
 	if (scalerCrop) {
@@ -1898,8 +1956,9 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	resultMetadata->addEntry(ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 				 value);
 
-	value = ANDROID_STATISTICS_FACE_DETECT_MODE_OFF;
-	resultMetadata->addEntry(ANDROID_STATISTICS_FACE_DETECT_MODE, value);
+	settings.getEntry(ANDROID_STATISTICS_FACE_DETECT_MODE, &entry);
+	resultMetadata->addEntry(ANDROID_STATISTICS_FACE_DETECT_MODE,
+				 entry.data.u8, 1);
 
 	value = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF;
 	resultMetadata->addEntry(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE,
