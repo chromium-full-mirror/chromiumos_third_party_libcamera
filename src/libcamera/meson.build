@@ -178,7 +178,7 @@ if not libyuv_dep.found()
     libyuv_dep = libyuv.dependency('yuv')
 endif
 
-libcamera_deps = [
+libcamera_deps += [
     libatomic,
     libcamera_base,
     libcamera_base_private,

@@ -1,8 +1,15 @@
 # SPDX-License-Identifier: CC0-1.0
 
+libcamalgo_fdft = cc.find_library('camalgo.fdft', required : false)
+
+libcamera_deps += [
+    libcamalgo_fdft,
+]
+
 libcamera_sources += files([
     'camsys/camsys.cpp',
     'camsys/capture.cpp',
+    'face_detect/aie.cpp',
     'imgsys/lpnr.cpp',
     'imgsys/imgsys.cpp',
     'imgsys/mcnr.cpp',
