@@ -10,6 +10,7 @@ libcamera_sources += files([
     'camsys/camsys.cpp',
     'camsys/capture.cpp',
     'face_detect/aie.cpp',
+    'face_detect/parser.cpp',
     'imgsys/lpnr.cpp',
     'imgsys/imgsys.cpp',
     'imgsys/mcnr.cpp',
