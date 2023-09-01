@@ -2,6 +2,7 @@
 
 libcamalgo_fdft = cc.find_library('camalgo.fdft', required : false)
 libcam_hal3a = cc.find_library('libcam.hal3a', required : true)
+libcam_hal3a_v3_nvram_v4l2 = cc.find_library('libcam.hal3a.v3.nvram.v4l2', required : true)
 libmtkcam_metadata_container = cc.find_library('libmtkcam_metadata.container', required : true, static : true)
 libmtkcam_ulog = cc.find_library('libmtkcam_ulog', required : true)
 libmtk_platform_log = cc.find_library('libmtk_platform_log', required : true)
@@ -12,6 +13,7 @@ libcam_peripheralcontroller = cc.find_library('libcam.peripheralcontroller', req
 libcamera_deps += [
     libcamalgo_fdft,
     libcam_hal3a,
+    libcam_hal3a_v3_nvram_v4l2,
     libmtkcam_metadata_container,
     libmtkcam_ulog,
     libmtk_platform_log,

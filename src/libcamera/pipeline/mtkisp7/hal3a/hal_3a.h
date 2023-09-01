@@ -18,12 +18,16 @@ public:
 
 private:
 	void init();
+	void getInitialInfo();
 
 	const uint32_t sensor_idx_;
 
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;
 
 	std::shared_ptr<mtk::hal3a::IPeripheralController> peripheralController_ = nullptr;
+
+	mtk::hal3a::v1_0::mtk_hw_initial_setting initialSetting_ = {};
+	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 };
 
 } /* namespace libcamera */

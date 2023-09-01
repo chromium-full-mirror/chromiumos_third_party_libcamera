@@ -8,6 +8,8 @@
 
 #include <libcamera/base/log.h>
 
+#include "mtkcam-core/aaa/include/nvbuf_util.h"
+
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -20,6 +22,7 @@ Hal3A::Hal3A(const uint32_t sensor_idx)
 void Hal3A::start()
 {
 	init();
+	getInitialInfo();
 }
 
 void Hal3A::init()
@@ -28,6 +31,23 @@ void Hal3A::init()
 	pHalSensorList->searchSensors();
 	peripheralController_ = mtk::hal3a::IPeripheralController::GetInstance(sensor_idx_);
 	peripheralController_->notifyPowerOn();
+
+	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
+	// TODO(chenghaoyang): Abstract sensors' information to support different sensor modules.
+	if (sensor_idx_ == 0) { // back camera
+		_sensorIdxInfo.sensorDev = 1;
+		_sensorIdxInfo.sensorId = 4921;
+		_sensorIdxInfo.facing = 0;
+		_sensorIdxInfo.moduleId = 0;
+		_sensorIdxInfo.sensorName = "HI1339_MIPI_RAW";
+	} else { // front camera
+		_sensorIdxInfo.sensorDev = 2;
+		_sensorIdxInfo.sensorId = 2211;
+		_sensorIdxInfo.facing = 1;
+		_sensorIdxInfo.moduleId = 0;
+		_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
+	}
+	NvBufUtil::initSensorInfo(sensor_idx_, _sensorIdxInfo);
 
 	m_hal3a_ = mtk::hal3a::IHal3A::GetInstance(sensor_idx_);
 	mtk::hal3a::v1_0::mtk_3a_init init = {};
@@ -70,6 +90,82 @@ void Hal3A::init()
 	// m_Sync3AFlowCtrl->Init(sensor_idx_);
 
 	m_hal3a_->Init(init);
+}
+
+void Hal3A::getInitialInfo()
+{
+	mtk::hal3a::v1_0::mtk_3a_config config = {};
+
+	// `config.static_meta` is not used in the proprietary library.
+
+	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetIrisData,
+					   (intptr_t)(&config.iris_info), 0, 0, 0);
+	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetSensorStaticInfo,
+					   (intptr_t)(&config.sensor_static_info_array),
+					   0, 0, 0);
+	peripheralController_->NotifyEvent(
+		mtk::hal3a::IPeripheralController::kGetSensorInitialDynamicInfo,
+		(intptr_t)(&config.sensor_init_dynamic_info), 0, 0, 0);
+
+	config.ae_target_mode = 0;
+	config.isp_fus_num = 0;
+	config.ae_sensor_min_fps = 0;
+	config.ae_sensor_max_fps = 0;
+	config.multiexp_hdr_mode = 0;
+	config.ae_valid_exp = 0;
+	config.tuning_feature = 0;
+	config.tuning_feature_cap = 0;
+	config.target_size_w = 0;
+	config.target_size_h = 0;
+	config.capture_feature = 5316725;
+	config.ae_min_fps = 5000;
+	config.ae_max_fps = 30000;
+	config.zoom_ratio = 100;
+	config.capture_intent = 1;
+	config.aov_enable = 0;
+	config.custom_feature = 0;
+	config.custom_feature_cap = 0;
+	config.is_subsample_mode = 0;
+
+	config.sensor_idx = sensor_idx_;
+
+	config.control_config.subsample_count = 1;
+	config.control_config.request_count = 1;
+	config.control_config.sensor_mode = 0;
+	config.control_config.sensor_id = 0;
+	config.control_config.bit_mode = 1;
+
+	config.fno = 1.790000;
+	config.focal_length = 4.710000;
+	config.sensor_mode = 0;
+
+	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
+	if (!pHalSensorList) {
+		LOG(MtkISP7, Fatal) << "Couldn't get IHalSensorList";
+		return;
+	}
+	config.control_config.sensor_dev = pHalSensorList->querySensorDevIdx(sensor_idx_);
+	if (sensor_idx_ == 0) { // back camera
+		config.control_config.sensor_tg_width = 4208;
+		config.control_config.sensor_tg_height = 3120;
+
+		config.orientation.sensor_orientation = 0;
+		config.orientation.facing = 1;
+		config.tg_width = 4208;
+		config.tg_height = 3120;
+	} else { // front camera
+		config.control_config.sensor_tg_width = 3264;
+		config.control_config.sensor_tg_height = 2448;
+
+		config.orientation.sensor_orientation = 270;
+		config.orientation.facing = 0;
+		config.tg_width = 3264;
+		config.tg_height = 2448;
+	}
+
+	m_hal3a_->GetHwInitialSetting(config, initialSetting_);
+	m_hal3a_->GetResultForceUpdate(r3AResult_);
+	m_hal3a_->Set2aDataToLastPool();
 }
 
 } /* namespace libcamera */
