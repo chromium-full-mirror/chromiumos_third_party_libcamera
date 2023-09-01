@@ -2,7 +2,7 @@
 
 project('libcamera', 'c', 'cpp',
     meson_version : '>= 0.57',
-    version : '0.0.5',
+    version : '0.1.0',
     default_options : [
         'werror=true',
         'warning_level=2',
@@ -109,7 +109,7 @@ if cc.get_id() == 'clang'
 
     # Use libc++ by default if available instead of libstdc++ when compiling
     # with clang.
-    if cc.find_library('libc++', required : false).found()
+    if cc.find_library('c++', required : false).found()
         cpp_arguments += [
             '-stdlib=libc++',
         ]

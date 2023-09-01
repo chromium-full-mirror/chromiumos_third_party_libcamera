@@ -61,6 +61,10 @@ const ControlInfoMap::Map ipaControls{
 	{ &controls::AeConstraintMode, ControlInfo(controls::AeConstraintModeValues) },
 	{ &controls::AeExposureMode, ControlInfo(controls::AeExposureModeValues) },
 	{ &controls::ExposureValue, ControlInfo(-8.0f, 8.0f, 0.0f) },
+	{ &controls::AeFlickerMode, ControlInfo(static_cast<int>(controls::FlickerOff),
+						static_cast<int>(controls::FlickerManual),
+						static_cast<int>(controls::FlickerOff)) },
+	{ &controls::AeFlickerPeriod, ControlInfo(100, 1000000) },
 	{ &controls::Brightness, ControlInfo(-1.0f, 1.0f, 0.0f) },
 	{ &controls::Contrast, ControlInfo(0.0f, 32.0f, 1.0f) },
 	{ &controls::Sharpness, ControlInfo(0.0f, 16.0f, 1.0f) },
@@ -97,7 +101,7 @@ namespace ipa::RPi {
 
 IpaBase::IpaBase()
 	: controller_(), frameCount_(0), mistrustCount_(0), lastRunTimestamp_(0),
-	  firstStart_(true)
+	  firstStart_(true), flickerState_({ 0, 0s })
 {
 }
 
@@ -458,6 +462,9 @@ void IpaBase::processStats(const ProcessParams &params)
 
 		RPiController::StatisticsPtr statistics = platformProcessStats(it->second.planes()[0]);
 
+		/* reportMetadata() will pick this up and set the FocusFoM metadata */
+		rpiMetadata.set("focus.status", statistics->focusRegions);
+
 		helper_->process(statistics, rpiMetadata);
 		controller_.process(statistics, &rpiMetadata);
 
@@ -809,6 +816,64 @@ void IpaBase::applyControls(const ControlList &controls)
 			agc->setEv(ev);
 			libcameraMetadata_.set(controls::ExposureValue,
 					       ctrl.second.get<float>());
+			break;
+		}
+
+		case controls::AE_FLICKER_MODE: {
+			RPiController::AgcAlgorithm *agc = dynamic_cast<RPiController::AgcAlgorithm *>(
+				controller_.getAlgorithm("agc"));
+			if (!agc) {
+				LOG(IPARPI, Warning)
+					<< "Could not set AeFlickerMode - no AGC algorithm";
+				break;
+			}
+
+			int32_t mode = ctrl.second.get<int32_t>();
+			bool modeValid = true;
+
+			switch (mode) {
+			case controls::FlickerOff:
+				agc->setFlickerPeriod(0us);
+
+				break;
+
+			case controls::FlickerManual:
+				agc->setFlickerPeriod(flickerState_.manualPeriod);
+
+				break;
+
+			default:
+				LOG(IPARPI, Error) << "Flicker mode " << mode << " is not supported";
+				modeValid = false;
+
+				break;
+			}
+
+			if (modeValid)
+				flickerState_.mode = mode;
+
+			break;
+		}
+
+		case controls::AE_FLICKER_PERIOD: {
+			RPiController::AgcAlgorithm *agc = dynamic_cast<RPiController::AgcAlgorithm *>(
+				controller_.getAlgorithm("agc"));
+			if (!agc) {
+				LOG(IPARPI, Warning)
+					<< "Could not set AeFlickerPeriod - no AGC algorithm";
+				break;
+			}
+
+			uint32_t manualPeriod = ctrl.second.get<int32_t>();
+			flickerState_.manualPeriod = manualPeriod * 1.0us;
+
+			/*
+			 * We note that it makes no difference if the mode gets set to "manual"
+			 * first, and the period updated after, or vice versa.
+			 */
+			if (flickerState_.mode == controls::FlickerManual)
+				agc->setFlickerPeriod(flickerState_.manualPeriod);
+
 			break;
 		}
 
@@ -1197,7 +1262,7 @@ void IpaBase::reportMetadata(unsigned int ipaContext)
 			}
 		}
 
-		uint32_t focusFoM = (sum / numRegions) >> 16;
+		uint32_t focusFoM = sum / numRegions;
 		libcameraMetadata_.set(controls::FocusFoM, focusFoM);
 	}
 
