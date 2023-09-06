@@ -19,6 +19,7 @@ public:
 private:
 	void init();
 	void getInitialInfo();
+	void config();
 
 	const uint32_t sensor_idx_;
 
