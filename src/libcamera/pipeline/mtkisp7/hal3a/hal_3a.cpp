@@ -24,6 +24,7 @@ void Hal3A::start()
 	init();
 	getInitialInfo();
 	config();
+	startInternal();
 }
 
 void Hal3A::init()
@@ -259,6 +260,23 @@ void Hal3A::config()
 	}
 
 	m_hal3a_->Config(config);
+
+	m_hal3a_->GetResult(r3AResult_);
+}
+
+void Hal3A::startInternal()
+{
+	peripheralController_->NotifyEvent(
+		mtk::hal3a::IPeripheralController::kFocusMove,
+		r3AResult_.af_result.lens_position, 0 /* arg1: ozoom_param is not used */, 0, 0);
+	peripheralController_->NotifyEvent(
+		mtk::hal3a::IPeripheralController::kFlashInitialDuty,
+		(intptr_t)r3AResult_.flash_result.duty_setting, 0, 0, 0);
+	peripheralController_->NotifyEvent(
+		mtk::hal3a::IPeripheralController::kNotifyOisStreamOn, 0, 0, 0, 0);
+
+	mtk::hal3a::v1_0::mtk_3a_start r_3a_start;
+	m_hal3a_->Start(r_3a_start);
 }
 
 } /* namespace libcamera */
