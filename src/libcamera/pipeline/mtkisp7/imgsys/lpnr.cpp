@@ -32,6 +32,8 @@ public:
 	uint8_t capture_P2_MS_F3_tunbufi[219348];
 	uint8_t capture_P2_MS_F2_tunbufi[219348];
 	uint8_t capture_P2_MS_F1_tunbufi[219348];
+	uint8_t capture_P2_MS_F0_H_tunbufi[219348];
+	uint8_t capture_P2_Y2Y_PQ_DIP_tunbufi[219348];
 	uint8_t capture_P2_MS_F0_PQ_DIP_tunbufi[219348];
 };
 
@@ -60,6 +62,9 @@ void TuningBuffers::readAll()
 	readBuffer(capture_P2_MS_F3_tunbufi, 219348, "capture_P2_MS_F3_tunbufi.bin");
 	readBuffer(capture_P2_MS_F2_tunbufi, 219348, "capture_P2_MS_F2_tunbufi.bin");
 	readBuffer(capture_P2_MS_F1_tunbufi, 219348, "capture_P2_MS_F1_tunbufi.bin");
+	readBuffer(capture_P2_MS_F0_H_tunbufi, 219348, "capture_P2_MS_F0_H_tunbufi.bin");
+	readBuffer(capture_P2_Y2Y_PQ_DIP_tunbufi, 219348, "capture_P2_Y2Y_PQ_DIP_tunbufi.bin");
+
 	readBuffer(capture_P2_MS_F0_PQ_DIP_tunbufi, 219348, "capture_P2_MS_F0_PQ_DIP_tunbufi.bin");
 }
 
@@ -173,6 +178,9 @@ void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
 	SharedMailBox<InfoFrame> xtrTun = makeMailBox<InfoFrame>();
 	std::vector<SharedMailBox<InfoFrame>> dipTun = makeMailBoxVector<InfoFrame>(4);
 
+	SharedMailBox<InfoFrame> dipTunPq = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> dipTunY2YPq = makeMailBox<InfoFrame>();
+
 	SharedMailBox<InfoFrame> xtrStt = makeMailBox<InfoFrame>();
 	std::vector<SharedMailBox<InfoFrame>> dipImgi = makeMailBoxVector<InfoFrame>(4);
 
@@ -185,6 +193,8 @@ void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
 
 	/* Frames used by LpnrDipTask */
 	LpnrDipFrames &lpnrDipFrames = lpnr.lpnrDipFrames;
+	lpnrDipFrames.in.dipTunPq = dipTunPq;
+	lpnrDipFrames.in.dipTunY2YPq = dipTunY2YPq;
 	lpnrDipFrames.in.dipTun = dipTun;
 	lpnrDipFrames.in.dipImgi = xtrFrames.out.dipImgi;
 }
@@ -247,11 +257,11 @@ void XTRTask::run()
 	TR_R2Y.input(in.p1Raw->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
 	TR_R2Y.input(in.xtrTun->get(), IMG_PORT_METAI, 0, Size{0, 0});
 
-	TR_R2Y.output(out.dipImgi[0]->get(), IMG_PORT_TYUVO, 0, Size{0, 0});
+	TR_R2Y.output(out.dipImgi[0]->get(), IMG_PORT_TYUVO, 0, lpnrSizes[0]);
 	TR_R2Y.output(out.dipImgi[1]->get(), IMG_PORT_TYUV2O, 1, lpnrSizes[0]);
 	TR_R2Y.output(out.dipImgi[2]->get(), IMG_PORT_TYUV3O, 1, lpnrSizes[1]);
 	TR_R2Y.output(out.dipImgi[3]->get(), IMG_PORT_TYUV4O, 1, lpnrSizes[2]);
-	TR_R2Y.output(out.xtrStt->get(), IMG_PORT_IMGSTATO, 0, Size{0, 0});
+	TR_R2Y.output(out.xtrStt->get(), IMG_PORT_IMGSTATO, 0, lpnrSizes[0]);
 
 	requestHelper_.queueRequest(sdRequest);
 }
@@ -284,8 +294,14 @@ void LpnrDipTask::allocateOutputBuffers()
 
 	/* todo: The tuning buffer should be allocated and filled by IPA.
 	 * Remove the workaround once the IPA is ready */
+	manager_->lpnrTun_.fetch(in.dipTunPq);
+	fillTuning(in.dipTunPq, &tuningBuffers.capture_P2_MS_F0_PQ_DIP_tunbufi[0]);
+
+	manager_->lpnrTun_.fetch(in.dipTunY2YPq);
+	fillTuning(in.dipTunY2YPq, &tuningBuffers.capture_P2_Y2Y_PQ_DIP_tunbufi[0]);
+
 	manager_->lpnrTun_.fetch(in.dipTun[0]);
-	fillTuning(in.dipTun[0], &tuningBuffers.capture_P2_MS_F0_PQ_DIP_tunbufi[0]);
+	fillTuning(in.dipTun[0], &tuningBuffers.capture_P2_MS_F0_H_tunbufi[0]);
 
 	manager_->lpnrTun_.fetch(in.dipTun[1]);
 	fillTuning(in.dipTun[1], &tuningBuffers.capture_P2_MS_F1_tunbufi[0]);
@@ -296,8 +312,8 @@ void LpnrDipTask::allocateOutputBuffers()
 	manager_->lpnrTun_.fetch(in.dipTun[3]);
 	fillTuning(in.dipTun[3], &tuningBuffers.capture_P2_MS_F3_tunbufi[0]);
 
-	/* allocate img3o (NR frame) for each stages other than 0 */
-	for (unsigned int i = 1; i < dipImg3o.size(); i++)
+	/* allocate img3o (NR frame) for each stages */
+	for (unsigned int i = 0; i < dipImg3o.size(); i++)
 		manager_->lpnr_[i].fetch(dipImg3o[i]);
 }
 
@@ -343,12 +359,23 @@ void LpnrDipTask::run()
 
 	P2_MS_F1.setMultiScale(IMG_MULTI_SCALE_DOWN4, 1, 4);
 
+	// Depend on 3A result to choose between high or low iso stage
+	HighIsoStage(sdRequest);
+
+	requestHelper_.queueRequest(sdRequest);
+}
+
+void LpnrDipTask::LowIsoStages(SingleDeviceRequest &sdRequest)
+{
+	auto &in = frames_.in;
+	auto &lpnrSizes = manager_->lpnrSizes;
+
 	/* P2_MS_F0_PQ_DIP */
 	StageEx &P2_MS_F0_PQ_DIP = sdRequest.emplaceStage(PEU_Stage::P2_MS_F0_PQ_DIP);
 
 	P2_MS_F0_PQ_DIP.input(in.dipImgi[0]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
 	P2_MS_F0_PQ_DIP.input(reci[0]->get(), IMG_PORT_REC_DSI, 1, Size{0, 0});
-	P2_MS_F0_PQ_DIP.input(in.dipTun[0]->get(), IMG_PORT_METAI, 0, Size{0, 0});
+	P2_MS_F0_PQ_DIP.input(in.dipTunPq->get(), IMG_PORT_METAI, 0, Size{0, 0});
 
 	InfoFrame info(formats::NV12, manager_->yuvOutputSize_, stillOutput_);
 	Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
@@ -357,8 +384,36 @@ void LpnrDipTask::run()
 
 	P2_MS_F0_PQ_DIP.setMultiScale(IMG_MULTI_SCALE_DOWN4, 0, 4);
 	P2_MS_F0_PQ_DIP.setPqInfo();
+}
 
-	requestHelper_.queueRequest(sdRequest);
+void LpnrDipTask::HighIsoStage(SingleDeviceRequest &sdRequest)
+{
+	auto &in = frames_.in;
+	auto &lpnrSizes = manager_->lpnrSizes;
+
+	/* P2_MS_F0_H */
+	StageEx &P2_MS_F0_H = sdRequest.emplaceStage(PEU_Stage::P2_MS_F0_H);
+
+	P2_MS_F0_H.input(in.dipImgi[0]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
+	P2_MS_F0_H.input(reci[0]->get(), IMG_PORT_REC_DSI, 1, Size{0, 0});
+	P2_MS_F0_H.input(in.dipTun[0]->get(), IMG_PORT_METAI, 0, Size{0, 0});
+
+	P2_MS_F0_H.output(dipImg3o[0]->get(), IMG_PORT_IMG3O, 0, lpnrSizes[0]);
+
+	P2_MS_F0_H.setMultiScale(IMG_MULTI_SCALE_DOWN4, 0, 4);
+
+	/* P2_Y2Y_PQ_DIP */
+	StageEx &P2_Y2Y_PQ_DIP = sdRequest.emplaceStage(PEU_Stage::P2_Y2Y_PQ_DIP);
+
+	P2_Y2Y_PQ_DIP.input(dipImg3o[0]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
+	P2_Y2Y_PQ_DIP.input(in.dipTunY2YPq->get(), IMG_PORT_METAI, 0, Size{0, 0});
+
+	InfoFrame info(formats::NV12, manager_->yuvOutputSize_, stillOutput_);
+	Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
+
+	P2_Y2Y_PQ_DIP.output(info, IMG_PORT_WDMAO, 0, crop);
+
+	P2_Y2Y_PQ_DIP.setPqInfo();
 }
 
 } /* namespace libcamera */

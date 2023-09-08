@@ -66,6 +66,8 @@ enum PEU_Stage {
 	P2_MS_F2,
 	P2_MS_F1,
 	P2_MS_F0_PQ_DIP,
+	P2_MS_F0_H,
+	P2_Y2Y_PQ_DIP
 };
 
 struct CtrlMetaBuf {

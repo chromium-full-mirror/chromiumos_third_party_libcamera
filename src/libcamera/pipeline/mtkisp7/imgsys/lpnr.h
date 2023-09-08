@@ -32,6 +32,8 @@ struct XtrFrames {
 
 struct LpnrDipFrames {
 	struct {
+		SharedMailBox<InfoFrame> dipTunPq;
+		SharedMailBox<InfoFrame> dipTunY2YPq;
 		std::vector<SharedMailBox<InfoFrame>> dipTun;
 		std::vector<SharedMailBox<InfoFrame>> dipImgi;
 	} in;
@@ -112,6 +114,8 @@ public:
 
 private:
 	void allocateOutputBuffers();
+	void LowIsoStages(SingleDeviceRequest &sdRequest);
+	void HighIsoStage(SingleDeviceRequest &sdRequest);
 
 	/* Intermediate Frames */
 	std::vector<SharedMailBox<InfoFrame>> dipImg3o;
