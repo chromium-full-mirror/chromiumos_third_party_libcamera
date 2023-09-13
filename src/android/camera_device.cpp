@@ -1566,6 +1566,7 @@ void CameraDevice::streamProcessingComplete(StreamBuffer *streamBuffer,
 					     StreamBuffer::Status status)
 {
 	setBufferStatus(*streamBuffer, status);
+	streamBuffer->dstBuffer = nullptr;
 
 	Camera3ResultDescriptor *result = streamBuffer->result;
 	result->pendingBuffersToProcess_.remove(streamBuffer);

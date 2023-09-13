@@ -188,6 +188,7 @@ int CameraStream::process(StreamBuffer *streamBuffer)
 		*streamBuffer->camera3Buffer, output.pixelFormat, output.size,
 		PROT_READ | PROT_WRITE);
 	if (!streamBuffer->dstBuffer->isValid()) {
+		streamBuffer->dstBuffer = nullptr;
 		LOG(HAL, Error) << "Failed to create destination buffer";
 		return -EINVAL;
 	}
