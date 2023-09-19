@@ -32,16 +32,6 @@ enum PQDIPEnum {
   ENUMPQDIP_MAX
 };
 
-struct slk_pqdip_ctrl_t {
-  uint32_t PQ_CROP_EN;
-  uint32_t PQ_CROP_X;
-  uint32_t PQ_CROP_Y;
-  uint32_t PQ_CROP_WD;
-  uint32_t PQ_CROP_HT;
-  uint32_t PQ_OUT_WD;
-  uint32_t PQ_OUT_HT;
-};
-
 struct slk_me_ctrl_t {
   uint32_t IN_WD;
   uint32_t IN_HT;

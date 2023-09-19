@@ -8,6 +8,7 @@
 #include "camsys.h"
 
 #include "linux/mtkisp7/imgsensor-user.h"
+#include "linux/v4l2-controls.h"
 
 #include <libcamera/framebuffer.h>
 #include <libcamera/formats.h>
@@ -350,31 +351,10 @@ int CamSysDevice::setupResource()
 {
 	V4L2SubdeviceFormat format = {};
 
-	struct mtk_sensor_static_param staticParam;
-	staticParam.scenario_id = 0;
-
-	struct v4l2_ext_control paramCtrl;
-	paramCtrl.id = V4L2_CID_MTK_SENSOR_STATIC_PARAM;
-	paramCtrl.size = sizeof(mtk_sensor_static_param);
-	paramCtrl.ptr = &staticParam;
-
-	int ret = sensor_->device()->setExtControl(&paramCtrl);
-	if (ret)
-		LOG(MtkISP7, Error) << "Fail to get sensor static param";
-
-	LOG(MtkISP7, Debug)
-		<< "Sensor set Static param"
-		<< " scenario_id " << staticParam.scenario_id
-		<< " cust_pixelrate " << staticParam.cust_pixelrate
-		<< " pixelrate " << staticParam.pixelrate
-		<< " fps " << staticParam.fps
-		<< " hblank " << staticParam.hblank
-		<< " vblank " << staticParam.vblank;
-
 	format.mbus_code = mbusCode_;
 	format.size = rawFrameSize_;
 
-	ret = videoHub_->setFormat(PAD_RAW_IN, &format);
+	int ret = videoHub_->setFormat(PAD_RAW_IN, &format);
 	if (ret) {
 		LOG(MtkISP7, Error) << "Fail to set format for " << videoHub_->entity();
 		return -EINVAL;
@@ -385,11 +365,18 @@ int CamSysDevice::setupResource()
 
 	auto& sensorResource = camsysResource.sensor_res;
 
+	IPACameraSensorInfo sensorInfo;
+	sensor_->sensorInfo(&sensorInfo);
+	auto ctrls = sensor_->getControls({V4L2_CID_HBLANK, V4L2_CID_VBLANK});
+
+	const ControlInfo hblank = ctrls.infoMap()->at(V4L2_CID_HBLANK);
+	const ControlInfo vblank = ctrls.infoMap()->at(V4L2_CID_VBLANK);
+
 	sensorResource.interval = {1, 30};
-	sensorResource.hblank = staticParam.hblank;
-	sensorResource.vblank = staticParam.vblank;
-	sensorResource.pixel_rate = staticParam.pixelrate;
-	sensorResource.cust_pixel_rate = staticParam.cust_pixelrate;
+	sensorResource.hblank = hblank.min().get<int32_t>();
+	sensorResource.vblank = vblank.max().get<int32_t>();
+	sensorResource.pixel_rate = sensorInfo.pixelRate;
+	sensorResource.cust_pixel_rate = sensorInfo.pixelRate;
 
 	auto& rawResource(camsysResource.raw_res);
 	rawResource.feature = 0;

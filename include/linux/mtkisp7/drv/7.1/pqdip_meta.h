@@ -56,6 +56,16 @@ struct pqportinfo {
   unsigned int mWrotoBypassCrop;  // 0: refine crop, 1: bypass crop
 };
 
+struct slk_pqdip_ctrl_t {
+  uint32_t PQ_CROP_EN;
+  uint32_t PQ_CROP_X;
+  uint32_t PQ_CROP_Y;
+  uint32_t PQ_CROP_WD;
+  uint32_t PQ_CROP_HT;
+  uint32_t PQ_OUT_WD;
+  uint32_t PQ_OUT_HT;
+};
+
 /**
  * @brief ctrl meta usage for pqdip driver
  */
@@ -66,6 +76,7 @@ typedef struct pqdip_ctrl {
   enum IMG_PROFILE_ENUM outProfile_a;
   // PQDIP_HW_B
   enum IMG_PROFILE_ENUM outProfile_b;
+  struct slk_pqdip_ctrl_t slk_ctrl[PQDIP_HW_MAX];
   struct pqportinfo pqidxinfo;
 } PQDIP_CTRL_META;
 

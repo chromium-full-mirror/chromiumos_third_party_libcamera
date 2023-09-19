@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cstdint>
 #include <stdint.h>
 #include <map>
 
@@ -50,7 +51,6 @@ namespace NSCam {
 namespace NSImgStream {
 
 static int m_DeviceTuningEn = 0;
-static int m_TuningHelper = 1;
 static TuningHelper mTuningHelper;
 
 enum IMG_OUTPUT_SEL_ENUM {
@@ -2527,179 +2527,20 @@ bool DirectLinkTableUpdate(dltb_t* pdlTable,
   return true;
 }
 
-bool HandleTuningHelper(
-    RequestInfo* pReqInfo,
-    V4L2_MODE v4l2_modesel,
-    int frm,
-    unsigned int totalfrm,
-    const FrameParams& frmParams,
-    void* pSingleDev,
-    dltb_t* pdlTable,
-    mtk_img_uapi_meta_raw_stats_cfg* pTuningMeta) {
-  (void)v4l2_modesel;
-  (void)frm;
-  (void)totalfrm;
-  (void)pSingleDev;
-  MwCtrlParams MwCParams;
-  IMG_PORT OutPortIdx;
-
-  LOG_DBG("ME SLK on(%d)\n", pTuningMeta->prot.me_e1.ME_TOP.bits.ME_SLK_EN);
-  if (pTuningMeta->prot.me_e1.ME_TOP.bits.ME_SLK_EN) {
-    for (auto const& in : frmParams.mvIn) {
-      OutPortIdx = (IMG_PORT)in.mPortIdx;
-      switch (OutPortIdx) {
-        case IMG_PORT_ME_L1_IMG0I:
-          MwCParams.me_ctrl_slk.IN_WD = in.mBuffer->getImgSize().w;
-          MwCParams.me_ctrl_slk.IN_HT = in.mBuffer->getImgSize().h;
-          MwCParams.me_on = true;
-          break;
-        default:
-          continue;
-      }
-    }
-  }
-  for (auto const& out : frmParams.mvOut) {
-    OutPortIdx = (IMG_PORT)out.mPortIdx;
-
-    imgsysrotation ImgRot;
-    imgsysflip ImgFlip;
-
-    switch (OutPortIdx) {
-      case IMG_PORT_WDMAO:
-        if (pdlTable[HW_PQDIP_A].on) {
-          auto& slk = MwCParams.pqdip_ctrl_slk[ENUMPQDIP_A];
-          slk.PQ_CROP_EN = 0x1;
-          slk.PQ_CROP_X = out.mSrcCrop.CropX;
-          slk.PQ_CROP_Y = out.mSrcCrop.CropY;
-          slk.PQ_CROP_WD = out.mSrcCrop.CropW;
-          slk.PQ_CROP_HT = out.mSrcCrop.CropH;
-
-          if (!NSCam::NSImgStream::TransformMapping(ImgRot, ImgFlip,
-                                                    out.mTransform)) {
-            LOG_ERR(
-                "We can't find thie Transform setting in Output Port(%d) "
-                "MW Must check it!!",
-                out.mTransform);
-            return false;
-          }
-
-          if ((ImgRot == imgsysrotation_0) || (ImgRot == imgsysrotation_180)) {
-            slk.PQ_OUT_WD = out.mBuffer->getImgSize().w;
-            slk.PQ_OUT_HT = out.mBuffer->getImgSize().h;
-          } else {
-            slk.PQ_OUT_WD = out.mBuffer->getImgSize().h;
-            slk.PQ_OUT_HT = out.mBuffer->getImgSize().w;
-          }
-        }
-        break;
-      case IMG_PORT_WROTO:
-        if (pdlTable[HW_PQDIP_B].on) {
-          auto& slk = MwCParams.pqdip_ctrl_slk[ENUMPQDIP_B];
-          slk.PQ_CROP_EN = 0x1;
-          slk.PQ_CROP_X = out.mSrcCrop.CropX;
-          slk.PQ_CROP_Y = out.mSrcCrop.CropY;
-          slk.PQ_CROP_WD = out.mSrcCrop.CropW;
-          slk.PQ_CROP_HT = out.mSrcCrop.CropH;
-
-          if (!NSCam::NSImgStream::TransformMapping(ImgRot, ImgFlip,
-                                                    out.mTransform)) {
-            LOG_ERR(
-                "We can't find thie Transform setting in Output Port(%d) "
-                "MW Must check it!!",
-                out.mTransform);
-            return false;
-          }
-
-          if ((ImgRot == imgsysrotation_0) || (ImgRot == imgsysrotation_180)) {
-            slk.PQ_OUT_WD = out.mBuffer->getImgSize().w;
-            slk.PQ_OUT_HT = out.mBuffer->getImgSize().h;
-          } else {
-            slk.PQ_OUT_WD = out.mBuffer->getImgSize().h;
-            slk.PQ_OUT_HT = out.mBuffer->getImgSize().w;
-          }
-        }
-        break;
-      default:
-        continue;
-    }
-  }
-
-  LOG_DBG("do_helper+");
-
-// Check how to handle th PDC, Do I need to intentionally set bpc to off?
-#if 0
-  if ((pTuningMeta->prot.bpc_t1_enable) &&
-      (pTuningMeta->prot.bpc_t1.BPC_PDC_CON.bits.BPC_PDC_ORI_EN)) {
-    HandlePDCInput(pReqInfo, v4l2_modesel, frm, totalfrm, pSingleDev, pdlTable,
-		   pDescBufMap, pTuningMeta);
-  }
-#endif
-
-  MwCParams.mRequestNo = pReqInfo->pParams->mRequestNo;
-  MwCParams.frm_owner = pReqInfo->mImgStreamOwner.u64();
-  mTuningHelper.do_helper(pTuningMeta, pdlTable, &MwCParams);
-  //CAM_TRACE_END();
-  LOG_DBG("do_helper-");
-
-  // Check TNCS Out Size
-  LOG_DBG("Check TNCS Out Size");
-  // Find "IMGSTATO"
-  for (auto const& out : frmParams.mvOut) {
-    OutPortIdx = (IMG_PORT)out.mPortIdx;
-
-    // Found "IMGSTATO"
-    if (OutPortIdx == IMG_PORT_IMGSTATO) {
-      struct mtk_img_uapi_regmap_raw_tncs* tncs_t1 =
-          &(pTuningMeta->prot.tncs_t1);
-      unsigned int TWd = 0, THt = 0;
-
-      // Check "TNCS_GTMS_DRZS1N_OUT"
-      TWd = tncs_t1->TNCS_GTMS_DRZS1N_OUT.bits.TNCS_GTMS_DRZS1N_OUT_WD;
-      THt = tncs_t1->TNCS_GTMS_DRZS1N_OUT.bits.TNCS_GTMS_DRZS1N_OUT_HT;
-      if (TWd == 0 || THt == 0) {
-        LOG_ERR("GTMS_DRZS1N_OUT Err(%d,%d)", TWd, THt);
-        AEE_ASSERT(HWMODULE_CONFIG_ERR, "GTMS_DRZS1N_OUT Err");
-        break;
-      }
-
-      // Check "TNCS_GTMS_SLM_DRZS1N_OUT"
-      REG_R_TNCS_GTMS_SLM_DRZS1N_OUT SlmOut = tncs_t1->TNCS_GTMS_SLM_DRZS1N_OUT;
-      TWd = SlmOut.bits.TNCS_GTMS_SLM_DRZS1N_OUT_WD;
-      THt = SlmOut.bits.TNCS_GTMS_SLM_DRZS1N_OUT_HT;
-      if (TWd == 0 || THt == 0) {
-        LOG_ERR("GTMS_SLM_DRZS1N_OUT Err(%d,%d)", TWd, THt);
-        AEE_ASSERT(HWMODULE_CONFIG_ERR, "GTMS_SLM_DRZS1N_OUT Err");
-        break;
-      }
-
-      // Check "TNCS_BCES_DRZS1N_OUT"
-      TWd = tncs_t1->TNCS_BCES_DRZS1N_OUT.bits.TNCS_BCES_DRZS1N_OUT_WD;
-      THt = tncs_t1->TNCS_BCES_DRZS1N_OUT.bits.TNCS_BCES_DRZS1N_OUT_HT;
-      if (TWd == 0 || THt == 0) {
-        LOG_ERR("TNCS_BCES_DRZS1N_OUT Err(%d,%d)", TWd, THt);
-        AEE_ASSERT(HWMODULE_CONFIG_ERR, "TNCS_BCES_DRZS1N_OUT Err");
-        break;
-      }
-
-      break;
-    }  // if Found "IMGSTATO"
-  }    // for Find "IMGSTATO"
-
-  return true;
-}
-
 bool HandleInputPort(RequestInfo* pReqInfo,
-                                   V4L2_MODE v4l2_modesel,
+                                   [[maybe_unused]] V4L2_MODE v4l2_modesel,
                                    int frm,
                                    unsigned int totalfrm,
                                    const FrameParams& frmParams,
                                    void* pSingleDev,
-                                   dltb_t* pdlTable) {
-  int k = 0;
+                                   [[maybe_unused]] dltb_t* pdlTable) {
+  uint32_t k = 0;
   IMG_PORT PortIdx;
-  [[maybe_unused]]IMG_PORT ReMapPortIdx;
+  IMG_PORT ReMapPortIdx;
   int s = 0;
+  struct header_desc* desc = NULL;
   struct header_desc_norm* desc_norm = NULL;
+  singlenode_desc* singledevice_desc = NULL;
   singlenode_desc_norm* singledevice_desc_norm = NULL;
   imgsys_video_nodes_id VidoeNodeHwId;
   struct buf_info* pBufInfo = NULL;
@@ -2733,26 +2574,33 @@ bool HandleInputPort(RequestInfo* pReqInfo,
             (struct header_desc_norm*)&singledevice_desc_norm->tuning_meta;
         desc_norm->fparams_tnum = totalfrm;
         pBufInfo = &desc_norm->fparams[frm][s].bufs[0];
-
-	if (m_TuningHelper > 0) {
-	  if (!/*this->*/HandleTuningHelper(
-		  pReqInfo, v4l2_modesel, frm, totalfrm, frmParams, pSingleDev,
-		  pdlTable,
-		  reinterpret_cast<mtk_img_uapi_meta_raw_stats_cfg*>(
-		      in.mBuffer->getBufVA(0)))) {
-	    LOG_ERR(
-		"HandleTuningHelper fail"
-		"IMG_PORT(%d) in Input Port!!",
-		PortIdx);
-
-	    return false;
-	  }
-	}
+      }
+    } else {
+      singledevice_desc = reinterpret_cast<singlenode_desc*>(pSingleDev);
+      if (PortIdx != IMG_PORT_METAI) {
+        if (!NSCam::NSImgStream::IMG_PORT_MAP_HW_VIDEONODE_ID(&VidoeNodeHwId,
+                                                              PortIdx)) {
+          LOG_ERR(
+              "HandleTuningHelper fail"
+              "IMG_PORT(%d) in Input Port!!",
+              PortIdx);
+          return false;
+        }
+        singledevice_desc->dmas_enable[VidoeNodeHwId][frm] = 1;
+        desc = &singledevice_desc->dmas[VidoeNodeHwId];
+        desc->fparams_tnum = totalfrm;
+        pBufInfo = &desc->fparams[frm][s].bufs[0];
+      } else {
+        singledevice_desc
+            ->dmas_enable[MTK_IMGSYS_VIDEO_NODE_ID_TUNING_OUT][frm] = 1;
+        desc = (struct header_desc*)&singledevice_desc->tuning_meta;
+        desc->fparams_tnum = totalfrm;
+        pBufInfo = &desc->fparams[frm][s].bufs[0];
       }
     }
 
     pBufInfo->buf.num_planes = in.mBuffer->getPlaneCount();
-    for (k = 0; (uint32_t)k < pBufInfo->buf.num_planes; k++) {
+    for (k = 0; k < pBufInfo->buf.num_planes; k++) {
       pBufInfo->buf.planes[k].m.dma_buf.fd =
           in.mBuffer->getPlaneFD(k);  // img_fd
       if (pBufInfo->buf.planes[k].m.dma_buf.fd == 0) {
