@@ -494,7 +494,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	hal3A_[1] = std::make_unique<Hal3A>(1);
 
 	for (unsigned int i = 0; i < 2; i++) {
-		if (camSysDev_[i].init(camSysMedia_, i))
+		if (camSysDev_[i].init(camSysMedia_, i, hal3A_[i].get()))
 			continue;
 
 		ControlList properties = camSysDev_[i].properties();
@@ -703,8 +703,9 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
-	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
+	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize, hal3A_);
 	faceDetector_->configure(sensorFullSize_);
+
 	imgSysDev_->configure();
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);

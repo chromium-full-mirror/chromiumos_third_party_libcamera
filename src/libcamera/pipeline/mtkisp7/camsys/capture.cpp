@@ -14,6 +14,7 @@
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 #include "libcamera/internal/pipeline_handler.h"
+#include "libcamera/internal/request.h"
 
 #include <libcamera/internal/info_frame.h>
 
@@ -33,39 +34,6 @@ static constexpr Size kMetaSize = Size{ 113664, 1 };
 static constexpr Size kStatSize0 = Size{ 1081344, 1 };
 static constexpr Size kStatSize1 = Size{ 528384, 1 };
 
-class TuningBuffers
-{
-public:
-	TuningBuffers();
-	void fillTuningBuffer(FrameBuffer *buffer);
-
-private:
-	mtk_cam_uapi_meta_raw_stats_cfg tuning_;
-};
-
-TuningBuffers::TuningBuffers()
-{
-	FILE *file = fopen("/etc/camera/back_settings/raw_meta.bin", "rb");
-	if (!file) {
-		LOG(MtkISP7, Error) << "Fail to load tuning file";
-		return;
-	}
-
-	LOG(MtkISP7, Error) << "Size of P1 tuning " << sizeof(tuning_);
-	(void)fread(&tuning_, sizeof(tuning_), 1, file);
-	fclose(file);
-}
-
-void TuningBuffers::fillTuningBuffer(FrameBuffer *buffer)
-{
-	MappedFrameBuffer mappedBuffer(buffer, MappedFrameBuffer::MapFlag::ReadWrite);
-
-	buffer->_d()->metadata().planes()[0].bytesused = buffer->planes()[0].length;
-	memcpy(mappedBuffer.planes()[0].data(), &tuning_, 113664);
-}
-
-static TuningBuffers tuningBuffers;
-
 } // namespace
 
 CaptureTasksManager::CaptureTasksManager(OnDeviceTuner *odt)
@@ -77,7 +45,8 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 				   CamSysDevice *camSys,
 				   PipelineHandler *pipe,
 				   const Size &rawFrameSize,
-				   const Size &yuvFrameSize)
+				   const Size &yuvFrameSize,
+				   Hal3A *hal3A)
 {
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
@@ -85,6 +54,8 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 
 	rawFrameSize_ = rawFrameSize;
 	yuvFrameSize_ = yuvFrameSize;
+
+	hal3A_ = hal3A;
 
 	releaseBuffers();
 	allocateBuffers();
@@ -151,7 +122,7 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 
 	SofTask *sofTask = new SofTask(scheduler, "Sof " + sequence, request);
 	QueueTask *qTask = new QueueTask(this, scheduler, "Queue " + sequence, request, data);
-	DequeueTask *dqTask = new DequeueTask(this, scheduler, "Dequeue " + sequence, request, data);
+	DequeueTask *dqTask = new DequeueTask(this, scheduler, "Dequeue " + sequence, request, data, hal3A_);
 
 	return std::make_tuple(qTask, dqTask, sofTask);
 }
@@ -203,7 +174,6 @@ void QueueTask::run()
 	manager_->yuvo2Pool_.fetch(frames.yuvo2);
 	camSysRequest.yuvo2 = frames.yuvo2->get().buffer();
 
-	tuningBuffers.fillTuningBuffer(camSysRequest.tuning);
 	camSys->queueRequest(&camSysRequest);
 
 	notifyDone();
@@ -246,6 +216,10 @@ void DequeueTask::done()
 
 		manager_->pipe_->completeMetadata(request_, metadata);
 		manager_->onDeviceTuner_->tuneCamsys(request_, data_->frames);
+
+		// TODO: Add another 3ATask to DoCalculation.
+
+		hal3A_->doCalculation(data_->request.statistics0, buffer->metadata().timestamp);
 	}
 
 	notifyDone();

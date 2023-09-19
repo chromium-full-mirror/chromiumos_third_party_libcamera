@@ -12,7 +12,10 @@
 #include <libcamera/geometry.h>
 
 #include "libcamera/internal/camera_sensor_properties.h"
+#include "libcamera/internal/framebuffer.h"
+#include "libcamera/internal/mapped_framebuffer.h"
 #include "libcamera/internal/media_device.h"
+#include "libcamera/internal/request.h"
 
 #include "kernel-headers/imgsensor-user.h"
 #include "linux/v4l2-controls.h"
@@ -45,10 +48,11 @@ constexpr unsigned int kRequestCount = 24;
 
 CamSysDevice::CamSysDevice() = default;
 
-int CamSysDevice::init(MediaDevice *media, unsigned int index)
+int CamSysDevice::init(MediaDevice *media, unsigned int index, Hal3A *hal3A)
 {
 	index_ = index;
 	media_ = media;
+	hal3A_ = hal3A;
 
 	MediaEntity *videoHubEntity =
 		media_->getEntityByName(kRawPrefix + std::to_string(index_));
@@ -269,8 +273,18 @@ int CamSysDevice::configure(const Size &rawFrameSize, const Size &yuvFrameSize)
 	return ret;
 }
 
+void CamSysDevice::fillTuningBuffer(FrameBuffer *buffer)
+{
+	MappedFrameBuffer mappedBuffer(buffer, MappedFrameBuffer::MapFlag::ReadWrite);
+
+	buffer->_d()->metadata().planes()[0].bytesused = buffer->planes()[0].length;
+	memcpy(mappedBuffer.planes()[0].data(), &hal3A_->r3AResult_.raw_meta, 113664);
+}
+
 int CamSysDevice::queueRequest(Request *request)
 {
+	fillTuningBuffer(request->tuning);
+
 	int mediaRequest = mediaRequestPool_.get();
 
 	int ret = metaInput_->queueBuffer(request->tuning, mediaRequest);

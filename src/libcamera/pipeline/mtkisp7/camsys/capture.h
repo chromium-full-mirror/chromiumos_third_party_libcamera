@@ -14,6 +14,7 @@
 
 #include "libcamera/internal/task_scheduler.h"
 
+#include "pipeline/mtkisp7/hal3a/hal_3a.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "camsys.h"
@@ -45,7 +46,7 @@ public:
 	~CaptureTasksManager() = default;
 
 	int configure(DmaHeap *dmaHeap, CamSysDevice *camSys, PipelineHandler *pipe,
-		      const Size &rawFrameSize, const Size &yuvFrameSize);
+		      const Size &rawFrameSize, const Size &yuvFrameSize, Hal3A *hal3A);
 
 	void allocateBuffers();
 	void releaseBuffers();
@@ -67,6 +68,8 @@ private:
 	PipelineHandler *pipe_;
 	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
+
+	Hal3A *hal3A_;
 
 	InfoFramePool tuningPool_;
 	InfoFramePool rawPool_;
@@ -125,9 +128,9 @@ class DequeueTask : public Task
 public:
 	DequeueTask(CaptureTasksManager *manager,
 		    Scheduler *scheduler, const std::string &id, Request *request,
-		    std::shared_ptr<CaptureData> &data)
+		    std::shared_ptr<CaptureData> &data, Hal3A *hal3A)
 		: Task(scheduler, id), request_(request), manager_(manager),
-		  data_(data)
+		  data_(data), hal3A_(hal3A)
 	{
 	}
 
@@ -139,6 +142,8 @@ public:
 	CaptureTasksManager *manager_;
 
 	std::shared_ptr<CaptureData> data_;
+
+	Hal3A *hal3A_;
 };
 
 } /* namespace libcamera */
