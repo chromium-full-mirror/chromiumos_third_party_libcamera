@@ -9,6 +9,8 @@ libmtk_platform_log = cc.find_library('libmtk_platform_log', required : true)
 libmtkcam_debugwrapper = cc.find_library('libmtkcam.debugwrapper', required : true)
 libcam_halsensor = cc.find_library('libcam.halsensor', required : true)
 libcam_peripheralcontroller = cc.find_library('libcam.peripheralcontroller', required : true)
+libcam_halisp_v4l2 = cc.find_library('libcam.halisp.v4l2', required : true)
+libcam_halisp_utils_pub = cc.find_library('libcam.halisp.utils.pub', required : true)
 
 libcamera_deps += [
     libcamalgo_fdft,
@@ -20,6 +22,8 @@ libcamera_deps += [
     libmtkcam_debugwrapper,
     libcam_halsensor,
     libcam_peripheralcontroller,
+    libcam_halisp_v4l2,
+    libcam_halisp_utils_pub,
 ]
 
 libcamera_sources += files([

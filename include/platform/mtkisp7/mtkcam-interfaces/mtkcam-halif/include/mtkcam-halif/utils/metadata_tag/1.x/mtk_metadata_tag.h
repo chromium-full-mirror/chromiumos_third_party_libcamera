@@ -2077,8 +2077,7 @@ typedef enum mtk_camera_metadata_enum_video_ainr_onjob_status  {
   MTK_VIDEO_AINR_FEATURE_ONJOB_STATUS_OFF,
 } mtk_camera_metadata_enum_video_ainr_onjob_status_t;
 
-// Commented out by Google.
-// #include "../1.x/mtk_private_metadata_tag.h"
-// #include "custom/custom_metadata_tag.h"
+#include "../1.x/mtk_private_metadata_tag.h"
+#include "custom/custom_metadata_tag.h"
 
 #endif  // INCLUDE_MTKCAM_HALIF_UTILS_METADATA_TAG_1_X_MTK_METADATA_TAG_H_

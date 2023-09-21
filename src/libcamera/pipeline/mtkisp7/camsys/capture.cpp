@@ -21,6 +21,7 @@
 #include "mt8188/mtk_cam_metabuf.h"
 
 #include "camsys.h"
+#include "mtk_cam_metabuf.h"
 
 namespace libcamera {
 

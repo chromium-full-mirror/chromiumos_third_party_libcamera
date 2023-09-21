@@ -492,8 +492,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
-	hal3A_[0] = std::make_unique<Hal3A>(0);
-	hal3A_[1] = std::make_unique<Hal3A>(1);
+	hal3A_[0] = std::make_unique<Hal3A>(0, dmaHeap_.get());
+	hal3A_[1] = std::make_unique<Hal3A>(1, dmaHeap_.get());
 
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i, hal3A_[i].get()))

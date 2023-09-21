@@ -6,6 +6,8 @@
 
 #include "hal_3a.h"
 
+#include <sys/mman.h>
+
 #include <libcamera/base/log.h>
 
 #include "libcamera/internal/mapped_framebuffer.h"
@@ -14,11 +16,17 @@
 
 namespace libcamera {
 
+namespace {
+constexpr unsigned int kMetaSize = 113664;
+} // namespace
+
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-Hal3A::Hal3A(const uint32_t sensor_idx)
-	: sensor_idx_(sensor_idx)
+Hal3A::Hal3A(const uint32_t sensor_idx, DmaHeap *dmaHeap)
+	: sensor_idx_(sensor_idx), dmaHeap_(dmaHeap)
 {
+	fd_ = dmaHeap_->alloc(kMetaSize, libcamera::DmaHeap::Type::CMA);
+	meta_addr_ = reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(mmap(nullptr, kMetaSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd_.get(), 0));
 }
 
 void Hal3A::start()
@@ -54,6 +62,7 @@ void Hal3A::init()
 	NvBufUtil::initSensorInfo(sensor_idx_, _sensorIdxInfo);
 
 	m_hal3a_ = mtk::hal3a::IHal3A::GetInstance(sensor_idx_);
+	m_isp_hal_ = mtk::ispcf::IHalISPAdapter::createInstance(sensor_idx_);
 	mtk::hal3a::v1_0::mtk_3a_init init = {};
 
 	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetSensorStaticInfo,
@@ -264,6 +273,25 @@ void Hal3A::config()
 	m_hal3a_->Config(config);
 
 	m_hal3a_->GetResult(r3AResult_);
+
+	m_isp_hal_->setSensorMode(NSIspTuning::ESensorMode_Preview);
+
+	mtk_isp_config configInfo; // TODO: fill in _appMeta & _halMeta. sensor_dev & sensor_idx are not filled by mtk's hal as well.
+	if (sensor_idx_ == 0) { // back camera
+		configInfo.tg_width = 4208;
+		configInfo.tg_height = 3120;
+		configInfo.sub_sample_count = 1;
+		configInfo.direct_yuv_path = 0;
+		configInfo.yuv_after_rrz = 0;
+	} else { // front camera
+		configInfo.tg_width = 3264;
+		configInfo.tg_height = 2448;
+		configInfo.sub_sample_count = 1;
+		configInfo.direct_yuv_path = 0;
+		configInfo.yuv_after_rrz = 0;
+	}
+
+	m_isp_hal_->config4Camsys(configInfo);
 }
 
 void Hal3A::startInternal()
@@ -529,13 +557,29 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp)
 	mtk::hal3a::v1_0::mtk_3a_result r_3a_result;
 	m_hal3a_->GetResult(r_3a_result);
 	r3AResult_ = r_3a_result;
+
+	mtk::hal3a::v1_0::mtk_hal3a_metaset metaSet; // TODO: skip_exposure_setting, appMeta, halMeta
+	std::vector<mtk::hal3a::v1_0::mtk_hal3a_metaset *> requestQ;
+	requestQ.push_back(&metaSet);
+
+	mtk::isphal::IspTuningCamsysControl ctrl;
+	ctrl.fgForce = false; // TODO: check if it's a dummy frame.
+	ctrl.fgDue = false; // TODO: check if 3a finishes calculation on time.
+
+	mtk::isphal::IspTuningBufferP1 tuning_data;
+	*meta_addr_ = r_3a_result.raw_meta;
+
+	mtk::isphal::Buffer regBuf1((intptr_t)meta_addr_, fd_.get(), 0, kMetaSize);
+	tuning_data.p1_meta_buffer = regBuf1;
+	m_isp_hal_->getCamSysMetaTuning(request_id, r3AResult_.request_id, requestQ, ctrl, tuning_data);
+
+	r3AResult_.raw_meta = *meta_addr_;
 }
 
 std::pair<uint32_t, uint32_t> Hal3A::getExposureAndGain()
 {
 	// TODO: consider delay
 	ae_exposure_setting_table ae_table = r3AResult_.ae_result.ae_exp_table;
-	LOG(MtkISP7, Info) << "ae_table.cnt: " << ae_table.cnt;
 	if (ae_table.cnt == 0)
 		return std::make_pair(0, 0);
 
