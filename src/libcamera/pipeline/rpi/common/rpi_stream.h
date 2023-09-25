@@ -28,7 +28,6 @@ enum BufferMask {
 	MaskStats		= 0x010000,
 	MaskEmbeddedData	= 0x020000,
 	MaskBayerData		= 0x040000,
-	MaskExternalBuffer	= 0x100000,
 };
 
 /*
@@ -55,13 +54,13 @@ public:
 	using StreamFlags = Flags<StreamFlag>;
 
 	Stream()
-		: flags_(StreamFlag::None), id_(BufferMask::MaskID)
+		: flags_(StreamFlag::None), id_(0)
 	{
 	}
 
 	Stream(const char *name, MediaEntity *dev, StreamFlags flags = StreamFlag::None)
 		: flags_(flags), name_(name),
-		  dev_(std::make_unique<V4L2VideoDevice>(dev)), id_(BufferMask::MaskID)
+		  dev_(std::make_unique<V4L2VideoDevice>(dev)), id_(0)
 	{
 	}
 
@@ -77,8 +76,7 @@ public:
 	const BufferMap &getBuffers() const;
 	unsigned int getBufferId(FrameBuffer *buffer) const;
 
-	void setExternalBuffer(FrameBuffer *buffer);
-	void removeExternalBuffer(FrameBuffer *buffer);
+	void setExportedBuffer(FrameBuffer *buffer);
 
 	int prepareBuffers(unsigned int count);
 	int queueBuffer(FrameBuffer *buffer);
@@ -88,44 +86,6 @@ public:
 	void releaseBuffers();
 
 private:
-	class IdGenerator
-	{
-	public:
-		IdGenerator(unsigned int max)
-			: max_(max), id_(0)
-		{
-		}
-
-		unsigned int get()
-		{
-			unsigned int id;
-			if (!recycle_.empty()) {
-				id = recycle_.front();
-				recycle_.pop();
-			} else {
-				id = ++id_;
-				ASSERT(id_ <= max_);
-			}
-			return id;
-		}
-
-		void release(unsigned int id)
-		{
-			recycle_.push(id);
-		}
-
-		void reset()
-		{
-			id_ = 0;
-			recycle_ = {};
-		}
-
-	private:
-		unsigned int max_;
-		unsigned int id_;
-		std::queue<unsigned int> recycle_;
-	};
-
 	void clearBuffers();
 	int queueToDevice(FrameBuffer *buffer);
 
@@ -138,7 +98,7 @@ private:
 	std::unique_ptr<V4L2VideoDevice> dev_;
 
 	/* Tracks a unique id key for the bufferMap_ */
-	IdGenerator id_;
+	unsigned int id_;
 
 	/* All frame buffers associated with this device stream. */
 	BufferMap bufferMap_;

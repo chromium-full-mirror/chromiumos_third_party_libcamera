@@ -8,6 +8,9 @@
 
 #include <libcamera/base/log.h>
 
+/* Maximum number of buffer slots to allocate in the V4L2 device driver. */
+static constexpr unsigned int maxV4L2BufferCount = 32;
+
 namespace libcamera {
 
 LOG_DEFINE_CATEGORY(RPISTREAM)
@@ -53,7 +56,7 @@ void Stream::resetBuffers()
 void Stream::setExportedBuffers(std::vector<std::unique_ptr<FrameBuffer>> *buffers)
 {
 	for (auto const &buffer : *buffers)
-		bufferMap_.emplace(id_.get(), buffer.get());
+		bufferMap_.emplace(++id_, buffer.get());
 }
 
 const BufferMap &Stream::getBuffers() const
@@ -76,18 +79,9 @@ unsigned int Stream::getBufferId(FrameBuffer *buffer) const
 	return it->first;
 }
 
-void Stream::setExternalBuffer(FrameBuffer *buffer)
+void Stream::setExportedBuffer(FrameBuffer *buffer)
 {
-	bufferMap_.emplace(BufferMask::MaskExternalBuffer | id_.get(), buffer);
-}
-
-void Stream::removeExternalBuffer(FrameBuffer *buffer)
-{
-	unsigned int id = getBufferId(buffer);
-
-	/* Ensure we have this buffer in the stream, and it is marked external. */
-	ASSERT(id & BufferMask::MaskExternalBuffer);
-	bufferMap_.erase(id);
+	bufferMap_.emplace(++id_, buffer);
 }
 
 int Stream::prepareBuffers(unsigned int count)
@@ -95,34 +89,17 @@ int Stream::prepareBuffers(unsigned int count)
 	int ret;
 
 	if (!(flags_ & StreamFlag::ImportOnly)) {
-		if (count) {
-			/* Export some frame buffers for internal use. */
-			ret = dev_->exportBuffers(count, &internalBuffers_);
-			if (ret < 0)
-				return ret;
+		/* Export some frame buffers for internal use. */
+		ret = dev_->exportBuffers(count, &internalBuffers_);
+		if (ret < 0)
+			return ret;
 
-			/* Add these exported buffers to the internal/external buffer list. */
-			setExportedBuffers(&internalBuffers_);
-			resetBuffers();
-		}
-
-		/* We must import all internal/external exported buffers. */
-		count = bufferMap_.size();
+		/* Add these exported buffers to the internal/external buffer list. */
+		setExportedBuffers(&internalBuffers_);
+		resetBuffers();
 	}
 
-	/*
-	 * If this is an external stream, we must allocate slots for buffers that
-	 * might be externally allocated. We have no indication of how many buffers
-	 * may be used, so this might overallocate slots in the buffer cache.
-	 * Similarly, if this stream is only importing buffers, we do the same.
-	 *
-	 * \todo Find a better heuristic, or, even better, an exact solution to
-	 * this issue.
-	 */
-	if ((flags_ & StreamFlag::External) || (flags_ & StreamFlag::ImportOnly))
-		count = count * 2;
-
-	return dev_->importBuffers(count);
+	return dev_->importBuffers(maxV4L2BufferCount);
 }
 
 int Stream::queueBuffer(FrameBuffer *buffer)
@@ -174,9 +151,6 @@ void Stream::returnBuffer(FrameBuffer *buffer)
 
 	/* Push this buffer back into the queue to be used again. */
 	availableBuffers_.push(buffer);
-
-	/* Allow the buffer id to be reused. */
-	id_.release(getBufferId(buffer));
 
 	/*
 	 * Do we have any Request buffers that are waiting to be queued?
@@ -236,7 +210,7 @@ void Stream::clearBuffers()
 	requestBuffers_ = std::queue<FrameBuffer *>{};
 	internalBuffers_.clear();
 	bufferMap_.clear();
-	id_.reset();
+	id_ = 0;
 }
 
 int Stream::queueToDevice(FrameBuffer *buffer)
