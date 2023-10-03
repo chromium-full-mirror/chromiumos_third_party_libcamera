@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <array>
 #include <cstddef>
-
-#include "libcamera/internal/info_frame.h"
+#include <stdint.h>
 
 #include "UITypes.h"
 #include "BuiltinTypes.h"
@@ -135,7 +134,26 @@ enum CacheCtrl {
   eCACHECTRL_INVALID = 1
 };
 
-bool syncCache(NSCam::NSImgStream::CacheCtrl const ctrl, libcamera::FrameBuffer *buffer);
+struct BufferPlane {
+	int fd;
+	size_t offset;
+	intptr_t va;
+	size_t size;
+	size_t stride;
+	size_t scanline;
+};
+
+struct BufferProperty {
+	int width;
+	int height;
+
+	EImageFormat format;
+	int32_t ColorArrangeMent;
+	int32_t colorSpace;
+
+	int32_t numPlanes;
+	std::array<BufferPlane, 3> planes;
+};
 
 /**
  *  Image Buffer implementation version.
@@ -143,12 +161,11 @@ bool syncCache(NSCam::NSImgStream::CacheCtrl const ctrl, libcamera::FrameBuffer 
 class IImageBuffer {
 public:
   /// Instantiation is disallowed.
-  IImageBuffer(libcamera::InfoFrame &frameInfo): info(frameInfo) {}
-
-  IImageBuffer() {}
+  IImageBuffer(const BufferProperty &property);
+  IImageBuffer() = default;
 
   /// Disallowed to directly delete a raw pointer.
-  virtual ~IImageBuffer() {}
+  ~IImageBuffer() = default;
 
   /// Image Attributes.
  public:
@@ -245,30 +262,13 @@ public:
   size_t getBufScanlines(size_t index) const;
 
   /**
-   * Buffer Operations.
-   *
-   * A buffer cache might be flushed or invalidated after CPU / ISP HW accessed.
-   * For example, a cacheble buffer provides CPU cache to boost the performance
-   * for CPU reading and writing. However, CPU might write the data to the CPU
-   * cache but not flushed to real DRAM yet. If the given buffer was read by
-   * ISP hardware immediately and some data still in CPU cache which hadn't
-   * been flushed to DRAM, ISP hardware may read some un-updated data and
-   * occur unexpected data.
-   *  @param ctrl The cache control, see enum CacheCtrl.
-   *  @return `MTRUE` for ok, otherwise `MFALSE`.
-   *  @sa CacheCtrl
-   */
-  MBOOL syncCache(CacheCtrl const ctrl = eCACHECTRL_FLUSH);
-
-
-  /**
    * Return a buffer type that indicates the buffer access permission.
    *  @return The buffer access permission enumeration.
    *  @sa enum NSCam::SecType
    */
   SecType getSecType() const;
 
-  libcamera::InfoFrame info;
+  BufferProperty property;
 };
 
 } // NSImgStream

@@ -27,6 +27,10 @@ else
     ipa_sign_module = false
 endif
 
+# Build platform specific libs first as a dependency to libcamera
+platform_libs = []
+subdir('platform')
+
 # libcamera must be built first as a dependency to the other components.
 subdir('libcamera')
 

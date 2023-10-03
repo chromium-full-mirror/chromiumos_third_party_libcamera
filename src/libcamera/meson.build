@@ -203,6 +203,7 @@ libcamera = shared_library('libcamera',
                            install : true,
                            include_directories : includes,
                            build_rpath : '/',
+                           link_with: platform_libs,
                            dependencies : libcamera_deps)
 
 libcamera_public = declare_dependency(sources : [

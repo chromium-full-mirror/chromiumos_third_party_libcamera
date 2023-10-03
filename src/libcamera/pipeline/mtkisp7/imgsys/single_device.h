@@ -1,17 +1,8 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * Copyright (C) 2022 MediaTek Inc.
+ * Copyright (C) 2023, Google Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * single_device.h - MtkISP7 ImgSys single device wrapper
  */
 
 #pragma once
@@ -20,19 +11,20 @@
 #include <cstddef>
 #include <vector>
 
-#include "libcamera/internal/info_frame.h"
-
-#include "BuiltinTypes.h"
-#include "eightcc.h"
-#include "IImgStreamDef.h"
-#include "ImageFormat.h"
-#include "ImgPortDef.h"
-#include "UITypes.h"
+#include "platform/mtkisp7/BuiltinTypes.h"
+#include "platform/mtkisp7/eightcc.h"
+#include "platform/mtkisp7/IImgStreamDef.h"
+#include "platform/mtkisp7/ImageFormat.h"
+#include "platform/mtkisp7/ImgPortDef.h"
+#include "platform/mtkisp7/single_device_helper.h"
+#include "platform/mtkisp7/UITypes.h"
 
 #include "linux/mtkisp7/drv/7.1/hw_definition.h"
 #include "linux/mtkisp7/drv/7.1/common.h"
 
-#include "single_device_helper.h"
+#include "libcamera/internal/info_frame.h"
+
+NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &info);
 
 namespace libcamera {
 
@@ -44,7 +36,7 @@ struct PortInfoEx {
 
 	void set(const InfoFrame &info, uint32_t idx, int ratio, Rectangle crop)
 	{
-		img.info = info;
+		img.property = toBufferPropery(info);
 
 		portIdx = idx;
 		mResizeRatio = ratio;

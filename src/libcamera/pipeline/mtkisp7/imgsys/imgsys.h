@@ -14,7 +14,7 @@
 #include "libcamera/internal/v4l2_videodevice.h"
 #include "libcamera/internal/task_scheduler.h"
 
-#include "single-device/single_device.h"
+#include "single_device.h"
 
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 

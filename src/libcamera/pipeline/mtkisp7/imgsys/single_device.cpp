@@ -1,17 +1,8 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
- * Copyright (C) 2022 MediaTek Inc.
+ * Copyright (C) 2023, Google Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * single_device.cpp - MtkISP7 ImgSys single device wrapper
  */
 
 #include "single_device.h"
@@ -25,153 +16,97 @@
 #include <libcamera/internal/formats.h>
 #include "libcamera/internal/framebuffer.h"
 
-#include "ImageFormat.h"
-#include "ImgPortDef.h"
+#include "platform/mtkisp7/ImageFormat.h"
+#include "platform/mtkisp7/ImgPortDef.h"
 
-namespace NSCam {
-namespace NSImgStream {
+using namespace NSCam;
+using namespace NSCam::NSImgStream;
 
-MINT IImageBuffer::getImgFormat() const
+NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &info)
 {
+	NSCam::NSImgStream::BufferProperty property;
+
 	switch(info.format()) {
 	case libcamera::formats::SBGGR10_MTISP:
 	case libcamera::formats::SGBRG10_MTISP:
 	case libcamera::formats::SGRBG10_MTISP:
 	case libcamera::formats::SRGGB10_MTISP:
-		return eImgFmt_BAYER10;
+		property.format = eImgFmt_BAYER10;
+		break;
 	case libcamera::formats::NV12_10P_MTISP:
-		return eImgFmt_MTK_YUV_P010;
+		property.format = eImgFmt_MTK_YUV_P010;
+		break;
 	case libcamera::formats::NV12_12P_MTISP:
-		return eImgFmt_MTK_YUV_P012;
+		property.format = eImgFmt_MTK_YUV_P012;
+		break;
 	case libcamera::formats::NV12:
-		return eImgFmt_NV12;
+		property.format = eImgFmt_NV12;
+		break;
 	case libcamera::formats::NV21:
-		return eImgFmt_NV21;
+		property.format = eImgFmt_NV21;
+		break;
 	case libcamera::formats::GREY:
-		return eImgFmt_Y8;
+		property.format = eImgFmt_Y8;
+		break;
 	case libcamera::formats::Y16_MTISP:
-		return eImgFmt_STA_2BYTE;
+		property.format = eImgFmt_STA_2BYTE;
+		break;
 	case libcamera::formats::Y32_MTISP:
-		return eImgFmt_STA_4BYTE;
+		property.format = eImgFmt_STA_4BYTE;
+		break;
 	case libcamera::formats::WARP2P_MTISP:
-		return eImgFmt_WARP_2PLANE;
+		property.format = eImgFmt_WARP_2PLANE;
+		break;
 	case libcamera::formats::MTFD_MTISP:
-		return eImgFmt_ISP_TUNING;
+		property.format = eImgFmt_ISP_TUNING;
+		break;
 	default:
+		printf("Unsupported format\n");
 		std::abort();
 	}
-}
 
-MSize const IImageBuffer::getImgSize() const
-{
-	return MSize(info.size().width, info.size().height);
-}
-
-size_t IImageBuffer::getPlaneCount() const
-{
-	return info.numPlanes();
-}
-
-MINT32 IImageBuffer::getColorArrangement() const
-{
 	switch(info.format()) {
 	case libcamera::formats::SBGGR10_MTISP:
-		return SENSOR_FORMAT_ORDER_RAW_B;
+		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_B;
+		break;
 	case libcamera::formats::SGBRG10_MTISP:
-		return SENSOR_FORMAT_ORDER_RAW_Gb;
+		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_Gb;
+		break;
 	case libcamera::formats::SGRBG10_MTISP:
-		return SENSOR_FORMAT_ORDER_RAW_Gr;
+		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_Gr;
+		break;
 	case libcamera::formats::SRGGB10_MTISP:
-		return SENSOR_FORMAT_ORDER_RAW_R;
+		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_R;
+		break;
 	default:
-		return -1;
+		property.ColorArrangeMent = -1;
 	}
-}
 
-MINT32 IImageBuffer::getColorSpace() const
-{
-	return NSCam::eImgColorSpace_BT601_FULL;
-}
+	property.colorSpace = NSCam::eImgColorSpace_BT601_FULL;
 
-MINT32 IImageBuffer::getPlaneFD(size_t index) const
-{
-	return info.buffer()->planes()[index].fd.get();
-}
+	property.width = info.size().width;
+	property.height = info.size().height;
 
-size_t IImageBuffer::getPlaneOffsetInBytes(size_t index) const
-{
-	return info.buffer()->planes()[index].offset;
-}
+	property.numPlanes = info.numPlanes();
 
-MINTPTR IImageBuffer::getBufVA(size_t index) const
-{
-	return reinterpret_cast<MINTPTR>(info.address(index));
-}
-
-size_t IImageBuffer::getBufSizeInBytes(size_t index) const
-{
-	return info.buffer()->planes()[index].length;
-}
-
-size_t IImageBuffer::getBufStridesInBytes(size_t index) const
-{
-	const libcamera::PixelFormatInfo &formatInfo =
-		libcamera::PixelFormatInfo::info(info.format());
-	return formatInfo.stride(info.size().width, index);
-}
-
-size_t IImageBuffer::getBufScanlines(size_t index) const
-{
 	const libcamera::PixelFormatInfo &formatInfo =
 		libcamera::PixelFormatInfo::info(info.format());
 
-	unsigned int planeSize = formatInfo.planeSize(info.size(), index);
-	return (planeSize / formatInfo.stride(info.size().width, index));
-}
+	for (unsigned int i = 0; i < info.numPlanes(); i++) {
+		property.planes[i].fd = info.buffer()->planes()[i].fd.get();
+		property.planes[i].offset = info.buffer()->planes()[i].offset;
+		property.planes[i].size = info.buffer()->planes()[i].length;
+		property.planes[i].stride = formatInfo.stride(info.size().width, i);
 
-MBOOL IImageBuffer::syncCache(CacheCtrl const ctrl)
-{
-	/* todo: Collect fds from each planes and sync once */
-	if (ctrl == eCACHECTRL_INVALID)
-		libcamera::DmaHeap::sync(
-				getPlaneFD(0),
-				libcamera::DmaHeap::Start,
-				libcamera::DmaHeap::SyncReadWrite);
-	else
-		libcamera::DmaHeap::sync(
-				getPlaneFD(0),
-				libcamera::DmaHeap::End,
-				libcamera::DmaHeap::SyncReadWrite);
-	return true;
-}
+		unsigned int planeSize = formatInfo.planeSize(info.size(), i);
+		property.planes[i].scanline = (planeSize / formatInfo.stride(info.size().width, i));
+		property.planes[i].va = reinterpret_cast<MINTPTR>(info.address(i));
+	}
 
-SecType IImageBuffer::getSecType() const
-{
-	return (SecType)0;
+	return property;
 }
-
-bool syncCache(NSCam::NSImgStream::CacheCtrl const ctrl, libcamera::FrameBuffer *buffer)
-{
-	/* todo: Collect fds from each planes and sync once */
-	if (ctrl == NSCam::NSImgStream::eCACHECTRL_INVALID)
-		libcamera::DmaHeap::sync(
-				buffer->planes()[0].fd.get(),
-				libcamera::DmaHeap::Start,
-				libcamera::DmaHeap::SyncReadWrite);
-	else
-		libcamera::DmaHeap::sync(
-				buffer->planes()[0].fd.get(),
-				libcamera::DmaHeap::End,
-				libcamera::DmaHeap::SyncReadWrite);
-	return true;
-}
-
-} // NSImgStream
-} // NSCam
 
 namespace libcamera {
-
-using namespace NSCam::NSImgStream;
 
 void translatePortEx(std::vector<PortInfoEx> &portInfoExs, std::vector<PortInfo> &portInfos)
 {
@@ -193,6 +128,22 @@ void translatePortEx(std::vector<PortInfoEx> &portInfoExs, std::vector<PortInfo>
 
 		info.mBuffer = &inEx.img;
 	}
+}
+
+bool syncCache(NSCam::NSImgStream::CacheCtrl const ctrl, int fd)
+{
+	/* todo: Collect fds from each planes and sync once */
+	if (ctrl == NSCam::NSImgStream::eCACHECTRL_INVALID)
+		libcamera::DmaHeap::sync(
+				fd,
+				libcamera::DmaHeap::Start,
+				libcamera::DmaHeap::SyncReadWrite);
+	else
+		libcamera::DmaHeap::sync(
+				fd,
+				libcamera::DmaHeap::End,
+				libcamera::DmaHeap::SyncReadWrite);
+	return true;
 }
 
 void StageEx::input(const InfoFrame &info, uint32_t idx, int ratio, const Rectangle &crop)
@@ -367,7 +318,7 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 	pParams->mvFrameParams.swap(mvFrameParams);
 
 
-	NSCam::NSImgStream::IImageBuffer imageCM(infoCtrl);
+	NSCam::NSImgStream::IImageBuffer imageCM(toBufferPropery(infoCtrl));
 	CtrlMetaBuf CMBuf {
 		.mFd = imageCM.getPlaneFD(0),
 		.mOffset = (MUINT32)imageCM.getPlaneOffsetInBytes(0),
@@ -395,7 +346,7 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 	initParam.mPriority = IMG_PRIORITY_PREVIEW;
 	initParam.mLowLatency = 0;
 
-	NSCam::NSImgStream::IImageBuffer imageDesc(infoDesc);
+	NSCam::NSImgStream::IImageBuffer imageDesc(toBufferPropery(infoDesc));
 	VNDescBuf descBuf{
 		.mFd = imageDesc.getPlaneFD(0),
 		.mBufSize = (MINT32)imageDesc.getBufSizeInBytes(0),
@@ -404,14 +355,14 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 		.mbUsed = false,
 	};
 
-	syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID, infoCtrl.buffer());
-	syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID, infoDesc.buffer());
+	syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID, infoCtrl.buffer()->planes()[0].fd.get());
+	syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID, infoDesc.buffer()->planes()[0].fd.get());
 
 	for (auto &frameParam : mvFrameParams) {
 		for (auto &input : frameParam.mvIn)
 			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
 				syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID,
-						  input.mBuffer->info.buffer());
+						  input.mBuffer->getPlaneFD(0));
 	}
 
 	createSingleDevBuffer(&reqInfo, &initParam, userid, V4L2_MODE_SIGNLE_DEVICE, &descBuf);
@@ -420,11 +371,11 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 		for (auto &input : frameParam.mvIn)
 			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
 				syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH,
-						  input.mBuffer->info.buffer());
+						  input.mBuffer->getPlaneFD(0));
 	}
 
-	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoCtrl.buffer());
-	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoDesc.buffer());
+	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoCtrl.buffer()->planes()[0].fd.get());
+	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoDesc.buffer()->planes()[0].fd.get());
 
 	infoDesc.buffer()->_d()->metadata().planes()[0].bytesused = infoDesc.buffer()->planes()[0].length;
 }

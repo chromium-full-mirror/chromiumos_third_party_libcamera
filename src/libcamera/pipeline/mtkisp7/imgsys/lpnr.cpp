@@ -11,7 +11,7 @@
 #include <libcamera/formats.h>
 #include <libcamera/request.h>
 
-#include "single-device/single_device.h"
+#include "single_device.h"
 
 namespace libcamera {
 

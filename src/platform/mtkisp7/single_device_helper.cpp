@@ -16,6 +16,8 @@
 
 #include <cstdint>
 #include <stdint.h>
+#include <string>
+#include <sstream>
 #include <map>
 
 #define IMGSYS_VER_ISP71
@@ -27,16 +29,16 @@
 #include "linux/mtkisp7/mtk_imgsys.h"
 #include "linux/mtkisp7/mtk_imgsys-vnode_id.h"
 
-#include "eightcc.h"
-#include "IImgStreamDef.h"
-#include "ImageFormat.h"
-#include "ImgPortDef.h"
-#include "Tuning_Helper.h"
-#include "UITypes.h"
+#include "platform/mtkisp7/eightcc.h"
+#include "platform/mtkisp7/IImgStreamDef.h"
+#include "platform/mtkisp7/ImageFormat.h"
+#include "platform/mtkisp7/ImgPortDef.h"
+#include "platform/mtkisp7/Tuning_Helper.h"
+#include "platform/mtkisp7/UITypes.h"
 
-#include "single_device.h"
+#include "platform/mtkisp7/single_device_helper.h"
 
-#define LOG_ERR(fmt, ...) std::printf((fmt"\n"), ##__VA_ARGS__)
+#define LOG_ERR(fmt, ...) printf((fmt"\n"), ##__VA_ARGS__)
 #define LOG_WRN(fmt, ...)
 #define LOG_ADBDBG(...)
 #define LOG_INF(...)
@@ -71,6 +73,70 @@ enum IMG_INPUT_SEL_ENUM {
   IMG_INPUT_SEL_PRC_RAW_I_2,
   IMG_INPUT_SEL_MAX,
 };
+
+IImageBuffer::IImageBuffer(const BufferProperty &property):
+	property(property)
+{}
+
+MINT IImageBuffer::getImgFormat() const
+{
+	return property.format;
+}
+
+MSize const IImageBuffer::getImgSize() const
+{
+	return MSize(property.width, property.height);
+}
+
+size_t IImageBuffer::getPlaneCount() const
+{
+	return property.numPlanes;
+}
+
+MINT32 IImageBuffer::getColorArrangement() const
+{
+	return property.ColorArrangeMent;
+}
+
+MINT32 IImageBuffer::getColorSpace() const
+{
+	return property.colorSpace;
+}
+
+MINT32 IImageBuffer::getPlaneFD(size_t index) const
+{
+	return property.planes[index].fd;
+}
+
+size_t IImageBuffer::getPlaneOffsetInBytes(size_t index) const
+{
+	return property.planes[index].offset;
+}
+
+MINTPTR IImageBuffer::getBufVA(size_t index) const
+{
+	return property.planes[index].va;
+}
+
+size_t IImageBuffer::getBufSizeInBytes(size_t index) const
+{
+	return property.planes[index].size;
+}
+
+size_t IImageBuffer::getBufStridesInBytes(size_t index) const
+{
+	return property.planes[index].stride;
+}
+
+size_t IImageBuffer::getBufScanlines(size_t index) const
+{
+	return property.planes[index].scanline;
+}
+
+SecType IImageBuffer::getSecType() const
+{
+	return (SecType)0;
+}
 
 const char* portName(IMG_PORT index) {
   switch (index) {
@@ -2536,7 +2602,7 @@ bool HandleInputPort(RequestInfo* pReqInfo,
                                    [[maybe_unused]] dltb_t* pdlTable) {
   uint32_t k = 0;
   IMG_PORT PortIdx;
-  IMG_PORT ReMapPortIdx;
+  [[maybe_unused]] IMG_PORT ReMapPortIdx;
   int s = 0;
   struct header_desc* desc = NULL;
   struct header_desc_norm* desc_norm = NULL;

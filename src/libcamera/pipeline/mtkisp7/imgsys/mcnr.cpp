@@ -15,7 +15,7 @@
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
 
-#include "single-device/single_device.h"
+#include "single_device.h"
 
 namespace libcamera {
 

@@ -16,7 +16,6 @@
 
 #define LOG_TAG "TuningHelper"
 
-#include "Tuning_Helper.h"
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -24,6 +23,8 @@
 #include <math.h>
 #include <time.h>
 #include <stdint.h>
+
+#include "platform/mtkisp7/Tuning_Helper.h"
 
 #if defined MTKCAM_USER_LOAD
 #define TIME_START(start)   \

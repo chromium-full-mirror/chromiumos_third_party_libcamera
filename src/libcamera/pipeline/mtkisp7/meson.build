@@ -6,11 +6,11 @@ libcamera_sources += files([
     'imgsys/lpnr.cpp',
     'imgsys/imgsys.cpp',
     'imgsys/mcnr.cpp',
-    'imgsys/single-device/single_device.cpp',
-    'imgsys/single-device/single_device_helper.cpp',
-    'imgsys/single-device/Tuning_Helper.cpp',
+    'imgsys/single_device.cpp',
     'odt/imagiq_adapter/static_metadata/static_strings.cpp',
     'odt/imagiq_adapter/imagiq_adapter.cpp',
     'odt/on_device_tuner.cpp',
     'mtkisp7.cpp',
 ])
+
+platform_libs += platform_mtkisp7_libs
