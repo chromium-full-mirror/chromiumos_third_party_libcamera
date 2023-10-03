@@ -546,6 +546,18 @@ int CamSysDevice::configureMtkCamRaw()
 		return ret;
 	}
 
+	Rectangle fullRect(rawFrameSize_);
+
+	ret |= yuvo1_->setSelection(V4L2_SEL_TGT_CROP, &fullRect);
+	ret |= yuvo2_->setSelection(V4L2_SEL_TGT_CROP, &fullRect);
+	ret |= drzs4no3_->setSelection(V4L2_SEL_TGT_CROP, &fullRect);
+	ret |= rzh1n2to1_->setSelection(V4L2_SEL_TGT_CROP, &fullRect);
+
+	if (ret) {
+		LOG(MtkISP7, Error) << "Fail to set selection for video nodes";
+		return ret;
+	}
+
 	ret = 0;
 	for (V4L2VideoDevice *device : allVideoDevices_) {
 		ret |= device->importBuffers(16);
