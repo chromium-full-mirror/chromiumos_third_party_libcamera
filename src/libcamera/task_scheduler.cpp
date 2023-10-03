@@ -59,7 +59,7 @@ void Scheduler::precede(Task* precedent, Task* task)
 	task->depend(precedent);
 }
 
-void Scheduler::succeedPrevTaskByStep(uint32_t group, size_t step, Task* task)
+void Scheduler::succeedPrevTaskByStep(int32_t group, size_t step, Task* task)
 {
 	ASSERT(task);
 
@@ -109,16 +109,25 @@ void Scheduler::taskDone(Task* task)
 		schedule();
 }
 
-void Scheduler::queueTask(Task *task, uint32_t group)
+void Scheduler::queueTask(Task *task, int32_t group)
 {
 	/* \todo: Detect cyclic dependency */
 	pendingTasks_.emplace_back(task);
 	groupTasks_[group].emplace_back(task);
 }
 
-std::list<Task*> &Scheduler::groupTasks(uint32_t group)
+std::list<Task*> &Scheduler::groupTasks(int32_t group)
 {
 	return groupTasks_[group];
+}
+
+void Scheduler::log()
+{
+	std::stringstream ss;
+	for (auto &[group, name] : groupNames_)
+		ss << name << "[" << groupTasks_[group].size() << "] ";
+
+	LOG(Task, Info) << ss.str();
 }
 
 } /* namespace libcamera */

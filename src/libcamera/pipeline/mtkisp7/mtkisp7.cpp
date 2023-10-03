@@ -54,6 +54,19 @@ enum MtkISP7TaskGroup {
 	CompleteGroup,
 };
 
+static const std::map<MtkISP7TaskGroup, std::string> kGroupName {
+	{ SofGroup, "SofGroup" },
+	{ CaptureQueueGroup, "CaptureQueueGroup" },
+	{ CaptureDequeueGroup, "CaptureDequeueGroup" },
+	{ MeGroup, "MeGroup" },
+	{ TrGroup, "TrGroup" },
+	{ XtrGroup, "XtrGroup" },
+	{ Dip1Group, "Dip1Group" },
+	{ Dip2Group, "Dip2Group" },
+	{ LpnrDipGroup, "LpnrDipGroup" },
+	{ CompleteGroup, "CompleteGroup" },
+};
+
 class CompleteRequestTask : public Task
 {
 public:
@@ -262,7 +275,7 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 	: PipelineHandler(manager), imgSysDev_(&onDeviceTuner_)
 {
-	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>();
+	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
 	dmaHeap_ = std::make_unique<DmaHeap>();
 }
 

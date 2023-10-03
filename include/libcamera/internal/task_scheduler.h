@@ -70,33 +70,43 @@ public:
 	Scheduler();
 
 	void schedule();
-	void queueTask(Task *task, uint32_t group);
-	void taskDone(Task* task);
-
-	std::list<Task*> &groupTasks(uint32_t group);
-
-	Signal<Task*> taskDone_;
+	void log();
 
 protected:
-	void succeedPrevTaskByStep(uint32_t group, size_t step, Task* task);
+	void queueTask(Task *task, int32_t group);
+	void succeedPrevTaskByStep(int32_t group, size_t step, Task* task);
+	std::list<Task*> &groupTasks(int32_t group);
+
+	std::map<int32_t, std::string> groupNames_;
 
 private:
+	friend Task;
+
+	void taskDone(Task* task);
+	Signal<Task*> taskDone_;
+
+	std::map<int32_t, std::list<Task*>> groupTasks_;
 	std::list<std::unique_ptr<Task>> pendingTasks_;
 	std::list<std::unique_ptr<Task>> runningTasks_;
-
-	std::map<uint32_t, std::list<Task*>> groupTasks_;
 };
 
 template<typename Category, std::enable_if_t<std::is_enum_v<Category>> * = nullptr >
 class CategorizedScheduler : public Scheduler
 {
+	static_assert(std::is_enum<Category>::value, "Category should be an enum");
+
 public:
+	CategorizedScheduler(const std::map<Category, std::string> &categoryName) {
+		for (auto &[group, name] : categoryName)
+			Scheduler::groupNames_[(int32_t)group] = name;
+	}
+
 	void queueTask(Task *task, Category group) {
-		Scheduler::queueTask(task, static_cast<uint32_t>(group));
+		Scheduler::queueTask(task, static_cast<int32_t>(group));
 	}
 
 	std::list<Task*> &groupTasks(Category group) {
-		return Scheduler::groupTasks(static_cast<uint32_t>(group));
+		return Scheduler::groupTasks(static_cast<int32_t>(group));
 	}
 
 	void succeedPrevTaskByStep(Category group, size_t step, Task* task) {
