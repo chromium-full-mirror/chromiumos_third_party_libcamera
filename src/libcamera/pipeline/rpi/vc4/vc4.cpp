@@ -25,6 +25,7 @@ namespace libcamera {
 LOG_DECLARE_CATEGORY(RPI)
 
 using StreamFlag = RPi::Stream::StreamFlag;
+using StreamParams = RPi::RPiCameraConfiguration::StreamParams;
 
 namespace {
 
@@ -65,8 +66,7 @@ public:
 	{
 	}
 
-	CameraConfiguration::Status platformValidate(std::vector<StreamParams> &rawStreams,
-						     std::vector<StreamParams> &outStreams) const override;
+	CameraConfiguration::Status platformValidate(RPi::RPiCameraConfiguration *rpiConfig) const override;
 
 	int platformPipelineConfigure(const std::unique_ptr<YamlObject> &root) override;
 
@@ -115,10 +115,7 @@ private:
 		isp_[Isp::Input].dev()->setSelection(V4L2_SEL_TGT_CROP, &ispCrop_);
 	}
 
-	int platformConfigure(const V4L2SubdeviceFormat &sensorFormat,
-			      std::optional<BayerFormat::Packing> packing,
-			      std::vector<StreamParams> &rawStreams,
-			      std::vector<StreamParams> &outStreams) override;
+	int platformConfigure(const RPi::RPiCameraConfiguration *rpiConfig) override;
 	int platformConfigureIpa(ipa::RPi::ConfigParams &params) override;
 
 	int platformInitIpa([[maybe_unused]] ipa::RPi::InitParams &params) override
@@ -394,9 +391,11 @@ int PipelineHandlerVc4::platformRegister(std::unique_ptr<RPi::CameraData> &camer
 	return 0;
 }
 
-CameraConfiguration::Status Vc4CameraData::platformValidate(std::vector<StreamParams> &rawStreams,
-							    std::vector<StreamParams> &outStreams) const
+CameraConfiguration::Status Vc4CameraData::platformValidate(RPi::RPiCameraConfiguration *rpiConfig) const
 {
+	std::vector<StreamParams> &rawStreams = rpiConfig->rawStreams_;
+	std::vector<StreamParams> &outStreams = rpiConfig->outStreams_;
+
 	CameraConfiguration::Status status = CameraConfiguration::Status::Valid;
 
 	/* Can only output 1 RAW stream, or 2 YUV/RGB streams. */
@@ -405,8 +404,32 @@ CameraConfiguration::Status Vc4CameraData::platformValidate(std::vector<StreamPa
 		return CameraConfiguration::Status::Invalid;
 	}
 
-	if (!rawStreams.empty())
+	if (!rawStreams.empty()) {
 		rawStreams[0].dev = unicam_[Unicam::Image].dev();
+
+		/* Adjust the RAW stream to match the computed sensor format. */
+		StreamConfiguration *rawStream = rawStreams[0].cfg;
+		BayerFormat rawBayer = BayerFormat::fromMbusCode(rpiConfig->sensorFormat_.mbus_code);
+
+		/* Handle flips to make sure to match the RAW stream format. */
+		if (flipsAlterBayerOrder_)
+			rawBayer = rawBayer.transform(rpiConfig->combinedTransform_);
+
+		/* Apply the user requested packing. */
+		rawBayer.packing = BayerFormat::fromPixelFormat(rawStream->pixelFormat).packing;
+		PixelFormat rawFormat = rawBayer.toPixelFormat();
+
+		if (rawStream->pixelFormat != rawFormat ||
+		    rawStream->size != rpiConfig->sensorFormat_.size) {
+			rawStream->pixelFormat = rawFormat;
+			rawStream->size = rpiConfig->sensorFormat_.size;
+
+			status = CameraConfiguration::Adjusted;
+		}
+
+		rawStreams[0].format =
+			RPi::PipelineHandlerBase::toV4L2DeviceFormat(unicam_[Unicam::Image].dev(), rawStream);
+	}
 
 	/*
 	 * For the two ISP outputs, one stream must be equal or smaller than the
@@ -416,6 +439,11 @@ CameraConfiguration::Status Vc4CameraData::platformValidate(std::vector<StreamPa
 	 */
 	for (unsigned int i = 0; i < outStreams.size(); i++) {
 		Size size;
+
+		/*
+		 * \todo Should we warn if upscaling, as it reduces the image
+		 * quality and is usually undesired ?
+		 */
 
 		size.width = std::min(outStreams[i].cfg->size.width,
 				      outStreams[0].cfg->size.width);
@@ -432,6 +460,8 @@ CameraConfiguration::Status Vc4CameraData::platformValidate(std::vector<StreamPa
 		 * have that fixed up in the code above.
 		 */
 		outStreams[i].dev = isp_[i == 0 ? Isp::Output0 : Isp::Output1].dev();
+
+		outStreams[i].format = RPi::PipelineHandlerBase::toV4L2DeviceFormat(outStreams[i].dev, outStreams[i].cfg);
 	}
 
 	return status;
@@ -479,22 +509,14 @@ int Vc4CameraData::platformPipelineConfigure(const std::unique_ptr<YamlObject> &
 	return 0;
 }
 
-int Vc4CameraData::platformConfigure(const V4L2SubdeviceFormat &sensorFormat,
-				     std::optional<BayerFormat::Packing> packing,
-				     std::vector<StreamParams> &rawStreams,
-				     std::vector<StreamParams> &outStreams)
+int Vc4CameraData::platformConfigure(const RPi::RPiCameraConfiguration *rpiConfig)
 {
+	const std::vector<StreamParams> &rawStreams = rpiConfig->rawStreams_;
+	const std::vector<StreamParams> &outStreams = rpiConfig->outStreams_;
 	int ret;
 
-	if (!packing)
-		packing = BayerFormat::Packing::CSI2;
-
 	V4L2VideoDevice *unicam = unicam_[Unicam::Image].dev();
-	V4L2DeviceFormat unicamFormat = RPi::PipelineHandlerBase::toV4L2DeviceFormat(unicam, sensorFormat, *packing);
-
-	ret = unicam->setFormat(&unicamFormat);
-	if (ret)
-		return ret;
+	V4L2DeviceFormat unicamFormat;
 
 	/*
 	 * See which streams are requested, and route the user
@@ -503,14 +525,24 @@ int Vc4CameraData::platformConfigure(const V4L2SubdeviceFormat &sensorFormat,
 	if (!rawStreams.empty()) {
 		rawStreams[0].cfg->setStream(&unicam_[Unicam::Image]);
 		unicam_[Unicam::Image].setFlags(StreamFlag::External);
+		unicamFormat = rawStreams[0].format;
+	} else {
+		unicamFormat =
+			RPi::PipelineHandlerBase::toV4L2DeviceFormat(unicam,
+								     rpiConfig->sensorFormat_,
+								     BayerFormat::Packing::CSI2);
 	}
+
+	ret = unicam->setFormat(&unicamFormat);
+	if (ret)
+		return ret;
 
 	ret = isp_[Isp::Input].dev()->setFormat(&unicamFormat);
 	if (ret)
 		return ret;
 
 	LOG(RPI, Info) << "Sensor: " << sensor_->id()
-		       << " - Selected sensor format: " << sensorFormat
+		       << " - Selected sensor format: " << rpiConfig->sensorFormat_
 		       << " - Selected unicam format: " << unicamFormat;
 
 	/* Use a sensible small default size if no output streams are configured. */
@@ -522,11 +554,7 @@ int Vc4CameraData::platformConfigure(const V4L2SubdeviceFormat &sensorFormat,
 
 		/* The largest resolution gets routed to the ISP Output 0 node. */
 		RPi::Stream *stream = i == 0 ? &isp_[Isp::Output0] : &isp_[Isp::Output1];
-
-		V4L2PixelFormat fourcc = stream->dev()->toV4L2PixelFormat(cfg->pixelFormat);
-		format.size = cfg->size;
-		format.fourcc = fourcc;
-		format.colorSpace = cfg->colorSpace;
+		format = outStreams[i].format;
 
 		LOG(RPI, Debug) << "Setting " << stream->name() << " to "
 				<< format;
@@ -534,13 +562,6 @@ int Vc4CameraData::platformConfigure(const V4L2SubdeviceFormat &sensorFormat,
 		ret = stream->dev()->setFormat(&format);
 		if (ret)
 			return -EINVAL;
-
-		if (format.size != cfg->size || format.fourcc != fourcc) {
-			LOG(RPI, Error)
-				<< "Failed to set requested format on " << stream->name()
-				<< ", returned " << format;
-			return -EINVAL;
-		}
 
 		LOG(RPI, Debug)
 			<< "Stream " << stream->name() << " has color space "
