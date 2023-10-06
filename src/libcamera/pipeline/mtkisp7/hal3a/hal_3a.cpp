@@ -16,17 +16,11 @@
 
 namespace libcamera {
 
-namespace {
-constexpr unsigned int kMetaSize = 113664;
-} // namespace
-
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-Hal3A::Hal3A(const uint32_t sensor_idx, DmaHeap *dmaHeap)
-	: sensor_idx_(sensor_idx), dmaHeap_(dmaHeap)
+Hal3A::Hal3A(const uint32_t sensor_idx)
+	: sensor_idx_(sensor_idx)
 {
-	fd_ = dmaHeap_->alloc(kMetaSize, libcamera::DmaHeap::Type::CMA);
-	meta_addr_ = reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(mmap(nullptr, kMetaSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd_.get(), 0));
 }
 
 void Hal3A::start()
@@ -309,15 +303,15 @@ void Hal3A::startInternal()
 	m_hal3a_->Start(r_3a_start);
 }
 
-void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp)
+void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
+			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+			  int rawMetaFd, unsigned char *rawMetaBuffer,
+			  std::pair<uint32_t, uint32_t> *exposureAndGain)
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param;
-	// TODO: get request_id
-	static uint64_t request_id = 0;
-	const auto current_request_id = request_id++;
 
 	// TODO: get parameters for SetParam properly
-	r_3a_param.request_id = current_request_id;
+	r_3a_param.request_id = internalRequestId;
 	r_3a_param.active_items = 59;
 	r_3a_param.updated = true;
 	r_3a_param.is_dummy_request = false;
@@ -543,7 +537,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp)
 	}
 
 	r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kPreview;
-	r_3a_request.buf_info.request_id = current_request_id;
+	r_3a_request.buf_info.request_id = camSysMetaRequestId;
 	r_3a_request.buf_info.sof_timestamp = timestamp;
 
 	r_3a_request.stt_buf.fd = statistics0->planes()[0].fd.get();
@@ -554,9 +548,10 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp)
 
 	m_hal3a_->DoCalculation(r_3a_request);
 
-	mtk::hal3a::v1_0::mtk_3a_result r_3a_result;
-	m_hal3a_->GetResult(r_3a_result);
-	r3AResult_ = r_3a_result;
+	auto *rawMeta =
+		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(rawMetaBuffer);
+	m_hal3a_->GetResult(r3AResult_);
+	*rawMeta = r3AResult_.raw_meta;
 
 	mtk::hal3a::v1_0::mtk_hal3a_metaset metaSet; // TODO: skip_exposure_setting, appMeta, halMeta
 	std::vector<mtk::hal3a::v1_0::mtk_hal3a_metaset *> requestQ;
@@ -567,32 +562,38 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp)
 	ctrl.fgDue = false; // TODO: check if 3a finishes calculation on time.
 
 	mtk::isphal::IspTuningBufferP1 tuning_data;
-	*meta_addr_ = r_3a_result.raw_meta;
 
-	mtk::isphal::Buffer regBuf1((intptr_t)meta_addr_, fd_.get(), 0, kMetaSize);
+	mtk::isphal::Buffer regBuf1((intptr_t)rawMetaBuffer, rawMetaFd, 0, kRawMetaSize);
 	tuning_data.p1_meta_buffer = regBuf1;
-	m_isp_hal_->getCamSysMetaTuning(request_id, r3AResult_.request_id, requestQ, ctrl, tuning_data);
+	m_isp_hal_->getCamSysMetaTuning(internalRequestId, internalRequestId, requestQ, ctrl, tuning_data);
 
-	r3AResult_.raw_meta = *meta_addr_;
+	getExposureAndGain(exposureAndGain);
 }
 
-std::pair<uint32_t, uint32_t> Hal3A::getExposureAndGain()
+void Hal3A::getExposureAndGain(
+	std::pair<uint32_t, uint32_t> *exposureAndGain)
 {
-	// TODO: consider delay
 	ae_exposure_setting_table ae_table = r3AResult_.ae_result.ae_exp_table;
 	if (ae_table.cnt == 0)
-		return std::make_pair(0, 0);
+		return;
 
 	auto *const pSensorList = NSCam::IHalSensorList::get();
 
-	if (!pSensorList)
-		return std::make_pair(0, 0);
+	if (!pSensorList) {
+		LOG(MtkISP7, Error)
+			<< "Get exposure and gain: No IHalSensorList";
+		return;
+	}
 
 	auto dev_idx = pSensorList->querySensorDevIdx(sensor_idx_);
 	auto *const pHalSensor = pSensorList->createSensor("pipemgrPerframeSet", sensor_idx_);
 
-	if (!pHalSensor)
-		return std::make_pair(0, 0);
+	if (!pHalSensor) {
+		LOG(MtkISP7, Error) << "Get exposure and gain: "
+				    << "Failed to create pipemgrPerframeSet with id: "
+				    << sensor_idx_;
+		return;
+	}
 
 	for (int exp = 0; exp < AE_EXP_MODE_MAX_T; ++exp) {
 		if (ae_table.table[exp].mode <= 0)
@@ -603,13 +604,11 @@ std::pair<uint32_t, uint32_t> Hal3A::getExposureAndGain()
 		uint32_t gain = pHalSensor->convert_gain(dev_idx, ae_table.table[exp].afe_gain);
 		uint32_t ex = ae_table.table[exp].exposure_line;
 
-		pHalSensor->destroyInstance("pipemgrPerframeSet");
-
-		return std::make_pair(ex, gain);
+		*exposureAndGain = std::make_pair(ex, gain);
+		break;
 	}
 
 	pHalSensor->destroyInstance("pipemgrPerframeSet");
-	return std::make_pair(0, 0);
 }
 
 } /* namespace libcamera */

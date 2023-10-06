@@ -32,6 +32,7 @@ libcamera_sources += files([
     'face_detect/aie.cpp',
     'face_detect/detector.cpp',
     'face_detect/parser.cpp',
+    'hal3a/aaa.cpp',
     'hal3a/hal_3a.cpp',
     'imgsys/lpnr.cpp',
     'imgsys/imgsys.cpp',

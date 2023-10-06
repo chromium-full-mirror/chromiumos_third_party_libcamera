@@ -17,8 +17,6 @@
 #include "libcamera/internal/v4l2_subdevice.h"
 #include "libcamera/internal/v4l2_videodevice.h"
 
-#include "pipeline/mtkisp7/hal3a/hal_3a.h"
-
 namespace libcamera {
 
 class CamSysDevice
@@ -42,7 +40,7 @@ public:
 
 	CamSysDevice();
 
-	int init(MediaDevice *media, unsigned int index, Hal3A *hal3A);
+	int init(MediaDevice *media, unsigned int index);
 
 	int start();
 	int stop();
@@ -51,7 +49,6 @@ public:
 	int configure(const Size &rawFrameSize, const Size &yuvFrameSize);
 
 	int claimCompletedRequest(Request *request);
-	void fillTuningBuffer(FrameBuffer *buffer);
 	int queueRequest(Request *request);
 
 	int setFrameInterval(uint32_t numerator, uint32_t denominator);
@@ -93,7 +90,6 @@ private:
 	Size yuvFrameSize_;
 
 	unsigned index_;
-	Hal3A *hal3A_;
 
 	unsigned int mbusCode_;
 	PixelFormat bayerFormat_;

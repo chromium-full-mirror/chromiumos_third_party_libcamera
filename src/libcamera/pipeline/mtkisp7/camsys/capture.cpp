@@ -11,8 +11,6 @@
 #include <libcamera/geometry.h>
 #include <libcamera/request.h>
 
-#include "libcamera/internal/framebuffer.h"
-#include "libcamera/internal/mapped_framebuffer.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/request.h"
 
@@ -31,7 +29,6 @@ namespace {
 
 static constexpr Size kMeSize = Size{ 576, 432 };
 static constexpr Size kFdSize = Size{ 640, 480 };
-static constexpr Size kMetaSize = Size{ 113664, 1 };
 static constexpr Size kStatSize0 = Size{ 1081344, 1 };
 static constexpr Size kStatSize1 = Size{ 528384, 1 };
 
@@ -46,8 +43,7 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 				   CamSysDevice *camSys,
 				   PipelineHandler *pipe,
 				   const Size &rawFrameSize,
-				   const Size &yuvFrameSize,
-				   Hal3A *hal3A)
+				   const Size &yuvFrameSize)
 {
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
@@ -55,8 +51,6 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 
 	rawFrameSize_ = rawFrameSize;
 	yuvFrameSize_ = yuvFrameSize;
-
-	hal3A_ = hal3A;
 
 	releaseBuffers();
 	allocateBuffers();
@@ -71,7 +65,6 @@ void CaptureTasksManager::allocateBuffers()
 	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, 12);
 	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, 12);
 	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 12);
-	tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8, DmaHeap::CMA);
 	statistics0Pool_.createBuffers(dmaHeap_, formats::MTFA_MTISP, kStatSize0, 8, DmaHeap::CMA);
 	statistics1Pool_.createBuffers(dmaHeap_, formats::MTFF_MTISP, kStatSize1, 8, DmaHeap::CMA);
 }
@@ -88,14 +81,13 @@ void CaptureTasksManager::releaseBuffers()
 	mePool_.release();
 	faceDetectPool_.release();
 
-	tuningPool_.release();
 	statistics0Pool_.release();
 	statistics1Pool_.release();
 }
 
 void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 {
-	captureFrames.tuning = makeMailBox<InfoFrame>();
+	captureFrames.tuningOutput = makeMailBox<InfoFrame>();
 
 	captureFrames.raw = makeMailBox<InfoFrame>();
 	captureFrames.yuvo1 = makeMailBox<InfoFrame>();
@@ -106,6 +98,9 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 
 	captureFrames.statistics0 = makeMailBox<InfoFrame>();
 	captureFrames.statistics1 = makeMailBox<InfoFrame>();
+
+	captureFrames.timestamp = makeMailBox<uint64_t>();
+	captureFrames.exposureAndGainOutput = makeMailBox<std::pair<uint32_t, uint32_t>>();
 }
 
 std::tuple<QueueTask *, DequeueTask *, SofTask *>
@@ -115,25 +110,25 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 				      CaptureFrames &captureFrames)
 {
 	(void)id;
-	auto data = std::make_shared<CaptureData>(captureFrames);
 
 	std::string sequence = "padding";
 	if (request)
 		sequence = std::to_string(request->sequence());
 
-	SofTask *sofTask = new SofTask(scheduler, "Sof " + sequence, request,
-				       camSys_, hal3A_);
+	// Create CaptureData after CaptureFrames SharedMailBoxes are set.
+	auto data = std::make_shared<CaptureData>(captureFrames);
+
+	SofTask *sofTask = new SofTask(scheduler, "Sof " + sequence, request, data, camSys_);
+
 	QueueTask *qTask = new QueueTask(this, scheduler, "Queue " + sequence, request, data);
-	DequeueTask *dqTask = new DequeueTask(this, scheduler, "Dequeue " + sequence, request, data, hal3A_);
+	DequeueTask *dqTask = new DequeueTask(this, scheduler, "Dequeue " + sequence, request, data);
 
 	return std::make_tuple(qTask, dqTask, sofTask);
 }
 
 void SofTask::trigger()
 {
-	// todo: Set exposure and gain accordingly.
-	// todo: Set exposure and gain considering the delay of 2.
-	auto [exposure, gain] = hal3A_->getExposureAndGain();
+	auto [exposure, gain] = data_->frames.exposureAndGain->get();
 	if (exposure != 0) // Assuming it couldn't be zero.
 		camSys_->setExposureGain(exposure, gain);
 	LOG(MtkISP7, Info) << "exposure: " << exposure << ", gain: " << gain;
@@ -163,7 +158,6 @@ void QueueTask::run()
 	manager_->statistics1Pool_.fetch(frames.statistics1);
 	camSysRequest.statistics1 = frames.statistics1->get().buffer();
 
-	manager_->tuningPool_.fetch(frames.tuning);
 	camSysRequest.tuning = frames.tuning->get().buffer();
 
 	manager_->mePool_.fetch(frames.me);
@@ -214,19 +208,18 @@ void DequeueTask::requestReady(CamSysDevice::Request *request)
 
 void DequeueTask::done()
 {
-	if (request_) {
-		FrameBuffer *buffer = (data_->request.main) ? data_->request.main : data_->request.yuvo1;
+	FrameBuffer *buffer = (data_->request.main) ? data_->request.main : data_->request.yuvo1;
+	uint64_t timestamp = buffer->metadata().timestamp;
 
+	data_->frames.timestamp->put(buffer->metadata().timestamp,
+				     []([[maybe_unused]] uint64_t &timestamp) {});
+
+	if (request_) {
 		ControlList metadata;
-		metadata.set(controls::SensorTimestamp,
-			     buffer->metadata().timestamp);
+		metadata.set(controls::SensorTimestamp, timestamp);
 
 		manager_->pipe_->completeMetadata(request_, metadata);
 		manager_->onDeviceTuner_->tuneCamsys(request_, data_->frames);
-
-		// TODO: Add another 3ATask to DoCalculation.
-
-		hal3A_->doCalculation(data_->request.statistics0, buffer->metadata().timestamp);
 	}
 
 	notifyDone();

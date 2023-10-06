@@ -36,17 +36,40 @@ struct CaptureFrames {
 	SharedMailBox<InfoFrame> faceDetection;
 	SharedMailBox<InfoFrame> statistics0;
 	SharedMailBox<InfoFrame> statistics1;
-	SharedMailBox<InfoFrame> tuning;
+	SharedMailBox<InfoFrame> tuning; // Input
+	SharedMailBox<InfoFrame> tuningOutput; // Output
+
+	SharedMailBox<uint64_t> timestamp;
+
+	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGain; // input
+	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGainOutput; // output
+};
+
+class CaptureData
+{
+public:
+	CaptureData(CaptureFrames &captureFrames)
+		: frames(captureFrames) {}
+
+	CamSysDevice::Request request;
+	CaptureFrames frames;
 };
 
 class CaptureTasksManager
 {
 public:
+	static const uint32_t kPaddingSize = 4;
+	// TODO: Assume (k-2)th 3A task is done when kth Sof task is triggered by hardware.
+	static const uint32_t kExposureAndGainDelay = 2;
+	// TODO: Currently fix (k-4)th 3A task to prepare for kth request's raw meta.
+	static const uint32_t kRawMetaDelay = 4;
+
 	CaptureTasksManager(OnDeviceTuner *odt);
+	CaptureTasksManager() = default;
 	~CaptureTasksManager() = default;
 
 	int configure(DmaHeap *dmaHeap, CamSysDevice *camSys, PipelineHandler *pipe,
-		      const Size &rawFrameSize, const Size &yuvFrameSize, Hal3A *hal3A);
+		      const Size &rawFrameSize, const Size &yuvFrameSize);
 
 	void allocateBuffers();
 	void releaseBuffers();
@@ -69,9 +92,6 @@ private:
 	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
 
-	Hal3A *hal3A_;
-
-	InfoFramePool tuningPool_;
 	InfoFramePool rawPool_;
 	InfoFramePool yuvo1Pool_;
 	InfoFramePool yuvo2Pool_;
@@ -83,31 +103,20 @@ private:
 	InfoFramePool statistics1Pool_;
 };
 
-class CaptureData
-{
-public:
-	CaptureData(CaptureFrames &captureFrames)
-		: frames(captureFrames) {}
-
-	CamSysDevice::Request request;
-	CaptureFrames frames;
-};
-
 class SofTask : public Task
 {
 public:
 	SofTask(Scheduler *scheduler, const std::string &id, Request *request,
-		CamSysDevice *camSys, Hal3A *hal3A)
-		: Task(scheduler, id), request_(request), camSys_(camSys),
-		  hal3A_(hal3A) {}
+		std::shared_ptr<CaptureData> &data, CamSysDevice *camSys)
+		: Task(scheduler, id), request_(request), data_(data), camSys_(camSys) {}
 
 	virtual void run() override final {}
 	void trigger();
 
 	Request *request_;
+	std::shared_ptr<CaptureData> data_;
 
 	CamSysDevice *camSys_;
-	Hal3A *hal3A_;
 };
 
 class QueueTask : public Task
@@ -117,9 +126,7 @@ public:
 		  Scheduler *scheduler, const std::string &id, Request *request,
 		  std::shared_ptr<CaptureData> &data)
 		: Task(scheduler, id), request_(request), manager_(manager),
-		  data_(data)
-	{
-	}
+		  data_(data) {}
 
 	void run() override final;
 
@@ -133,11 +140,9 @@ class DequeueTask : public Task
 public:
 	DequeueTask(CaptureTasksManager *manager,
 		    Scheduler *scheduler, const std::string &id, Request *request,
-		    std::shared_ptr<CaptureData> &data, Hal3A *hal3A)
+		    std::shared_ptr<CaptureData> &data)
 		: Task(scheduler, id), request_(request), manager_(manager),
-		  data_(data), hal3A_(hal3A)
-	{
-	}
+		  data_(data) {}
 
 	void run() override final;
 	void done();
@@ -147,8 +152,6 @@ public:
 	CaptureTasksManager *manager_;
 
 	std::shared_ptr<CaptureData> data_;
-
-	Hal3A *hal3A_;
 };
 
 } /* namespace libcamera */

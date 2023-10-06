@@ -27,6 +27,7 @@
 
 #include "camsys/camsys.h"
 #include "camsys/capture.h"
+#include "hal3a/aaa.h"
 #include "hal3a/hal_3a.h"
 #include "imgsys/imgsys.h"
 #include "imgsys/lpnr.h"
@@ -36,7 +37,6 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
-
 LOG_DEFINE_CATEGORY(MtkISP7)
 
 static const ControlInfoMap::Map MtkISP7Controls = {
@@ -47,6 +47,7 @@ enum MtkISP7TaskGroup {
 	SofGroup = 0,
 	CaptureQueueGroup,
 	CaptureDequeueGroup,
+	AAGroup,
 	MeGroup,
 	TrGroup,
 	XtrGroup,
@@ -63,6 +64,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ SofGroup, "SofGroup" },
 	{ CaptureQueueGroup, "CaptureQueueGroup" },
 	{ CaptureDequeueGroup, "CaptureDequeueGroup" },
+	{ AAGroup, "AAGroup" },
 	{ MeGroup, "MeGroup" },
 	{ TrGroup, "TrGroup" },
 	{ XtrGroup, "XtrGroup" },
@@ -126,7 +128,10 @@ public:
 
 	void frameStart(uint32_t sequence);
 
-	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf, SofTask *sofTask);
+	std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *>
+	makeTasks(const std::string &id, Request *request,
+		  CaptureFrames &captureFrames);
+	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf, SofTask *sofTask, AATask *aaTask);
 
 	Stream video1Stream_;
 	Stream video2Stream_;
@@ -140,6 +145,7 @@ public:
 	ImgSysDevice *imgSysDev_;
 
 	CaptureTasksManager captureManager;
+	Hal3AManager hal3AManager_;
 
 	MCNRPrevOutput mcnrPrev;
 	McnrTasksManager mcnrManager;
@@ -150,6 +156,8 @@ public:
 	DmaHeap *dmaHeap_;
 
 	Hal3A *hal3A_;
+
+	uint32_t requestCount_ = 0;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -492,11 +500,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
-	hal3A_[0] = std::make_unique<Hal3A>(0, dmaHeap_.get());
-	hal3A_[1] = std::make_unique<Hal3A>(1, dmaHeap_.get());
+	hal3A_[0] = std::make_unique<Hal3A>(0);
+	hal3A_[1] = std::make_unique<Hal3A>(1);
 
 	for (unsigned int i = 0; i < 2; i++) {
-		if (camSysDev_[i].init(camSysMedia_, i, hal3A_[i].get()))
+		if (camSysDev_[i].init(camSysMedia_, i))
 			continue;
 
 		ControlList properties = camSysDev_[i].properties();
@@ -572,31 +580,93 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	lpnrManager.start();
 	faceDetector_->start();
 
-	CaptureFrames captureFrames;
-	captureManager.makeCaptureFrames(captureFrames);
+	/* Schedule three padding job */
+	for (uint32_t i = 0; i < CaptureTasksManager::kPaddingSize; ++i) {
+		CaptureFrames captureFrames;
 
-	/* Schedule a padding job */
-	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
-		scheduler, "Padding capture", nullptr, captureFrames);
-
-	setTasksDependencies(taskQBuf, taskDQBuf, sofTask);
+		makeTasks("Padding capture", nullptr, captureFrames);
+	}
 
 	scheduler->schedule();
 	return 0;
 }
 
+std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *>
+MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
+			     CaptureFrames &captureFrames)
+{
+	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
+	auto *scheduler = pipeline->scheduler_.get();
+
+	captureManager.makeCaptureFrames(captureFrames);
+
+	uint32_t internalRequestId = requestCount_++;
+	uint32_t camSysMetaRequestId = 0;
+
+	std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
+
+	if (capture3ATasks.size() >= CaptureTasksManager::kExposureAndGainDelay) {
+		auto iter = capture3ATasks.rbegin();
+		for (uint32_t i = 0; i < CaptureTasksManager::kExposureAndGainDelay - 1; ++i)
+			++iter;
+		captureFrames.exposureAndGain = static_cast<AATask *>(*iter)->captureFrames_.exposureAndGainOutput;
+	} else {
+		captureFrames.exposureAndGain = makeMailBox<std::pair<uint32_t, uint32_t>>();
+		captureFrames.exposureAndGain->put(std::make_pair(0, 0), []([[maybe_unused]] std::pair<uint32_t, uint32_t> &ex_and_gain) {});
+	}
+
+	if (capture3ATasks.size() >= CaptureTasksManager::kRawMetaDelay) {
+		camSysMetaRequestId = internalRequestId - CaptureTasksManager::kRawMetaDelay;
+		auto iter = capture3ATasks.rbegin();
+		for (uint32_t i = 0; i < CaptureTasksManager::kRawMetaDelay - 1; ++i)
+			++iter;
+
+		captureFrames.tuning = static_cast<AATask *>(*iter)->captureFrames_.tuningOutput;
+	} else {
+		captureFrames.tuning = makeMailBox<InfoFrame>();
+		hal3AManager_.fetchTuningBuffer(captureFrames.tuning);
+		FrameBuffer *tuningBuffer = captureFrames.tuning->get().buffer();
+
+		MappedFrameBuffer mappedBuffer(tuningBuffer,
+					       MappedFrameBuffer::MapFlag::ReadWrite);
+		tuningBuffer->_d()->metadata().planes()[0].bytesused = tuningBuffer->planes()[0].length;
+
+		// TODO: replace directly using raw_meta
+		// TODO: Check if we need to call getCamSysMetaTuning
+		memcpy(mappedBuffer.planes()[0].data(),
+		       &hal3A_->r3AResult_.raw_meta, Hal3A::kRawMetaSize);
+	}
+
+	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
+		scheduler, id, request, captureFrames);
+
+	auto [aaTask] = hal3AManager_.make3ATasks(
+		scheduler, request, captureFrames, internalRequestId,
+		camSysMetaRequestId);
+
+	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaTask);
+
+	return std::make_tuple(taskQBuf, taskDQBuf, sofTask, aaTask);
+}
+
 void MtkISP7CameraData::setTasksDependencies(QueueTask *taskQBuf,
 					     DequeueTask *taskDQBuf,
-					     SofTask *sofTask)
+					     SofTask *sofTask,
+					     AATask *aaTask)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 
 	Scheduler::precede(sofTask, taskDQBuf);
 	Scheduler::precede(taskQBuf, taskDQBuf);
+	Scheduler::precede(taskDQBuf, aaTask);
 
 	scheduler->succeedPrevTaskByStep(CaptureQueueGroup, 0, taskQBuf);
 	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 0, taskDQBuf);
+	scheduler->succeedPrevTaskByStep(AAGroup, 0, aaTask);
+
+	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kExposureAndGainDelay - 1, sofTask);
+	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kRawMetaDelay - 1, taskQBuf);
 
 	/* At most 5 request can be queued into CamSys */
 	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 4, taskQBuf);
@@ -604,6 +674,7 @@ void MtkISP7CameraData::setTasksDependencies(QueueTask *taskQBuf,
 	scheduler->queueTask(sofTask, SofGroup);
 	scheduler->queueTask(taskQBuf, CaptureQueueGroup);
 	scheduler->queueTask(taskDQBuf, CaptureDequeueGroup);
+	scheduler->queueTask(aaTask, AAGroup);
 
 	pendingSofTasks_.push_back(sofTask);
 }
@@ -632,6 +703,7 @@ void MtkISP7CameraData::releaseDevice()
 	mcnrPrev = {};
 
 	captureManager.releaseBuffers();
+	hal3AManager_.releaseBuffers();
 	mcnrManager.releaseBuffers();
 	lpnrManager.releaseBuffers();
 }
@@ -715,8 +787,9 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
-	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize, hal3A_);
+	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
+	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_);
 
 	imgSysDev_->configure();
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
@@ -741,12 +814,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	std::string sequence = std::to_string(request->sequence());
 
 	CaptureFrames captureFrames;
-	captureManager.makeCaptureFrames(captureFrames);
 
-	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
-		scheduler, "Capture " + sequence, request, captureFrames);
-
-	setTasksDependencies(taskQBuf, taskDQBuf, sofTask);
+	auto [taskQBuf, taskDQBuf, sofTask, aaTask] = makeTasks(
+		"Capture " + sequence, request, captureFrames);
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
 		auto [faceDetectionTask, faceToneTask, parseTask] =
