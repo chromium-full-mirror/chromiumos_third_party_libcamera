@@ -126,6 +126,8 @@ public:
 
 	void frameStart(uint32_t sequence);
 
+	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf, SofTask *sofTask);
+
 	Stream video1Stream_;
 	Stream video2Stream_;
 	Stream stillStream_;
@@ -577,6 +579,19 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
 		scheduler, "Padding capture", nullptr, captureFrames);
 
+	setTasksDependencies(taskQBuf, taskDQBuf, sofTask);
+
+	scheduler->schedule();
+	return 0;
+}
+
+void MtkISP7CameraData::setTasksDependencies(QueueTask *taskQBuf,
+					     DequeueTask *taskDQBuf,
+					     SofTask *sofTask)
+{
+	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
+	auto *scheduler = pipeline->scheduler_.get();
+
 	Scheduler::precede(sofTask, taskDQBuf);
 	Scheduler::precede(taskQBuf, taskDQBuf);
 
@@ -591,9 +606,6 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	scheduler->queueTask(taskDQBuf, CaptureDequeueGroup);
 
 	pendingSofTasks_.push_back(sofTask);
-
-	scheduler->schedule();
-	return 0;
 }
 
 void MtkISP7CameraData::stopDevice()
@@ -734,18 +746,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
 		scheduler, "Capture " + sequence, request, captureFrames);
 
-	/* At most 5 request queued into CamSys. */
-	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 4, taskQBuf);
-	scheduler->succeedPrevTaskByStep(CaptureQueueGroup, 0, taskQBuf);
-	scheduler->queueTask(taskQBuf, CaptureQueueGroup);
-
-	Scheduler::precede(sofTask, taskDQBuf);
-	Scheduler::precede(taskQBuf, taskDQBuf);
-	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 0, taskDQBuf);
-	scheduler->queueTask(taskDQBuf, CaptureDequeueGroup);
-
-	scheduler->queueTask(sofTask, SofGroup);
-	pendingSofTasks_.push_back(sofTask);
+	setTasksDependencies(taskQBuf, taskDQBuf, sofTask);
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
 		auto [faceDetectionTask, faceToneTask, parseTask] =
