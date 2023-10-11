@@ -109,13 +109,16 @@ public:
 		std::shared_ptr<CaptureData> &data, CamSysDevice *camSys)
 		: Task(scheduler, id), request_(request), data_(data), camSys_(camSys) {}
 
-	virtual void run() override final {}
+	virtual void run() override final;
 	void trigger();
 
 	Request *request_;
 	std::shared_ptr<CaptureData> data_;
 
 	CamSysDevice *camSys_;
+
+	bool run_ = false;
+	bool trigger_ = false;
 };
 
 class QueueTask : public Task

@@ -711,18 +711,20 @@ void MtkISP7CameraData::frameStart(uint32_t sequence)
 		LOG(MtkISP7, Debug) << "Underrun dropping " << sequence;
 		return;
 	}
-	frameSequence_ = sequence;
 
-	if (pendingSofTasks_.empty()) {
-		LOG(MtkISP7, Warning) << "No Sof tasks when camsys writes a frame";
-		return;
+	while (frameSequence_ < sequence) {
+		++frameSequence_;
+
+		if (pendingSofTasks_.empty()) {
+			LOG(MtkISP7, Error) << "Frame Start No Sof tasks when camsys writes a frame " << frameSequence_;
+			continue;
+		}
+
+		SofTask *task = pendingSofTasks_.front();
+		pendingSofTasks_.pop_front();
+
+		task->trigger();
 	}
-
-	SofTask *task = pendingSofTasks_.front();
-	pendingSofTasks_.pop_front();
-
-	/* Trigger Sof task to set appropriate per-frame controls to sensor */
-	task->trigger();
 }
 
 int MtkISP7CameraData::configure(CameraConfiguration *c)

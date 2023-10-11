@@ -126,13 +126,32 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 	return std::make_tuple(qTask, dqTask, sofTask);
 }
 
+void SofTask::run()
+{
+	run_ = true;
+	if (run_ && trigger_) {
+		LOG(MtkISP7, Warning) << "Sof Task triggered before run()."
+				      << " Some previous tasks may delay the Sof task";
+		notifyDone();
+	}
+}
+
 void SofTask::trigger()
 {
-	auto [exposure, gain] = data_->frames.exposureAndGain->get();
-	if (exposure != 0) // Assuming it couldn't be zero.
-		camSys_->setExposureGain(exposure, gain);
-	LOG(MtkISP7, Info) << "exposure: " << exposure << ", gain: " << gain;
-	notifyDone();
+	if (data_->frames.exposureAndGain->valid()) {
+		auto [exposure, gain] = data_->frames.exposureAndGain->get();
+		if (exposure != 0) // Assuming it couldn't be zero.
+			camSys_->setExposureGain(exposure, gain);
+		LOG(MtkISP7, Info) << "exposure: " << exposure << ", gain: " << gain;
+	} else {
+		LOG(MtkISP7, Error) << "SharedMailBox exposureAndGain not "
+				    << "set yet. Skip setting exposure and gain.";
+	}
+
+	trigger_ = true;
+	if (run_ && trigger_) {
+		notifyDone();
+	}
 }
 
 void QueueTask::run()
