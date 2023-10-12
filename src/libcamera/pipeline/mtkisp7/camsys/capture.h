@@ -58,7 +58,6 @@ public:
 class CaptureTasksManager
 {
 public:
-	static const uint32_t kPaddingSize = 4;
 	// TODO: Assume (k-2)th 3A task is done when kth Sof task is triggered by hardware.
 	static const uint32_t kExposureAndGainDelay = 2;
 	// TODO: Currently fix (k-4)th 3A task to prepare for kth request's raw meta.

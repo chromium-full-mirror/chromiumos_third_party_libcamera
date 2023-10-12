@@ -580,13 +580,6 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	lpnrManager.start();
 	faceDetector_->start();
 
-	/* Schedule three padding job */
-	for (uint32_t i = 0; i < CaptureTasksManager::kPaddingSize; ++i) {
-		CaptureFrames captureFrames;
-
-		makeTasks("Padding capture", nullptr, captureFrames);
-	}
-
 	scheduler->schedule();
 	return 0;
 }
@@ -812,6 +805,13 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	auto *scheduler = pipeline->scheduler_.get();
 
 	std::string sequence = std::to_string(request->sequence());
+
+	for (size_t i = scheduler->groupTasks(AAGroup).size();
+	     i < CaptureTasksManager::kRawMetaDelay; ++i) {
+		CaptureFrames captureFrames;
+
+		makeTasks("Padding capture", nullptr, captureFrames);
+	}
 
 	CaptureFrames captureFrames;
 
