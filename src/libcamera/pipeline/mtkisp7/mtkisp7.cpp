@@ -713,14 +713,13 @@ void MtkISP7CameraData::frameStart(uint32_t sequence)
 	}
 	frameSequence_ = sequence;
 
-	auto &sofTasks = pendingSofTasks_;
-	if (sofTasks.empty()) {
+	if (pendingSofTasks_.empty()) {
 		LOG(MtkISP7, Warning) << "No Sof tasks when camsys writes a frame";
 		return;
 	}
 
-	SofTask *task = sofTasks.front();
-	sofTasks.pop_front();
+	SofTask *task = pendingSofTasks_.front();
+	pendingSofTasks_.pop_front();
 
 	/* Trigger Sof task to set appropriate per-frame controls to sensor */
 	task->trigger();
