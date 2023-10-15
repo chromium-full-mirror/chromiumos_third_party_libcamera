@@ -30,6 +30,26 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata
         }
     },
     {
+        Dump::Id::P1_YUVO_R1,
+        {
+            .featureId=Feature::Preview,
+            .stage=Stage::P1,
+            .moduleId=NSCam::TuningUtils::eModule::kYUVO_R1,
+            .category=NSCam::TuningUtils::eCategory::kSTREAMING,
+            .action=std::nullopt,
+        }
+    },
+    {
+        Dump::Id::P1_YUVO_R2,
+        {
+            .featureId=Feature::Preview,
+            .stage=Stage::P1,
+            .moduleId=NSCam::TuningUtils::eModule::kYUVO_R2,
+            .category=NSCam::TuningUtils::eCategory::kSTREAMING,
+            .action=std::nullopt,
+        }
+    },
+    {
         Dump::Id::P1_DRZS4NO_R3,
         {
             .featureId=Feature::Preview,

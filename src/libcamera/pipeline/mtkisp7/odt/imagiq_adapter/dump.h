@@ -43,6 +43,8 @@ struct Dump {
     enum class Id {
         // P1
         P1_IMGO = 0,
+        P1_YUVO_R1,
+        P1_YUVO_R2,
         P1_DRZS4NO_R3,
     };
 

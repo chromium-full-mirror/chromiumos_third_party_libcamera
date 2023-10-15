@@ -9,6 +9,8 @@
 
 #include <filesystem>
 
+#include "libcamera/internal/mapped_framebuffer.h"
+
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 
 namespace libcamera {
@@ -23,14 +25,40 @@ public:
 
     static int exportDump(const Dump& dump);
 private:
-    static std::filesystem::path getDumpFileName(
-            const Dump &dump, const NSCam::TuningUtils::NddData &ndd,
+    static int exportDumpMergePlanes(
+            const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
+            const NSCam::TuningUtils::NddData &ndd,
+            const std::string &fileSuffix="");
+
+    static int exportDumpSplitPlanes(
+            const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
+            const NSCam::TuningUtils::NddData &ndd,
+            const PixelFormat &pixelFormat,
+            const std::string &fileSuffix="");
+
+    static std::string formatPlaneName(int planeNumber,
+                                       const PixelFormat &pixelFormat);
+
+    static std::filesystem::path getDumpFileNameSplitPlanes(
+            const Dump &dumpInfo, const NSCam::TuningUtils::NddData &ndd,
+            int planeNumber, const std::optional<PixelFormat> pixelFormat,
             const std::string &suffix="");
+
+    static std::filesystem::path getDumpFileNameSingleFile(
+            const Dump &dumpInfo, const NSCam::TuningUtils::NddData &ndd,
+            const std::string &suffix="");
+
     static std::string getFileExtension(const PixelFormat &pixelFormat);
+
     static NSCam::TuningUtils::NddData
     parseNdd(const Dump &dumpInfo);
 
+    static bool shouldSplitExport(const PixelFormat &pixelFormat);
+
     static const SensorIdMap kSensorIdMap;
+    static const std::array<std::string, 2> kYcPlaneNames;
+    static const std::array<std::string, 3> kYuvPlaneNames;
+    static const std::array<std::string, 2> kWarpPlaneNames;
 };
 
 } // namespace libcamera

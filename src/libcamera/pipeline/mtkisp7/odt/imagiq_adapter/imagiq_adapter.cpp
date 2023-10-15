@@ -11,6 +11,7 @@
 #include <fstream>
 
 #include <libcamera/formats.h>
+#include <libcamera/pixel_format.h>
 
 #include <libcamera/base/log.h>
 
@@ -46,46 +47,124 @@ const std::filesystem::path kDumpConfigPath = "dump.cfg";
 
 const ImagiqAdapter::SensorIdMap ImagiqAdapter::kSensorIdMap(kGeraltSensorMap);
 
+const std::array<std::string, 2> ImagiqAdapter::kYcPlaneNames{
+        "-yplane", "-cplane"};
+
+const std::array<std::string, 3> ImagiqAdapter::kYuvPlaneNames{
+        "-yplane", "-uplane", "-vplane"};
+
+const std::array<std::string, 2> ImagiqAdapter::kWarpPlaneNames{
+        "-mapx", "-mapy"};
+
+
 int ImagiqAdapter::exportDump(const Dump &dump)
 {
-    // todo next CL: multiplane in split files
-    NSCam::TuningUtils::NddData ndd(parseNdd(dump));
-    std::filesystem::path exportPath =
-            getDumpFileName(dump, ndd, getFileExtension(dump.frame.format()));
+    const NSCam::TuningUtils::NddData ndd(parseNdd(dump));
+    const MappedFrameBuffer mappedBuffer(
+            dump.frame.buffer(), MappedFrameBuffer::MapFlag::Read);
+
+    const PixelFormat &pixelFormat = dump.frame.format();
+    const std::string fileSuffix = getFileExtension(pixelFormat);
+    if (shouldSplitExport(pixelFormat)) {
+        return exportDumpSplitPlanes(
+                dump, mappedBuffer, ndd, pixelFormat, fileSuffix);
+    } else {
+        return exportDumpMergePlanes(
+                dump, mappedBuffer, ndd, fileSuffix);
+    }
+}
+
+int ImagiqAdapter::exportDumpMergePlanes(
+        const Dump &dump, const MappedFrameBuffer &mappedBuffer,
+        const NSCam::TuningUtils::NddData &ndd,
+        const std::string &fileSuffix)
+{
+    const std::filesystem::path exportPath =
+            getDumpFileNameSingleFile(dump, ndd, fileSuffix);
     std::ofstream exportFile(exportPath, std::ios::binary);
-    if (!exportFile.good()) {
-        LOG(MtkISP7, Error) << "Failed to open dump dump file: "
+    if (!exportFile) {
+        LOG(MtkISP7, Error) << "Failed to open export file: "
                             << exportPath;
         return -EIO;
     }
-    MappedFrameBuffer mappedBuffer(
-            dump.frame.buffer(), MappedFrameBuffer::MapFlag::Read);
     const PixelFormatInfo formatInfo =
             PixelFormatInfo::info(dump.frame.format());
-    for (size_t i = 0; i < formatInfo.numPlanes(); i++) {
+    for (unsigned int i = 0; i < formatInfo.numPlanes(); i++) {
         exportFile.write(
                 reinterpret_cast<char*>(mappedBuffer.planes()[i].data()),
                 mappedBuffer.planes()[i].size());
-        LOG(MtkISP7, Info) << "Dump id " << static_cast<int>(dump.id)
-                << " plane: " << i << " plane size: " << mappedBuffer.planes()[i].size()
-                << " write file size: " << exportFile.tellp()
-                << ". File name: " << exportPath;
+        LOG(MtkISP7, Info) << "Dump id: " << static_cast<int>(dump.id)
+                << "; plane: " << i << "; plane size: " << mappedBuffer.planes()[i].size()
+                << "; write file size: " << exportFile.tellp()
+                << "; File name: " << exportPath;
         if (!exportFile.good()) {
-            LOG(MtkISP7, Error) << "Error writing plane " << i << " to file: "
-                                << exportPath;
+            LOG(MtkISP7, Error) << "Error writing plane to file: " << exportPath;
             return -EIO;
         }
     }
     return 0;
 }
 
-std::filesystem::path ImagiqAdapter::getDumpFileName(
+int ImagiqAdapter::exportDumpSplitPlanes(
+        const Dump &dump, const MappedFrameBuffer &mappedBuffer,
+        const NSCam::TuningUtils::NddData &ndd, const PixelFormat &pixelFormat,
+        const std::string &fileSuffix)
+{
+    const PixelFormatInfo formatInfo =
+            PixelFormatInfo::info(dump.frame.format());
+    for (size_t i = 0; i < formatInfo.numPlanes(); i++) {
+        const std::filesystem::path planeExportPath =
+                getDumpFileNameSplitPlanes(
+                        dump, ndd, i, pixelFormat, fileSuffix);
+        std::ofstream outFile(planeExportPath, std::ios::binary);
+        if (!outFile) {
+            LOG(MtkISP7, Error) << "Failed to open dump dump file: "
+                                << planeExportPath;
+            return -EIO;
+        }
+        outFile.write(
+                reinterpret_cast<char*>(mappedBuffer.planes()[i].data()),
+                mappedBuffer.planes()[i].size());
+        if (!outFile.good()) {
+            LOG(MtkISP7, Error) << "Error writing plane to file: " << planeExportPath;
+            return -EIO;
+        }
+        LOG(MtkISP7, Info) << "Dump id: " << static_cast<int>(dump.id)
+                << "; plane: " << i << "; plane size: " << mappedBuffer.planes()[i].size()
+                << "; File name: " << planeExportPath;
+    }
+    return 0;
+}
+
+std::string ImagiqAdapter::formatPlaneName(int planeNumber, const PixelFormat &pixelFormat)
+{
+    if (pixelFormat == formats::WARP2P_MTISP) {
+        return kWarpPlaneNames[planeNumber];
+    }
+
+    int planeCount = PixelFormatInfo::info(pixelFormat).numPlanes();
+    if (planeCount == 2) {
+        return kYcPlaneNames[planeNumber];
+    } else if (planeCount == 3) {
+        return kYuvPlaneNames[planeNumber];
+    }
+    return  "";
+}
+
+std::filesystem::path ImagiqAdapter::getDumpFileNameSingleFile(
         const Dump &dump, const NSCam::TuningUtils::NddData &ndd,
         const std::string &suffix)
 {
-    const auto &formatList = dump.config.dumpFileNameFormat;
+    return getDumpFileNameSplitPlanes(dump, ndd, 1, std::nullopt, suffix);
+}
+
+std::filesystem::path ImagiqAdapter::getDumpFileNameSplitPlanes(
+        const Dump &dump, const NSCam::TuningUtils::NddData &ndd,
+        int planeNumber, const std::optional<PixelFormat> pixelFormat,
+        const std::string &suffix)
+{
     std::string fileName = "";
-    for (const auto& format: formatList) {
+    for (const auto& format: dump.config.dumpFileNameFormat) {
         if (format == "Format") {
             fileName += suffix;
             continue;
@@ -94,7 +173,9 @@ std::filesystem::path ImagiqAdapter::getDumpFileName(
             fileName += format;
             continue;
         }
-        // todo next CL: multiplane
+        if (format == "Padding" && pixelFormat.has_value()) {
+            fileName += formatPlaneName(planeNumber, *pixelFormat);
+        }
         fileName += StaticStrings::format(format, ndd);
     }
     std::filesystem::path filePath(fileName);
@@ -307,6 +388,16 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
     ndd.height = ndd.pixelHeight;
 
     return ndd;
+}
+
+bool ImagiqAdapter::shouldSplitExport(const PixelFormat &pixelFormat)
+{
+    switch (pixelFormat) {
+    case formats::NV21:
+    case formats::NV12:
+        return false;
+    default: return PixelFormatInfo::info(pixelFormat).numPlanes() > 1;
+    }
 }
 
 } // namespace libcamera

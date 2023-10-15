@@ -153,8 +153,9 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
         tune(
             request->sequence(), {
             {Dump::Id::P1_IMGO, frames.raw->get()},
+            {Dump::Id::P1_YUVO_R1, frames.yuvo1->get()},
+            {Dump::Id::P1_YUVO_R2, frames.yuvo2->get()},
             {Dump::Id::P1_DRZS4NO_R3, frames.me->get()}});
-            // todo next CL: YUVO_R1, YUVO_R2 - split files (4 new files total)
     }
     // todo next CL: reload exported
     // todo next CL: import dump
