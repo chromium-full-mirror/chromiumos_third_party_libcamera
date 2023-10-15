@@ -8,6 +8,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include <cstdint>
+#include <fstream>
 
 #include <libcamera/base/log.h>
 
@@ -22,9 +23,13 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 namespace {
 
 constexpr const char *kEnableTuningPath = "/run/camera/enable_tuning";
+constexpr const char *kExportRequestPath = "/run/camera/export_dump";
+// Dump key must be exactly 9 digits.
+constexpr int kMinDumpKey = 1e8;
+constexpr int kMaxDumpKey = 1e9 - 1;
 constexpr const char *kWorkDir =  "/tmp/vendor/camera_dump";
 
-}
+} // namespace
 
 void OnDeviceTuner::configure(const std::string &sensorId)
 {
@@ -37,14 +42,65 @@ void OnDeviceTuner::configure(const std::string &sensorId)
 
     LOG(MtkISP7, Warning) << "Pipeline tuning enabled";
     enabled_ = true;
+    exportBegin_ = 0;
+    exportEnd_ = 0;
 
     // todo next CL: load config from imagiq adapter
 }
 
+void OnDeviceTuner::loadTuneRequest(int requestNumber)
+{
+    if (!enabled_) {
+        return;
+    }
+    int exportRequestCount = 0;
+    std::ifstream exportRequestFile(kExportRequestPath);
+    if (exportRequestFile.good()) {
+        exportRequestFile >> exportRequestCount;
+        LOG(MtkISP7, Info) << "Loaded dump export request from file: "
+                           << exportRequestCount << " frames";
+        exportRequestFile.close();
+        std::filesystem::path path(kExportRequestPath);
+        std::filesystem::remove(path);
+        exportBegin_ = requestNumber;
+        exportEnd_ = requestNumber + exportRequestCount;
+        prepareNewExportDirectory();
+    }
+}
+
+int OnDeviceTuner::prepareNewExportDirectory()
+{
+    std::filesystem::path newPath;
+    std::filesystem::path workPath(kWorkDir);
+    int dumpKey;
+    for (dumpKey = kMinDumpKey; dumpKey <= kMaxDumpKey; dumpKey++) {
+        std::filesystem::path exportFolderName = "UKey" + std::to_string(dumpKey);
+        newPath.assign(workPath / exportFolderName);
+        if (!std::filesystem::exists(newPath)) {
+            break;
+        }
+    }
+    if (dumpKey > kMaxDumpKey) {
+        LOG(MtkISP7, Error) << "Failed to create dump directory: "
+                            << "too many dumps already.";
+        return -EEXIST;
+    }
+    auto cmd = "mkdir -p " + newPath.string();
+    int ret = system(cmd.c_str());
+    if (ret != 0) {
+        LOG(MtkISP7, Error) << "Failed to prepare dump directory, error code: "
+                            << ret;
+        return ret;
+    }
+    LOG(MtkISP7, Info) << "Current dump directory: " << newPath.string();
+    currentExportPath_ = newPath;
+    return ret;
+}
+
 bool OnDeviceTuner::shouldExportDumpNow(uint32_t requestNumber)
 {
-    // todo next CL: load export request i.e. when to export dumps
-    return enabled_ && requestNumber == 5;
+    return enabled_ && exportBegin_ <= requestNumber &&
+           requestNumber < exportEnd_;
 }
 
 void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
@@ -54,7 +110,7 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
         ImagiqAdapter::exportDump({
             .requestNumber=requestNumber,
             .sensorId=sensorId_,
-            .workPath=kWorkDir,
+            .workPath=currentExportPath_,
             .frame=frames.raw->get(),
         });
     }

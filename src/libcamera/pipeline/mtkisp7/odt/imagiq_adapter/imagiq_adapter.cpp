@@ -23,7 +23,9 @@ int ImagiqAdapter::exportDump(const Dump &dump)
 {
     // todo next CL: being actual adapter -> file name format
     std::filesystem::path exportPath =
-            dump.workPath / (dump.sensorId.substr(dump.sensorId.size() - 9) + ".packed_word");
+            dump.workPath /
+            (dump.sensorId.substr(dump.sensorId.size() - 9) + "-" +
+            std::to_string(dump.requestNumber) + ".packed_word");
     std::ofstream exportFile(exportPath, std::ios::binary);
     if (!exportFile.good()) {
         LOG(MtkISP7, Error) << "Failed to open dump dump file: "

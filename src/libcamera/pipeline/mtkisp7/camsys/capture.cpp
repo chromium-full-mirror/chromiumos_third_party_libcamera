@@ -170,6 +170,7 @@ void QueueTask::run()
 			camSys->setTestPattern(
 				static_cast<controls::draft::TestPatternModeEnum>(*testPatternControl));
 		}
+		manager_->onDeviceTuner_->loadTuneRequest(request_->sequence());
 	}
 
 	auto &frames = data_->frames;
