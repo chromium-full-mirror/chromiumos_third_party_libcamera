@@ -28,9 +28,11 @@ public:
 
     static int loadConfig(
             std::map<Dump::Id, Dump::Config> &config,
-            const std::filesystem::path &configPath);
+            const std::filesystem::path &workPath);
 
     static std::string getDumpFileName(const Dump &dump);
+
+    static int importDump(const Dump &dump);
 
     static int prepareReimport(const ExportResult &dumpResult);
 
@@ -61,6 +63,14 @@ private:
             const std::string &suffix="");
 
     static std::string getFileExtension(const PixelFormat &pixelFormat);
+
+    static int loadBaseConfig(
+            std::map<Dump::Id, Dump::Config> &config,
+            const std::filesystem::path &workPath);
+
+    static int loadImportConfig(
+            std::map<Dump::Id, Dump::Config> &config,
+            const std::filesystem::path &workPath);
 
     static NSCam::TuningUtils::NddData
     parseNdd(const Dump &dumpInfo);

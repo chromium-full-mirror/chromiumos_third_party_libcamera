@@ -220,11 +220,96 @@ std::string ImagiqAdapter::getFileExtension(const PixelFormat &pixelFormat)
     return "packed_word";
 }
 
+int ImagiqAdapter::importDump(const Dump &dump)
+{
+    int totalDumps = dump.config.savedDumps.size();
+    if (totalDumps == 0) {
+        return 0;
+    }
+    int importOffset = dump.requestNumber % totalDumps;
+    auto it = dump.config.savedDumps.begin();
+    std::advance(it, importOffset);
+    auto planesPath = it->second;
+    if (planesPath.size() == 0) {
+        // illegal state, somehow
+        return -EINVAL;
+    }
+    MappedFrameBuffer mappedBuffer(
+            dump.frame->buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+    PixelFormatInfo formatInfo = PixelFormatInfo::info(dump.frame->format());
+
+    if (formatInfo.numPlanes() == planesPath.size()) {
+        for (size_t i = 0; i < formatInfo.numPlanes(); i++) {
+            std::ifstream dumpFile(planesPath[i], std::ios::binary);
+            std::streampos startPos = dumpFile.tellg();
+            dumpFile.seekg(0, std::ios::end);
+            std::streampos savedDumpSize = dumpFile.tellg();
+            dumpFile.seekg(startPos, std::ios::beg);
+            if (static_cast<size_t>(savedDumpSize) != mappedBuffer.planes()[i].size()) {
+                LOG(MtkISP7, Error) << "Expected dump size: "
+                                    << mappedBuffer.planes()[i].size()
+                                    << " got: " << savedDumpSize
+                                    << ". Maybe wrong sensor / camera facing."
+                                    << " Not importing this dump id: "
+                                    << static_cast<int>(dump.id)
+                                    << ". Dump file: "
+                                    << planesPath[i]
+                                    << ". Plane num: " << i;
+                return -EINVAL;
+            }
+            dumpFile.read(
+                    reinterpret_cast<char *>(mappedBuffer.planes()[i].data()),savedDumpSize);
+            LOG(MtkISP7, Info) << "Dump " << static_cast<int>(dump.id)
+                            << " plane " << i
+                            << " is replaced with " << planesPath[0]
+                            << " size: " << savedDumpSize;
+            }
+    } else if (formatInfo.numPlanes() > 1 && planesPath.size() == 1) {
+        std::ifstream dumpFile(planesPath[0], std::ios::binary);
+        // todo(yerlandinata): check if remaining file size is enough
+        for (size_t i = 0; i < formatInfo.numPlanes(); i++) {
+            dumpFile.read(
+                    reinterpret_cast<char *>(mappedBuffer.planes()[i].data()),
+                    mappedBuffer.planes()[i].size());
+            // readPos += mappedBuffer.planes()[i].size();
+            LOG(MtkISP7, Info) << "Dump " << static_cast<int>(dump.id)
+                            << " plane " << i
+                            << " is replaced with " << planesPath[0]
+                            << " size: " << mappedBuffer.planes()[i].size();
+        }
+    } else {
+        LOG(MtkISP7, Warning) << "Dump " << static_cast<int>(dump.id)
+                << " has " << formatInfo.numPlanes() << " planes "
+                << " but the saved dump file count is: "
+                << planesPath.size() << " such case is not implemented";
+        return -EINVAL;
+    }
+
+
+    return 0;
+}
+
 int ImagiqAdapter::loadConfig(
         std::map<Dump::Id, Dump::Config> &config,
-        const std::filesystem::path &configPath)
+        const std::filesystem::path &workPath)
 {
-    std::ifstream dumpCfgFile(configPath / kDumpConfigPath);
+    int ret = loadBaseConfig(config, workPath);
+    if (ret) {
+        return ret;
+    }
+    ret = loadImportConfig(config, workPath);
+    if (ret) {
+        LOG(MtkISP7, Error) << "Failed to load dump import config, "
+                            << "disabling import";
+    }
+    return 0;
+}
+
+int ImagiqAdapter::loadBaseConfig(
+        std::map<Dump::Id, Dump::Config> &config,
+        const std::filesystem::path &workPath)
+{
+    std::ifstream dumpCfgFile(workPath / kDumpConfigPath);
     if (!dumpCfgFile.is_open()) {
         LOG(MtkISP7, Error) << "Failed to open config file";
         return -EIO;
@@ -362,6 +447,112 @@ int ImagiqAdapter::loadConfig(
     return 0;
 }
 
+int ImagiqAdapter::loadImportConfig(
+        std::map<Dump::Id, Dump::Config> &config,
+        const std::filesystem::path &workPath)
+{
+    std::ifstream dumpImportCfgFile(workPath / kImportConfigPath);
+    if (!dumpImportCfgFile.good()) {
+        LOG(MtkISP7, Info) << "No dump import config";
+        return 0;
+    }
+    std::string line;
+    while (std::getline(dumpImportCfgFile, line)) {
+        std::stringstream ss(line);
+        std::string token;
+        std::vector<std::string> parsedKeyVal;
+        while (std::getline(ss, token, ';')) {
+            parsedKeyVal.push_back(token);
+        }
+        if (parsedKeyVal.size() != 2) {
+            LOG(MtkISP7, Error)
+                    << "Dump import config file error, expected 'key;value'"
+                    << "but got " << ": " << line;
+            return -EINVAL;
+        }
+        if (parsedKeyVal[1].back() == '\n') {
+            parsedKeyVal[1].pop_back();
+        }
+        std::filesystem::path dumpPath = parsedKeyVal[1];
+        std::vector<std::string> parsedKeys;
+        ss = std::stringstream(line);
+        while (std::getline(ss, token, ',')) {
+            parsedKeys.push_back(token);
+        }
+        std::string moduleStr = parsedKeys[0];
+        int frameNumber = std::stoi(parsedKeys[1]);
+        std::string stageStr = parsedKeys[2];
+        int layer = std::stoi(parsedKeys[3]);
+        std::optional<Action> action = std::nullopt;
+        if (parsedKeys[4] != "-1") {
+            action = static_cast<Action>(std::stoi(parsedKeys[4]));
+        }
+        // Unlike dump cfg, this must be 1:1 match because
+        // layers are specified in the cfg.
+        std::vector<Dump::Id> matchesStageModule;
+        for (const auto &[id, metadata]: kDumpMetadata) {
+            if (StaticStrings::kModuleStrMap.at(metadata.moduleId) == moduleStr && 
+                kStageStrMap.at(metadata.stage) == stageStr) {
+                matchesStageModule.push_back(id);
+            }
+        }
+
+        if (matchesStageModule.empty()) {
+            LOG(MtkISP7, Warning) << "Dump import config not recognized: "
+                                  << line;
+            continue;
+        }
+
+        // Matching the module and stage not enough, matching the action.
+        std::vector<Dump::Id> matchesStageModuleAction;
+        if (matchesStageModule.size() > 1) {
+            for (const auto &id: matchesStageModule) {
+                Dump::Metadata metadata = kDumpMetadata.at(id);
+                if ((action.has_value() && action.value() == metadata.action) ||
+                    (!action.has_value() && !metadata.action.has_value())) {
+                    matchesStageModuleAction.push_back(id);
+                }
+            }
+        } else {
+            matchesStageModuleAction = matchesStageModule;
+        }
+
+        if (matchesStageModuleAction.empty()) {
+            LOG(MtkISP7, Warning) << "Dump import config not recognized: "
+                                  << line;
+            continue;
+        }
+
+        // Match by layer if still not enough.
+        std::vector<Dump::Id> matchAllKeys;
+        if (matchesStageModuleAction.size() > 1) {
+            for (const auto &id: matchesStageModuleAction) {
+                Dump::Metadata metadata = kDumpMetadata.at(id);
+                if (layer == metadata.layer) {
+                    matchAllKeys.push_back(id);
+                }
+            }
+        } else {
+            matchAllKeys = matchesStageModuleAction;
+        }
+
+        if (matchAllKeys.size() != 1) {
+            LOG(MtkISP7, Warning) << "Dump import config not recognized: "
+                                  << line;
+            continue;
+        }
+
+        Dump::Id id = matchAllKeys[0];
+        int currentPlane = config[id].savedDumps[frameNumber].size();
+        config[id].savedDumps[frameNumber].push_back(dumpPath);
+        LOG(MtkISP7, Info) << "Found dump for " << parsedKeyVal[0]
+                           << " frame num: " << frameNumber
+                           << " plane: " << currentPlane
+                           << " path: " << dumpPath;
+    }
+
+    return 0;
+}
 
 NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 {

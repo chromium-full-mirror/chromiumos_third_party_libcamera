@@ -22,11 +22,14 @@
 namespace libcamera {
 
 struct Dump {
+    // Map frame number to planes.
+    using SavedPath = std::map<int, std::vector<std::filesystem::path>>;
 
     struct Config {
         std::vector<std::string> dumpFileNameFormat = {};
         bool enableExport = false;
         bool enableImport = false;
+        SavedPath savedDumps = {};
     };
 
     // Static Metadata

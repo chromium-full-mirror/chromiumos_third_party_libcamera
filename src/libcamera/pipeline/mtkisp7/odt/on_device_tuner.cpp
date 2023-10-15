@@ -26,6 +26,7 @@ namespace {
 
 constexpr const char *kEnableTuningPath = "/run/camera/enable_tuning";
 constexpr const char *kExportRequestPath = "/run/camera/export_dump";
+constexpr const char *kImportRequestPath = "/run/camera/import_dump";
 // Dump key must be exactly 9 digits.
 constexpr int kMinDumpKey = 1e8;
 constexpr int kMaxDumpKey = 1e9 - 1;
@@ -44,6 +45,15 @@ std::vector<ImagiqAdapter::ExportResult> OnDeviceTuner::batchExport(
         }
     }
     return results;
+}
+
+void OnDeviceTuner::batchImport(const std::vector<Dump> &dumps)
+{
+    for (auto dump: dumps) {
+        if (dump.config.enableImport) {
+            ImagiqAdapter::importDump(dump);
+        }
+    }
 }
 
 
@@ -76,6 +86,8 @@ void OnDeviceTuner::configure(const std::string &sensorId)
     enabled_ = true;
     exportBegin_ = 0;
     exportEnd_ = 0;
+    importBegin_ = 0;
+    importEnd_ = 0;
     sensorId_ = sensorId;
 }
 
@@ -96,6 +108,19 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
         exportBegin_ = requestNumber;
         exportEnd_ = requestNumber + exportRequestCount;
         prepareNewExportDirectory();
+    }
+
+    std::ifstream importRequestFile(kImportRequestPath);
+    if (importRequestFile.good()) {
+        int importRequestCount = 0;
+        importRequestFile >> importRequestCount;
+        LOG(MtkISP7, Info) << "Loaded dump import request from file: "
+                           << importRequestCount << " frames";
+        importRequestFile.close();
+        std::filesystem::path path(kImportRequestPath);
+        std::filesystem::remove(path);
+        importBegin_ = requestNumber;
+        importEnd_ = requestNumber + importRequestCount;
     }
 }
 
@@ -134,13 +159,20 @@ bool OnDeviceTuner::shouldExportDumpNow(uint32_t requestNumber)
            requestNumber < exportEnd_;
 }
 
+bool OnDeviceTuner::shouldImportDumpNow(uint32_t requestNumber)
+{
+    return enabled_ && importBegin_ <= requestNumber &&
+           requestNumber < importEnd_;
+}
+
 
 void OnDeviceTuner::tune(
         uint32_t requestNumber,
         std::vector<NamedFrame> namedFrames,
         bool forceDump)
 {
-    if (!enabled_ && !forceDump && !shouldExportDumpNow(requestNumber)) {
+    if (!enabled_ && !forceDump &&
+        !shouldExportDumpNow(requestNumber) && !shouldImportDumpNow(requestNumber)) {
         return;
     }
     std::vector<Dump> dumps;
@@ -160,21 +192,24 @@ void OnDeviceTuner::tune(
         const auto exportResults = batchExport(dumps);
         batchPrepareReimport(exportResults);
     }
-    // todo next CL: import dumps
+    if (shouldImportDumpNow(requestNumber)) {
+        batchImport(dumps);
+    }
 }
 
 void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 {
     uint32_t requestNumber = request->sequence();
-    if (shouldExportDumpNow(requestNumber)) {
-        tune(
-            request->sequence(), {
-            {Dump::Id::P1_IMGO, frames.raw->get()},
-            {Dump::Id::P1_YUVO_R1, frames.yuvo1->get()},
-            {Dump::Id::P1_YUVO_R2, frames.yuvo2->get()},
-            {Dump::Id::P1_DRZS4NO_R3, frames.me->get()}});
+    if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+                      !shouldImportDumpNow(requestNumber))) {
+        return;
     }
-    // todo next CL: import dump
+    tune(
+        request->sequence(), {
+        {Dump::Id::P1_IMGO, frames.raw->get()},
+        {Dump::Id::P1_YUVO_R1, frames.yuvo1->get()},
+        {Dump::Id::P1_YUVO_R2, frames.yuvo2->get()},
+        {Dump::Id::P1_DRZS4NO_R3, frames.me->get()}});
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(

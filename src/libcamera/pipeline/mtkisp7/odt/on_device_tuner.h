@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 
@@ -43,10 +44,12 @@ private:
 
     std::vector<ImagiqAdapter::ExportResult> batchExport(
             const std::vector<Dump> &dumps);
+    void batchImport(const std::vector<Dump> &dumps);
     void batchPrepareReimport(
             const std::vector<ImagiqAdapter::ExportResult> &exportResults);
     int prepareNewExportDirectory();
     bool shouldExportDumpNow(uint32_t requestNumber);
+    bool shouldImportDumpNow(uint32_t requestNumber);
     void tune(uint32_t requestNumber,
               std::vector<NamedFrame> namedFrames,
               bool forceDump=false);
@@ -56,6 +59,8 @@ private:
 
     uint32_t exportBegin_;
     uint32_t exportEnd_;
+    uint32_t importBegin_;
+    uint32_t importEnd_;
     std::filesystem::path currentExportPath_;
 
     std::map<Dump::Id, Dump::Config> dumpConfig_;
