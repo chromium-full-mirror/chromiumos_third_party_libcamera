@@ -66,6 +66,10 @@ static TuningBuffers tuningBuffers;
 
 } // namespace
 
+CaptureTasksManager::CaptureTasksManager(OnDeviceTuner *odt)
+	: onDeviceTuner_(odt)
+{}
+
 int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 				   CamSysDevice *camSys,
 				   PipelineHandler* pipe,
@@ -238,6 +242,7 @@ void DequeueTask::done()
 			     buffer->metadata().timestamp);
 
 		manager_->pipe_->completeMetadata(request_, metadata);
+		manager_->onDeviceTuner_->tuneCamsys(request_, data_->frames);
 	}
 
 	notifyDone();

@@ -31,6 +31,7 @@
 #include "imgsys/imgsys.h"
 #include "imgsys/mcnr.h"
 #include "imgsys/lpnr.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
 
@@ -80,9 +81,11 @@ class MtkISP7CameraData : public Camera::Private
 {
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
-			  ImgSysDevice *imgSysDev, DmaHeap *dmaHeap)
+			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt, DmaHeap *dmaHeap)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
-		  mcnrManager(imgSysDev, dmaHeap), lpnrManager(imgSysDev, dmaHeap), dmaHeap_(dmaHeap)
+		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap),
+		  lpnrManager(imgSysDev, dmaHeap),
+		  onDeviceTuner_(odt), dmaHeap_(dmaHeap)
 	{
 	}
 
@@ -112,6 +115,7 @@ public:
 	McnrTasksManager mcnrManager;
 	LpnrTasksManager lpnrManager;
 
+	OnDeviceTuner *onDeviceTuner_;
 	DmaHeap *dmaHeap_;
 };
 
@@ -158,6 +162,8 @@ public:
 
 	MediaDevice *imgSysMedia_;
 	ImgSysDevice imgSysDev_;
+
+	OnDeviceTuner onDeviceTuner_;
 
 private:
 	MtkISP7CameraData *cameraData(Camera *camera)
@@ -412,6 +418,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		std::unique_ptr<MtkISP7CameraData> data =
 			std::make_unique<MtkISP7CameraData>(this, &camSysDev_[i],
 							    &imgSysDev_,
+								&onDeviceTuner_,
 							    dmaHeap_.get());
 
 		std::set<Stream *> streams = { &data->video1Stream_,
@@ -527,7 +534,6 @@ void MtkISP7CameraData::frameStart(uint32_t sequence)
 int MtkISP7CameraData::configure(CameraConfiguration *c)
 {
 	Size camsysYuvSize;
-
 	Size video1 = Size{0, 0};
 	Size video2 = Size{0, 0};
 	Size still = Size{0, 0};
@@ -582,6 +588,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 
 	imgSysDev_->configure();
+	onDeviceTuner_->configure(camSysDev_->cameraId());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still);
 

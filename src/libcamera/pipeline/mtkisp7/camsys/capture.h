@@ -13,6 +13,7 @@
 #include <libcamera/base/signal.h>
 
 #include "libcamera/internal/task_scheduler.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "camsys.h"
 
@@ -38,7 +39,7 @@ struct CaptureFrames {
 
 class CaptureTasksManager {
 public:
-	CaptureTasksManager() = default;
+	CaptureTasksManager(OnDeviceTuner *odt);
 	~CaptureTasksManager() = default;
 
 	int configure(DmaHeap *dmaHeap, CamSysDevice *camSys, PipelineHandler* pipe,
@@ -61,8 +62,9 @@ private:
 	Size yuvFrameSize_;
 
 	CamSysDevice *camSys_;
-	PipelineHandler* pipe_;
-	DmaHeap* dmaHeap_;
+	PipelineHandler *pipe_;
+	DmaHeap *dmaHeap_;
+	OnDeviceTuner *onDeviceTuner_;
 
 	InfoFramePool tuningPool_;
 	InfoFramePool rawPool_;
