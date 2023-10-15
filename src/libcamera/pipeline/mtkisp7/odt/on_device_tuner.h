@@ -12,6 +12,8 @@
 
 #include <libcamera/request.h>
 
+#include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
+
 namespace libcamera {
 
 struct CaptureFrames;
@@ -26,8 +28,17 @@ public:
     void tuneCamsys(Request *request, CaptureFrames &frames);
 
 private:
+    struct NamedFrame {
+        Dump::Id id;
+        InfoFrame &frame;
+    };
+
+    void batchExport(const std::vector<Dump> &dumps);
     int prepareNewExportDirectory();
     bool shouldExportDumpNow(uint32_t requestNumber);
+    void tune(uint32_t requestNumber,
+              std::vector<NamedFrame> namedFrames,
+              bool forceDump=false);
 
     bool enabled_;
     std::string sensorId_;
@@ -35,6 +46,8 @@ private:
     uint32_t exportBegin_;
     uint32_t exportEnd_;
     std::filesystem::path currentExportPath_;
+
+    std::map<Dump::Id, Dump::Config> dumpConfig_;
 };
 
 } // namespace libcamera

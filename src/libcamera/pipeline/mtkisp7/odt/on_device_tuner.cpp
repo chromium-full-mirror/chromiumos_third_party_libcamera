@@ -15,6 +15,7 @@
 #include "pipeline/mtkisp7/camsys/capture.h"
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
 
 namespace libcamera {
 
@@ -31,12 +32,26 @@ constexpr const char *kWorkDir =  "/tmp/vendor/camera_dump";
 
 } // namespace
 
+void OnDeviceTuner::batchExport(
+        const std::vector<Dump> &dumps)
+{
+    for (auto dump: dumps) {
+        ImagiqAdapter::exportDump(dump);
+    }
+}
+
 void OnDeviceTuner::configure(const std::string &sensorId)
 {
-    sensorId_ = sensorId;
+    enabled_ = false;
 
     if (!std::filesystem::exists(kEnableTuningPath)) {
-        enabled_ = false;
+        return;
+    }
+
+    int ret = ImagiqAdapter::loadConfig(dumpConfig_, kWorkDir);
+    if (ret) {
+        LOG(MtkISP7, Error) << "Attempted to enable pipeline tuning, but failed"
+                            << " to load the config, error code: " << ret;
         return;
     }
 
@@ -44,8 +59,7 @@ void OnDeviceTuner::configure(const std::string &sensorId)
     enabled_ = true;
     exportBegin_ = 0;
     exportEnd_ = 0;
-
-    // todo next CL: load config from imagiq adapter
+    sensorId_ = sensorId;
 }
 
 void OnDeviceTuner::loadTuneRequest(int requestNumber)
@@ -103,16 +117,44 @@ bool OnDeviceTuner::shouldExportDumpNow(uint32_t requestNumber)
            requestNumber < exportEnd_;
 }
 
+
+void OnDeviceTuner::tune(
+        uint32_t requestNumber,
+        std::vector<NamedFrame> namedFrames,
+        bool forceDump)
+{
+    if (!enabled_ && !forceDump && !shouldExportDumpNow(requestNumber)) {
+        return;
+    }
+    std::vector<Dump> dumps;
+    for (auto namedFrame: namedFrames) {
+        Dump::Metadata metadata = kDumpMetadata.at(namedFrame.id);
+        Dump::Config config = dumpConfig_[namedFrame.id];
+        dumps.push_back({
+            .id = namedFrame.id,
+            .requestNumber = requestNumber,
+            .sensorId = sensorId_,
+            .workPath = currentExportPath_,
+            .frame = namedFrame.frame,
+            .metadata = metadata,
+            .config = config});
+    }
+    if (forceDump || shouldExportDumpNow(requestNumber)) {
+        batchExport(dumps);
+        // todo next CL: prepare reload exported
+    }
+    // todo next CL: import dumps
+}
+
 void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 {
     uint32_t requestNumber = request->sequence();
     if (shouldExportDumpNow(requestNumber)) {
-        ImagiqAdapter::exportDump({
-            .requestNumber=requestNumber,
-            .sensorId=sensorId_,
-            .workPath=currentExportPath_,
-            .frame=frames.raw->get(),
-        });
+        tune(
+            request->sequence(), {
+            {Dump::Id::P1_IMGO, frames.raw->get()},
+            {Dump::Id::P1_DRZS4NO_R3, frames.me->get()}});
+            // todo next CL: YUVO_R1, YUVO_R2 - split files (4 new files total)
     }
     // todo next CL: reload exported
     // todo next CL: import dump
