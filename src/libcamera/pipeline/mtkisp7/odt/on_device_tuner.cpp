@@ -12,6 +12,7 @@
 
 #include <libcamera/base/log.h>
 
+#include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
@@ -160,5 +161,50 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
     // todo next CL: reload exported
     // todo next CL: import dump
 }
+
+void OnDeviceTuner::tuneImgsysMetadata(
+        SingleDeviceRequest *sdRequest,
+        InfoFrame &metaFrame)
+{
+    if (!enabled_) {
+        return;
+    }
+    ctrl_meta_t *imgSysMetadata =
+            reinterpret_cast<ctrl_meta_t*>(metaFrame.address(0));
+    const auto stageEnums = sdRequest->getStageEnums();
+    for (size_t i = 0; i < stageEnums.size(); i++) {
+        if (kPeuStageDumpIdMap.count(stageEnums[i]) == 0) {
+            LOG(MtkISP7, Error) << "Unrecognized stageEnum: "
+                                << stageEnums[i];
+            // maybe LPNR
+            // todo next CL: LPNR
+            continue;
+        }
+        
+        if (!shouldExportDumpNow(sdRequest->sequence())) {
+            continue;
+        }
+        Dump::Id id = kPeuStageDumpIdMap.at(stageEnums[i]);
+        Dump::Metadata dumpMetadata = kDumpMetadata.at(id);
+        Dump::Config config = dumpConfig_[id];
+        imgSysMetadata[i].common.needDump = true;
+        auto dumpFileName = ImagiqAdapter::getDumpFileName({
+            .id=id,
+            .requestNumber=sdRequest->sequence(),
+            .sensorId=sensorId_,
+            .workPath=currentExportPath_,
+            .frame=std::nullopt,
+            .metadata=dumpMetadata,
+            .config=config,
+        });
+        strncpy(imgSysMetadata[i].common.nddfp, dumpFileName.c_str(),
+                dumpFileName.size());
+        LOG(MtkISP7, Info) << "Requested imgsys driver to dump register --"
+                        << " request number: " << sdRequest->sequence()
+                        << " stage: " << stageEnums[i]
+                        << " dump file prefix: " << dumpFileName;
+    }
+}
+
 
 } // namespace libcamera

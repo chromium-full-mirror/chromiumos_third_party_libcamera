@@ -17,6 +17,7 @@
 #include "single_device.h"
 
 #include <cstring>
+#include <vector>
 
 #include <libcamera/formats.h>
 
@@ -426,6 +427,15 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoDesc.buffer());
 
 	infoDesc.buffer()->_d()->metadata().planes()[0].bytesused = infoDesc.buffer()->planes()[0].length;
+}
+
+std::vector<PEU_Stage> SingleDeviceRequest::getStageEnums() const
+{
+	std::vector<PEU_Stage> stageEnums;
+	for (const auto &stage: stages_) {
+		stageEnums.push_back(stage.getStageEnum());
+	}
+	return stageEnums;
 }
 
 } // namespace libcamera

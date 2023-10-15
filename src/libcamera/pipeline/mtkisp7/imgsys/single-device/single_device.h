@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 #include <cstddef>
+#include <vector>
 
 #include "libcamera/internal/info_frame.h"
 
@@ -102,6 +103,8 @@ public:
 	void addNotify(uint32_t sync);
 	void addWait(uint32_t sync);
 
+	PEU_Stage getStageEnum() const { return stageEnum_; }
+
 private:
 	friend class SingleDeviceRequest;
 
@@ -136,6 +139,8 @@ public:
 	const std::string &id() { return id_; }
 
 	void fillRequestBuffer(InfoFrame &infoCtrl, InfoFrame &infoDesc, int requestFd);
+
+	std::vector<PEU_Stage> getStageEnums() const;
 
 private:
 	void fillFrameParams(std::vector<NSCam::NSImgStream::FrameParams> &mvFrameParams);

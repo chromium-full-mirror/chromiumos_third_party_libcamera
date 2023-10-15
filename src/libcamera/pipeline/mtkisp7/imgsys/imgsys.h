@@ -16,6 +16,8 @@
 
 #include "single-device/single_device.h"
 
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
 namespace libcamera {
 
 class DmaHeap;
@@ -36,7 +38,7 @@ public:
 		SingleDeviceRequest *sdRequest;
 	};
 
-	ImgSysDevice();
+	ImgSysDevice(OnDeviceTuner *odt);
 
 	int init(MediaDevice *media, DmaHeap *dmaHeap);
 	int configure();
@@ -82,6 +84,7 @@ private:
 
 	MediaDevice *media_;
 	DmaHeap* dmaHeap_;
+	OnDeviceTuner *onDeviceTuner_;
 
 	void *backEndLibrary_;
 };

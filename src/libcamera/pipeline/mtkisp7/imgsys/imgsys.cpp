@@ -22,6 +22,8 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pools.h"
 
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -39,7 +41,8 @@ Rectangle ImgSysDevice::getCrop(Size inSize, Size outSize)
 	return {0, y, inSize.width, height};
 }
 
-ImgSysDevice::ImgSysDevice() : backEndLibrary_(nullptr)
+ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt) :
+	onDeviceTuner_(odt), backEndLibrary_(nullptr)
 {}
 
 int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
@@ -149,6 +152,7 @@ int ImgSysDevice::queueRequest(Request *request)
 	int mediaRequest = mediaRequestPool_.get();
 
 	request->sdRequest->fillRequestBuffer(infoCtrl, infoDesc, mediaRequest);
+	onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
 
 	int ret = sigdevNorm_->queueBuffer(singleDev, mediaRequest);
 	ret |= media_->queueRequest(mediaRequest);

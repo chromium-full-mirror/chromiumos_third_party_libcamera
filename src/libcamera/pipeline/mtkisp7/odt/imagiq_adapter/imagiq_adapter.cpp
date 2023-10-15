@@ -61,9 +61,9 @@ int ImagiqAdapter::exportDump(const Dump &dump)
 {
     const NSCam::TuningUtils::NddData ndd(parseNdd(dump));
     const MappedFrameBuffer mappedBuffer(
-            dump.frame.buffer(), MappedFrameBuffer::MapFlag::Read);
+            dump.frame->buffer(), MappedFrameBuffer::MapFlag::Read);
 
-    const PixelFormat &pixelFormat = dump.frame.format();
+    const PixelFormat &pixelFormat = dump.frame->format();
     const std::string fileSuffix = getFileExtension(pixelFormat);
     if (shouldSplitExport(pixelFormat)) {
         return exportDumpSplitPlanes(
@@ -88,7 +88,7 @@ int ImagiqAdapter::exportDumpMergePlanes(
         return -EIO;
     }
     const PixelFormatInfo formatInfo =
-            PixelFormatInfo::info(dump.frame.format());
+            PixelFormatInfo::info(dump.frame->format());
     for (unsigned int i = 0; i < formatInfo.numPlanes(); i++) {
         exportFile.write(
                 reinterpret_cast<char*>(mappedBuffer.planes()[i].data()),
@@ -111,7 +111,7 @@ int ImagiqAdapter::exportDumpSplitPlanes(
         const std::string &fileSuffix)
 {
     const PixelFormatInfo formatInfo =
-            PixelFormatInfo::info(dump.frame.format());
+            PixelFormatInfo::info(dump.frame->format());
     for (size_t i = 0; i < formatInfo.numPlanes(); i++) {
         const std::filesystem::path planeExportPath =
                 getDumpFileNameSplitPlanes(
@@ -149,6 +149,11 @@ std::string ImagiqAdapter::formatPlaneName(int planeNumber, const PixelFormat &p
         return kYuvPlaneNames[planeNumber];
     }
     return  "";
+}
+
+std::string ImagiqAdapter::getDumpFileName(const Dump &dump)
+{
+    return getDumpFileNameSingleFile(dump, parseNdd(dump));
 }
 
 std::filesystem::path ImagiqAdapter::getDumpFileNameSingleFile(
@@ -352,16 +357,20 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
     ndd.layer = dump.metadata.layer;
     ndd.platform = 8188;
 
+    if (!dump.frame.has_value()) {
+        return ndd;
+    }
+
     const PixelFormatInfo pixelFormatInfo =
-            PixelFormatInfo::info(dump.frame.format());
+            PixelFormatInfo::info(dump.frame->format());
     ndd.bitResultion = pixelFormatInfo.planes[0].bytesPerGroup * 8 /
                                   pixelFormatInfo.pixelsPerGroup;
 
-    ndd.byteWidth = pixelFormatInfo.stride(dump.frame.size().width, 0);
-    ndd.pixelWidth = dump.frame.size().width;
-    ndd.pixelHeight = dump.frame.size().height;
+    ndd.byteWidth = pixelFormatInfo.stride(dump.frame->size().width, 0);
+    ndd.pixelWidth = dump.frame->size().width;
+    ndd.pixelHeight = dump.frame->size().height;
 
-    switch (dump.frame.format()) {
+    switch (dump.frame->format()) {
     case formats::SBGGR10_MTISP:
         ndd.bayerOrder = SENSOR_FORMAT_ORDER_RAW_B;
         ndd.signedness = -1;

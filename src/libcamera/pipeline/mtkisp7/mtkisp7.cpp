@@ -157,13 +157,14 @@ public:
 	std::unique_ptr<CategorizedScheduler<MtkISP7TaskGroup>> scheduler_;
 	std::unique_ptr<DmaHeap> dmaHeap_;
 
+	OnDeviceTuner onDeviceTuner_;
+
 	MediaDevice *camSysMedia_;
 	CamSysDevice camSysDev_[2];
 
 	MediaDevice *imgSysMedia_;
 	ImgSysDevice imgSysDev_;
 
-	OnDeviceTuner onDeviceTuner_;
 
 private:
 	MtkISP7CameraData *cameraData(Camera *camera)
@@ -259,7 +260,7 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 }
 
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
-	: PipelineHandler(manager)
+	: PipelineHandler(manager), imgSysDev_(&onDeviceTuner_)
 {
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>();
 	dmaHeap_ = std::make_unique<DmaHeap>();

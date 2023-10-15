@@ -12,6 +12,8 @@
 
 #include <libcamera/request.h>
 
+#include "pipeline/mtkisp7/imgsys/single-device/single_device.h"
+
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 
 namespace libcamera {
@@ -26,6 +28,11 @@ public:
 
     // P1 Camsys
     void tuneCamsys(Request *request, CaptureFrames &frames);
+
+    // P2 Imgsys driver
+    void tuneImgsysMetadata(
+            SingleDeviceRequest *sdRequest,
+            InfoFrame &metaFrame);
 
 private:
     struct NamedFrame {

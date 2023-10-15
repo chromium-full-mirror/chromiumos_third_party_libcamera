@@ -46,13 +46,38 @@ struct Dump {
         P1_YUVO_R1,
         P1_YUVO_R2,
         P1_DRZS4NO_R3,
+
+        // IMGSYS MCNR registers
+        LTR_ME_L1_IMGSYS_DRVREG,
+        ME_3PASS_MODE0_IMGSYS_DRVREG,
+        ME_3PASS_MODE1_IMGSYS_DRVREG,
+        TR_DSMAP_IMGSYS_DRVREG,
+        TR_Y2Y_F1_IMGSYS_DRVREG,
+        TR_Y2Y_F4_IMGSYS_DRVREG,
+        WPE_LTR_Y2Y_F1_IMGSYS_DRVREG,
+        LTR_VBI_IMGSYS_DRVREG,
+        LTR_Y2Y_F4_IMGSYS_DRVREG,
+        TR_Y2Y_Conf_IMGSYS_DRVREG,
+        WPE_WghtMap_F5_IMGSYS_DRVREG,
+        WPE_WghtMap_F4_IMGSYS_DRVREG,
+        WPE_WghtMap_F3_IMGSYS_DRVREG,
+        WPE_WghtMap_F2_IMGSYS_DRVREG,
+        WPE_WghtMap_F1_IMGSYS_DRVREG,
+        WPE_WghtMap_F0_IMGSYS_DRVREG,
+        P2_IDI_IMGSYS_DRVREG,
+        P2_MS_F_SMALL_IMGSYS_DRVREG,
+        WPE_P2_PQDIP_MS_F0_IMGSYS_DRVREG,
+        P2_MS_F4_IMGSYS_DRVREG,
+        P2_MS_F3_IMGSYS_DRVREG_MCNR,
+        P2_MS_F2_IMGSYS_DRVREG_MCNR,
+        P2_MS_F1_IMGSYS_DRVREG_MCNR,
     };
 
     Id id;
     uint32_t requestNumber;
     std::string sensorId;
     std::filesystem::path workPath;
-    InfoFrame frame;
+    std::optional<InfoFrame> frame;
     Metadata metadata;
     Config config;
 };

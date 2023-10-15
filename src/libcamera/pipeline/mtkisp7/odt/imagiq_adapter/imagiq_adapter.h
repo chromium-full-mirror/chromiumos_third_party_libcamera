@@ -19,11 +19,14 @@ class ImagiqAdapter {
 public:
     using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
 
+    static int exportDump(const Dump& dump);
+
     static int loadConfig(
             std::map<Dump::Id, Dump::Config> &config,
             const std::filesystem::path &configPath);
 
-    static int exportDump(const Dump& dump);
+    static std::string getDumpFileName(const Dump &dump);
+
 private:
     static int exportDumpMergePlanes(
             const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
