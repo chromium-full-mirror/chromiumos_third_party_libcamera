@@ -18,9 +18,10 @@
 #include "libcamera/internal/formats.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 
-#include "pipeline/mtkisp7/imgsys/single-device/single_device_helper.h"
+#include "platform/mtkisp7/single_device_helper.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/mtk_headers/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/static_strings.h"
 
 namespace libcamera {
@@ -42,6 +43,7 @@ const ImagiqAdapter::SensorIdMap kGeraltSensorMap
 };
 
 const std::filesystem::path kDumpConfigPath = "dump.cfg";
+const std::filesystem::path kImportConfigPath = "dump_import.cfg";
 
 } // namespace
 
@@ -56,8 +58,17 @@ const std::array<std::string, 3> ImagiqAdapter::kYuvPlaneNames{
 const std::array<std::string, 2> ImagiqAdapter::kWarpPlaneNames{
         "-mapx", "-mapy"};
 
+std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
+{
+    return StaticStrings::kModuleStrMap.at(dump.metadata.moduleId) + ',' +
+           std::to_string(dump.requestNumber) + ',' +
+           kStageStrMap.at(dump.metadata.stage) + ',' +
+           std::to_string(dump.metadata.layer) + ',' +
+           std::to_string(dump.metadata.action.has_value() ?
+                static_cast<int>(dump.metadata.action.value()) : -1);
+}
 
-int ImagiqAdapter::exportDump(const Dump &dump)
+ImagiqAdapter::ExportResult ImagiqAdapter::exportDump(const Dump &dump)
 {
     const NSCam::TuningUtils::NddData ndd(parseNdd(dump));
     const MappedFrameBuffer mappedBuffer(
@@ -74,18 +85,20 @@ int ImagiqAdapter::exportDump(const Dump &dump)
     }
 }
 
-int ImagiqAdapter::exportDumpMergePlanes(
+ImagiqAdapter::ExportResult ImagiqAdapter::exportDumpMergePlanes(
         const Dump &dump, const MappedFrameBuffer &mappedBuffer,
         const NSCam::TuningUtils::NddData &ndd,
         const std::string &fileSuffix)
 {
+    ExportResult result{.dump=dump};
     const std::filesystem::path exportPath =
             getDumpFileNameSingleFile(dump, ndd, fileSuffix);
     std::ofstream exportFile(exportPath, std::ios::binary);
     if (!exportFile) {
         LOG(MtkISP7, Error) << "Failed to open export file: "
                             << exportPath;
-        return -EIO;
+        result.errorCode = -EIO;
+        return result;
     }
     const PixelFormatInfo formatInfo =
             PixelFormatInfo::info(dump.frame->format());
@@ -99,17 +112,20 @@ int ImagiqAdapter::exportDumpMergePlanes(
                 << "; File name: " << exportPath;
         if (!exportFile.good()) {
             LOG(MtkISP7, Error) << "Error writing plane to file: " << exportPath;
-            return -EIO;
+            result.errorCode = -EIO;
+            return result;
         }
     }
-    return 0;
+    result.paths = {{exportPath}};
+    return result;
 }
 
-int ImagiqAdapter::exportDumpSplitPlanes(
+ImagiqAdapter::ExportResult ImagiqAdapter::exportDumpSplitPlanes(
         const Dump &dump, const MappedFrameBuffer &mappedBuffer,
         const NSCam::TuningUtils::NddData &ndd, const PixelFormat &pixelFormat,
         const std::string &fileSuffix)
 {
+    ExportResult result{.dump=dump};
     const PixelFormatInfo formatInfo =
             PixelFormatInfo::info(dump.frame->format());
     for (size_t i = 0; i < formatInfo.numPlanes(); i++) {
@@ -120,20 +136,26 @@ int ImagiqAdapter::exportDumpSplitPlanes(
         if (!outFile) {
             LOG(MtkISP7, Error) << "Failed to open dump dump file: "
                                 << planeExportPath;
-            return -EIO;
+            result.errorCode = -EIO;
+            return result;
         }
         outFile.write(
                 reinterpret_cast<char*>(mappedBuffer.planes()[i].data()),
                 mappedBuffer.planes()[i].size());
         if (!outFile.good()) {
             LOG(MtkISP7, Error) << "Error writing plane to file: " << planeExportPath;
-            return -EIO;
+            result.errorCode = -EIO;
+            return result;
         }
         LOG(MtkISP7, Info) << "Dump id: " << static_cast<int>(dump.id)
                 << "; plane: " << i << "; plane size: " << mappedBuffer.planes()[i].size()
                 << "; File name: " << planeExportPath;
+        if (!result.paths) {
+            result.paths = std::vector<std::filesystem::path>();
+        }
+        result.paths->push_back(planeExportPath);
     }
-    return 0;
+    return result;
 }
 
 std::string ImagiqAdapter::formatPlaneName(int planeNumber, const PixelFormat &pixelFormat)
@@ -397,6 +419,39 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
     ndd.height = ndd.pixelHeight;
 
     return ndd;
+}
+
+int ImagiqAdapter::prepareReimport(const ExportResult &exportResult)
+{
+    if (!exportResult.paths.has_value() || exportResult.paths->empty()) {
+        return -EINVAL;
+    }
+
+    const std::filesystem::path importConfigPath =
+            exportResult.dump.workPath / kImportConfigPath;
+    std::ofstream dumpLoadConfigFile(importConfigPath, std::ios::app);
+
+    if (!dumpLoadConfigFile.good()) {
+        LOG(MtkISP7, Error) << "Failed to open dump import config file: "
+                            << importConfigPath;
+        return -EIO;
+    }
+
+    for (const auto &path: *exportResult.paths) {
+        const std::string config = createImportConfigId(exportResult.dump) + ';' +
+                                   path.string();
+        dumpLoadConfigFile << config << std::endl;
+
+        if (!dumpLoadConfigFile.good()) {
+            LOG(MtkISP7, Error) << "Failed to write to file: "
+                                << importConfigPath;
+            return -EIO;
+        }
+        LOG(MtkISP7, Info) << "Dump " << path
+                    << " is prepared to be reload, config: "
+                    << importConfigPath;
+    }
+    return 0;
 }
 
 bool ImagiqAdapter::shouldSplitExport(const PixelFormat &pixelFormat)

@@ -17,9 +17,14 @@ namespace libcamera {
 
 class ImagiqAdapter {
 public:
+    struct ExportResult {
+        Dump dump;
+        std::optional<int> errorCode = std::nullopt;
+        std::optional<std::vector<std::filesystem::path>> paths = std::nullopt;
+    };
     using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
 
-    static int exportDump(const Dump& dump);
+    static ExportResult exportDump(const Dump& dump);
 
     static int loadConfig(
             std::map<Dump::Id, Dump::Config> &config,
@@ -27,13 +32,17 @@ public:
 
     static std::string getDumpFileName(const Dump &dump);
 
+    static int prepareReimport(const ExportResult &dumpResult);
+
 private:
-    static int exportDumpMergePlanes(
+    static std::string createImportConfigId(const Dump &dump);
+
+    static ExportResult exportDumpMergePlanes(
             const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
             const NSCam::TuningUtils::NddData &ndd,
             const std::string &fileSuffix="");
 
-    static int exportDumpSplitPlanes(
+    static ExportResult exportDumpSplitPlanes(
             const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
             const NSCam::TuningUtils::NddData &ndd,
             const PixelFormat &pixelFormat,

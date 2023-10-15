@@ -9,7 +9,7 @@
 
 #include <map>
 
-#include "pipeline/mtkisp7/imgsys/single-device/single_device_helper.h"
+#include "platform/mtkisp7/single_device_helper.h"
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/mtk_headers/ndd_autogen_def.h"
@@ -18,35 +18,35 @@
 
 namespace libcamera {
 
-    const std::map<PEU_Stage, Dump::Id> kPeuStageDumpIdMap
-    {
-        // ? = not sure, ?? = very not sure
-        // MCNR
-        {PEU_Stage::HW_LTR_ME_L1, Dump::Id::LTR_ME_L1_IMGSYS_DRVREG},
-        {PEU_Stage::HW_ME_3PASS_MODE_0, Dump::Id::ME_3PASS_MODE0_IMGSYS_DRVREG},
-        {PEU_Stage::HW_ME_3PASS_MODE_1, Dump::Id::ME_3PASS_MODE1_IMGSYS_DRVREG},
-        {PEU_Stage::HW_TR_F1, Dump::Id::TR_Y2Y_F1_IMGSYS_DRVREG},
-        {PEU_Stage::HW_TR_F4, Dump::Id::TR_Y2Y_F4_IMGSYS_DRVREG},
-        {PEU_Stage::HW_TR_HWMVP, Dump::Id::TR_DSMAP_IMGSYS_DRVREG}, // ?
-        {PEU_Stage::HW_TR_CONF4, Dump::Id::TR_Y2Y_Conf_IMGSYS_DRVREG},
-        {PEU_Stage::HW_TR_CONF5, Dump::Id::TR_Y2Y_Conf_IMGSYS_DRVREG},
-        {PEU_Stage::HW_LTR_F1, Dump::Id::WPE_LTR_Y2Y_F1_IMGSYS_DRVREG}, // ??
-        {PEU_Stage::HW_LTR_F4, Dump::Id::LTR_Y2Y_F4_IMGSYS_DRVREG},
-        {PEU_Stage::HW_LTR_VBI, Dump::Id::LTR_VBI_IMGSYS_DRVREG},
-        {PEU_Stage::HW_WPE_W_F1, Dump::Id::WPE_WghtMap_F1_IMGSYS_DRVREG},
-        {PEU_Stage::HW_WPE_W_F2, Dump::Id::WPE_WghtMap_F2_IMGSYS_DRVREG},
-        {PEU_Stage::HW_WPE_W_F3, Dump::Id::WPE_WghtMap_F3_IMGSYS_DRVREG},
-        {PEU_Stage::HW_WPE_W_F4, Dump::Id::WPE_WghtMap_F4_IMGSYS_DRVREG},
-        {PEU_Stage::HW_WPE_W_F5, Dump::Id::WPE_WghtMap_F5_IMGSYS_DRVREG},
-        {PEU_Stage::HW_WPE_W_F0, Dump::Id::WPE_WghtMap_F0_IMGSYS_DRVREG},
-        {PEU_Stage::HW_DIP_IDI, Dump::Id::P2_IDI_IMGSYS_DRVREG},
-        {PEU_Stage::HW_DIP_IDI2, Dump::Id::P2_MS_F_SMALL_IMGSYS_DRVREG}, // ??
-        {PEU_Stage::HW_DIP_F4, Dump::Id::P2_MS_F4_IMGSYS_DRVREG},
-        {PEU_Stage::HW_DIP_F3, Dump::Id::P2_MS_F3_IMGSYS_DRVREG_MCNR},
-        {PEU_Stage::HW_DIP_F2, Dump::Id::P2_MS_F2_IMGSYS_DRVREG_MCNR},
-        {PEU_Stage::HW_DIP_F1, Dump::Id::P2_MS_F1_IMGSYS_DRVREG_MCNR},
-        {PEU_Stage::HW_DIP_F0, Dump::Id::WPE_P2_PQDIP_MS_F0_IMGSYS_DRVREG}, // ??
-    };
+const std::map<PEU_Stage, Dump::Id> kPeuStageDumpIdMap
+{
+    // ? = need double check, ?? = really need double check
+    // MCNR
+    {PEU_Stage::HW_LTR_ME_L1, Dump::Id::LTR_ME_L1_IMGSYS_DRVREG},
+    {PEU_Stage::HW_ME_3PASS_MODE_0, Dump::Id::ME_3PASS_MODE0_IMGSYS_DRVREG},
+    {PEU_Stage::HW_ME_3PASS_MODE_1, Dump::Id::ME_3PASS_MODE1_IMGSYS_DRVREG},
+    {PEU_Stage::HW_TR_F1, Dump::Id::TR_Y2Y_F1_IMGSYS_DRVREG},
+    {PEU_Stage::HW_TR_F4, Dump::Id::TR_Y2Y_F4_IMGSYS_DRVREG},
+    {PEU_Stage::HW_TR_HWMVP, Dump::Id::TR_DSMAP_IMGSYS_DRVREG}, // ?
+    {PEU_Stage::HW_TR_CONF4, Dump::Id::TR_Y2Y_Conf_IMGSYS_DRVREG},
+    {PEU_Stage::HW_TR_CONF5, Dump::Id::TR_Y2Y_Conf_IMGSYS_DRVREG},
+    {PEU_Stage::HW_LTR_F1, Dump::Id::WPE_LTR_Y2Y_F1_IMGSYS_DRVREG}, // ??
+    {PEU_Stage::HW_LTR_F4, Dump::Id::LTR_Y2Y_F4_IMGSYS_DRVREG},
+    {PEU_Stage::HW_LTR_VBI, Dump::Id::LTR_VBI_IMGSYS_DRVREG},
+    {PEU_Stage::HW_WPE_W_F1, Dump::Id::WPE_WghtMap_F1_IMGSYS_DRVREG},
+    {PEU_Stage::HW_WPE_W_F2, Dump::Id::WPE_WghtMap_F2_IMGSYS_DRVREG},
+    {PEU_Stage::HW_WPE_W_F3, Dump::Id::WPE_WghtMap_F3_IMGSYS_DRVREG},
+    {PEU_Stage::HW_WPE_W_F4, Dump::Id::WPE_WghtMap_F4_IMGSYS_DRVREG},
+    {PEU_Stage::HW_WPE_W_F5, Dump::Id::WPE_WghtMap_F5_IMGSYS_DRVREG},
+    {PEU_Stage::HW_WPE_W_F0, Dump::Id::WPE_WghtMap_F0_IMGSYS_DRVREG},
+    {PEU_Stage::HW_DIP_IDI, Dump::Id::P2_IDI_IMGSYS_DRVREG},
+    {PEU_Stage::HW_DIP_IDI2, Dump::Id::P2_MS_F_SMALL_IMGSYS_DRVREG}, // ??
+    {PEU_Stage::HW_DIP_F4, Dump::Id::P2_MS_F4_IMGSYS_DRVREG},
+    {PEU_Stage::HW_DIP_F3, Dump::Id::P2_MS_F3_IMGSYS_DRVREG_MCNR},
+    {PEU_Stage::HW_DIP_F2, Dump::Id::P2_MS_F2_IMGSYS_DRVREG_MCNR},
+    {PEU_Stage::HW_DIP_F1, Dump::Id::P2_MS_F1_IMGSYS_DRVREG_MCNR},
+    {PEU_Stage::HW_DIP_F0, Dump::Id::WPE_P2_PQDIP_MS_F0_IMGSYS_DRVREG}, // ??
+};
 
 const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata
 {

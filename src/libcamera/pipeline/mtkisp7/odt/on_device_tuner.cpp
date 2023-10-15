@@ -33,11 +33,27 @@ constexpr const char *kWorkDir =  "/tmp/vendor/camera_dump";
 
 } // namespace
 
-void OnDeviceTuner::batchExport(
+std::vector<ImagiqAdapter::ExportResult> OnDeviceTuner::batchExport(
         const std::vector<Dump> &dumps)
 {
+    std::vector<ImagiqAdapter::ExportResult> results;
+    results.reserve(dumps.size());
     for (auto dump: dumps) {
-        ImagiqAdapter::exportDump(dump);
+        if (dump.config.enableExport) {
+            results.push_back(ImagiqAdapter::exportDump(dump));
+        }
+    }
+    return results;
+}
+
+
+void OnDeviceTuner::batchPrepareReimport(
+        const std::vector<ImagiqAdapter::ExportResult> &exportResults)
+{
+    for (const auto &result: exportResults) {
+        if (!result.errorCode.has_value()) {
+            ImagiqAdapter::prepareReimport(result);
+        }
     }
 }
 
@@ -141,8 +157,8 @@ void OnDeviceTuner::tune(
             .config = config});
     }
     if (forceDump || shouldExportDumpNow(requestNumber)) {
-        batchExport(dumps);
-        // todo next CL: prepare reload exported
+        const auto exportResults = batchExport(dumps);
+        batchPrepareReimport(exportResults);
     }
     // todo next CL: import dumps
 }
@@ -158,7 +174,6 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
             {Dump::Id::P1_YUVO_R2, frames.yuvo2->get()},
             {Dump::Id::P1_DRZS4NO_R3, frames.me->get()}});
     }
-    // todo next CL: reload exported
     // todo next CL: import dump
 }
 

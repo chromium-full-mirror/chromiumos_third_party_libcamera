@@ -12,9 +12,10 @@
 
 #include <libcamera/request.h>
 
-#include "pipeline/mtkisp7/imgsys/single-device/single_device.h"
+#include "pipeline/mtkisp7/imgsys/single_device.h"
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 
 namespace libcamera {
 
@@ -40,7 +41,10 @@ private:
         InfoFrame &frame;
     };
 
-    void batchExport(const std::vector<Dump> &dumps);
+    std::vector<ImagiqAdapter::ExportResult> batchExport(
+            const std::vector<Dump> &dumps);
+    void batchPrepareReimport(
+            const std::vector<ImagiqAdapter::ExportResult> &exportResults);
     int prepareNewExportDirectory();
     bool shouldExportDumpNow(uint32_t requestNumber);
     void tune(uint32_t requestNumber,
