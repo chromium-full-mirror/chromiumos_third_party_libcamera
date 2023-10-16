@@ -60,6 +60,7 @@ private:
             const std::vector<ImagiqAdapter::ExportResult> &exportResults);
     InfoFrame getFrameInfoFromRequest(
             Request *request, FrameBuffer *buffer);
+    bool isImgsysCaptureStage(PEU_Stage stage);
     int prepareNewExportDirectory();
     bool shouldExportDumpNow(uint32_t requestNumber);
     bool shouldImportDumpNow(uint32_t requestNumber);

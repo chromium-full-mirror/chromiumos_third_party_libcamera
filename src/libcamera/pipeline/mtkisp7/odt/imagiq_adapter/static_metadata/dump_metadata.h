@@ -46,7 +46,24 @@ const std::map<PEU_Stage, Dump::Id> kPeuStageDumpIdMap
     {PEU_Stage::HW_DIP_F2, Dump::Id::P2_MS_F2_IMGSYS_DRVREG_MCNR},
     {PEU_Stage::HW_DIP_F1, Dump::Id::P2_MS_F1_IMGSYS_DRVREG_MCNR},
     {PEU_Stage::HW_DIP_F0, Dump::Id::WPE_P2_PQDIP_MS_F0_IMGSYS_DRVREG}, // ??
+    // LPNR
+    {PEU_Stage::TR_R2Y, Dump::Id::TR_R2Y_IMGSYS_DRVREG},
+    {PEU_Stage::P2_MS_F3, Dump::Id::P2_MS_F3_IMGSYS_DRVREG_LPNR},
+    {PEU_Stage::P2_MS_F2, Dump::Id::P2_MS_F2_IMGSYS_DRVREG_LPNR},
+    {PEU_Stage::P2_MS_F1, Dump::Id::P2_MS_F1_IMGSYS_DRVREG_LPNR},
+    {PEU_Stage::P2_MS_F0_PQ_DIP, Dump::Id::P2_MS_F0_PQ_DIP_IMGSYSREG},
+    {PEU_Stage::P2_MS_F0_H, Dump::Id::P2_MS_F0_H_IMGSYSREG},
+    {PEU_Stage::P2_Y2Y_PQ_DIP, Dump::Id::P2_Y2Y_PQ_DIP_IMGSYSREG},
 };
+
+const std::array<PEU_Stage, 7> kImgsysCaptureStages{
+    PEU_Stage::TR_R2Y,
+    PEU_Stage::P2_MS_F3,
+    PEU_Stage::P2_MS_F2,
+    PEU_Stage::P2_MS_F1,
+    PEU_Stage::P2_MS_F0_PQ_DIP,
+    PEU_Stage::P2_MS_F0_H,
+    PEU_Stage::P2_Y2Y_PQ_DIP};
 
 const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata
 {
@@ -91,7 +108,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata
             .action=std::nullopt,
         }
     },
-    // IMGSYS metadata
+    // IMGSYS metadata: MCNR
     {
         Dump::Id::LTR_ME_L1_IMGSYS_DRVREG,
         {
@@ -330,6 +347,77 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata
             .category=NSCam::TuningUtils::eCategory::kSTREAMING,
             .action=Action::Preview,
             .layer=0,
+        }
+    },
+    // IMGSYS Metadata: LPNR
+    {
+        Dump::Id::TR_R2Y_IMGSYS_DRVREG,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::TR_R2Y,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_TRAW,
+            // .action=kActionCapture,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::P2_MS_F3_IMGSYS_DRVREG_LPNR,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::P2_MS_F3,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_DIP,
+            // .action=kActionCapture,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::P2_MS_F2_IMGSYS_DRVREG_LPNR,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::P2_MS_F2,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_DIP,
+            // .action=kActionCapture,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::P2_MS_F1_IMGSYS_DRVREG_LPNR,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::P2_MS_F1,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_DIP,
+            // .action=kActionCapture,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::P2_MS_F0_PQ_DIP_IMGSYSREG,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::P2_MS_F0_PQ_DIP,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_DIP,
+            // .action=kActionCapture,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::P2_MS_F0_H_IMGSYSREG,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::P2_MS_F0_H,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_DIP,
+            // .action=kActionCapture,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::P2_Y2Y_PQ_DIP_IMGSYSREG,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::P2_Y2Y_PQ_DIP,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_DIP,
+            // .action=kActionCapture,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
         }
     },
     // MCNR: ME

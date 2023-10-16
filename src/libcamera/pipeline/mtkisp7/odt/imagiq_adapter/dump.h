@@ -75,6 +75,15 @@ struct Dump {
         P2_MS_F2_IMGSYS_DRVREG_MCNR,
         P2_MS_F1_IMGSYS_DRVREG_MCNR,
 
+        // IMGSYS LPNR registers
+        P2_MS_F3_IMGSYS_DRVREG_LPNR,
+        P2_MS_F2_IMGSYS_DRVREG_LPNR,
+        P2_MS_F1_IMGSYS_DRVREG_LPNR,
+        TR_R2Y_IMGSYS_DRVREG,
+        P2_MS_F0_PQ_DIP_IMGSYSREG,
+        P2_MS_F0_H_IMGSYSREG,
+        P2_Y2Y_PQ_DIP_IMGSYSREG,
+
         // ME: LTR
         LTR_ME_L1_IMGI_T1,
         LTR_ME_L1_YUVO_T2,

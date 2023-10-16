@@ -93,6 +93,9 @@ void OnDeviceTuner::configure(const std::string &sensorId)
     importBegin_ = 0;
     importEnd_ = 0;
     sensorId_ = sensorId;
+
+    // Immediately create one directory for any capture dumps.
+    prepareNewExportDirectory();
 }
 
 void OnDeviceTuner::loadTuneRequest(int requestNumber)
@@ -137,6 +140,13 @@ InfoFrame OnDeviceTuner::getFrameInfoFromRequest(
     }
     const auto streamCfg = stream->configuration();
     return InfoFrame(streamCfg.pixelFormat, streamCfg.size, buffer);
+}
+
+bool OnDeviceTuner::isImgsysCaptureStage(PEU_Stage stage)
+{
+    return std::find(
+            kImgsysCaptureStages.begin(), kImgsysCaptureStages.end(), stage) !=
+            kImgsysCaptureStages.end();
 }
 
 int OnDeviceTuner::prepareNewExportDirectory()
@@ -241,12 +251,12 @@ void OnDeviceTuner::tuneImgsysMetadata(
         if (kPeuStageDumpIdMap.count(stageEnums[i]) == 0) {
             LOG(MtkISP7, Error) << "Unrecognized stageEnum: "
                                 << stageEnums[i];
-            // maybe LPNR
-            // todo next CL: LPNR
             continue;
         }
-        
-        if (!shouldExportDumpNow(sdRequest->sequence())) {
+
+        // Capture must always export dump.
+        if (!shouldExportDumpNow(sdRequest->sequence()) &&
+            !isImgsysCaptureStage(stageEnums[i])) {
             continue;
         }
         Dump::Id id = kPeuStageDumpIdMap.at(stageEnums[i]);
