@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <fstream>
 
+#include <libcamera/stream.h>
+
 #include <libcamera/base/log.h>
 
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
@@ -124,6 +126,17 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
         importBegin_ = requestNumber;
         importEnd_ = requestNumber + importRequestCount;
     }
+}
+
+InfoFrame OnDeviceTuner::getFrameInfoFromRequest(
+        Request *request, FrameBuffer *buffer)
+{
+    const auto stream = request->findStream(buffer);
+    if (!stream) {
+        LOG(MtkISP7, Fatal) << "Buffer doesn't exist in request!";
+    }
+    const auto streamCfg = stream->configuration();
+    return InfoFrame(streamCfg.pixelFormat, streamCfg.size, buffer);
 }
 
 int OnDeviceTuner::prepareNewExportDirectory()
@@ -395,6 +408,40 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
                 frames.out.reci[level]->get()});
         namedFrames.push_back({Dump::kDip1TnrmiDumpIds[i],
                 frames.out.dipTnrmi[level]->get()});
+    }
+    tune(request->sequence(), namedFrames);
+}
+
+void OnDeviceTuner::tuneDip2(
+        Request *request, Dip2Frames &frames,
+        FrameBuffer *videoOut1, FrameBuffer *videoOut2)
+{
+    uint32_t requestNumber = request->sequence();
+    if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+                      !shouldImportDumpNow(requestNumber))) {
+        return;
+    }
+    std::vector<NamedFrame> namedFrames{
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_WPETI, frames.in.prevImg4oF0->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_WPET_MAP, frames.in.wpeVeci[0]->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_TNRSI, frames.out.dipTnrso->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_TNRWI, frames.in.dipTnrwi[0]->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_TNRMI, frames.in.dipTnrmi[0]->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_TNRCI, frames.in.dipTnrci[0]->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_TNRLI, frames.in.tnrlfdi->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_TNRSO, frames.out.dipTnrso->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_TNRWO, frames.out.dipTnrwo[0]->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_RECI_D1, frames.in.reci[0]->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_IMG4O, frames.out.img4oF0->get()},
+            {Dump::Id::WPE_P2_PQDIP_MS_F0_IMGI_D1, frames.in.dipImgi[0]->get()}};
+
+    if (videoOut1) {
+        InfoFrame video1 = getFrameInfoFromRequest(request, videoOut1);
+        namedFrames.push_back({Dump::Id::WPE_P2_PQDIP_MS_F0_WDMAO, video1});
+    }
+    if (videoOut2) {
+        InfoFrame video2 = getFrameInfoFromRequest(request, videoOut2);
+        namedFrames.push_back({Dump::Id::WPE_P2_PQDIP_MS_F0_WDMAO, video2});
     }
     tune(request->sequence(), namedFrames);
 }

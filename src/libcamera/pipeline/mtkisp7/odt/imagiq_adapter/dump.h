@@ -230,6 +230,24 @@ struct Dump {
         P2_MS_F1_RECI_D1_MCNR,
         P2_MS_F1_IMG3O_MCNR,
         P2_MS_F1_IMG4O,
+
+        // Dip2
+        WPE_P2_PQDIP_MS_F0_WPETI,
+        WPE_P2_PQDIP_MS_F0_WPET_MAP,
+        WPE_P2_PQDIP_MS_F0_WPETO,
+        WPE_P2_PQDIP_MS_F0_TNRSI,
+        WPE_P2_PQDIP_MS_F0_TNRWI,
+        WPE_P2_PQDIP_MS_F0_TNRMI,
+        WPE_P2_PQDIP_MS_F0_TNRCI,
+        WPE_P2_PQDIP_MS_F0_TNRLI,
+        WPE_P2_PQDIP_MS_F0_TNRSO,
+        WPE_P2_PQDIP_MS_F0_TNRWO,
+        WPE_P2_PQDIP_MS_F0_RECI_D1,
+        WPE_P2_PQDIP_MS_F0_IMG3O,
+        WPE_P2_PQDIP_MS_F0_IMG4O,
+        WPE_P2_PQDIP_MS_F0_IMGI_D1,
+        WPE_P2_PQDIP_MS_F0_WROTO,
+        WPE_P2_PQDIP_MS_F0_WDMAO,
     };
 
     const static std::array<Dump::Id, 6> kWpeInputImageDumpIds;

@@ -1127,6 +1127,12 @@ void Dip2Task::allocateOutputBuffers()
 	manager_->img4oF0_.fetch(frames_.out.img4oF0);
 }
 
+void Dip2Task::notifyDone()
+{
+	manager_->onDeviceTuner_->tuneDip2(request_, frames_, videoOut1, videoOut2);
+	Task::notifyDone();
+}
+
 void Dip2Task::run()
 {
 	allocateOutputBuffers();

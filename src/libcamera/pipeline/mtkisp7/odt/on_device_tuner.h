@@ -24,6 +24,7 @@ struct CaptureFrames;
 struct MeFrames;
 struct TrFrames;
 struct Dip1Frames;
+struct Dip2Frames;
 
 class OnDeviceTuner {
 public:
@@ -43,7 +44,9 @@ public:
     void tuneMe(Request *request, MeFrames &frames);
     void tuneTr(Request *request, TrFrames &frames);
     void tuneDip1(Request *request, Dip1Frames &frames);
-
+    void tuneDip2(
+            Request *request, Dip2Frames &frames,
+            FrameBuffer *videoOut1, FrameBuffer *videoOut2);
 private:
     struct NamedFrame {
         Dump::Id id;
@@ -55,6 +58,8 @@ private:
     void batchImport(const std::vector<Dump> &dumps);
     void batchPrepareReimport(
             const std::vector<ImagiqAdapter::ExportResult> &exportResults);
+    InfoFrame getFrameInfoFromRequest(
+            Request *request, FrameBuffer *buffer);
     int prepareNewExportDirectory();
     bool shouldExportDumpNow(uint32_t requestNumber);
     bool shouldImportDumpNow(uint32_t requestNumber);
