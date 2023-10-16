@@ -25,6 +25,7 @@ struct MeFrames;
 struct TrFrames;
 struct Dip1Frames;
 struct Dip2Frames;
+struct XtrFrames;
 
 class OnDeviceTuner {
 public:
@@ -47,6 +48,10 @@ public:
     void tuneDip2(
             Request *request, Dip2Frames &frames,
             FrameBuffer *videoOut1, FrameBuffer *videoOut2);
+
+    // LPNR
+    void tuneXtr(Request *request, XtrFrames &frames);
+
 private:
     struct NamedFrame {
         Dump::Id id;

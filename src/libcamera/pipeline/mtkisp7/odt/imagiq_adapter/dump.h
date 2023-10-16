@@ -257,6 +257,13 @@ struct Dump {
         WPE_P2_PQDIP_MS_F0_IMGI_D1,
         WPE_P2_PQDIP_MS_F0_WROTO,
         WPE_P2_PQDIP_MS_F0_WDMAO,
+
+        // Xtr
+        TR_R2Y_IMGI_T1,
+        TR_R2Y_YUVO_T1,
+        TR_R2Y_YUVO_T2,
+        TR_R2Y_YUVO_T3,
+        TR_R2Y_YUVO_T4,
     };
 
     const static std::array<Dump::Id, 6> kWpeInputImageDumpIds;

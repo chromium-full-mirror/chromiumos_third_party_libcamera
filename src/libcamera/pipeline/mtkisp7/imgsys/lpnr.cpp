@@ -10,6 +10,9 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/formats.h>
 #include <libcamera/request.h>
+#include "libcamera/internal/task_scheduler.h"
+
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "single_device.h"
 
@@ -154,10 +157,12 @@ int LpnrTasksManager::stop()
 	return 0;
 }
 
-LpnrTasksManager::LpnrTasksManager(ImgSysDevice *imgSys, DmaHeap *dmaHeap)
+LpnrTasksManager::LpnrTasksManager(
+		ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt)
 {
 	imgSys_ = imgSys;
 	dmaHeap_ = dmaHeap;
+	onDeviceTuner_ = odt;
 
 	allBufferPools_.emplace_back(&lpnrTun_);
 	allBufferPools_.emplace_back(&lpnrStt_);
@@ -235,6 +240,12 @@ void XTRTask::allocateOutputBuffers()
 
 	/* Statistics */
 	manager_->lpnrStt_.fetch(out.xtrStt);
+}
+
+void XTRTask::notifyDone()
+{
+	manager_->onDeviceTuner_->tuneXtr(request_, frames_);
+	Task::notifyDone();
 }
 
 void XTRTask::run()

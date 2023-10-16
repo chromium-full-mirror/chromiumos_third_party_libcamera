@@ -97,7 +97,7 @@ public:
 			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt, DmaHeap *dmaHeap)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
-		  lpnrManager(imgSysDev, dmaHeap),
+		  lpnrManager(imgSysDev, dmaHeap, odt),
 		  onDeviceTuner_(odt), dmaHeap_(dmaHeap)
 	{
 	}

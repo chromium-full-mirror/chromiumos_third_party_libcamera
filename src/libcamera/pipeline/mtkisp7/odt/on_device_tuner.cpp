@@ -17,6 +17,7 @@
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 
+#include "pipeline/mtkisp7/imgsys/lpnr.h"
 #include "pipeline/mtkisp7/imgsys/mcnr.h"
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
@@ -454,6 +455,21 @@ void OnDeviceTuner::tuneDip2(
         namedFrames.push_back({Dump::Id::WPE_P2_PQDIP_MS_F0_WDMAO, video2});
     }
     tune(request->sequence(), namedFrames);
+}
+
+void OnDeviceTuner::tuneXtr(Request *request, XtrFrames &frames)
+{
+    if (!enabled_) {
+        return;
+    }
+    // Capture: always export dumps!
+    std::vector<NamedFrame> namedFrames{
+            {Dump::Id::TR_R2Y_IMGI_T1, frames.in.p1Raw->get()},
+            {Dump::Id::TR_R2Y_YUVO_T1, frames.out.dipImgi[0]->get()},
+            {Dump::Id::TR_R2Y_YUVO_T2, frames.out.dipImgi[1]->get()},
+            {Dump::Id::TR_R2Y_YUVO_T3, frames.out.dipImgi[2]->get()},
+            {Dump::Id::TR_R2Y_YUVO_T4, frames.out.dipImgi[3]->get()}};
+    tune(request->sequence(), namedFrames, true);
 }
 
 } // namespace libcamera

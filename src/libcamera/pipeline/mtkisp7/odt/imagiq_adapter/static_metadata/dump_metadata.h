@@ -2023,5 +2023,51 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata
             .action=Action::Preview
         }
     },
+    // LPNR: XTR
+    {
+        Dump::Id::TR_R2Y_IMGI_T1,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::TR_R2Y,
+            .moduleId=NSCam::TuningUtils::eModule::kIMGI_T1,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::TR_R2Y_YUVO_T1,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::TR_R2Y,
+            .moduleId=NSCam::TuningUtils::eModule::kYUVO_T1,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::TR_R2Y_YUVO_T2,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::TR_R2Y,
+            .moduleId=NSCam::TuningUtils::eModule::kYUVO_T2,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::TR_R2Y_YUVO_T3,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::TR_R2Y,
+            .moduleId=NSCam::TuningUtils::eModule::kYUVO_T3,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
+    {
+        Dump::Id::TR_R2Y_YUVO_T4,
+        {
+            .featureId=Feature::Capture_lpnr,
+            .stage=Stage::TR_R2Y,
+            .moduleId=NSCam::TuningUtils::eModule::kYUVO_T4,
+            .category=NSCam::TuningUtils::eCategory::kCAPTURE,
+        }
+    },
 };
 } // namespace libcamera

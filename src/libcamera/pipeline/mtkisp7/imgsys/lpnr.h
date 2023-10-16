@@ -11,6 +11,7 @@
 
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/task_scheduler.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "imgsys.h"
 
@@ -48,7 +49,8 @@ struct LPNRFrames {
 
 class LpnrTasksManager {
 public:
-	LpnrTasksManager(ImgSysDevice *imgSys, DmaHeap *dmaHeap);
+	LpnrTasksManager(
+			ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt);
 
 	int configure(const Size &bayerInputSize, const Size &yuvOutputSize);
 
@@ -84,6 +86,7 @@ private:
 
 	ImgSysDevice *imgSys_;
 	DmaHeap *dmaHeap_;
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 class XTRTask : public Task
@@ -93,6 +96,7 @@ public:
 		ImgSysDevice* imgSys, LPNRFrames &lpnr, LpnrTasksManager* manager);
 
 	void run() override;
+	void notifyDone() override;
 
 private:
 	void allocateOutputBuffers();
