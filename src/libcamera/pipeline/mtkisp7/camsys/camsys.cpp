@@ -313,7 +313,7 @@ int CamSysDevice::setExposureGain(uint32_t exposure, uint32_t gain)
 	ControlList ctrl(sensor_->controls());
 	ctrl.set(V4L2_CID_EXPOSURE, (int32_t)exposure);
 	ctrl.set(V4L2_CID_ANALOGUE_GAIN, (int32_t)gain);
-	ctrl.set(V4L2_CID_DIGITAL_GAIN, (int32_t)gain);
+	//ctrl.set(V4L2_CID_DIGITAL_GAIN, (int32_t)gain);
 
 	return sensor_->device()->setControls(&ctrl);
 }

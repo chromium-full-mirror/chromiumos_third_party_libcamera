@@ -270,7 +270,7 @@ void Hal3A::config()
 
 	m_isp_hal_->setSensorMode(NSIspTuning::ESensorMode_Preview);
 
-	mtk_isp_config configInfo; // TODO: fill in _appMeta & _halMeta. sensor_dev & sensor_idx are not filled by mtk's hal as well.
+	mtk_isp_config configInfo = {}; // TODO: fill in _appMeta & _halMeta. sensor_dev & sensor_idx are not filled by mtk's hal as well.
 	if (sensor_idx_ == 0) { // back camera
 		configInfo.tg_width = 4208;
 		configInfo.tg_height = 3120;
@@ -308,7 +308,23 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  int rawMetaFd, unsigned char *rawMetaBuffer,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain)
 {
-	mtk::hal3a::v1_0::mtk_3a_param r_3a_param;
+	mtk::hal3a::mtk_camsys_info camSysInfo = {};
+	if (sensor_idx_ == 0) { // back camera
+		camSysInfo.size_after_frz.width = 4208;
+		camSysInfo.size_after_frz.height = 3120;
+	} else { // front camera
+		camSysInfo.size_after_frz.width = 3264;
+		camSysInfo.size_after_frz.height = 2448;
+	}
+	camSysInfo.pixel_mode = 1;
+
+	mtk::hal3a::v1_0::mtk_hal3a_setting setting = {};
+	setting.raw_meta = &r3AResult_.raw_meta;
+
+	if (internalRequestId == 0)
+		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
+
+	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = {};
 
 	// TODO: get parameters for SetParam properly
 	r_3a_param.request_id = internalRequestId;
@@ -530,7 +546,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 
 	m_hal3a_->SetParam(r_3a_param);
 
-	mtk::hal3a::v1_0::mtk_3a_request r_3a_request;
+	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
 	if (statistics0->planes().empty()) {
 		LOG(MtkISP7, Fatal) << "Empty statistics0";
 		return;
@@ -553,7 +569,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	m_hal3a_->GetResult(r3AResult_);
 	*rawMeta = r3AResult_.raw_meta;
 
-	mtk::hal3a::v1_0::mtk_hal3a_metaset metaSet; // TODO: skip_exposure_setting, appMeta, halMeta
+	mtk::hal3a::v1_0::mtk_hal3a_metaset metaSet = {}; // TODO: skip_exposure_setting, appMeta, halMeta
 	std::vector<mtk::hal3a::v1_0::mtk_hal3a_metaset *> requestQ;
 	requestQ.push_back(&metaSet);
 
@@ -561,7 +577,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	ctrl.fgForce = false; // TODO: check if it's a dummy frame.
 	ctrl.fgDue = false; // TODO: check if 3a finishes calculation on time.
 
-	mtk::isphal::IspTuningBufferP1 tuning_data;
+	mtk::isphal::IspTuningBufferP1 tuning_data = {};
 
 	mtk::isphal::Buffer regBuf1((intptr_t)rawMetaBuffer, rawMetaFd, 0, kRawMetaSize);
 	tuning_data.p1_meta_buffer = regBuf1;
