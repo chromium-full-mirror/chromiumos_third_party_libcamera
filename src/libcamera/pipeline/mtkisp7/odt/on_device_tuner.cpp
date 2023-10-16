@@ -15,6 +15,8 @@
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 
+#include "pipeline/mtkisp7/imgsys/mcnr.h"
+
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
 
@@ -256,5 +258,42 @@ void OnDeviceTuner::tuneImgsysMetadata(
     }
 }
 
+void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
+{
+    uint32_t requestNumber = request->sequence();
+    if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+                      !shouldImportDumpNow(requestNumber))) {
+        return;
+    }
+    tune(
+        request->sequence(), {
+        {Dump::Id::LTR_ME_L1_IMGI_T1, frames.in.meL0->get()},
+        {Dump::Id::LTR_ME_L1_YUVO_T2, frames.out.meL1->get()},
+        {Dump::Id::ME_3PASS_MODE0_MEI_L0, frames.in.meL0->get()},
+        {Dump::Id::ME_3PASS_MODE0_MEI_L0_P, frames.in.prevMeL0->get()},
+        {Dump::Id::ME_3PASS_MODE0_MEI_L1, frames.out.meL1->get()},
+        {Dump::Id::ME_3PASS_MODE0_MEI_L1_P, frames.in.prevMeL1->get()},
+        {Dump::Id::ME_3PASS_MODE0_MV_L1_M0_P, frames.in.prevMeAMv1->get()},
+        {Dump::Id::ME_3PASS_MODE0_MV_L0_M1_P, frames.in.prevMeBMv0->get()},
+        {Dump::Id::ME_3PASS_MODE0_CONF_MAP, frames.out.meConf0->get()},
+        {Dump::Id::ME_3PASS_MODE0_MV_L0, frames.out.meAMv0->get()},
+        {Dump::Id::ME_3PASS_MODE0_MV_L1, frames.out.meAMv1->get()},
+        {Dump::Id::ME_3PASS_MODE0_FMB_L0, frames.out.meAFmb0->get()},
+        {Dump::Id::ME_3PASS_MODE0_FMB_L1, frames.out.meAFmb1->get()},
+        {Dump::Id::ME_3PASS_MODE0_FST, frames.out.meAFst->get()},
+        {Dump::Id::ME_3PASS_MODE1_MEI_L0, frames.in.meL0->get()},
+        {Dump::Id::ME_3PASS_MODE1_MEI_L0_P, frames.in.prevMeL0->get()},
+        {Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.out.meL1->get()},
+        {Dump::Id::ME_3PASS_MODE1_MV_L0_M0, frames.out.meAMv0->get()}, // confirmed
+        {Dump::Id::ME_3PASS_MODE1_MV_L0, frames.out.meBMv1->get()}, // ??
+        {Dump::Id::ME_3PASS_MODE1_MIL, frames.in.meMil->get()},
+        {Dump::Id::ME_3PASS_MODE1_MMAP, frames.out.meMmap[0]->get()},
+        {Dump::Id::ME_3PASS_MODE1_CONF_MAP, frames.out.meConf0->get()},
+        {Dump::Id::ME_3PASS_MODE1_FMB_L1_M0, frames.out.meBFmb1->get()}, // ?
+        {Dump::Id::ME_3PASS_MODE1_FMB_L0, frames.out.meBFmb0->get()}, // ?
+        {Dump::Id::ME_3PASS_MODE1_LMI, frames.out.meBLmi->get()},
+        {Dump::Id::ME_3PASS_MODE1_FST, frames.out.meBFst->get()},
+        });
+}
 
 } // namespace libcamera

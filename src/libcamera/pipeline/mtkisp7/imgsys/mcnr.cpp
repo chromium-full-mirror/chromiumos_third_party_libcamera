@@ -15,6 +15,8 @@
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
 
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
 #include "single_device.h"
 
 namespace libcamera {
@@ -156,10 +158,12 @@ static TuningBuffers tuningBuffers;
 /* todo: hide the NSCam::NSImgStream namespace in the single device interface. */
 using namespace NSCam::NSImgStream;
 
-McnrTasksManager::McnrTasksManager(ImgSysDevice *imgSys, DmaHeap *dmaHeap)
+McnrTasksManager::McnrTasksManager(
+		ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt)
 {
 	imgSys_ = imgSys;
 	dmaHeap_ = dmaHeap;
+	onDeviceTuner_ = odt;
 
 	allBufferPools_.emplace_back(&fwmmMil_);
 	allBufferPools_.emplace_back(&meIn_);
@@ -662,6 +666,7 @@ void MeTask::notifyDone()
 	if (syncLtrMeA_)
 		imgSys_->syncPool().put(syncLtrMeA_);
 
+	manager_->onDeviceTuner_->tuneMe(request_, frames_);
 	Task::notifyDone();
 }
 

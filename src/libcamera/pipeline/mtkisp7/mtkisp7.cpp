@@ -96,7 +96,7 @@ public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
 			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt, DmaHeap *dmaHeap)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
-		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap),
+		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap),
 		  onDeviceTuner_(odt), dmaHeap_(dmaHeap)
 	{

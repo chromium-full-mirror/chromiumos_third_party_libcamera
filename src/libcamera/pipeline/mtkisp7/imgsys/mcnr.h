@@ -8,6 +8,7 @@
 
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/task_scheduler.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "imgsys.h"
 
@@ -158,7 +159,8 @@ struct MCNRFrames {
 
 class McnrTasksManager {
 public:
-	McnrTasksManager(ImgSysDevice *imgSys, DmaHeap *dmaHeap);
+	McnrTasksManager(
+			ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt);
 
 	int configure(const Size yuvInputSize, const Size videoOut1Size,
 		      const Size videoOut2Size);
@@ -234,6 +236,7 @@ private:
 
 	ImgSysDevice *imgSys_;
 	DmaHeap *dmaHeap_;
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 class MeTask : public Task
