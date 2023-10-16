@@ -268,6 +268,7 @@ public:
 	       ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
+	void notifyDone() override;
 
 
 private:

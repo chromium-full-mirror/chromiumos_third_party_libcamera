@@ -14,6 +14,7 @@
 #include "libcamera/internal/dma_heaps.h"
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
+#include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
@@ -778,6 +779,12 @@ void TrTask::allocateOutputBuffers()
 
 	/* Statstistic */
 	manager_->trawStt_.fetch(out.trawStt);
+}
+
+void TrTask::notifyDone()
+{
+	manager_->onDeviceTuner_->tuneTr(request_, frames_);
+	Task::notifyDone();
 }
 
 void TrTask::run()

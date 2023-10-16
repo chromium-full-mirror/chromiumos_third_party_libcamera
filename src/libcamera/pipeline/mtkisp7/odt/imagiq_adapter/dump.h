@@ -104,6 +104,24 @@ struct Dump {
         ME_3PASS_MODE1_FMB_L0,
         ME_3PASS_MODE1_LMI,
         ME_3PASS_MODE1_FST,
+
+        // TR: DSMAP
+        TR_DSMAP_MMAP,
+        TR_DSMAP_MMAP_DS0,
+        TR_DSMAP_MMAP_DS1,
+        TR_DSMAP_MMAP_DS2,
+        // TR: Y2Y
+        TR_Y2Y_F1_IMGI_T1,
+        TR_Y2Y_F1_YUVO_T2,
+        TR_Y2Y_F1_YUVO_T3,
+        TR_Y2Y_F1_YUVO_T4,
+        TR_Y2Y_F4_IMGI_T1,
+        TR_Y2Y_F4_YUVO_T2,
+        TR_Y2Y_F4_YUVO_T3,
+        TR_Y2Y_F4_YUVO_T4,
+        // TR: Conf
+        TR_Y2Y_Conf_IMGI_T1,
+        TR_Y2Y_Conf_YUVO_T5,
     };
 
     Id id;

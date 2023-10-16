@@ -296,4 +296,29 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
         });
 }
 
+
+void OnDeviceTuner::tuneTr(Request *request, TrFrames &frames)
+{
+    uint32_t requestNumber = request->sequence();
+    if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+                      !shouldImportDumpNow(requestNumber))) {
+        return;
+    }
+   tune(
+        request->sequence(), {
+        {Dump::Id::TR_DSMAP_MMAP, frames.in.meMmap[0]->get()},
+        {Dump::Id::TR_DSMAP_MMAP_DS0, frames.in.meMmap[1]->get()},
+        {Dump::Id::TR_DSMAP_MMAP_DS1, frames.in.meMmap[2]->get()},
+        {Dump::Id::TR_DSMAP_MMAP_DS2, frames.in.meMmap[3]->get()},
+        {Dump::Id::TR_Y2Y_F1_IMGI_T1, frames.in.p1F1->get()},
+        {Dump::Id::TR_Y2Y_F1_YUVO_T2, frames.out.dipImgi[2]->get()},
+        {Dump::Id::TR_Y2Y_F1_YUVO_T3, frames.out.dipImgi[3]->get()},
+        {Dump::Id::TR_Y2Y_F1_YUVO_T4, frames.out.dipImgi[4]->get()},
+        {Dump::Id::TR_Y2Y_F4_IMGI_T1, frames.out.dipImgi[4]->get()},
+        {Dump::Id::TR_Y2Y_F4_YUVO_T2, frames.out.dipImgi[5]->get()},
+        {Dump::Id::TR_Y2Y_F4_YUVO_T3, frames.out.dipImgi[6]->get()},
+        {Dump::Id::TR_Y2Y_Conf_IMGI_T1, frames.in.meConf0->get()},
+        {Dump::Id::TR_Y2Y_Conf_YUVO_T5, frames.out.meConf5->get()}});
+}
+
 } // namespace libcamera
