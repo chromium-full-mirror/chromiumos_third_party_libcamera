@@ -115,6 +115,7 @@ public:
 		 ImgSysDevice* imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager);
 
 	void run() override;
+	void notifyDone() override;
 
 private:
 	void allocateOutputBuffers();

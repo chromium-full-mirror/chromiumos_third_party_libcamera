@@ -472,4 +472,31 @@ void OnDeviceTuner::tuneXtr(Request *request, XtrFrames &frames)
     tune(request->sequence(), namedFrames, true);
 }
 
+void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
+        std::vector<SharedMailBox<InfoFrame>> reci,
+        std::vector<SharedMailBox<InfoFrame>> dipImg3o,
+        FrameBuffer *stillOutput)
+{
+    if (!enabled_) {
+        return;
+    }
+    // Capture: always export dumps!
+    InfoFrame stillFrame = getFrameInfoFromRequest(request, stillOutput);
+    std::vector<NamedFrame> namedFrames{
+            {Dump::Id::P2_MS_F3_IMGI_D1_LPNR, frames.in.dipImgi[3]->get()},
+            {Dump::Id::P2_MS_F3_IMG3O_LPNR, dipImg3o[3]->get()},
+            {Dump::Id::P2_MS_F2_IMGI_D1_LPNR, frames.in.dipImgi[2]->get()},
+            {Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[2]->get()},
+            {Dump::Id::P2_MS_F2_IMG3O_LPNR, dipImg3o[2]->get()},
+            {Dump::Id::P2_MS_F1_IMGI_D1_LPNR, frames.in.dipImgi[1]->get()},
+            {Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[1]->get()},
+            {Dump::Id::P2_MS_F1_IMG3O_LPNR, dipImg3o[1]->get()},
+            {Dump::Id::P2_MS_F0_PQ_DIP_IMGI_D1, frames.in.dipImgi[0]->get()},
+            {Dump::Id::P2_MS_F0_PQ_DIP_RECI_D1, reci[0]->get()},
+            {Dump::Id::P2_MS_F0_PQ_DIP_IMG3O, dipImg3o[0]->get()},
+            {Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, stillFrame}};
+    tune(request->sequence(), namedFrames, true);
+}
+
+
 } // namespace libcamera

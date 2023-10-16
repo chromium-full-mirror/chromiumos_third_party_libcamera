@@ -264,6 +264,21 @@ struct Dump {
         TR_R2Y_YUVO_T2,
         TR_R2Y_YUVO_T3,
         TR_R2Y_YUVO_T4,
+
+        // LPNR Dip
+        P2_MS_F3_IMGI_D1_LPNR,
+        P2_MS_F3_IMG3O_LPNR,
+        P2_MS_F2_IMGI_D1_LPNR,
+        P2_MS_F2_RECI_D1_LPNR,
+        P2_MS_F2_IMG3O_LPNR,
+        P2_MS_F1_IMGI_D1_LPNR,
+        P2_MS_F1_RECI_D1_LPNR,
+        P2_MS_F1_IMG3O_LPNR,
+        P2_MS_F0_PQ_DIP_WROTO,
+        P2_MS_F0_PQ_DIP_WDMAO,
+        P2_MS_F0_PQ_DIP_IMGI_D1,
+        P2_MS_F0_PQ_DIP_RECI_D1,
+        P2_MS_F0_PQ_DIP_IMG3O,
     };
 
     const static std::array<Dump::Id, 6> kWpeInputImageDumpIds;

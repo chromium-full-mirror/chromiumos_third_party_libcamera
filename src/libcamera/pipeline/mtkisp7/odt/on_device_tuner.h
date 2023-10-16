@@ -26,6 +26,7 @@ struct TrFrames;
 struct Dip1Frames;
 struct Dip2Frames;
 struct XtrFrames;
+struct LpnrDipFrames;
 
 class OnDeviceTuner {
 public:
@@ -51,6 +52,10 @@ public:
 
     // LPNR
     void tuneXtr(Request *request, XtrFrames &frames);
+    void tuneLpnrDip(Request *request, LpnrDipFrames &frames,
+            std::vector<SharedMailBox<InfoFrame>> reci,
+            std::vector<SharedMailBox<InfoFrame>> dipImg3o,
+            FrameBuffer *stillOutput);
 
 private:
     struct NamedFrame {

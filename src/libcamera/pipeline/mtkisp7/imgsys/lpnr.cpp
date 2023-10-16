@@ -328,6 +328,13 @@ void LpnrDipTask::allocateOutputBuffers()
 		manager_->lpnr_[i].fetch(dipImg3o[i]);
 }
 
+void LpnrDipTask::notifyDone()
+{
+	manager_->onDeviceTuner_->tuneLpnrDip(
+			request_, frames_, reci, dipImg3o, stillOutput_);
+	Task::notifyDone();
+}
+
 void LpnrDipTask::run()
 {
 	allocateOutputBuffers();
