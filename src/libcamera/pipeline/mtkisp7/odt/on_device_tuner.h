@@ -23,6 +23,7 @@ namespace libcamera {
 struct CaptureFrames;
 struct MeFrames;
 struct TrFrames;
+struct Dip1Frames;
 
 class OnDeviceTuner {
 public:
@@ -41,6 +42,7 @@ public:
     // MCNR
     void tuneMe(Request *request, MeFrames &frames);
     void tuneTr(Request *request, TrFrames &frames);
+    void tuneDip1(Request *request, Dip1Frames &frames);
 
 private:
     struct NamedFrame {

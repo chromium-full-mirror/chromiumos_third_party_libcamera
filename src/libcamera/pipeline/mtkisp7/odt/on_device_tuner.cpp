@@ -321,4 +321,82 @@ void OnDeviceTuner::tuneTr(Request *request, TrFrames &frames)
         {Dump::Id::TR_Y2Y_Conf_YUVO_T5, frames.out.meConf5->get()}});
 }
 
+void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
+{
+    uint32_t requestNumber = request->sequence();
+    if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+                      !shouldImportDumpNow(requestNumber))) {
+        return;
+    }
+    std::vector<NamedFrame> namedFrames{
+        {Dump::Id::WPE_LTR_Y2Y_F1_WPEI, frames.in.prevImg4oF1->get()},
+        {Dump::Id::WPE_LTR_Y2Y_F1_WPE_MAP, frames.out.meMmap[0]->get()},
+        {Dump::Id::WPE_LTR_Y2Y_F1_WPEO, frames.out.dipVipi[1]->get()},
+        {Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T2, frames.out.dipVipi[2]->get()},
+        {Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T3, frames.out.dipVipi[3]->get()},
+        {Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T4, frames.out.dipVipi[4]->get()},
+        {Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T5, frames.out.dipVbi[2]->get()},
+        {Dump::Id::LTR_VBI_IMGI_T1, frames.out.dipVbi[2]->get()},
+        {Dump::Id::LTR_VBI_YUVO_T2, frames.out.dipVbi[3]->get()},
+        {Dump::Id::LTR_VBI_YUVO_T3, frames.out.dipVbi[4]->get()},
+        {Dump::Id::LTR_VBI_YUVO_T4, frames.out.dipVbi[5]->get()},
+        {Dump::Id::LTR_Y2Y_F4_IMGI_T1, frames.out.dipVipi[4]->get()},
+        {Dump::Id::LTR_Y2Y_F4_YUVO_T2, frames.out.dipVipi[5]->get()},
+        {Dump::Id::LTR_Y2Y_F4_YUVO_T3, frames.out.dipVipi[6]->get()},
+        {Dump::Id::P2_MS_F1_IMG4O, frames.out.img4oF1->get()},
+        {Dump::Id::P2_MS_F_SMALL_RECI_D1, frames.out.dipImgi[6]->get()}};
+
+    // Stage WPE_WghtMap_WPEI_F0 until WPE_WghtMap_WPEI_F5
+    for (int level = 0; level <= 5; level++) {
+        namedFrames.push_back({Dump::kWpeInputImageDumpIds[level],
+                frames.in.prevDipTnrwo[level]->get()});
+        namedFrames.push_back({Dump::kWpeWeightMapDumpIds[level],
+                frames.out.wpeVeci[level]->get()});
+        namedFrames.push_back({Dump::kWpeOutputImageDumpIds[level],
+                frames.out.dipTnrwi[level]->get()});
+    }
+
+    // Stage P2_MS_F1 until P2_MS_F4 + P2_MS_F_SMALL (lv5) + P2_IDI (lv6)
+    for (int i = 0; i < 6; i++) {
+        int level = i + 1;
+        namedFrames.push_back({Dump::kDip1ImgiDumpIds[i],
+                frames.out.dipImgi[level]->get()});
+        namedFrames.push_back({Dump::kDip1VipiDumpIds[i],
+                frames.out.dipVipi[level]->get()});
+        namedFrames.push_back({Dump::kDip1TnrsiDumpIds[i],
+                frames.out.dipTnrso->get()});
+        namedFrames.push_back({Dump::kDip1TnrsoDumpIds[i],
+                frames.out.dipTnrso->get()});
+        namedFrames.push_back({Dump::kDip1Img3oDumpIds[i],
+                frames.out.img3o[level]->get()});
+    }
+
+    // Stage P2_MS_F1 until P2_MS_F4 + P2_MS_F_SMALL (lv5)
+    for (int i = 0; i < 5; i++) {
+        int level = i + 1;
+        namedFrames.push_back({Dump::kDip1TnrwiDumpIds[i],
+                frames.out.dipTnrwi[level]->get()});
+        namedFrames.push_back({Dump::kDip1TnrciDumpIds[i],
+                frames.out.dipTnrci[level]->get()});
+        namedFrames.push_back({Dump::kDip1TnrliDumpIds[i],
+                frames.out.tnrlfdi->get()});
+        namedFrames.push_back({Dump::kDip1TnrvbiDumpIds[i],
+                frames.out.dipVbi[level]->get()});
+        namedFrames.push_back({Dump::kDip1TnrmoDumpIds[i],
+                frames.out.dipTnrmo[level]->get()});
+        namedFrames.push_back({Dump::kDip1TnrwoDumpIds[i],
+                frames.out.dipTnrwo[level]->get()});
+    }
+
+    // Stage P2_MS_F1 until P2_MS_F4
+    for (int i = 0; i < 4; i ++) {
+        int level = i + 1;
+        namedFrames.push_back({Dump::kDip1ReciDumpIds[i],
+                frames.out.reci[level]->get()});
+        namedFrames.push_back({Dump::kDip1TnrmiDumpIds[i],
+                frames.out.dipTnrmi[level]->get()});
+    }
+    tune(request->sequence(), namedFrames);
+}
+
 } // namespace libcamera

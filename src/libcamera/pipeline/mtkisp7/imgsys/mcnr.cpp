@@ -928,6 +928,8 @@ void Dip1Task::notifyDone()
 	if (syncWpeDip_)
 		imgSys_->syncPool().put(syncWpeDip_);
 
+	manager_->onDeviceTuner_->tuneDip1(request_, frames_);
+
 	Task::notifyDone();
 }
 
