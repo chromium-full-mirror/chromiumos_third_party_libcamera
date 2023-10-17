@@ -29,6 +29,7 @@
 #include "camsys/capture.h"
 #include "hal3a/aaa.h"
 #include "hal3a/hal_3a.h"
+#include "halisp/hal_isp.h"
 #include "imgsys/imgsys.h"
 #include "imgsys/lpnr.h"
 #include "imgsys/mcnr.h"
@@ -160,6 +161,7 @@ public:
 	DmaHeap *dmaHeap_;
 
 	Hal3A *hal3A_;
+	HalIsp *halIsp_;
 
 	uint32_t requestCount_ = 0;
 };
@@ -208,6 +210,7 @@ public:
 	CamSysDevice camSysDev_[2];
 
 	std::unique_ptr<Hal3A> hal3A_[2];
+	HalIsp halIsp_[2];
 
 	MediaDevice *imgSysMedia_;
 	ImgSysDevice imgSysDev_;
@@ -504,8 +507,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
-	hal3A_[0] = std::make_unique<Hal3A>(0);
-	hal3A_[1] = std::make_unique<Hal3A>(1);
+	hal3A_[0] = std::make_unique<Hal3A>(0, &halIsp_[0]);
+	hal3A_[1] = std::make_unique<Hal3A>(1, &halIsp_[1]);
+
+	halIsp_[0].init(0, 1);
+	halIsp_[1].init(1, 2);
 
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i))

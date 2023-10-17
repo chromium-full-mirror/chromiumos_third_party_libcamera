@@ -448,121 +448,121 @@ typedef struct ALL_ISP_INTERVAL_STRUCTURE {
         std::string out = "";
 
         out += "Tonegain_Env size(" + std::to_string(Tonegain_Env.size()) + ") [";
-        for (int i = 0; i < Tonegain_Env.size(); ++i) {
+        for (int i = 0; i < (int)Tonegain_Env.size(); ++i) {
             out += std::to_string(Tonegain_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Dr_Env size(" + std::to_string(Dr_Env.size()) + ") [";
-        for (int i = 0; i < Dr_Env.size(); ++i) {
+        for (int i = 0; i < (int)Dr_Env.size(); ++i) {
             out += std::to_string(Dr_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Tripod_Env size(" + std::to_string(Tripod_Env.size()) + ") [";
-        for (int i = 0; i < Tripod_Env.size(); ++i) {
+        for (int i = 0; i < (int)Tripod_Env.size(); ++i) {
             out += std::to_string(Tripod_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Stage_Env size(" + std::to_string(Stage_Env.size()) + ") [";
-        for (int i = 0; i < Stage_Env.size(); ++i) {
+        for (int i = 0; i < (int)Stage_Env.size(); ++i) {
             out += std::to_string(Stage_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Facedetection_Env size(" + std::to_string(Facedetection_Env.size()) + ") [";
-        for (int i = 0; i < Facedetection_Env.size(); ++i) {
+        for (int i = 0; i < (int)Facedetection_Env.size(); ++i) {
             out += std::to_string(Facedetection_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Ratio_Env size(" + std::to_string(Ratio_Env.size()) + ") [";
-        for (int i = 0; i < Ratio_Env.size(); ++i) {
+        for (int i = 0; i < (int)Ratio_Env.size(); ++i) {
             out += std::to_string(Ratio_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Lv_Env size(" + std::to_string(Lv_Env.size()) + ") [";
-        for (int i = 0; i < Lv_Env.size(); ++i) {
+        for (int i = 0; i < (int)Lv_Env.size(); ++i) {
             out += std::to_string(Lv_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Ct_Env size(" + std::to_string(Ct_Env.size()) + ") [";
-        for (int i = 0; i < Ct_Env.size(); ++i) {
+        for (int i = 0; i < (int)Ct_Env.size(); ++i) {
             out += std::to_string(Ct_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Project_Env size(" + std::to_string(Project_Env.size()) + ") [";
-        for (int i = 0; i < Project_Env.size(); ++i) {
+        for (int i = 0; i < (int)Project_Env.size(); ++i) {
             out += std::to_string(Project_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Action_Env size(" + std::to_string(Action_Env.size()) + ") [";
-        for (int i = 0; i < Action_Env.size(); ++i) {
+        for (int i = 0; i < (int)Action_Env.size(); ++i) {
             out += std::to_string(Action_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Standard_Env size(" + std::to_string(Standard_Env.size()) + ") [";
-        for (int i = 0; i < Standard_Env.size(); ++i) {
+        for (int i = 0; i < (int)Standard_Env.size(); ++i) {
             out += std::to_string(Standard_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Sensormode_Env size(" + std::to_string(Sensormode_Env.size()) + ") [";
-        for (int i = 0; i < Sensormode_Env.size(); ++i) {
+        for (int i = 0; i < (int)Sensormode_Env.size(); ++i) {
             out += std::to_string(Sensormode_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Flash_Env size(" + std::to_string(Flash_Env.size()) + ") [";
-        for (int i = 0; i < Flash_Env.size(); ++i) {
+        for (int i = 0; i < (int)Flash_Env.size(); ++i) {
             out += std::to_string(Flash_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Yuvsize_Env size(" + std::to_string(Yuvsize_Env.size()) + ") [";
-        for (int i = 0; i < Yuvsize_Env.size(); ++i) {
+        for (int i = 0; i < (int)Yuvsize_Env.size(); ++i) {
             out += std::to_string(Yuvsize_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Zoom_Env size(" + std::to_string(Zoom_Env.size()) + ") [";
-        for (int i = 0; i < Zoom_Env.size(); ++i) {
+        for (int i = 0; i < (int)Zoom_Env.size(); ++i) {
             out += std::to_string(Zoom_Env[i]) + " ";
         }
         out += "] ";
 
         out += "App_Env size(" + std::to_string(App_Env.size()) + ") [";
-        for (int i = 0; i < App_Env.size(); ++i) {
+        for (int i = 0; i < (int)App_Env.size(); ++i) {
             out += std::to_string(App_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Sensorfeature_Env size(" + std::to_string(Sensorfeature_Env.size()) + ") [";
-        for (int i = 0; i < Sensorfeature_Env.size(); ++i) {
+        for (int i = 0; i < (int)Sensorfeature_Env.size(); ++i) {
             out += std::to_string(Sensorfeature_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Customfeature_Env size(" + std::to_string(Customfeature_Env.size()) + ") [";
-        for (int i = 0; i < Customfeature_Env.size(); ++i) {
+        for (int i = 0; i < (int)Customfeature_Env.size(); ++i) {
             out += std::to_string(Customfeature_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Feature_Env size(" + std::to_string(Feature_Env.size()) + ") [";
-        for (int i = 0; i < Feature_Env.size(); ++i) {
+        for (int i = 0; i < (int)Feature_Env.size(); ++i) {
             out += std::to_string(Feature_Env[i]) + " ";
         }
         out += "] ";
 
         out += "Custom_Env size(" + std::to_string(Custom_Env.size()) + ") [";
-        for (int i = 0; i < Custom_Env.size(); ++i) {
+        for (int i = 0; i < (int)Custom_Env.size(); ++i) {
             out += std::to_string(Custom_Env[i]) + " ";
         }
         out += "] ";
@@ -573,9 +573,9 @@ typedef struct ALL_ISP_INTERVAL_STRUCTURE {
     std::string to_string_for_iso() {
         std::string out = "";
 
-        for (int i = 0; i < Iso_Env.size(); i++) {
+        for (int i = 0; i < (int)Iso_Env.size(); i++) {
             out += "Iso_Env[" + std::to_string(i) + "] size(" + std::to_string(Iso_Env[i].size()) + ") [";
-            for (int j = 0; j < Iso_Env[i].size(); j++)
+            for (int j = 0; j < (int)Iso_Env[i].size(); j++)
                 out += std::to_string(Iso_Env[i][j]) + " ";
 
             out += "] ";
@@ -604,7 +604,7 @@ typedef struct ALL_ISP_INTERVAL_STRUCTURE {
         expand_interval.push_back(Ct_Env.size());
 
         uint64_t max_iso_length = 0;
-        for (int i = 0; i < Iso_Env.size(); i++) {
+        for (int i = 0; i < (int)Iso_Env.size(); i++) {
             if (Iso_Env[i].size() > max_iso_length)
                 max_iso_length = Iso_Env[i].size();
         }

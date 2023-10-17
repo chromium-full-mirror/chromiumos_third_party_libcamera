@@ -18,9 +18,11 @@ namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-Hal3A::Hal3A(const uint32_t sensor_idx)
+Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp)
 	: sensor_idx_(sensor_idx)
 {
+	ASSERT(halIsp);
+	halIsp_ = halIsp;
 }
 
 void Hal3A::start()
@@ -56,7 +58,6 @@ void Hal3A::init()
 	NvBufUtil::initSensorInfo(sensor_idx_, _sensorIdxInfo);
 
 	m_hal3a_ = mtk::hal3a::IHal3A::GetInstance(sensor_idx_);
-	m_isp_hal_ = mtk::ispcf::IHalISPAdapter::createInstance(sensor_idx_);
 	mtk::hal3a::v1_0::mtk_3a_init init = {};
 
 	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetSensorStaticInfo,
@@ -267,25 +268,6 @@ void Hal3A::config()
 	m_hal3a_->Config(config);
 
 	m_hal3a_->GetResult(r3AResult_);
-
-	m_isp_hal_->setSensorMode(NSIspTuning::ESensorMode_Preview);
-
-	mtk_isp_config configInfo = {}; // TODO: fill in _appMeta & _halMeta. sensor_dev & sensor_idx are not filled by mtk's hal as well.
-	if (sensor_idx_ == 0) { // back camera
-		configInfo.tg_width = 4208;
-		configInfo.tg_height = 3120;
-		configInfo.sub_sample_count = 1;
-		configInfo.direct_yuv_path = 0;
-		configInfo.yuv_after_rrz = 0;
-	} else { // front camera
-		configInfo.tg_width = 3264;
-		configInfo.tg_height = 2448;
-		configInfo.sub_sample_count = 1;
-		configInfo.direct_yuv_path = 0;
-		configInfo.yuv_after_rrz = 0;
-	}
-
-	m_isp_hal_->config4Camsys(configInfo);
 }
 
 void Hal3A::startInternal()
@@ -347,19 +329,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	m_hal3a_->GetResult(r3AResult_);
 	*rawMeta = r3AResult_.raw_meta;
 
-	mtk::hal3a::v1_0::mtk_hal3a_metaset metaSet = {}; // TODO: skip_exposure_setting, appMeta, halMeta
-	std::vector<mtk::hal3a::v1_0::mtk_hal3a_metaset *> requestQ;
-	requestQ.push_back(&metaSet);
-
-	mtk::isphal::IspTuningCamsysControl ctrl = {};
-	ctrl.fgForce = false; // TODO: check if it's a dummy frame.
-	ctrl.fgDue = false; // TODO: check if 3a finishes calculation on time.
-
-	mtk::isphal::IspTuningBufferP1 tuning_data = {};
-
-	mtk::isphal::Buffer regBuf1((intptr_t)rawMetaBuffer, rawMetaFd, 0, kRawMetaSize);
-	tuning_data.p1_meta_buffer = regBuf1;
-	m_isp_hal_->getCamSysMetaTuning(internalRequestId, internalRequestId, requestQ, ctrl, tuning_data);
+	halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
+				     rawMetaFd, (intptr_t)rawMetaBuffer, 0, kRawMetaSize);
 
 	getExposureAndGain(exposureAndGain);
 }

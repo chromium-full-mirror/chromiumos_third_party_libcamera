@@ -6,10 +6,10 @@
 
 #pragma once
 
+#include "../halisp/hal_isp.h"
 #include "libcamera/framebuffer.h"
 #include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
-#include "mtkcam-interfaces/include/mtkcam-interfaces/isphal/IHalISPAdapter.h"
 
 namespace libcamera {
 
@@ -18,7 +18,7 @@ class Hal3A
 public:
 	static const uint32_t kRawMetaSize = 113664;
 
-	Hal3A(const uint32_t sensor_idx);
+	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp);
 
 	void start();
 
@@ -47,8 +47,7 @@ private:
 	const uint32_t sensor_idx_;
 
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;
-
-	std::shared_ptr<mtk::ispcf::IHalISPAdapter> m_isp_hal_;
+	HalIsp *halIsp_ = nullptr;
 
 	std::shared_ptr<mtk::hal3a::IPeripheralController> peripheralController_ = nullptr;
 
