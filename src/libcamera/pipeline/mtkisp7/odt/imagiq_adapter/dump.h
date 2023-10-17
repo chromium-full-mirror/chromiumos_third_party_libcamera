@@ -50,6 +50,9 @@ struct Dump {
         P1_YUVO_R2,
         P1_DRZS4NO_R3,
 
+        // P1 driver's registers
+        P1_REG_P1,
+
         // IMGSYS MCNR registers
         LTR_ME_L1_IMGSYS_DRVREG,
         ME_3PASS_MODE0_IMGSYS_DRVREG,

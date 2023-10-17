@@ -8,7 +8,9 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
+#include <optional>
 
 #include <libcamera/stream.h>
 
@@ -20,6 +22,8 @@
 #include "pipeline/mtkisp7/imgsys/lpnr.h"
 #include "pipeline/mtkisp7/imgsys/mcnr.h"
 
+#include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
 
@@ -72,9 +76,11 @@ void OnDeviceTuner::batchPrepareReimport(
     }
 }
 
-void OnDeviceTuner::configure(const std::string &sensorId)
+void OnDeviceTuner::configure(
+        const std::string &sensorId, unsigned int camsysIndex)
 {
     enabled_ = false;
+    camsysDebug_.reset();
 
     if (!std::filesystem::exists(kEnableTuningPath)) {
         return;
@@ -94,6 +100,7 @@ void OnDeviceTuner::configure(const std::string &sensorId)
     importBegin_ = 0;
     importEnd_ = 0;
     sensorId_ = sensorId;
+    camsysDebug_ = CamsysDebug::create(camsysIndex);
 
     // Immediately create one directory for any capture dumps.
     prepareNewExportDirectory();
@@ -236,6 +243,25 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
         {Dump::Id::P1_YUVO_R1, frames.yuvo1->get()},
         {Dump::Id::P1_YUVO_R2, frames.yuvo2->get()},
         {Dump::Id::P1_DRZS4NO_R3, frames.me->get()}});
+
+    // Driver's registers
+    Dump::Config drvRegConfig = dumpConfig_[Dump::Id::P1_REG_P1];
+    if (shouldExportDumpNow(requestNumber) && drvRegConfig.enableExport
+        && camsysDebug_) {
+        Dump registerDump {
+            .id=Dump::Id::P1_REG_P1,
+            .requestNumber=requestNumber,
+            .sensorId=sensorId_,
+            .workPath=currentExportPath_,
+            .frame=std::nullopt,
+            .metadata=kDumpMetadata.at(Dump::Id::P1_REG_P1),
+            .config=drvRegConfig};
+        std::filesystem::path dumpPath =
+                ImagiqAdapter::getDumpFileName(registerDump);
+        camsysDebug_->exportDump(
+                frames.raw->get().buffer()->metadata().sequence,
+                requestNumber, dumpPath);
+    }
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(

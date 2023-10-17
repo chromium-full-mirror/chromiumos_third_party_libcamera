@@ -55,6 +55,8 @@ public:
 	int setTestPattern(controls::draft::TestPatternModeEnum mode);
 	int setExposureGain(uint32_t exposure, uint32_t gain);
 
+	unsigned int getIndex() { return index_; }
+
 	Signal<uint32_t> &frameStart() { return videoHub_->frameStart; }
 	Signal<Request *> requestCompleted;
 

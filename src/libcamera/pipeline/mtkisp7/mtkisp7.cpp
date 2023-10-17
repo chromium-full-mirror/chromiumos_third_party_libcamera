@@ -602,7 +602,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 
 	imgSysDev_->configure();
-	onDeviceTuner_->configure(camSysDev_->cameraId());
+	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still);
 

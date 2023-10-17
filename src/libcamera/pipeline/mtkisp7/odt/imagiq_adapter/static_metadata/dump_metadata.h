@@ -108,6 +108,17 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata
             .action=std::nullopt,
         }
     },
+    // P1 driver's registers
+    {
+        Dump::Id::P1_REG_P1,
+        {
+            .featureId=Feature::Preview,
+            .stage=Stage::P1,
+            .moduleId=NSCam::TuningUtils::eModule::kREG_P1,
+            .category=NSCam::TuningUtils::eCategory::kSTREAMING,
+            .action=std::nullopt,
+        }
+    },
     // IMGSYS metadata: MCNR
     {
         Dump::Id::LTR_ME_L1_IMGSYS_DRVREG,

@@ -10,6 +10,7 @@ libcamera_sources += files([
     'odt/imagiq_adapter/static_metadata/static_strings.cpp',
     'odt/imagiq_adapter/dump.cpp',
     'odt/imagiq_adapter/imagiq_adapter.cpp',
+    'odt/camsys_driver_debug.cpp',
     'odt/on_device_tuner.cpp',
     'mtkisp7.cpp',
 ])

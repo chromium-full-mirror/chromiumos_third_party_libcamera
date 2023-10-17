@@ -9,12 +9,14 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string>
 
 #include <libcamera/request.h>
 
 #include "pipeline/mtkisp7/imgsys/single_device.h"
 
+#include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 
@@ -30,7 +32,7 @@ struct LpnrDipFrames;
 
 class OnDeviceTuner {
 public:
-    void configure(const std::string &sensorId);
+    void configure(const std::string &sensorId, unsigned int camsysIndex);
 
     void loadTuneRequest(int requestNumber);
 
@@ -88,6 +90,8 @@ private:
     std::filesystem::path currentExportPath_;
 
     std::map<Dump::Id, Dump::Config> dumpConfig_;
+
+    std::unique_ptr<CamsysDebug> camsysDebug_;
 };
 
 } // namespace libcamera
