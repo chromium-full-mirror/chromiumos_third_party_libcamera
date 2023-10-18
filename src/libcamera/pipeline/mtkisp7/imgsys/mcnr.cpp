@@ -726,7 +726,6 @@ void MeTask::run()
 	HW_ME_3PASS_MODE_1.input(in.meL0->get(), IMG_PORT_ME_L0_IMG1I, 0, Size{0, 0});
 	HW_ME_3PASS_MODE_1.input(in.prevMeL1->get(), IMG_PORT_ME_L1_IMG0I, 0, Size{0, 0});
 	HW_ME_3PASS_MODE_1.input(out.meL1->get(), IMG_PORT_ME_L1_IMG1I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(out.meAFst->get(), IMG_PORT_ME_FSTO, 0, Size{0, 0});
 	HW_ME_3PASS_MODE_1.input(out.meAFmb0->get(), IMG_PORT_ME_L0_FMBI, 0, Size{0, 0});
 	HW_ME_3PASS_MODE_1.input(out.meAFmb1->get(), IMG_PORT_ME_L1_FMBI, 0, Size{0, 0});
 	HW_ME_3PASS_MODE_1.input(out.meAMv0->get(), IMG_PORT_ME_L0_RMVI, 0, Size{0, 0});
