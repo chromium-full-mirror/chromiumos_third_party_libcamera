@@ -798,11 +798,18 @@ std::string V4L2VideoDevice::logPrefix() const
 
 /**
  * \brief Retrieve the image format set on the V4L2 video device
+ * \param[in] useCache If a cached image format exist, use it directly without
+ * querying the device.
  * \param[out] format The image format applied on the video device
  * \return 0 on success or a negative error code otherwise
  */
-int V4L2VideoDevice::getFormat(V4L2DeviceFormat *format)
+int V4L2VideoDevice::getFormat(V4L2DeviceFormat *format, bool useCache)
 {
+	if (format_.fourcc.isValid() && useCache) {
+		*format = format_;
+		return 0;
+	}
+
 	if (caps_.isMeta())
 		return getFormatMeta(format);
 	else if (caps_.isMultiplanar())
