@@ -56,15 +56,10 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 	if (!mtkIspDip_ || mtkIspDip_->open())
 		return -ENODEV;
 
-	/* The two entities shouldn't be enabled */
-	MediaEntity *feo = media_->getEntityByName(hubName + " FEO Output");
-	MediaEntity *metai = media_->getEntityByName(hubName + " METAI Input");
-
 	/* The four entities would be configured differently */
 	MediaEntity *sigdevNorm = media_->getEntityByName(hubName + " SIGDEVN");
 	MediaEntity *tuningMeta = media_->getEntityByName(hubName + " Tuning");
 	MediaEntity *ctrlMeta = media_->getEntityByName(hubName + " CtrlMeta");
-	MediaEntity *sigdev = media_->getEntityByName(hubName + " Single Device");
 
 	media_->disableLinks();
 
@@ -80,8 +75,7 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 
 	/* Find video devices, configure and save them in allVideoDevices_*/
 	for (const auto &entity : media_->entities()) {
-		if (entity->type() != MediaEntity::Type::V4L2VideoDevice ||
-		    entity == metai || entity == feo)
+		if (entity->type() != MediaEntity::Type::V4L2VideoDevice)
 			continue;
 
 		// Enable the only link of video devices to/from hub
@@ -99,8 +93,6 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 			sigdevNorm_ = videoDev.get();
 			configureVideo(videoDev.get(), formats::MTSR_MTISP, { 640, 480 });
 		}
-		else if (entity == sigdev)
-			configureVideo(videoDev.get(), formats::MTFS_MTISP, { 640, 480 });
 		else if (entity == ctrlMeta || entity == tuningMeta)
 			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 38408, 1 });
 		else
