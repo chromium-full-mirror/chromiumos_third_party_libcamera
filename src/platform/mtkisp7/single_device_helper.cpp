@@ -3087,6 +3087,10 @@ bool createSingleDevBuffer(RequestInfo* pReqInfo,
   return true;
 }
 
+uint32_t getV4L2Fmt(MINT eImgFmtBuf, MUINT32 colorArrangement) {
+  return ImgBufFmtMappingToV4L2Fmt((NSCam::EImageFormat)eImgFmtBuf, colorArrangement);
+}
+
 } // NSImgStream {
 } // NSCam {
 

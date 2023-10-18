@@ -128,6 +128,7 @@ struct header_desc_norm {
 #define IMG_MAX_HW_INPUTS  3
 #define IMG_MAX_HW_OUTPUTS 4
 
+#define IMGSYS_VER_ISP71
 #if defined(IMGSYS_VER_ISP71)
   #define IMG_MAX_HW_DMAS        72
 #elif defined(IMGSYS_VER_ISP70)

@@ -271,5 +271,7 @@ public:
   BufferProperty property;
 };
 
+uint32_t getV4L2Fmt(MINT eImgFmtBuf, MUINT32 colorArrangement);
+
 } // NSImgStream
 } // NSCam
