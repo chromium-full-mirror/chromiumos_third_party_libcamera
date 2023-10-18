@@ -272,12 +272,12 @@ int McnrTasksManager::configure(const Size yuvInputSize, const Size videoOut1Siz
 
 int McnrTasksManager::configureBuffers()
 {
-	fwmmMil_.createFlatBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8);
-	dipTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21);
-	pqdipTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 3);
-	meTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
-	trawTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 30);
-	wpeTun_.createFlatBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
+	fwmmMil_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8);
+	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21);
+	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 3);
+	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
+	trawTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 30);
+	wpeTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
 
 	meFst_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFstSize, 8);
 	meFmb0_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
