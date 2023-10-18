@@ -181,7 +181,12 @@ add_project_arguments(c_arguments, language : 'c')
 add_project_arguments(cpp_arguments, language : 'cpp')
 add_project_link_arguments(cpp_arguments, language : 'cpp')
 
-libcamera_includes = include_directories('include')
+libcamera_includes = include_directories(
+    'include',
+    'include/platform/mtkisp7',
+    'include/platform/mtkisp7/mtkcam-core/libcamera/mt8188/include'
+)
+
 
 # Sub-directories fill py_modules with their dependencies.
 py_modules = []
