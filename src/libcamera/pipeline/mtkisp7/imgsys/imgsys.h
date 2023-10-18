@@ -59,7 +59,7 @@ private:
 	friend class ImgSysRequestHelper;
 
 	int startImgSysBackend();
-	void bufferReady(FrameBuffer *buffer);
+	void bufferReady(std::pair<FrameBuffer *, int> pair);
 
 	V4L2VideoDevice *sigdevNorm_;
 	std::unique_ptr<V4L2Subdevice> mtkIspDip_;

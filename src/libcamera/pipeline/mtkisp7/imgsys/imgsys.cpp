@@ -121,7 +121,7 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 
 	syncPool_.setData(syncs);
 
-	sigdevNorm_->bufferReady.connect(this, &ImgSysDevice::bufferReady);
+	sigdevNorm_->requestBufferReady.connect(this, &ImgSysDevice::bufferReady);
 
 	// todo: Do streamOn/streamOff in start/stop when the backend library
 	// is moved to scp in driver
@@ -179,8 +179,9 @@ int ImgSysDevice::claimCompletedRequest(Request *request)
 	return -EINVAL;
 }
 
-void ImgSysDevice::bufferReady(FrameBuffer *buffer)
+void ImgSysDevice::bufferReady(std::pair<FrameBuffer *, int> pair)
 {
+	auto[buffer, mediaRequest] = pair;
 	ASSERT(buffer);
 
 	bool foundRequest = false;
@@ -188,8 +189,7 @@ void ImgSysDevice::bufferReady(FrameBuffer *buffer)
 	     iter != pendingRequests_.end(); iter++) {
 
 		PendingRequest &request = *iter;
-		FrameBuffer *singleDev = request.singleDevNorm->get().buffer();
-		if (singleDev != buffer)
+		if (request.mediaRequest != mediaRequest)
 			continue;
 
 		foundRequest = true;

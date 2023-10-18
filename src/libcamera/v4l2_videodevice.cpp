@@ -1743,18 +1743,23 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
  *
  * When this slot is called, a Buffer has become available from the device, and
  * will be emitted through the bufferReady Signal.
+ * If the buffer is queued with a media Request, emit a requestBufferReady
+ * signal.
  *
  * For Capture video devices the FrameBuffer will contain valid data.
  * For Output video devices the FrameBuffer can be considered empty.
  */
 void V4L2VideoDevice::bufferAvailable()
 {
-	FrameBuffer *buffer = dequeueBuffer();
+	auto [buffer, mediaRequest] = dequeueBuffer();
 	if (!buffer)
 		return;
 
 	/* Notify anyone listening to the device. */
 	bufferReady.emit(buffer);
+
+	if (mediaRequest > 0)
+		requestBufferReady.emit({buffer, mediaRequest});
 }
 
 /**
@@ -1763,9 +1768,12 @@ void V4L2VideoDevice::bufferAvailable()
  * This function dequeues the next available buffer from the device. If no
  * buffer is available to be dequeued it will return nullptr immediately.
  *
- * \return A pointer to the dequeued buffer on success, or nullptr otherwise
+ * \return A pair where the first element is a pointer to the dequeued buffer
+ * on success, or nullptr otherwise. The second is the media request fd if
+ * applicable
+ *
  */
-FrameBuffer *V4L2VideoDevice::dequeueBuffer()
+std::pair<FrameBuffer *, int> V4L2VideoDevice::dequeueBuffer()
 {
 	struct v4l2_buffer buf = {};
 	struct v4l2_plane planes[VIDEO_MAX_PLANES] = {};
@@ -1785,7 +1793,7 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 	if (ret < 0) {
 		LOG(V4L2, Error)
 			<< "Failed to dequeue buffer: " << strerror(-ret);
-		return nullptr;
+		return {nullptr, -1};
 	}
 
 	LOG(V4L2, Debug) << "Dequeuing buffer " << buf.index;
@@ -1813,7 +1821,7 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 		LOG(V4L2, Error)
 			<< "Dequeued unexpected buffer index " << buf.index;
 
-		return nullptr;
+		return {nullptr, -1};
 	}
 
 	cache_->put(buf.index);
@@ -1842,7 +1850,7 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 			   + buf.timestamp.tv_usec * 1000ULL;
 
 	if (V4L2_TYPE_IS_OUTPUT(buf.type))
-		return buffer;
+		return {buffer, buf.request_fd};
 
 	/*
 	 * Detect kernel drivers which do not reset the sequence number to zero
@@ -1872,7 +1880,7 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 				<< " != " << buffer->planes().size() << ")";
 
 			metadata.status = FrameMetadata::FrameError;
-			return buffer;
+			return {buffer, buf.request_fd};
 		}
 
 		/*
@@ -1897,7 +1905,7 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 						       });
 
 				metadata.status = FrameMetadata::FrameError;
-				return buffer;
+				return {buffer, buf.request_fd};
 			}
 
 			metadata.planes()[i].bytesused =
@@ -1916,12 +1924,18 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 		metadata.planes()[0].bytesused = buf.bytesused;
 	}
 
-	return buffer;
+	return {buffer, buf.request_fd};
 }
 
 /**
  * \var V4L2VideoDevice::bufferReady
  * \brief A Signal emitted when a framebuffer completes
+ */
+
+/**
+ * \var V4L2VideoDevice::requestBufferReady
+ * \brief A Signal emitted when a framebuffer completes, includes both the
+ * frameBuffer and the media request fd.
  */
 
 /**
@@ -1988,6 +2002,7 @@ int V4L2VideoDevice::streamOff()
 		cache_->put(it.first);
 		metadata.status = FrameMetadata::FrameCancelled;
 		bufferReady.emit(buffer);
+		requestBufferReady.emit({buffer, -1});
 	}
 
 	ASSERT(cache_->isEmpty());

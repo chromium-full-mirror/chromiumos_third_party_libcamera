@@ -219,6 +219,7 @@ public:
 
 	int queueBuffer(FrameBuffer *buffer, int requestFd = -1);
 	Signal<FrameBuffer *> bufferReady;
+	Signal<std::pair<FrameBuffer *, int>> requestBufferReady;
 
 	int streamOn();
 	int streamOff();
@@ -264,7 +265,7 @@ private:
 	UniqueFD exportDmabufFd(unsigned int index, unsigned int plane);
 
 	void bufferAvailable();
-	FrameBuffer *dequeueBuffer();
+	std::pair<FrameBuffer *, int> dequeueBuffer();
 
 	void watchdogExpired();
 
