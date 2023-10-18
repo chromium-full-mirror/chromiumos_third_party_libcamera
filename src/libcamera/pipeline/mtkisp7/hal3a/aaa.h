@@ -18,15 +18,39 @@
 namespace libcamera {
 
 class AATask;
+class AFTask;
+
+class FocusController
+{
+public:
+	void configure(CameraLens *cameraLens);
+
+	VcmFocusInformation getFocusInfo();
+
+	void set(int32_t position, int64_t timestamp);
+
+private:
+	void reset();
+	bool isFirstRun();
+
+	CameraLens *cameraLens_;
+	bool firstRun_ = true;
+
+	int32_t focusPosition_;
+	int32_t previousFocusPosition_;
+	int64_t movingTimestamp_;
+	int64_t previousMovingTimestamp_;
+};
 
 class Hal3AManager
 {
 public:
 	void configure(DmaHeap *dmaHeap, CamSysDevice *camSys, Hal3A *hal3A);
+	void start();
 
 	void releaseBuffers();
 
-	std::tuple<AATask *>
+	std::tuple<AATask *, AFTask *>
 	make3ATasks(Scheduler *scheduler, Request *request,
 		    CaptureFrames &captureFrames,
 		    uint32_t internalRequestId, uint32_t camSysMetaRequestId);
@@ -37,15 +61,19 @@ public:
 	}
 
 private:
+	bool hasAF() const;
 	void allocateBuffers();
 
 	DmaHeap *dmaHeap_;
 	CamSysDevice *camSys_;
 	Hal3A *hal3A_;
 
+	FocusController focusController_;
+
 	InfoFramePool tuningPool_;
 
 	Thread thread3A_;
+	Thread threadAF_;
 };
 
 // AE & AWB task.
@@ -69,6 +97,30 @@ public:
 
 	uint32_t internalRequestId_;
 	uint32_t camSysMetaRequestId_;
+};
+
+class AFTask : public Task
+{
+public:
+	AFTask(Scheduler *scheduler, const std::string &id,
+	       CaptureFrames &captureFrames, Hal3A *hal3A,
+	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+	       FocusController *focusController)
+		: Task(scheduler, id), captureFrames_(captureFrames),
+		  hal3A_(hal3A), internalRequestId_(internalRequestId),
+		  camSysMetaRequestId_(camSysMetaRequestId),
+		  focusController_(focusController) {}
+
+	void run() override final;
+
+	CaptureFrames captureFrames_;
+
+	Hal3A *hal3A_;
+
+	uint32_t internalRequestId_;
+	uint32_t camSysMetaRequestId_;
+
+	FocusController *focusController_;
 };
 
 } // namespace libcamera

@@ -27,6 +27,10 @@ public:
 			   int rawMetaFd, unsigned char *rawMetaBuffer,
 			   std::pair<uint32_t, uint32_t> *exposureAndGain);
 
+	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
+			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+			     VcmFocusInformation vcmFocusInfo, int32_t *position);
+
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 
 private:
@@ -34,6 +38,9 @@ private:
 	void getInitialInfo();
 	void config();
 	void startInternal();
+
+	mtk::hal3a::v1_0::mtk_3a_param get3AParam(uint32_t internalRequestId,
+						  bool isAF = false);
 
 	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain);
 

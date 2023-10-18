@@ -11,6 +11,7 @@
 
 #include <libcamera/base/signal.h>
 
+#include "libcamera/internal/camera_lens.h"
 #include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/dma_heaps.h"
 #include "libcamera/internal/info_frame.h"
@@ -64,6 +65,7 @@ public:
 
 	const PixelFormat bayerFormat() { return bayerFormat_; }
 	const std::string &cameraId() { return sensor_->id(); }
+	CameraLens *getCameraLens() { return sensor_->focusLens(); }
 
 	const Size rawFrameSize() { return rawFrameSize_; }
 	const Size yuvFrameSize() { return yuvFrameSize_; }

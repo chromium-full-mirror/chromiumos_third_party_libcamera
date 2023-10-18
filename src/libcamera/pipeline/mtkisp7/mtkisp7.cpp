@@ -48,6 +48,7 @@ enum MtkISP7TaskGroup {
 	CaptureQueueGroup,
 	CaptureDequeueGroup,
 	AAGroup,
+	AFGroup,
 	MeGroup,
 	TrGroup,
 	XtrGroup,
@@ -65,6 +66,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ CaptureQueueGroup, "CaptureQueueGroup" },
 	{ CaptureDequeueGroup, "CaptureDequeueGroup" },
 	{ AAGroup, "AAGroup" },
+	{ AFGroup, "AFGroup" },
 	{ MeGroup, "MeGroup" },
 	{ TrGroup, "TrGroup" },
 	{ XtrGroup, "XtrGroup" },
@@ -128,10 +130,12 @@ public:
 
 	void frameStart(uint32_t sequence);
 
-	std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *>
+	std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 	makeTasks(const std::string &id, Request *request,
 		  CaptureFrames &captureFrames);
-	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf, SofTask *sofTask, AATask *aaTask);
+	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
+				  SofTask *sofTask, AATask *aaTask,
+				  AFTask *afTask);
 
 	Stream video1Stream_;
 	Stream video2Stream_;
@@ -572,6 +576,8 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	camSysDev_->frameStart().connect(this, &MtkISP7CameraData::frameStart);
 
 	hal3A_->start();
+	// Needs to be called after |hal3A_->start()|, as it uses AF result.
+	hal3AManager_.start();
 
 	camSysDev_->start();
 
@@ -584,7 +590,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	return 0;
 }
 
-std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *>
+std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames)
 {
@@ -633,19 +639,18 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
 		scheduler, id, request, captureFrames);
 
-	auto [aaTask] = hal3AManager_.make3ATasks(
+	auto [aaTask, afTask] = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
 		camSysMetaRequestId);
 
-	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaTask);
+	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaTask, afTask);
 
-	return std::make_tuple(taskQBuf, taskDQBuf, sofTask, aaTask);
+	return std::make_tuple(taskQBuf, taskDQBuf, sofTask, aaTask, afTask);
 }
 
-void MtkISP7CameraData::setTasksDependencies(QueueTask *taskQBuf,
-					     DequeueTask *taskDQBuf,
-					     SofTask *sofTask,
-					     AATask *aaTask)
+void MtkISP7CameraData::setTasksDependencies(
+	QueueTask *taskQBuf, DequeueTask *taskDQBuf, SofTask *sofTask,
+	AATask *aaTask, AFTask *afTask)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
@@ -653,10 +658,16 @@ void MtkISP7CameraData::setTasksDependencies(QueueTask *taskQBuf,
 	Scheduler::precede(sofTask, taskDQBuf);
 	Scheduler::precede(taskQBuf, taskDQBuf);
 	Scheduler::precede(taskDQBuf, aaTask);
+	if (afTask) {
+		Scheduler::precede(taskDQBuf, afTask);
+	}
 
 	scheduler->succeedPrevTaskByStep(CaptureQueueGroup, 0, taskQBuf);
 	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 0, taskDQBuf);
 	scheduler->succeedPrevTaskByStep(AAGroup, 0, aaTask);
+	if (afTask) {
+		scheduler->succeedPrevTaskByStep(AFGroup, 0, afTask);
+	}
 
 	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kExposureAndGainDelay - 1, sofTask);
 	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kRawMetaDelay - 1, taskQBuf);
@@ -668,6 +679,9 @@ void MtkISP7CameraData::setTasksDependencies(QueueTask *taskQBuf,
 	scheduler->queueTask(taskQBuf, CaptureQueueGroup);
 	scheduler->queueTask(taskDQBuf, CaptureDequeueGroup);
 	scheduler->queueTask(aaTask, AAGroup);
+	if (afTask) {
+		scheduler->queueTask(afTask, AFGroup);
+	}
 
 	pendingSofTasks_.push_back(sofTask);
 }
@@ -816,7 +830,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	CaptureFrames captureFrames;
 
-	auto [taskQBuf, taskDQBuf, sofTask, aaTask] = makeTasks(
+	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask] = makeTasks(
 		"Capture " + sequence, request, captureFrames);
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {

@@ -21,6 +21,63 @@ static constexpr Size kMetaSize = Size{ Hal3A::kRawMetaSize, 1 };
 
 } // namespace
 
+LOG_DECLARE_CATEGORY(MtkISP7)
+
+void FocusController::configure(CameraLens *cameraLens)
+{
+	cameraLens_ = cameraLens;
+	reset();
+}
+
+void FocusController::reset()
+{
+	firstRun_ = true;
+
+	focusPosition_ = 0;
+	previousFocusPosition_ = 0;
+	movingTimestamp_ = 0;
+	previousMovingTimestamp_ = 0;
+}
+
+VcmFocusInformation FocusController::getFocusInfo()
+{
+	VcmFocusInformation info;
+	info.focus_position = focusPosition_;
+	info.previous_focus_position = previousFocusPosition_;
+	info.moving_timestamp = movingTimestamp_;
+	info.previous_moving_timestamp = previousMovingTimestamp_;
+	LOG(MtkISP7, Info) << "getFocusInfo. focus position: " << focusPosition_
+			   << ", previous focus position: " << previousFocusPosition_
+			   << ", moving timestamp: " << movingTimestamp_
+			   << ", previous moving timestamp: " << previousMovingTimestamp_;
+
+	return info;
+}
+
+void FocusController::set(int32_t position, int64_t timestamp)
+{
+	if (position < 0 || position == focusPosition_)
+		return;
+
+	if (isFirstRun()) {
+		cameraLens_->setFocusPosition(
+			position == 0 ? 1 : position - 1);
+	}
+	cameraLens_->setFocusPosition(position);
+
+	previousFocusPosition_ = focusPosition_;
+	previousMovingTimestamp_ = movingTimestamp_;
+	focusPosition_ = position;
+	movingTimestamp_ = timestamp;
+}
+
+bool FocusController::isFirstRun()
+{
+	bool firstRun = firstRun_;
+	firstRun_ = false;
+	return firstRun;
+}
+
 void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 			     Hal3A *hal3A)
 {
@@ -28,8 +85,15 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 	camSys_ = camSys;
 	hal3A_ = hal3A;
 
+	focusController_.configure(camSys_->getCameraLens());
+
 	releaseBuffers();
 	allocateBuffers();
+}
+
+void Hal3AManager::start()
+{
+	focusController_.set(hal3A_->r3AResult_.af_result.lens_position, 0);
 }
 
 void Hal3AManager::allocateBuffers()
@@ -38,6 +102,7 @@ void Hal3AManager::allocateBuffers()
 				  DmaHeap::CMA);
 
 	thread3A_.start();
+	threadAF_.start();
 }
 
 void Hal3AManager::releaseBuffers()
@@ -46,9 +111,20 @@ void Hal3AManager::releaseBuffers()
 
 	thread3A_.exit();
 	thread3A_.wait();
+
+	threadAF_.exit();
+	threadAF_.wait();
 }
 
-std::tuple<AATask *> Hal3AManager::make3ATasks(
+bool Hal3AManager::hasAF() const
+{
+	if (!camSys_)
+		LOG(MtkISP7, Fatal) << "CamSysDevice hasn't been configured yet.";
+
+	return camSys_->getCameraLens();
+}
+
+std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	Scheduler *scheduler, Request *request,
 	CaptureFrames &captureFrames, uint32_t internalRequestId,
 	uint32_t camSysMetaRequestId)
@@ -62,7 +138,15 @@ std::tuple<AATask *> Hal3AManager::make3ATasks(
 				    internalRequestId, camSysMetaRequestId);
 	aaTask->moveToThread(&thread3A_);
 
-	return std::make_tuple(aaTask);
+	AFTask *afTask;
+	if (hasAF()) {
+		afTask = new AFTask(scheduler, "AF " + sequence, captureFrames,
+				    hal3A_, internalRequestId,
+				    camSysMetaRequestId, &focusController_);
+		afTask->moveToThread(&threadAF_);
+	}
+
+	return std::make_tuple(aaTask, afTask);
 }
 
 void AATask::run()
@@ -86,6 +170,20 @@ void AATask::run()
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>
 			   &exposureAndGain) {});
+
+	notifyDone();
+}
+
+void AFTask::run()
+{
+	int32_t position = -1;
+	hal3A_->doCalculationAF(captureFrames_.statistics1->get().buffer(),
+				captureFrames_.timestamp->get(),
+				internalRequestId_,
+				camSysMetaRequestId_,
+				focusController_->getFocusInfo(), &position);
+
+	focusController_->set(position, captureFrames_.timestamp->get());
 
 	notifyDone();
 }

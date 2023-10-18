@@ -291,9 +291,6 @@ void Hal3A::config()
 void Hal3A::startInternal()
 {
 	peripheralController_->NotifyEvent(
-		mtk::hal3a::IPeripheralController::kFocusMove,
-		r3AResult_.af_result.lens_position, 0 /* arg1: ozoom_param is not used */, 0, 0);
-	peripheralController_->NotifyEvent(
 		mtk::hal3a::IPeripheralController::kFlashInitialDuty,
 		(intptr_t)r3AResult_.flash_result.duty_setting, 0, 0, 0);
 	peripheralController_->NotifyEvent(
@@ -324,10 +321,93 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	if (internalRequestId == 0)
 		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
 
+	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(internalRequestId);
+	m_hal3a_->SetParam(r_3a_param);
+
+	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
+	if (statistics0->planes().empty()) {
+		LOG(MtkISP7, Fatal) << "Empty statistics0";
+		return;
+	}
+
+	r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kPreview;
+	r_3a_request.buf_info.request_id = camSysMetaRequestId;
+	r_3a_request.buf_info.sof_timestamp = timestamp;
+
+	r_3a_request.stt_buf.fd = statistics0->planes()[0].fd.get();
+
+	MappedFrameBuffer mappedFrameBuffer(statistics0, MappedFrameBuffer::MapFlag::Read);
+	r_3a_request.stt_buf.buf = reinterpret_cast<const mtk_cam_uapi_meta_raw_stats_0 *>(
+		mappedFrameBuffer.planes()[0].data());
+
+	m_hal3a_->DoCalculation(r_3a_request);
+
+	auto *rawMeta =
+		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(rawMetaBuffer);
+	m_hal3a_->GetResult(r3AResult_);
+	*rawMeta = r3AResult_.raw_meta;
+
+	mtk::hal3a::v1_0::mtk_hal3a_metaset metaSet = {}; // TODO: skip_exposure_setting, appMeta, halMeta
+	std::vector<mtk::hal3a::v1_0::mtk_hal3a_metaset *> requestQ;
+	requestQ.push_back(&metaSet);
+
+	mtk::isphal::IspTuningCamsysControl ctrl = {};
+	ctrl.fgForce = false; // TODO: check if it's a dummy frame.
+	ctrl.fgDue = false; // TODO: check if 3a finishes calculation on time.
+
+	mtk::isphal::IspTuningBufferP1 tuning_data = {};
+
+	mtk::isphal::Buffer regBuf1((intptr_t)rawMetaBuffer, rawMetaFd, 0, kRawMetaSize);
+	tuning_data.p1_meta_buffer = regBuf1;
+	m_isp_hal_->getCamSysMetaTuning(internalRequestId, internalRequestId, requestQ, ctrl, tuning_data);
+
+	getExposureAndGain(exposureAndGain);
+}
+
+void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
+			    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+			    VcmFocusInformation vcmFocusInfo, int32_t *position)
+{
+	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(internalRequestId, true);
+	m_hal3a_->SetParamAF(r_3a_param);
+
+	mtk::hal3a::v1_0::mtk_af_request r_af_request = {};
+	if (statistics1->planes().empty()) {
+		LOG(MtkISP7, Fatal) << "Empty statistics1";
+		return;
+	}
+
+	// TODO: Check when to use kAFTrigger.
+	r_af_request.scenario = mtk::hal3a::Mtk3AScenario::kAFNormal;
+	r_af_request.buf_info.request_id = camSysMetaRequestId;
+	r_af_request.buf_info.sof_timestamp = timestamp;
+
+	r_af_request.focus_info = vcmFocusInfo;
+
+	r_af_request.afo_buf.fd = statistics1->planes()[0].fd.get();
+
+	MappedFrameBuffer mappedFrameBuffer(statistics1, MappedFrameBuffer::MapFlag::Read);
+	r_af_request.afo_buf.buf = reinterpret_cast<const mtk_cam_uapi_meta_raw_stats_1 *>(
+		mappedFrameBuffer.planes()[0].data());
+
+	m_hal3a_->DoCalculationAF(r_af_request);
+
+	mtk::hal3a::v1_0::mtk_lens_result lensResult = {};
+	m_hal3a_->GetResultAF(lensResult);
+
+	// TODO: notify application if it's kAFTrigger && lensResult.is_focus_finish.
+	// TODO: Check if using |timestamp| makes sense.
+	*position = lensResult.lens_position;
+}
+
+mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
+	uint32_t internalRequestId, [[maybe_unused]] bool isAF)
+{
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = {};
 
 	// TODO: get parameters for SetParam properly
 	r_3a_param.request_id = internalRequestId;
+	// TODO: Track the right source in mtk's hal. 4 or 59.
 	r_3a_param.active_items = 59;
 	r_3a_param.updated = true;
 	r_3a_param.is_dummy_request = false;
@@ -411,6 +491,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	r_3a_param.imgo_type = 1;
 	r_3a_param.app_mode = 0;
 	r_3a_param.zoom_ratio = 100;
+	// TODO: Track the right source in mtk's hal.
 	if (sensor_idx_ == 0) { // back camera
 		r_3a_param.target_size_w = 1280;
 		r_3a_param.target_size_h = 960;
@@ -488,6 +569,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	r_3a_param.flash_full_cali_en = 0;
 	r_3a_param.flash_fast_cali_en = 0;
 	r_3a_param.isp_fus_num = 0;
+	// TODO: 0 or 1
 	r_3a_param.subsample_sync_info = 0;
 	r_3a_param.multiexp_hdr_mode = 0;
 	r_3a_param.hdr_mode = 0;
@@ -544,46 +626,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	r_3a_param.iris_info.previous_moving_timestamp = 0;
 	r_3a_param.iris_info.fn_cali = 0.000000;
 
-	m_hal3a_->SetParam(r_3a_param);
-
-	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
-	if (statistics0->planes().empty()) {
-		LOG(MtkISP7, Fatal) << "Empty statistics0";
-		return;
-	}
-
-	r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kPreview;
-	r_3a_request.buf_info.request_id = camSysMetaRequestId;
-	r_3a_request.buf_info.sof_timestamp = timestamp;
-
-	r_3a_request.stt_buf.fd = statistics0->planes()[0].fd.get();
-
-	MappedFrameBuffer mappedFrameBuffer(statistics0, MappedFrameBuffer::MapFlag::Read);
-	r_3a_request.stt_buf.buf = reinterpret_cast<const mtk_cam_uapi_meta_raw_stats_0 *>(
-		mappedFrameBuffer.planes()[0].data());
-
-	m_hal3a_->DoCalculation(r_3a_request);
-
-	auto *rawMeta =
-		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(rawMetaBuffer);
-	m_hal3a_->GetResult(r3AResult_);
-	*rawMeta = r3AResult_.raw_meta;
-
-	mtk::hal3a::v1_0::mtk_hal3a_metaset metaSet = {}; // TODO: skip_exposure_setting, appMeta, halMeta
-	std::vector<mtk::hal3a::v1_0::mtk_hal3a_metaset *> requestQ;
-	requestQ.push_back(&metaSet);
-
-	mtk::isphal::IspTuningCamsysControl ctrl;
-	ctrl.fgForce = false; // TODO: check if it's a dummy frame.
-	ctrl.fgDue = false; // TODO: check if 3a finishes calculation on time.
-
-	mtk::isphal::IspTuningBufferP1 tuning_data = {};
-
-	mtk::isphal::Buffer regBuf1((intptr_t)rawMetaBuffer, rawMetaFd, 0, kRawMetaSize);
-	tuning_data.p1_meta_buffer = regBuf1;
-	m_isp_hal_->getCamSysMetaTuning(internalRequestId, internalRequestId, requestQ, ctrl, tuning_data);
-
-	getExposureAndGain(exposureAndGain);
+	return r_3a_param;
 }
 
 void Hal3A::getExposureAndGain(

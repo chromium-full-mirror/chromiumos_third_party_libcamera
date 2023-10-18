@@ -107,7 +107,8 @@ class SofTask : public Task
 public:
 	SofTask(Scheduler *scheduler, const std::string &id, Request *request,
 		std::shared_ptr<CaptureData> &data, CamSysDevice *camSys)
-		: Task(scheduler, id), request_(request), data_(data), camSys_(camSys) {}
+		: Task(scheduler, id), request_(request), data_(data),
+		  camSys_(camSys) {}
 
 	virtual void run() override final;
 	void trigger();
