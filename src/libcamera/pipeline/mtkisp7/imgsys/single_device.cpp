@@ -16,6 +16,7 @@
 #include <libcamera/internal/formats.h>
 #include "libcamera/internal/framebuffer.h"
 
+#include "linux/mtkisp7/mtk_header_desc.h"
 #include "platform/mtkisp7/ImageFormat.h"
 #include "platform/mtkisp7/ImgPortDef.h"
 
@@ -273,32 +274,113 @@ void StageEx::addWait(uint32_t sync)
 	mSyncTokenWaitList.push_back(sync);
 }
 
-void SingleDeviceRequest::fillFrameParams(std::vector<NSCam::NSImgStream::FrameParams> &mvFrameParams)
+void SingleDeviceRequest::fillFrameParams(
+	NSCam::NSImgStream::FrameParams &frameParams, StageEx &stage)
 {
-	for (auto &stage : stages_) {
-		auto &frameParams = mvFrameParams.emplace_back();
+	frameParams.mTimestamp = timestamp();
+	frameParams.mStage = stage.stageEnum_;
 
-		frameParams.mTimestamp = timestamp();
-		frameParams.mStage = stage.stageEnum_;
+	frameParams.mSecureFra = 0;
+	frameParams.mScenPath = 0;
 
-		frameParams.mSecureFra = 0;
-		frameParams.mScenPath = 0;
+	frameParams.mSyncPrevFrameParam = false;
+	frameParams.mSyncNextFrameParam = false;
+	frameParams.mSyncTokenNotify = 0;
+	frameParams.mSyncTokenWait = 0;
+	frameParams.mSyncTokenNotifyList.clear();
+	frameParams.mSyncTokenWaitList.clear();
+	frameParams.mFrameOwner = EIGHTCC();
 
-		frameParams.mSyncPrevFrameParam = false;
-		frameParams.mSyncNextFrameParam = false;
-		frameParams.mSyncTokenNotify = 0;
-		frameParams.mSyncTokenWait = 0;
-		frameParams.mSyncTokenNotifyList.clear();
-		frameParams.mSyncTokenWaitList.clear();
-		frameParams.mFrameOwner = EIGHTCC();
+	frameParams.mSyncTokenNotifyList = stage.mSyncTokenNotifyList;
+	frameParams.mSyncTokenWaitList = stage.mSyncTokenWaitList;
 
-		frameParams.mSyncTokenNotifyList = stage.mSyncTokenNotifyList;
-		frameParams.mSyncTokenWaitList = stage.mSyncTokenWaitList;
+	translatePortEx(stage.inputs_, frameParams.mvIn);
+	translatePortEx(stage.outputs_, frameParams.mvOut);
+	frameParams.mvExtraParam = stage.extra_;
+}
 
-		translatePortEx(stage.inputs_, frameParams.mvIn);
-		translatePortEx(stage.outputs_, frameParams.mvOut);
-		frameParams.mvExtraParam = stage.extra_;
+void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
+					    InfoFrame &infoDesc,
+					    int requestFd, size_t stage)
+{
+	std::vector<FrameParams> mvFrameParams;
+	auto &frameParams = mvFrameParams.emplace_back();
+	fillFrameParams(frameParams, stages_[stage]);
+
+	std::shared_ptr<ImgParams> pParams = std::make_shared<ImgParams>();
+	pParams->mHWSharing = 0;
+	pParams->mFps = 30;
+	pParams->mSyncID = -1;
+	pParams->mRequestNo = sequence();
+	pParams->mFrameNo = sequence();
+	pParams->mNumBatchRun = 1;
+	pParams->mvFrameParams = std::vector<FrameParams>({mvFrameParams});
+
+	NSCam::NSImgStream::IImageBuffer imageCM(toBufferPropery(infoCtrl));
+	CtrlMetaBuf CMBuf {
+		.mFd = imageCM.getPlaneFD(0),
+		.mOffset = (MUINT32)imageCM.getPlaneOffsetInBytes(0),
+		.mBufSize = (MINT32)imageCM.getBufSizeInBytes(0),
+		.mpBufVa = (MINTPTR)infoCtrl.address(0),
+		.mpBufPa = 0
+	};
+
+	MediaRequest fr(requestFd);
+
+	/* TODO: Set the corresponding userid for each request */
+	EIGHTCC userid = EIGHTCC("S_ME-A");
+
+	RequestInfo reqInfo;
+	reqInfo.mpRequest = &fr;
+	reqInfo.mImgStreamOwner = userid;
+	reqInfo.mMemMode = MEMORY_MODE_NORMAL;
+	reqInfo.mpCMBuf = &CMBuf;
+	reqInfo.pParams = pParams;
+
+	gettimeofday(&reqInfo.enque_time, NULL);
+
+	ImgInitParam initParam;
+	initParam.mMaxFps = 30;
+	initParam.mPriority = IMG_PRIORITY_PREVIEW;
+	initParam.mLowLatency = 0;
+
+	/* Pipeline handler does not need to populate singlenode_desc_norm.
+	 * the driver will do that according to the queued buffers.
+	 * we still need createSingleDevBuffer() to fill the control meta
+	 * buffers, tuning buffers, etc.
+	 * Pass in a dummy buffer as singlenode_desc_norm here.
+	 */
+	static uint8_t dummy[sizeof(struct singlenode_desc_norm)];
+	NSCam::NSImgStream::IImageBuffer imageDesc(toBufferPropery(infoDesc));
+	VNDescBuf descBuf{
+		.mFd = imageDesc.getPlaneFD(0),
+		.mBufSize = (MINT32)imageDesc.getBufSizeInBytes(0),
+		.mOffset = (MUINT32)imageDesc.getPlaneOffsetInBytes(0),
+		.mpDescBufVa = (MINTPTR)&dummy,
+		.mbUsed = false,
+	};
+
+	syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID, infoCtrl.buffer()->planes()[0].fd.get());
+
+	for (auto &frameParam : mvFrameParams) {
+		for (auto &input : frameParam.mvIn)
+			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
+				syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID,
+						  input.mBuffer->getPlaneFD(0));
 	}
+
+	createSingleDevBuffer(&reqInfo, &initParam, userid, V4L2_MODE_SIGNLE_DEVICE, &descBuf);
+
+	for (auto &frameParam : mvFrameParams) {
+		for (auto &input : frameParam.mvIn)
+			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
+				syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH,
+						  input.mBuffer->getPlaneFD(0));
+	}
+
+	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoCtrl.buffer()->planes()[0].fd.get());
+
+	infoDesc.buffer()->_d()->metadata().planes()[0].bytesused = infoDesc.buffer()->planes()[0].length;
 }
 
 void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
@@ -306,7 +388,11 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 					    int requestFd)
 {
 	std::vector<FrameParams> mvFrameParams;
-	fillFrameParams(mvFrameParams);
+
+	for (auto &stage : stages_) {
+		auto &frameParams = mvFrameParams.emplace_back();
+		fillFrameParams(frameParams, stage);
+	}
 
 	std::shared_ptr<ImgParams> pParams = std::make_shared<ImgParams>();
 	pParams->mHWSharing = 0;

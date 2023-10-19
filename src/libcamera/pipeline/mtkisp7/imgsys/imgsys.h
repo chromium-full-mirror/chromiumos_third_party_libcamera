@@ -36,6 +36,8 @@ public:
 
 	struct Request {
 		SingleDeviceRequest *sdRequest;
+		size_t stage;
+		int buffers_count;
 	};
 
 	ImgSysDevice(OnDeviceTuner *odt);
@@ -46,6 +48,7 @@ public:
 	int stop();
 
 	int queueRequest(Request *request);
+	int queueRequestV4L2(Request *request);
 	int claimCompletedRequest(Request *request);
 
 	int handleIova(FdCtrl fdHandle, InfoFramePool &pool);
@@ -62,8 +65,11 @@ private:
 	void bufferReady(std::pair<FrameBuffer *, int> pair);
 
 	V4L2VideoDevice *sigdevNorm_;
+	V4L2VideoDevice *ctrlMeta_;
 	std::unique_ptr<V4L2Subdevice> mtkIspDip_;
-	std::vector<std::unique_ptr<V4L2VideoDevice>> allVideoDevices_;
+	std::unordered_map<
+		NSCam::NSImgStream::IMG_PORT,
+		std::unique_ptr<V4L2VideoDevice>> allVideoDevices_;
 
 	InfoFramePool descPool_;
 	InfoFramePool ctrlMetaPool_;
@@ -103,7 +109,7 @@ public:
 	Request *request_;
 	ImgSysDevice *imgSys_;
 
-	ImgSysDevice::Request imgSysRequest_;
+	std::list<ImgSysDevice::Request> imgSysRequests_;
 	std::chrono::steady_clock::time_point startTime_;
 };
 

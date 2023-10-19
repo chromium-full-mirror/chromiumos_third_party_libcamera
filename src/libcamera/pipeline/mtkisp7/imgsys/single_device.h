@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <vector>
 
+#include "libcamera/framebuffer.h"
 #include "platform/mtkisp7/BuiltinTypes.h"
 #include "platform/mtkisp7/eightcc.h"
 #include "platform/mtkisp7/IImgStreamDef.h"
@@ -23,6 +24,8 @@
 #include "linux/mtkisp7/drv/7.1/common.h"
 
 #include "libcamera/internal/info_frame.h"
+
+#define V4L2_STANDARD_MODE false
 
 NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &info);
 
@@ -37,6 +40,7 @@ struct PortInfoEx {
 	void set(const InfoFrame &info, uint32_t idx, int ratio, Rectangle crop)
 	{
 		img.property = toBufferPropery(info);
+		frameBuffer = info.buffer();
 
 		portIdx = idx;
 		mResizeRatio = ratio;
@@ -51,6 +55,7 @@ struct PortInfoEx {
 	}
 
 	NSCam::NSImgStream::IImageBuffer img;
+	FrameBuffer *frameBuffer;
 
 	uint32_t portIdx;
 	int mResizeRatio;
@@ -97,6 +102,14 @@ public:
 
 	PEU_Stage getStageEnum() const { return stageEnum_; }
 
+	const std::vector<PortInfoEx> &getInputs() {
+		return inputs_;
+	}
+
+	const std::vector<PortInfoEx> &getOutputs() {
+		return outputs_;
+	}
+
 private:
 	friend class SingleDeviceRequest;
 
@@ -130,12 +143,14 @@ public:
 	void setUserId(const std::string &id) { id_ = id; }
 	const std::string &id() { return id_; }
 
+	void fillRequestBufferForStage(InfoFrame &infoCtrl, InfoFrame &infoDesc, int requestFd, size_t stage);
 	void fillRequestBuffer(InfoFrame &infoCtrl, InfoFrame &infoDesc, int requestFd);
 
 	std::vector<PEU_Stage> getStageEnums() const;
 
 private:
-	void fillFrameParams(std::vector<NSCam::NSImgStream::FrameParams> &mvFrameParams);
+	void fillFrameParams(
+		NSCam::NSImgStream::FrameParams &FrameParams, StageEx &stage);
 
 	uint32_t sequence_;
 	uint32_t timestamp_;

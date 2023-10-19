@@ -22,9 +22,15 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pools.h"
 
+#include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "platform/mtkisp7/ImgPortDef.h"
+#include "platform/mtkisp7/single_device_helper.h"
+#include "platform/mtkisp7/topology.h"
 
 namespace libcamera {
+
+using namespace NSCam::NSImgStream;
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
@@ -74,7 +80,8 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 	};
 
 	/* Find video devices, configure and save them in allVideoDevices_*/
-	for (const auto &entity : media_->entities()) {
+	for (auto &port : ports) {
+		MediaEntity *entity = media_->getEntityByName(port.device_name);
 		if (entity->type() != MediaEntity::Type::V4L2VideoDevice)
 			continue;
 
@@ -93,17 +100,21 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 			sigdevNorm_ = videoDev.get();
 			configureVideo(videoDev.get(), formats::MTSR_MTISP, { 640, 480 });
 		}
-		else if (entity == ctrlMeta || entity == tuningMeta)
+		else if (entity == ctrlMeta) {
+			ctrlMeta_ = videoDev.get();
+			configureVideo(videoDev.get(), formats::MTFP_MTISP, { 24704, 1 });
+		}
+		else if (entity == tuningMeta)
 			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 38408, 1 });
 		else
 			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 640, 480 });
 
 		// All video devices for easier streamOn/Off
-		allVideoDevices_.emplace_back(std::move(videoDev));
+		allVideoDevices_[IMG_PORT(port.port_index)] = std::move(videoDev);
 	}
 
 	std::vector<UniqueFD> requests;
-	media_->allocateRequests(16, requests);
+	media_->allocateRequests(32, requests);
 	mediaRequestPool_.setData(requests);
 
 	/* Sync token starts from 1 */
@@ -113,8 +124,6 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 
 	syncPool_.setData(syncs);
 
-	sigdevNorm_->requestBufferReady.connect(this, &ImgSysDevice::bufferReady);
-
 	// todo: Do streamOn/streamOff in start/stop when the backend library
 	// is moved to scp in driver
 	if (startImgSysBackend()) {
@@ -122,10 +131,159 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 		return -EBUSY;
 	}
 
-	for (auto &videoDev : allVideoDevices_) {
-		videoDev->importBuffers(16);
+	for (auto &[portIdx, videoDev] : allVideoDevices_) {
+		videoDev->requestBufferReady.connect(this, &ImgSysDevice::bufferReady);
+
+		/*
+		 * Some video nodes require more buffers than others to avoid
+		 * cache misses.
+		 *
+		 * TODO: Instead of calling REQBUFS, we should call CREATEBUFS
+		 * with the correct format. The total number of buffers created
+		 * should match the total number of buffers it needs.
+		 */
+		switch (portIdx) {
+		case IMG_PORT_METAI:
+		case IMG_PORT_WPE_VECI:
+		case IMG_PORT_IMGI:
+		case IMG_PORT_TIMGI:
+		case IMG_PORT_VIPI:
+		case IMG_PORT_TYUV2O:
+		case IMG_PORT_TYUV3O:
+		case IMG_PORT_REC_DSI:
+			videoDev->importBuffers(64);
+			break;
+		case IMG_PORT_DRV_CTRLMETAI:
+		case IMG_PORT_DRV_SIGDEV_NORMI:
+			videoDev->importBuffers(32);
+			break;
+		default:
+			videoDev->importBuffers(24);
+			break;
+		}
+
 		videoDev->streamOn();
 	}
+
+	return 0;
+}
+
+void reconfigureVideoNode(V4L2VideoDevice &device, const PortInfoEx& info)
+{
+	if (info.portIdx == IMG_PORT_METAI ||
+	    info.portIdx == IMG_PORT_DRV_CTRLMETAI ||
+	    info.portIdx == IMG_PORT_DRV_SIGDEV_NORMI ||
+	    info.portIdx == IMG_PORT_IMGSTATO)
+		return;
+
+	V4L2DeviceFormat format;
+	device.getFormat(&format, true);
+
+	uint32_t new_fourcc =
+		getV4L2Fmt(info.img.getImgFormat(),
+			   info.img.getColorArrangement());
+	unsigned int width = static_cast<unsigned int>(info.img.getImgSize().w);
+	unsigned int height = static_cast<unsigned int>(info.img.getImgSize().h);
+	unsigned int planeCount = info.img.getPlaneCount();
+
+	// TODO: check for resize ratio, crop.
+	if (new_fourcc == format.fourcc.fourcc() &&
+	    planeCount == format.planesCount &&
+	    width == format.size.width &&
+	    height == format.size.height)
+		return;
+
+	format.size = {width, height};
+	format.fourcc = V4L2PixelFormat(new_fourcc);
+	format.planesCount = info.img.getPlaneCount();
+	for (unsigned int i = 0; i < format.planesCount; ++i) {
+		format.planes[i] =
+			{ static_cast<uint32_t>(info.img.getBufSizeInBytes(i)),
+			  static_cast<uint32_t>(info.img.getBufStridesInBytes(i))};
+	}
+
+	device.setFormat(&format);
+
+	if (info.mResizeRatio) {
+		struct v4l2_ext_control ext_ctrl;
+		ext_ctrl.id = V4L2_CID_MTK_RESIZE_RATIO;
+		ext_ctrl.size = sizeof(int);
+		ext_ctrl.value = info.mResizeRatio;
+		device.setExtControl(&ext_ctrl, -1);
+	}
+
+	if (info.CropW || info.CropH) {
+		Rectangle rect =
+			Rectangle(info.CropX, info.CropY,
+				{static_cast<unsigned int>(info.CropW),
+				 static_cast<unsigned int>(info.CropH)});
+		device.setSelection(V4L2_SEL_TGT_CROP, &rect);
+	}
+}
+
+static IMG_PORT getDevicePort(uint32_t portIdx)
+{
+	switch (portIdx) {
+		case IMG_PORT_LTIMGI:
+			return IMG_PORT_TIMGI;
+		case IMG_PORT_LTYUV2O:
+			return IMG_PORT_TYUV2O;
+		case IMG_PORT_LTYUV3O:
+			return IMG_PORT_TYUV3O;
+		case IMG_PORT_LTYUV4O:
+			return IMG_PORT_TYUV4O;
+		case IMG_PORT_LTYUV5O:
+		case IMG_PORT_FEO:
+			return IMG_PORT_TYUV5O;
+		default:
+			return IMG_PORT(portIdx);
+	}
+}
+
+int ImgSysDevice::queueRequestV4L2(Request *request)
+{
+	SharedMailBox<InfoFrame> ctrlMeta = makeMailBox<InfoFrame>();
+	ctrlMetaPool_.fetch(ctrlMeta);
+	InfoFrame &infoCtrl = ctrlMeta->get();
+
+	SharedMailBox<InfoFrame> singleDevNorm = makeMailBox<InfoFrame>();
+	descPool_.fetch(singleDevNorm);
+	InfoFrame &infoDesc = singleDevNorm->get();
+
+	FrameBuffer *singleDev = infoDesc.buffer();
+	int mediaRequest = mediaRequestPool_.get();
+
+	request->sdRequest->fillRequestBufferForStage(
+		infoCtrl, infoDesc, mediaRequest, request->stage);
+	onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
+	StageEx &stage = request->sdRequest->Stages()[request->stage];
+	int ret = 0;
+
+	for (const PortInfoEx &port : stage.getInputs()) {
+		V4L2VideoDevice &device = *allVideoDevices_[getDevicePort(port.portIdx)];
+		reconfigureVideoNode(device, port);
+		ret |= device.queueBuffer(port.frameBuffer, mediaRequest);
+		request->buffers_count++;
+	}
+
+	for (const PortInfoEx &port : stage.getOutputs()) {
+		V4L2VideoDevice &device = *allVideoDevices_[getDevicePort(port.portIdx)];
+		reconfigureVideoNode(device, port);
+		ret |= device.queueBuffer(port.frameBuffer, mediaRequest);
+		request->buffers_count++;
+	}
+
+	ret |= ctrlMeta_->queueBuffer(infoCtrl.buffer(), mediaRequest);
+	ret |= sigdevNorm_->queueBuffer(singleDev, mediaRequest);
+	request->buffers_count += 2;
+	ret |= media_->queueRequest(mediaRequest);
+
+	if (ret) {
+		LOG(MtkISP7, Error) << "Fail to queue request";
+		return ret;
+	}
+
+	pendingRequests_.push_back({request, mediaRequest, ctrlMeta, singleDevNorm});
 
 	return 0;
 }
@@ -147,6 +305,7 @@ int ImgSysDevice::queueRequest(Request *request)
 	onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
 
 	int ret = sigdevNorm_->queueBuffer(singleDev, mediaRequest);
+	request->buffers_count++;
 	ret |= media_->queueRequest(mediaRequest);
 
 	if (ret) {
@@ -184,7 +343,19 @@ void ImgSysDevice::bufferReady(std::pair<FrameBuffer *, int> pair)
 		if (request.mediaRequest != mediaRequest)
 			continue;
 
+		if (request.request->buffers_count <= 0) {
+			LOG(MtkISP7, Error)
+				<< "Buffer count for media request: "
+				<< mediaRequest << "doesn't match.";
+			return;
+		}
+
 		foundRequest = true;
+
+		request.request->buffers_count--;
+
+		if (request.request->buffers_count)
+			return;
 
 		/* Mark request as completed */
 		completedRequests_.emplace_back(request.request);
@@ -207,8 +378,8 @@ int ImgSysDevice::configure()
 	handleKva(Delete, descPool_);
 	handleIova(Delete, ctrlMetaPool_);
 
-	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{238544, 1}, 6);
-	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{24704, 1}, 6);
+	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{238544, 1}, 32);
+	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{24704, 1}, 32);
 
 	handleKva(Add, descPool_);
 	handleIova(Add, ctrlMetaPool_);
@@ -297,12 +468,17 @@ int ImgSysDevice::startImgSysBackend()
 	return (*startRED)();
 }
 
-using namespace NSCam::NSImgStream;
-
 void ImgSysRequestHelper::queueRequest(SingleDeviceRequest &sdRequest)
 {
-	imgSysRequest_.sdRequest = &sdRequest;
-	imgSys_->queueRequest(&imgSysRequest_);
+#if V4L2_STANDARD_MODE
+	for (size_t stage = 0; stage < sdRequest.Stages().size(); ++stage) {
+		imgSysRequests_.push_back({&sdRequest, stage, 0});
+		imgSys_->queueRequestV4L2(&imgSysRequests_.back());
+	}
+#else
+	imgSysRequests_.push_back({&sdRequest, 0, 0});
+	imgSys_->queueRequest(&imgSysRequests_.back());
+#endif
 
 	imgSys_->requestCompleted.connect(this, &ImgSysRequestHelper::requestReady);
 	startTime_ = std::chrono::steady_clock::now();
@@ -310,11 +486,16 @@ void ImgSysRequestHelper::queueRequest(SingleDeviceRequest &sdRequest)
 
 void ImgSysRequestHelper::requestReady(ImgSysDevice::Request *request)
 {
-	if (request != &imgSysRequest_)
+	for (auto &imgSysRequest: imgSysRequests_) {
+		if (request != &imgSysRequest)
+			continue;
+		imgSys_->claimCompletedRequest(request);
+	}
+
+	if (request != &imgSysRequests_.back())
 		return;
 
 	imgSys_->requestCompleted.disconnect(this, &ImgSysRequestHelper::requestReady);
-	imgSys_->claimCompletedRequest(request);
 
 	/* Sample running time of the task */
 	if (request_->sequence() % 30 == 0) {

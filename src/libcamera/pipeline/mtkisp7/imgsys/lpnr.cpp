@@ -143,17 +143,19 @@ int LpnrTasksManager::releaseBuffers()
 
 int LpnrTasksManager::start()
 {
+#if !V4L2_STANDARD_MODE
 	for (auto &pool : allBufferPools_)
 		imgSys_->handleIova(ImgSysDevice::Add, *pool);
-
+#endif
 	return 0;
 }
 
 int LpnrTasksManager::stop()
 {
+#if !V4L2_STANDARD_MODE
 	for (auto &pool : allBufferPools_)
 		imgSys_->handleIova(ImgSysDevice::Delete, *pool);
-
+#endif
 	return 0;
 }
 
