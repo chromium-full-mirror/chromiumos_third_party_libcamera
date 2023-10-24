@@ -96,13 +96,18 @@ public:
 class SofTask : public Task
 {
 public:
-	SofTask(Scheduler *scheduler, const std::string &id, Request *request)
-		: Task(scheduler, id), request_(request) {}
+	SofTask(Scheduler *scheduler, const std::string &id, Request *request,
+		CamSysDevice *camSys, Hal3A *hal3A)
+		: Task(scheduler, id), request_(request), camSys_(camSys),
+		  hal3A_(hal3A) {}
 
 	virtual void run() override final {}
 	void trigger();
 
 	Request *request_;
+
+	CamSysDevice *camSys_;
+	Hal3A *hal3A_;
 };
 
 class QueueTask : public Task

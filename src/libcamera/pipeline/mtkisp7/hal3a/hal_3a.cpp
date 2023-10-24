@@ -531,4 +531,41 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp)
 	r3AResult_ = r_3a_result;
 }
 
+std::pair<uint32_t, uint32_t> Hal3A::getExposureAndGain()
+{
+	// TODO: consider delay
+	ae_exposure_setting_table ae_table = r3AResult_.ae_result.ae_exp_table;
+	LOG(MtkISP7, Info) << "ae_table.cnt: " << ae_table.cnt;
+	if (ae_table.cnt == 0)
+		return std::make_pair(0, 0);
+
+	auto *const pSensorList = NSCam::IHalSensorList::get();
+
+	if (!pSensorList)
+		return std::make_pair(0, 0);
+
+	auto dev_idx = pSensorList->querySensorDevIdx(sensor_idx_);
+	auto *const pHalSensor = pSensorList->createSensor("pipemgrPerframeSet", sensor_idx_);
+
+	if (!pHalSensor)
+		return std::make_pair(0, 0);
+
+	for (int exp = 0; exp < AE_EXP_MODE_MAX_T; ++exp) {
+		if (ae_table.table[exp].mode <= 0)
+			continue;
+
+		// exp should be 4: AE_EXP_MODE_NE_T
+
+		uint32_t gain = pHalSensor->convert_gain(dev_idx, ae_table.table[exp].afe_gain);
+		uint32_t ex = ae_table.table[exp].exposure_line;
+
+		pHalSensor->destroyInstance("pipemgrPerframeSet");
+
+		return std::make_pair(ex, gain);
+	}
+
+	pHalSensor->destroyInstance("pipemgrPerframeSet");
+	return std::make_pair(0, 0);
+}
+
 } /* namespace libcamera */

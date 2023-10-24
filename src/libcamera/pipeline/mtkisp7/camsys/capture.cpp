@@ -120,7 +120,8 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 	if (request)
 		sequence = std::to_string(request->sequence());
 
-	SofTask *sofTask = new SofTask(scheduler, "Sof " + sequence, request);
+	SofTask *sofTask = new SofTask(scheduler, "Sof " + sequence, request,
+				       camSys_, hal3A_);
 	QueueTask *qTask = new QueueTask(this, scheduler, "Queue " + sequence, request, data);
 	DequeueTask *dqTask = new DequeueTask(this, scheduler, "Dequeue " + sequence, request, data, hal3A_);
 
@@ -130,6 +131,11 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 void SofTask::trigger()
 {
 	// todo: Set exposure and gain accordingly.
+	// todo: Set exposure and gain considering the delay of 2.
+	auto [exposure, gain] = hal3A_->getExposureAndGain();
+	if (exposure != 0) // Assuming it couldn't be zero.
+		camSys_->setExposureGain(exposure, gain);
+	LOG(MtkISP7, Info) << "exposure: " << exposure << ", gain: " << gain;
 	notifyDone();
 }
 

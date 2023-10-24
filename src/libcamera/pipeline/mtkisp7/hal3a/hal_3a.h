@@ -21,6 +21,8 @@ public:
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp);
 
+	std::pair<uint32_t, uint32_t> getExposureAndGain();
+
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 
 private:
