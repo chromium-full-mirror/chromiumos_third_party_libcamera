@@ -1622,8 +1622,11 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
 
 	if (buf.memory == V4L2_MEMORY_DMABUF) {
 		if (multiPlanar) {
-			for (unsigned int p = 0; p < numV4l2Planes; ++p)
+			for (unsigned int p = 0; p < numV4l2Planes; ++p) {
+				/* Hack for "flat" buffers in MTKISP7 */
+				v4l2Planes[p].data_offset = planes[p].offset;
 				v4l2Planes[p].m.fd = planes[p].fd.get();
+			}
 		} else {
 			buf.m.fd = planes[0].fd.get();
 		}
