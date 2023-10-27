@@ -37,6 +37,8 @@ public:
 		FrameBuffer *tuning;
 		FrameBuffer *statistics0;
 		FrameBuffer *statistics1;
+
+		int mediaRequest;
 	};
 
 	CamSysDevice();
@@ -86,7 +88,7 @@ private:
 
 	int setupResource();
 
-	void bufferReady(FrameBuffer *buffer);
+	void bufferReady(std::pair<FrameBuffer *, int> bufferWithRequest);
 
 	Size rawFrameSize_;
 	Size yuvFrameSize_;

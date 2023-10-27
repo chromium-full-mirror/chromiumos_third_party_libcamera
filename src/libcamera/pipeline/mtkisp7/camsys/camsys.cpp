@@ -129,14 +129,14 @@ int CamSysDevice::init(MediaDevice *media, unsigned int index)
 	media_->allocateRequests(kRequestCount, requests);
 	mediaRequestPool_.setData(requests);
 
-	yuvo1_->bufferReady.connect(this, &CamSysDevice::bufferReady);
-	yuvo2_->bufferReady.connect(this, &CamSysDevice::bufferReady);
-	drzs4no3_->bufferReady.connect(this, &CamSysDevice::bufferReady);
-	rzh1n2to1_->bufferReady.connect(this, &CamSysDevice::bufferReady);
-	metaInput_->bufferReady.connect(this, &CamSysDevice::bufferReady);
-	mainStream_->bufferReady.connect(this, &CamSysDevice::bufferReady);
-	partialMeta0_->bufferReady.connect(this, &CamSysDevice::bufferReady);
-	partialMeta1_->bufferReady.connect(this, &CamSysDevice::bufferReady);
+	yuvo1_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	yuvo2_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	drzs4no3_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	rzh1n2to1_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	metaInput_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	mainStream_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	partialMeta0_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	partialMeta1_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
 
 	return 0;
 }
@@ -273,6 +273,7 @@ int CamSysDevice::configure(const Size &rawFrameSize, const Size &yuvFrameSize)
 int CamSysDevice::queueRequest(Request *request)
 {
 	int mediaRequest = mediaRequestPool_.get();
+	request->mediaRequest = mediaRequest;
 
 	int ret = metaInput_->queueBuffer(request->tuning, mediaRequest);
 	ret |= partialMeta0_->queueBuffer(request->statistics0, mediaRequest);
@@ -605,26 +606,19 @@ int CamSysDevice::setupLinks(bool enable)
 	return ret;
 }
 
-void CamSysDevice::bufferReady(FrameBuffer *buffer)
+void CamSysDevice::bufferReady(std::pair<FrameBuffer *, int> bufferWithRequest)
 {
+	auto [buffer, mediaRequest] = bufferWithRequest;
 	bool foundRequest = false;
 	for (auto iter = pendingRequests_.begin();
 	     iter != pendingRequests_.end(); iter++) {
 		Request *request = iter->request;
-		if (request->main != buffer &&
-		    request->yuvo1 != buffer &&
-		    request->yuvo2 != buffer &&
-		    request->me != buffer &&
-		    request->faceDetect != buffer &&
-		    request->tuning != buffer &&
-		    request->statistics0 != buffer &&
-		    request->statistics1 != buffer) {
+		if (request->mediaRequest != mediaRequest)
 			continue;
-		}
 
 		foundRequest = true;
 		if (--iter->pending > 0)
-			continue;
+			break;
 
 		media_->reInitRequest(iter->mediaRequest);
 		mediaRequestPool_.put(iter->mediaRequest);
