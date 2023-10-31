@@ -240,6 +240,7 @@ public:
 
 protected:
 	std::string logPrefix() const override;
+	V4L2DeviceFormat format_;
 
 private:
 	LIBCAMERA_DISABLE_COPY(V4L2VideoDevice)
@@ -279,7 +280,6 @@ private:
 	static std::optional<ColorSpace> toColorSpace(const T &v4l2Format);
 
 	V4L2Capability caps_;
-	V4L2DeviceFormat format_;
 	const PixelFormatInfo *formatInfo_;
 	std::unordered_set<V4L2PixelFormat> pixelFormats_;
 

@@ -24,6 +24,17 @@ class DmaHeap;
 class PipelineHandler;
 class ImgSysDevice;
 
+class ImgsysVideoDevice : public V4L2VideoDevice
+{
+public:
+	using V4L2VideoDevice::V4L2VideoDevice;
+	int configure(V4L2DeviceFormat* fmt, int resizeRatio, Rectangle crop);
+
+private:
+	int resizeRatio_;
+	Rectangle crop_;
+};
+
 class ImgSysDevice
 {
 public:
@@ -69,7 +80,7 @@ private:
 	std::unique_ptr<V4L2Subdevice> mtkIspDip_;
 	std::unordered_map<
 		NSCam::NSImgStream::IMG_PORT,
-		std::unique_ptr<V4L2VideoDevice>> allVideoDevices_;
+		std::unique_ptr<ImgsysVideoDevice>> allVideoDevices_;
 
 	InfoFramePool descPool_;
 	InfoFramePool ctrlMetaPool_;

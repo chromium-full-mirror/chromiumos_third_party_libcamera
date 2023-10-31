@@ -34,6 +34,43 @@ using namespace NSCam::NSImgStream;
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
+int ImgsysVideoDevice::configure(V4L2DeviceFormat* fmt, int resizeRatio,
+				 Rectangle crop)
+{
+	int ret;
+
+	if (*fmt != format_) {
+		ret = setFormat(fmt);
+		if (ret)
+			return ret;
+
+		resizeRatio_ = 0;
+		crop_ = Rectangle();
+	}
+
+	if (resizeRatio != resizeRatio_) {
+		struct v4l2_ext_control ext_ctrl;
+		ext_ctrl.id = V4L2_CID_MTK_RESIZE_RATIO;
+		ext_ctrl.size = sizeof(int);
+		ext_ctrl.value = resizeRatio;
+		ret = setExtControl(&ext_ctrl, -1);
+		if (ret)
+			return ret;
+
+		resizeRatio_ = resizeRatio;
+	}
+
+	if (crop != crop_) {
+		ret = setSelection(V4L2_SEL_TGT_CROP, &crop);
+		if (ret)
+			return ret;
+
+		crop_ = crop;
+	}
+
+	return 0;
+}
+
 Rectangle ImgSysDevice::getCrop(Size inSize, Size outSize)
 {
 	/* 4:3 */
@@ -89,8 +126,8 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 		MediaLink *link = entity->pads()[0]->links()[0];
 		link->setEnabled(true);
 
-		std::unique_ptr<V4L2VideoDevice> videoDev =
-			std::make_unique<V4L2VideoDevice>(entity);
+		std::unique_ptr<ImgsysVideoDevice> videoDev =
+			std::make_unique<ImgsysVideoDevice>(entity);
 
 		if (videoDev->open())
 			return -ENODEV;
@@ -168,7 +205,7 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 	return 0;
 }
 
-void reconfigureVideoNode(V4L2VideoDevice &device, const PortInfoEx& info)
+void reconfigureVideoNode(ImgsysVideoDevice &device, const PortInfoEx& info)
 {
 	if (info.portIdx == IMG_PORT_METAI ||
 	    info.portIdx == IMG_PORT_DRV_CTRLMETAI ||
@@ -177,24 +214,13 @@ void reconfigureVideoNode(V4L2VideoDevice &device, const PortInfoEx& info)
 		return;
 
 	V4L2DeviceFormat format;
-	device.getFormat(&format, true);
-
-	uint32_t new_fourcc =
+	uint32_t fourcc =
 		getV4L2Fmt(info.img.getImgFormat(),
 			   info.img.getColorArrangement());
-	unsigned int width = static_cast<unsigned int>(info.img.getImgSize().w);
-	unsigned int height = static_cast<unsigned int>(info.img.getImgSize().h);
-	unsigned int planeCount = info.img.getPlaneCount();
 
-	// TODO: check for resize ratio, crop.
-	if (new_fourcc == format.fourcc.fourcc() &&
-	    planeCount == format.planesCount &&
-	    width == format.size.width &&
-	    height == format.size.height)
-		return;
-
-	format.size = {width, height};
-	format.fourcc = V4L2PixelFormat(new_fourcc);
+	format.size = { static_cast<unsigned int>(info.img.getImgSize().w),
+			static_cast<unsigned int>(info.img.getImgSize().h) };
+	format.fourcc = V4L2PixelFormat(fourcc);
 	format.planesCount = info.img.getPlaneCount();
 	for (unsigned int i = 0; i < format.planesCount; ++i) {
 		format.planes[i] =
@@ -202,23 +228,12 @@ void reconfigureVideoNode(V4L2VideoDevice &device, const PortInfoEx& info)
 			  static_cast<uint32_t>(info.img.getBufStridesInBytes(i))};
 	}
 
-	device.setFormat(&format);
+	Rectangle crop =
+		Rectangle(info.CropX, info.CropY,
+			{ static_cast<unsigned int>(info.CropW),
+			  static_cast<unsigned int>(info.CropH) });
 
-	if (info.mResizeRatio) {
-		struct v4l2_ext_control ext_ctrl;
-		ext_ctrl.id = V4L2_CID_MTK_RESIZE_RATIO;
-		ext_ctrl.size = sizeof(int);
-		ext_ctrl.value = info.mResizeRatio;
-		device.setExtControl(&ext_ctrl, -1);
-	}
-
-	if (info.CropW || info.CropH) {
-		Rectangle rect =
-			Rectangle(info.CropX, info.CropY,
-				{static_cast<unsigned int>(info.CropW),
-				 static_cast<unsigned int>(info.CropH)});
-		device.setSelection(V4L2_SEL_TGT_CROP, &rect);
-	}
+	device.configure(&format, info.mResizeRatio, crop);
 }
 
 static IMG_PORT getDevicePort(uint32_t portIdx)
@@ -260,14 +275,14 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	int ret = 0;
 
 	for (const PortInfoEx &port : stage.getInputs()) {
-		V4L2VideoDevice &device = *allVideoDevices_[getDevicePort(port.portIdx)];
+		ImgsysVideoDevice &device = *allVideoDevices_[getDevicePort(port.portIdx)];
 		reconfigureVideoNode(device, port);
 		ret |= device.queueBuffer(port.frameBuffer, mediaRequest);
 		request->buffers_count++;
 	}
 
 	for (const PortInfoEx &port : stage.getOutputs()) {
-		V4L2VideoDevice &device = *allVideoDevices_[getDevicePort(port.portIdx)];
+		ImgsysVideoDevice &device = *allVideoDevices_[getDevicePort(port.portIdx)];
 		reconfigureVideoNode(device, port);
 		ret |= device.queueBuffer(port.frameBuffer, mediaRequest);
 		request->buffers_count++;
