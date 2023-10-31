@@ -628,18 +628,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 		captureFrames.tuning = static_cast<AATask *>(*iter)->captureFrames_.tuningOutput;
 	} else {
-		captureFrames.tuning = makeMailBox<InfoFrame>();
-		hal3AManager_.fetchTuningBuffer(captureFrames.tuning);
-		FrameBuffer *tuningBuffer = captureFrames.tuning->get().buffer();
-
-		MappedFrameBuffer mappedBuffer(tuningBuffer,
-					       MappedFrameBuffer::MapFlag::ReadWrite);
-		tuningBuffer->_d()->metadata().planes()[0].bytesused = tuningBuffer->planes()[0].length;
-
-		// TODO: replace directly using raw_meta
-		// TODO: Check if we need to call getCamSysMetaTuning
-		memcpy(mappedBuffer.planes()[0].data(),
-		       &hal3A_->r3AResult_.raw_meta, Hal3A::kRawMetaSize);
+		captureFrames.tuning = hal3AManager_.getDummyTuning();
 	}
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(

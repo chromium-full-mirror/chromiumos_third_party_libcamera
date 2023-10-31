@@ -107,6 +107,8 @@ void Hal3AManager::allocateBuffers()
 
 void Hal3AManager::releaseBuffers()
 {
+	dummyTuning_.reset();
+
 	tuningPool_.release();
 
 	thread3A_.exit();
@@ -133,6 +135,8 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	if (request)
 		sequence = std::to_string(request->sequence());
 
+	dummyTuning_ = captureFrames.tuning;
+
 	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
 				    captureFrames, hal3A_,
 				    internalRequestId, camSysMetaRequestId);
@@ -147,6 +151,27 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	}
 
 	return std::make_tuple(aaTask, afTask);
+}
+
+SharedMailBox<InfoFrame> Hal3AManager::getDummyTuning()
+{
+	if (dummyTuning_)
+		return dummyTuning_;
+
+	dummyTuning_ = makeMailBox<InfoFrame>();
+	fetchTuningBuffer(dummyTuning_);
+	FrameBuffer *tuningBuffer = dummyTuning_->get().buffer();
+
+	MappedFrameBuffer mappedBuffer(tuningBuffer,
+				       MappedFrameBuffer::MapFlag::ReadWrite);
+	tuningBuffer->_d()->metadata().planes()[0].bytesused = tuningBuffer->planes()[0].length;
+
+	// TODO: replace directly using raw_meta
+	// TODO: Check if we need to call getCamSysMetaTuning
+	memcpy(mappedBuffer.planes()[0].data(),
+	       &hal3A_->r3AResult_.raw_meta, Hal3A::kRawMetaSize);
+
+	return dummyTuning_;
 }
 
 void AATask::run()

@@ -60,6 +60,8 @@ public:
 		tuningPool_.fetch(mailBox);
 	}
 
+	SharedMailBox<InfoFrame> getDummyTuning();
+
 private:
 	bool hasAF() const;
 	void allocateBuffers();
@@ -74,6 +76,8 @@ private:
 
 	Thread thread3A_;
 	Thread threadAF_;
+
+	SharedMailBox<InfoFrame> dummyTuning_;
 };
 
 // AE & AWB task.
