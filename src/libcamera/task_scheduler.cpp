@@ -135,4 +135,35 @@ void Scheduler::log()
 	LOG(Task, Info) << ss.str();
 }
 
+bool Scheduler::hasCyclicDependency() const
+{
+	std::map<Task*, int> precedentCnts;
+	std::unordered_set<Task*> runningTasks = runningTasks_;
+	std::unordered_set<Task*> pendingTasks;
+
+	for (const auto& task : pendingTasks_) {
+		if (task->precedents_.empty()) {
+			runningTasks.emplace(task);
+			continue;
+		}
+
+		pendingTasks.emplace(task);
+		precedentCnts[task] = task->precedents_.size();
+	}
+
+	while (!runningTasks.empty()) {
+		Task* task = *runningTasks.begin();
+		runningTasks.erase(runningTasks.begin());
+
+		for (Task* succedent : task->succedents_) {
+			if (0 == --precedentCnts[succedent]) {
+				pendingTasks.erase(succedent);
+				runningTasks.emplace(succedent);
+			}
+		}
+	}
+
+	return !pendingTasks.empty();
+}
+
 } /* namespace libcamera */

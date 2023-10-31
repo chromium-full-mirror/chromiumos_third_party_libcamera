@@ -71,6 +71,9 @@ public:
 	void schedule();
 	void log();
 
+	// Debug function.
+	bool hasCyclicDependency() const;
+
 protected:
 	void queueTask(Task *task, int32_t group);
 	void succeedPrevTaskByStep(int32_t group, size_t step, Task* task);
