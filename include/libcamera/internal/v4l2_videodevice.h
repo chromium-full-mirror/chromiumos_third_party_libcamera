@@ -209,7 +209,7 @@ public:
 
 	const V4L2Capability &caps() const { return caps_; }
 
-	int getFormat(V4L2DeviceFormat *format, bool useCache = false);
+	int getFormat(V4L2DeviceFormat *format);
 	int tryFormat(V4L2DeviceFormat *format);
 	int setFormat(V4L2DeviceFormat *format);
 	Formats formats(uint32_t code = 0);
