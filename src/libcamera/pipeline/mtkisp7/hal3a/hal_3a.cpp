@@ -6,6 +6,8 @@
 
 #include "hal_3a.h"
 
+#include <fstream>
+#include <string>
 #include <sys/mman.h>
 
 #include <libcamera/base/log.h>
@@ -37,8 +39,6 @@ void Hal3A::init()
 {
 	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
 	pHalSensorList->searchSensors();
-	peripheralController_ = mtk::hal3a::IPeripheralController::GetInstance(sensor_idx_);
-	peripheralController_->notifyPowerOn();
 
 	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
 	// TODO(chenghaoyang): Abstract sensors' information to support different sensor modules.
@@ -60,39 +60,20 @@ void Hal3A::init()
 	m_hal3a_ = mtk::hal3a::IHal3A::GetInstance(sensor_idx_);
 	mtk::hal3a::v1_0::mtk_3a_init init = {};
 
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetSensorStaticInfo,
-					   (intptr_t)(&init.sensor_static_info_array), 0,
-					   0, 0);
+	sensor_info_ = SensorInfo::getInstance(sensor_idx_);
 
-	// Get sensor init dynamic info
-	peripheralController_->NotifyEvent(
-		mtk::hal3a::IPeripheralController::kGetSensorInitialDynamicInfo,
-		(intptr_t)(&init.sensor_init_dynamic_info), 0, 0, 0);
-	// get cam calibration data
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetCalData,
-					   CAMERA_CAM_CAL_DATA_MODULE_VERSION,
-					   (intptr_t)(&init.cal_data), 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetCalData,
-					   CAMERA_CAM_CAL_DATA_3A_GAIN,
-					   (intptr_t)(&init.cal_aa), 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetCalData,
-					   CAMERA_CAM_CAL_DATA_SHADING_TABLE,
-					   (intptr_t)(&init.cal_lsc), 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetCalData,
-					   CAMERA_CAM_CAL_DATA_PDAF,
-					   (intptr_t)(&init.cal_pdaf), 0, 0);
-
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kIsAfSupported,
-					   (intptr_t)(&init.is_vcm_support),
-					   (intptr_t)(&init.is_ozoom_support), 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kIsIrcutSupported,
-					   (intptr_t)(&init.is_ircut_support), 0, 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kIsIrisSupported,
-					   (intptr_t)(&init.is_iris_support), 0, 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetFlashCapability,
-					   (intptr_t)(&init.flash_capability), 0, 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kFlashSupport,
-					   (intptr_t)(&init.flash_hw_support), 0, 0, 0);
+	if (sensor_info_) {
+		sensor_info_->init(_sensorIdxInfo.sensorDev, _sensorIdxInfo.sensorId, _sensorIdxInfo.moduleId);
+		sensor_info_->get_sensor_static_info(&init.sensor_static_info_array);
+		sensor_info_->get_sensor_initial_dynamic_info(&init.sensor_init_dynamic_info);
+		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_MODULE_VERSION, &init.cal_data);
+		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_3A_GAIN, &init.cal_aa);
+		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_SHADING_TABLE, &init.cal_lsc);
+		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_PDAF, &init.cal_pdaf);
+		init.is_vcm_support = sensor_info_->is_af_support();
+	} else {
+		LOG(MtkISP7, Info) << "sensor_info_ is null";
+	}
 
 	// Stereo Feature: init
 	// m_Sync3AFlowCtrl->Init(sensor_idx_);
@@ -104,16 +85,12 @@ void Hal3A::getInitialInfo()
 {
 	mtk::hal3a::v1_0::mtk_3a_config config = {};
 
-	// `config.static_meta` is not used in the proprietary library.
-
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetIrisData,
-					   (intptr_t)(&config.iris_info), 0, 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetSensorStaticInfo,
-					   (intptr_t)(&config.sensor_static_info_array),
-					   0, 0, 0);
-	peripheralController_->NotifyEvent(
-		mtk::hal3a::IPeripheralController::kGetSensorInitialDynamicInfo,
-		(intptr_t)(&config.sensor_init_dynamic_info), 0, 0, 0);
+	if (sensor_info_) {
+		sensor_info_->get_sensor_static_info(&config.sensor_static_info_array);
+		sensor_info_->get_sensor_initial_dynamic_info(&config.sensor_init_dynamic_info);
+	} else {
+		LOG(MtkISP7, Info) << "sensor_info_ is null";
+	}
 
 	// Replace m_meta_helper.convertToConfigRequest
 	config.ae_target_mode = 0;
@@ -181,18 +158,11 @@ void Hal3A::config()
 {
 	mtk::hal3a::v1_0::mtk_3a_config config = {};
 
-	// `config.static_meta` is not used in the proprietary library.
-
-	peripheralController_->NotifyEvent(
-		mtk::hal3a::IPeripheralController::kGetSensorConfigDynamicInfo, 0 /* According to dump */,
-		(intptr_t)(&config.sensor_config_dynamic_info), 0, 0);
-
-	// Get sensor perframe dynamic info
-	peripheralController_->NotifyEvent(
-		mtk::hal3a::IPeripheralController::kGetSensorPerframeDynamicInfo,
-		(intptr_t)(&config.sensor_perframe_dynamic_info), 0, 0, 0);
-	peripheralController_->NotifyEvent(mtk::hal3a::IPeripheralController::kGetIrisData,
-					   (intptr_t)(&config.iris_info), 0, 0, 0);
+	if (sensor_info_) {
+		sensor_info_->get_sensor_perframe_dynamic_info(&config.sensor_perframe_dynamic_info);
+	} else {
+		LOG(MtkISP7, Error) << "sensor_info_ is null";
+	}
 
 	// Replace m_meta_helper.convertToConfigRequest
 	config.ae_target_mode = 0;
@@ -216,11 +186,12 @@ void Hal3A::config()
 	config.is_subsample_mode = 0;
 
 	// TODO: remove if it's always 0.
+	/*
 	if (config.aov_enable) {
 		peripheralController_->NotifyEvent(
 			mtk::hal3a::IPeripheralController::kDisableSensorProvider, 0, 0, 0, 0);
 	}
-
+	*/
 	config.control_config.subsample_count = 1;
 	config.control_config.request_count = 1;
 	config.control_config.sensor_mode = 0;
@@ -272,11 +243,7 @@ void Hal3A::config()
 
 void Hal3A::startInternal()
 {
-	peripheralController_->NotifyEvent(
-		mtk::hal3a::IPeripheralController::kFlashInitialDuty,
-		(intptr_t)r3AResult_.flash_result.duty_setting, 0, 0, 0);
-	peripheralController_->NotifyEvent(
-		mtk::hal3a::IPeripheralController::kNotifyOisStreamOn, 0, 0, 0, 0);
+	// TODO: Check if we need to initialize focus position.
 
 	mtk::hal3a::v1_0::mtk_3a_start r_3a_start;
 	m_hal3a_->Start(r_3a_start);

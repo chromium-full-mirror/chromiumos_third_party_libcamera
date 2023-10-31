@@ -16,7 +16,7 @@
 #ifndef _CAMERA_CUSTOM_IMGSENSOR_CFG_
 #define _CAMERA_CUSTOM_IMGSENSOR_CFG_
 
-#include "kd_camera_feature.h"
+#include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_camera_feature.h"
 #ifndef NULL
 #define NULL 0
 #endif

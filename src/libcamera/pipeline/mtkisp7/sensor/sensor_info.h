@@ -1,0 +1,52 @@
+// Copyright 2023 The ChromiumOS Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#pragma once
+#include <array>
+#include <memory>
+#include <vector>
+
+#include "../camsys/camsys.h"
+#include "linux/mtkisp7/cam_cal_format.h"
+#include "platform/mtkisp7/mtkcam-core/aaa/peripheralcontroller/include/PeripheralInfoDef.h"
+#include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/mem/cam_cal_drv.h"
+namespace libcamera {
+
+#define MAX_SENSOR_INFO_COUNT 10
+
+class CamSysDevice;
+
+class SensorInfo
+{
+public:
+	SensorInfo(int sensor_idx);
+	void init(int sensor_dev, int sensor_id, int module_id);
+	static std::shared_ptr<SensorInfo> getInstance(int sensor_idx);
+	static void add_sensor(CamSysDevice *camSysDevice, int size);
+	void get_sensor_static_info(
+		std::array<mtk::hal3a::SensorStaticInfo, kMaxSensorCnt> *
+			sensor_static_info_array);
+	void get_sensor_initial_dynamic_info(
+		mtk::hal3a::SensorInitialDynamicInfo *sensor_dynamic_info);
+	void get_sensor_perframe_dynamic_info(mtk::hal3a::SensorPerframeDynamicInfo *sensor_perframe_dynamic_info);
+	int get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum, void *pCamCalData);
+
+	bool is_af_support();
+
+private:
+	uint32_t m_sensor_index;
+	uint32_t m_sensor_dev;
+	uint32_t m_sensor_id;
+	uint32_t m_module_id;
+	CamCalDrvBase *m_cal_drv;
+	static std::shared_ptr<SensorInfo> sensor_info_[MAX_SENSOR_INFO_COUNT];
+	static std::map<int, CamSysDevice *> idx_camsys_map;
+	static std::vector<std::shared_ptr<NSCam::SensorStaticInfo>>
+		nscam_sensor_static_info_;
+	static std::vector<CamSysDevice *> camSysDevices_;
+	static void construct_sensor_static_info(
+		int index, std::shared_ptr<NSCam::SensorStaticInfo> pSensorStaticInfo);
+};
+
+} // namespace libcamera

@@ -8,7 +8,6 @@ libmtkcam_ulog = cc.find_library('libmtkcam_ulog', required : true)
 libmtk_platform_log = cc.find_library('libmtk_platform_log', required : true)
 libmtkcam_debugwrapper = cc.find_library('libmtkcam.debugwrapper', required : true)
 libcam_halsensor = cc.find_library('libcam.halsensor', required : true)
-libcam_peripheralcontroller = cc.find_library('libcam.peripheralcontroller', required : true)
 libcam_halisp_utils_pub = cc.find_library('libcam.halisp.utils.pub', required : true)
 
 libcam_halisp_imp_v4l2 = cc.find_library('cam.halisp.imp.v4l2', required : true)
@@ -16,6 +15,7 @@ libcam_halisp_tuning_provider = cc.find_library('cam.halisp.TuningDataProvider',
 
 libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : true)
 libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
+libfeatureiodrv_mem  = cc.find_library('libfeatureiodrv_mem', required : true)
 
 libcamera_deps += [
     libcamalgo_fdft,
@@ -26,12 +26,12 @@ libcamera_deps += [
     libmtk_platform_log,
     libmtkcam_debugwrapper,
     libcam_halsensor,
-    libcam_peripheralcontroller,
     libcam_halisp_utils_pub,
     libcam_halisp_imp_v4l2,
     libcam_halisp_tuning_provider,
     libmtkcam_tuning_utils,
     libmtkcam_stdutils,
+    libfeatureiodrv_mem,
 ]
 
 libcamera_sources += files([
@@ -55,6 +55,7 @@ libcamera_sources += files([
     'odt/camsys_driver_debug.cpp',
     'odt/on_device_tuner.cpp',
     'mtkisp7.cpp',
+    'sensor/sensor_info.cpp'
 ])
 
 platform_libs += platform_mtkisp7_libs

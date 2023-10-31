@@ -20,6 +20,8 @@
 
 namespace libcamera {
 
+class Hal3ADelegate;
+
 class CamSysDevice
 {
 public:
@@ -70,6 +72,9 @@ public:
 
 	const Size rawFrameSize() { return rawFrameSize_; }
 	const Size yuvFrameSize() { return yuvFrameSize_; }
+
+	unsigned int mbusCode() { return mbusCode_; }
+	const std::string &model() { return sensor_->model(); }
 
 private:
 	int initSensor(MediaEntity *seninfEntity);

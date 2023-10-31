@@ -7,11 +7,14 @@
 #pragma once
 
 #include "../halisp/hal_isp.h"
+#include "../sensor/sensor_info.h"
 #include "libcamera/framebuffer.h"
 #include "libcamera/geometry.h"
 #include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
+class SensorInfo;
 
 namespace libcamera {
 
@@ -58,11 +61,10 @@ private:
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;
 	HalIsp *halIsp_ = nullptr;
 
-	std::shared_ptr<mtk::hal3a::IPeripheralController> peripheralController_ = nullptr;
-
 	mtk::hal3a::v1_0::mtk_hw_initial_setting initialSetting_ = {};
 
 	OnDeviceTuner *onDeviceTuner_;
+	std::shared_ptr<SensorInfo> sensor_info_ = nullptr;
 };
 
 } /* namespace libcamera */

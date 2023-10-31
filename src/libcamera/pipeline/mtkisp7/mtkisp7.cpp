@@ -38,6 +38,7 @@
 #include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "sensor/sensor_info.h"
 
 namespace libcamera {
 LOG_DEFINE_CATEGORY(MtkISP7)
@@ -615,7 +616,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 		LOG(MtkISP7, Info) << "Registered Camera[" << camSysDev_[i].cameraId() << "]";
 	}
-
+	SensorInfo::add_sensor(camSysDev_, 2);
 	return true;
 }
 
