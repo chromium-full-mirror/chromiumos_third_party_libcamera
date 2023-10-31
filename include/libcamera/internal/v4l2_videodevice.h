@@ -182,6 +182,12 @@ public:
 	const std::string toString() const;
 };
 
+bool operator==(const V4L2DeviceFormat &lhs, const V4L2DeviceFormat &rhs);
+static inline bool operator!=(const V4L2DeviceFormat &lhs, const V4L2DeviceFormat &rhs)
+{
+	return !(lhs == rhs);
+}
+
 std::ostream &operator<<(std::ostream &out, const V4L2DeviceFormat &f);
 
 class V4L2VideoDevice : public V4L2Device
