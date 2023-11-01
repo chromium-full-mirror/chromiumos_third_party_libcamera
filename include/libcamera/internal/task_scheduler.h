@@ -9,7 +9,8 @@
 
 #include <list>
 #include <map>
-#include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <libcamera/base/object.h>
 #include <libcamera/base/timer.h>
@@ -42,10 +43,11 @@ protected:
 private:
 	friend Scheduler;
 
-	size_t depend(Task* task);
+	void depend(Task* task);
 	size_t removeDependency(Task* task);
 
-	std::list<Task*> dependency_;
+	std::list<Task*> precedents_;
+	std::list<Task*> succedents_;
 };
 
 class DelayedTask : public Task
@@ -85,9 +87,11 @@ private:
 	void taskDone(Task* task);
 	Signal<Task*> taskDone_;
 
+	std::unordered_map<Task*, std::unique_ptr<Task>> tasksHolder_;
+
 	std::map<int32_t, std::list<Task*>> groupTasks_;
-	std::list<std::unique_ptr<Task>> pendingTasks_;
-	std::list<std::unique_ptr<Task>> runningTasks_;
+	std::unordered_set<Task*> pendingTasks_;
+	std::unordered_set<Task*> runningTasks_;
 };
 
 template<typename Category, std::enable_if_t<std::is_enum_v<Category>> * = nullptr >

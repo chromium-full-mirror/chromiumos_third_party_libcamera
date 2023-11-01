@@ -18,14 +18,14 @@ Task::Task(Scheduler* scheduler, const std::string& id):
 
 size_t Task::removeDependency(Task* task)
 {
-	dependency_.remove(task);
-	return dependency_.size();
+	precedents_.remove(task);
+	return precedents_.size();
 }
 
-size_t Task::depend(Task* task)
+void Task::depend(Task* task)
 {
-	dependency_.emplace_back(task);
-	return dependency_.size();
+	precedents_.emplace_back(task);
+	task->succedents_.emplace_back(this);
 }
 
 void Task::launch()
@@ -77,12 +77,13 @@ void Scheduler::succeedPrevTaskByStep(int32_t group, size_t step, Task* task)
 void Scheduler::schedule()
 {
 	for (auto it = pendingTasks_.begin(); it != pendingTasks_.end();) {
-		if (!(*it)->dependency_.empty()) {
+		auto* task = *it;
+		if (!task->precedents_.empty()) {
 			it++;
 			continue;
 		}
 
-		auto &task = runningTasks_.emplace_back(std::move(*it));
+		runningTasks_.emplace(task);
 		it = pendingTasks_.erase(it);
 
 		task->launch();
@@ -93,26 +94,30 @@ void Scheduler::taskDone(Task* task)
 {
 	taskDone_.emit(task);
 
-	runningTasks_.remove_if([&task](auto &taskPtr){
-			return taskPtr.get() == task; });
+	runningTasks_.erase(task);
 
 	for (auto &[group, tasks] : groupTasks_) {
 		tasks.remove(task);
 	}
 
-	bool needSchedule = false;
-	for (auto &pending : pendingTasks_)
-		if (0 == pending->removeDependency(task))
-			needSchedule = true;
+	for (auto *succedent : task->succedents_) {
+		if (0 == succedent->removeDependency(task)) {
+			runningTasks_.emplace(succedent);
+			pendingTasks_.erase(succedent);
 
-	if (needSchedule)
-		schedule();
+			succedent->launch();
+		}
+	}
+
+	tasksHolder_.erase(task);
 }
 
 void Scheduler::queueTask(Task *task, int32_t group)
 {
 	/* \todo: Detect cyclic dependency */
-	pendingTasks_.emplace_back(task);
+	tasksHolder_.emplace(task, task);
+
+	pendingTasks_.emplace(task);
 	groupTasks_[group].emplace_back(task);
 }
 
