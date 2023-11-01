@@ -9,15 +9,12 @@
 
 #include <list>
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
 #include <libcamera/base/object.h>
 #include <libcamera/base/timer.h>
-
-#include <libcamera/framebuffer.h>
-
-#include "libcamera/internal/framebuffer.h"
 
 namespace libcamera {
 
