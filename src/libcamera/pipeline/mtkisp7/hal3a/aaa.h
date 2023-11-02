@@ -84,6 +84,10 @@ private:
 class AATask : public Task
 {
 public:
+	struct PerFrameControl {
+		bool isStillCapture = false;
+	};
+
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId)
@@ -91,6 +95,11 @@ public:
 		  captureFrames_(captureFrames), hal3A_(hal3A),
 		  internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId) {}
+
+	void setPerFrameControl(PerFrameControl perFrameControl)
+	{
+		perFrameControl_ = perFrameControl;
+	}
 
 	void run() override final;
 
@@ -101,6 +110,8 @@ public:
 
 	uint32_t internalRequestId_;
 	uint32_t camSysMetaRequestId_;
+
+	PerFrameControl perFrameControl_;
 };
 
 class AFTask : public Task

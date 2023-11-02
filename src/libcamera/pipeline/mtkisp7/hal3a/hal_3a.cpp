@@ -284,7 +284,7 @@ void Hal3A::startInternal()
 
 void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-			  int rawMetaFd, unsigned char *rawMetaBuffer,
+			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
@@ -303,7 +303,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	if (internalRequestId == 0)
 		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
 
-	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(internalRequestId);
+	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(
+		internalRequestId, false, isStillCapture);
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -312,7 +313,11 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		return;
 	}
 
-	r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kPreview;
+	if (isStillCapture)
+		r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kCaptureP1;
+	else
+		r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kPreview;
+
 	r_3a_request.buf_info.request_id = camSysMetaRequestId;
 	r_3a_request.buf_info.sof_timestamp = timestamp;
 
@@ -372,7 +377,7 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 }
 
 mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
-	uint32_t internalRequestId, [[maybe_unused]] bool isAF)
+	uint32_t internalRequestId, bool isStillCapture, [[maybe_unused]] bool isAF)
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = {};
 
@@ -384,7 +389,11 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.is_dummy_request = false;
 	r_3a_param.control_mode = 1;
 	r_3a_param.scene_mode = 0;
-	r_3a_param.capture_intent = 1;
+	if (isStillCapture) {
+		r_3a_param.capture_intent = 2;
+	} else {
+		r_3a_param.capture_intent = 1;
+	}
 	r_3a_param.inflight_capture = 0;
 	r_3a_param.ae_lock = 0;
 	r_3a_param.ae_mode = 1;
@@ -402,7 +411,11 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.set_converge = 0;
 	r_3a_param.awb_lock = 0;
 	r_3a_param.awb_mode = 1;
-	r_3a_param.color_correct_mode = 1;
+	if (isStillCapture) {
+		r_3a_param.color_correct_mode = 2;
+	} else {
+		r_3a_param.color_correct_mode = 1;
+	}
 	for (unsigned int i = 0; i < kMaxColorGainsCount; i++) {
 		r_3a_param.color_correct_gain[i] = 1.0;
 	}
@@ -429,9 +442,17 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.af_notify_timeout = 0;
 	r_3a_param.strobe_mode = 0;
 	r_3a_param.flash_type = mtk::hal3a::kNoFlash;
-	r_3a_param.shading_mode = 1;
+	if (isStillCapture) {
+		r_3a_param.shading_mode = 2;
+	} else {
+		r_3a_param.shading_mode = 1;
+	}
 	r_3a_param.shadingmap_mode = 0;
-	r_3a_param.tonemap_mode = 1;
+	if (isStillCapture) {
+		r_3a_param.tonemap_mode = 2;
+	} else {
+		r_3a_param.tonemap_mode = 1;
+	}
 	r_3a_param.lock_ratio = 0;
 	r_3a_param.lock_shading = 0;
 	r_3a_param.sensor_test_patten_mode = 0;
@@ -457,7 +478,11 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.awb_warmstart_enable = 1;
 	//  common tag
 	r_3a_param.repeat_tag = 0;
-	r_3a_param.get_exif = 0;
+	if (isStillCapture) {
+		r_3a_param.get_exif = 1;
+	} else {
+		r_3a_param.get_exif = 0;
+	}
 	r_3a_param.is_center_region = 0;
 	r_3a_param.imgo_type = 1;
 	r_3a_param.app_mode = 0;
@@ -579,7 +604,11 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.tuning_feature = 0;
 	r_3a_param.sensor_feature = 0;
 	r_3a_param.custom_feature = 0;
-	r_3a_param.tuning_feature_cap = 0;
+	if (isStillCapture) {
+		r_3a_param.tuning_feature_cap = 28;
+	} else {
+		r_3a_param.tuning_feature_cap = 0;
+	}
 	r_3a_param.custom_feature_cap = 0;
 	r_3a_param.custom_00 = 0;
 	r_3a_param.sync2a_mode = 0;

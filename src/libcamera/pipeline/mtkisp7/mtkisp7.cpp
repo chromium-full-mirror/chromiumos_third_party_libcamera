@@ -133,7 +133,7 @@ public:
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 	makeTasks(const std::string &id, Request *request,
-		  CaptureFrames &captureFrames);
+		  CaptureFrames &captureFrames, AATask::PerFrameControl perFrameControl);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
 				  SofTask *sofTask, AATask *aaTask,
 				  AFTask *afTask);
@@ -598,7 +598,8 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 
 std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
-			     CaptureFrames &captureFrames)
+			     CaptureFrames &captureFrames,
+			     AATask::PerFrameControl perFrameControl)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
@@ -626,7 +627,10 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 		for (uint32_t i = 0; i < CaptureTasksManager::kRawMetaDelay - 1; ++i)
 			++iter;
 
-		captureFrames.tuning = static_cast<AATask *>(*iter)->captureFrames_.tuningOutput;
+		auto *prevAATask = static_cast<AATask *>(*iter);
+		captureFrames.tuning = prevAATask->captureFrames_.tuningOutput;
+
+		prevAATask->setPerFrameControl(perFrameControl);
 	} else {
 		captureFrames.tuning = hal3AManager_.getDummyTuning();
 	}
@@ -820,13 +824,15 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	     i < CaptureTasksManager::kRawMetaDelay; ++i) {
 		CaptureFrames captureFrames;
 
-		makeTasks("Padding capture", nullptr, captureFrames);
+		makeTasks("Padding capture", nullptr, captureFrames,
+			  AATask::PerFrameControl{ .isStillCapture = false });
 	}
 
 	CaptureFrames captureFrames;
 
 	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask] = makeTasks(
-		"Capture " + sequence, request, captureFrames);
+		"Capture " + sequence, request, captureFrames,
+		AATask::PerFrameControl{ .isStillCapture = (bool)stillBuffer });
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
 		auto [faceDetectionTask, faceToneTask, parseTask] =

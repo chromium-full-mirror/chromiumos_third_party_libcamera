@@ -24,7 +24,7 @@ public:
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			   uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-			   int rawMetaFd, unsigned char *rawMetaBuffer,
+			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			   std::pair<uint32_t, uint32_t> *exposureAndGain);
 
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
@@ -40,7 +40,8 @@ private:
 	void startInternal();
 
 	mtk::hal3a::v1_0::mtk_3a_param get3AParam(uint32_t internalRequestId,
-						  bool isAF = false);
+						  bool isAF = false,
+						  bool isStillCapture = false);
 
 	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain);
 

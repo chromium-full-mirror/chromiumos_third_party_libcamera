@@ -188,6 +188,7 @@ void AATask::run()
 	hal3A_->doCalculation(captureFrames_.statistics0->get().buffer(),
 			      captureFrames_.timestamp->get(),
 			      internalRequestId_, camSysMetaRequestId_,
+			      perFrameControl_.isStillCapture,
 			      tuningBuffer->planes()[0].fd.get(),
 			      mappedBuffer.planes()[0].data(),
 			      &exposureAndGain);
