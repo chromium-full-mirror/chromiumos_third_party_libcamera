@@ -14,6 +14,9 @@ libcam_halisp_utils_pub = cc.find_library('libcam.halisp.utils.pub', required : 
 libcam_halisp_imp_v4l2 = cc.find_library('cam.halisp.imp.v4l2', required : true)
 libcam_halisp_tuning_provider = cc.find_library('cam.halisp.TuningDataProvider', required : true)
 
+libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : true)
+libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
+
 libcamera_deps += [
     libcamalgo_fdft,
     libcam_hal3a,
@@ -27,6 +30,8 @@ libcamera_deps += [
     libcam_halisp_utils_pub,
     libcam_halisp_imp_v4l2,
     libcam_halisp_tuning_provider,
+    libmtkcam_tuning_utils,
+    libmtkcam_stdutils,
 ]
 
 libcamera_sources += files([

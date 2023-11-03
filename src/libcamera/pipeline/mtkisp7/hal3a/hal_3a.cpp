@@ -18,8 +18,8 @@ namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp)
-	: sensor_idx_(sensor_idx)
+Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt)
+	: sensor_idx_(sensor_idx), onDeviceTuner_(odt)
 {
 	ASSERT(halIsp);
 	halIsp_ = halIsp;
@@ -287,7 +287,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			  MtkCameraFaceMetadata *metadata, bool newFdResult,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain,
-			  AaaIspExchange *aaaIspExchange)
+			  AaaIspExchange *aaaIspExchange, Request *request)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
 	if (sensor_idx_ == 0) { // back camera
@@ -322,6 +322,9 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 
 	r_3a_request.buf_info.request_id = camSysMetaRequestId;
 	r_3a_request.buf_info.sof_timestamp = timestamp;
+	if (request) {
+		onDeviceTuner_->tune3ARequest(request, r_3a_request);
+	}
 
 	r_3a_request.stt_buf.fd = statistics0->planes()[0].fd.get();
 

@@ -34,9 +34,6 @@ namespace {
 constexpr const char *kEnableTuningPath = "/run/camera/enable_tuning";
 constexpr const char *kExportRequestPath = "/run/camera/export_dump";
 constexpr const char *kImportRequestPath = "/run/camera/import_dump";
-// Dump key must be exactly 9 digits.
-constexpr int kMinDumpKey = 1e8;
-constexpr int kMaxDumpKey = 1e9 - 1;
 constexpr const char *kWorkDir = "/tmp/vendor/camera_dump";
 
 } // namespace
@@ -57,9 +54,7 @@ std::vector<ImagiqAdapter::ExportResult> OnDeviceTuner::batchExport(
 void OnDeviceTuner::batchImport(const std::vector<Dump> &dumps)
 {
 	for (auto dump : dumps) {
-		if (dump.config.enableImport) {
-			ImagiqAdapter::importDump(dump);
-		}
+		ImagiqAdapter::importDump(dump);
 	}
 }
 
@@ -67,7 +62,8 @@ void OnDeviceTuner::batchPrepareReimport(
 	const std::vector<ImagiqAdapter::ExportResult> &exportResults)
 {
 	for (const auto &result : exportResults) {
-		if (!result.errorCode.has_value()) {
+		if (!result.errorCode.has_value() &&
+		    result.dump.config.writeReimportConfig) {
 			ImagiqAdapter::prepareReimport(result);
 		}
 	}
@@ -76,8 +72,29 @@ void OnDeviceTuner::batchPrepareReimport(
 void OnDeviceTuner::configure(
 	const std::string &sensorId, unsigned int camsysIndex)
 {
+	if (!enabled_) {
+		return;
+	}
+
+	enabled_ = true;
+	exportBegin_ = 0;
+	exportEnd_ = 0;
+	importBegin_ = 0;
+	importEnd_ = 0;
+	prevStartedRequestNum_ = -1;
+	prevEndedRequestNum_ = -1;
+	sensorId_ = sensorId;
+	camsysDebug_ = CamsysDebug::create(camsysIndex);
+	sessionTimestamp_ = ImagiqAdapter::generateDumpTimestamp();
+
+	// Immediately create one directory for any capture dumps.
+	prepareNewExportDirectory();
+	ImagiqAdapter::notifyNewSession(sensorId, sessionTimestamp_);
+}
+
+void OnDeviceTuner::initialize()
+{
 	enabled_ = false;
-	camsysDebug_.reset();
 
 	if (!std::filesystem::exists(kEnableTuningPath)) {
 		return;
@@ -85,22 +102,18 @@ void OnDeviceTuner::configure(
 
 	int ret = ImagiqAdapter::loadConfig(dumpConfig_, kWorkDir);
 	if (ret) {
-		LOG(MtkISP7, Error) << "Attempted to enable pipeline tuning, but failed"
-				    << " to load the config, error code: " << ret;
+		LOG(MtkISP7, Error) << "Failed to load the config, error code: " << ret;
+		return;
+	}
+
+	ret = ImagiqAdapter::enableMtkTuningTool(kWorkDir);
+	if (ret) {
+		LOG(MtkISP7, Error) << "Failed to enable MTK tuning tool";
 		return;
 	}
 
 	LOG(MtkISP7, Warning) << "Pipeline tuning enabled";
 	enabled_ = true;
-	exportBegin_ = 0;
-	exportEnd_ = 0;
-	importBegin_ = 0;
-	importEnd_ = 0;
-	sensorId_ = sensorId;
-	camsysDebug_ = CamsysDebug::create(camsysIndex);
-
-	// Immediately create one directory for any capture dumps.
-	prepareNewExportDirectory();
 }
 
 void OnDeviceTuner::loadTuneRequest(int requestNumber)
@@ -108,9 +121,9 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 	if (!enabled_) {
 		return;
 	}
-	int exportRequestCount = 0;
 	std::ifstream exportRequestFile(kExportRequestPath);
 	if (exportRequestFile.good()) {
+		int exportRequestCount = 0;
 		exportRequestFile >> exportRequestCount;
 		LOG(MtkISP7, Info) << "Loaded dump export request from file: "
 				   << exportRequestCount << " frames";
@@ -119,7 +132,7 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 		std::filesystem::remove(path);
 		exportBegin_ = requestNumber;
 		exportEnd_ = requestNumber + exportRequestCount;
-		prepareNewExportDirectory();
+		ImagiqAdapter::notifyExportRequest(exportRequestCount);
 	}
 
 	std::ifstream importRequestFile(kImportRequestPath);
@@ -154,23 +167,39 @@ bool OnDeviceTuner::isImgsysCaptureStage(PEU_Stage stage)
 	       kImgsysCaptureStages.end();
 }
 
+void OnDeviceTuner::notifyRequestBegin(int requestNumber)
+{
+	if (!enabled_ || requestNumber <= prevStartedRequestNum_) {
+		return;
+	}
+	prevStartedRequestNum_ = requestNumber;
+	loadTuneRequest(requestNumber);
+	ImagiqAdapter::notifyRequestBegin(
+		sensorId_, requestNumber);
+}
+
+void OnDeviceTuner::notifyRequestEnd(int requestNumber)
+{
+	if (!enabled_ || requestNumber <= prevEndedRequestNum_) {
+		return;
+	}
+	prevEndedRequestNum_ = requestNumber;
+	stillCaptureRequestIds_.erase(requestNumber);
+	ImagiqAdapter::notifyRequestEnd(
+		sensorId_, requestNumber);
+}
+
+void OnDeviceTuner::notifyStillCapture(int requestNumber)
+{
+	stillCaptureRequestIds_.insert(requestNumber);
+}
+
 int OnDeviceTuner::prepareNewExportDirectory()
 {
-	std::filesystem::path newPath;
 	std::filesystem::path workPath(kWorkDir);
-	int dumpKey;
-	for (dumpKey = kMinDumpKey; dumpKey <= kMaxDumpKey; dumpKey++) {
-		std::filesystem::path exportFolderName = "UKey" + std::to_string(dumpKey);
-		newPath.assign(workPath / exportFolderName);
-		if (!std::filesystem::exists(newPath)) {
-			break;
-		}
-	}
-	if (dumpKey > kMaxDumpKey) {
-		LOG(MtkISP7, Error) << "Failed to create dump directory: "
-				    << "too many dumps already.";
-		return -EEXIST;
-	}
+	std::filesystem::path newPath =
+		workPath /
+		("UKey" + ImagiqAdapter::formatTimestamp(sessionTimestamp_));
 	auto cmd = "mkdir -p " + newPath.string();
 	int ret = system(cmd.c_str());
 	if (ret != 0) {
@@ -211,6 +240,7 @@ void OnDeviceTuner::tune(
 		dumps.push_back({ .id = namedFrame.id,
 				  .requestNumber = requestNumber,
 				  .sensorId = sensorId_,
+				  .timestamp = sessionTimestamp_,
 				  .workPath = currentExportPath_,
 				  .frame = namedFrame.frame,
 				  .metadata = metadata,
@@ -245,6 +275,7 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 			.id = Dump::Id::P1_REG_P1,
 			.requestNumber = requestNumber,
 			.sensorId = sensorId_,
+			.timestamp = sessionTimestamp_,
 			.workPath = currentExportPath_,
 			.frame = std::nullopt,
 			.metadata = kDumpMetadata.at(Dump::Id::P1_REG_P1),
@@ -288,6 +319,7 @@ void OnDeviceTuner::tuneImgsysMetadata(
 			.id = id,
 			.requestNumber = sdRequest->sequence(),
 			.sensorId = sensorId_,
+			.timestamp = sessionTimestamp_,
 			.workPath = currentExportPath_,
 			.frame = std::nullopt,
 			.metadata = dumpMetadata,
@@ -299,6 +331,27 @@ void OnDeviceTuner::tuneImgsysMetadata(
 				   << " request number: " << sdRequest->sequence()
 				   << " stage: " << stageEnums[i]
 				   << " dump file prefix: " << dumpFileName;
+	}
+}
+
+void OnDeviceTuner::tune3ARequest(
+	Request *request, mtk::hal3a::v1_0::mtk_3a_request &aaaRequest)
+{
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return;
+	}
+	aaaRequest.ndd_data.timestamp = sessionTimestamp_;
+	aaaRequest.ndd_data.requestNo = request->sequence();
+	aaaRequest.ndd_data.frameNo = request->sequence();
+	aaaRequest.ndd_data.platform = 8188;
+	if (isStillCapture) {
+		aaaRequest.ndd_data.feature = static_cast<int>(Feature::Capture_lpnr);
+		aaaRequest.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
+	} else {
+		aaaRequest.ndd_data.feature = static_cast<int>(Feature::Preview);
+		aaaRequest.ndd_category = NSCam::TuningUtils::eCategory::kSTREAMING;
 	}
 }
 

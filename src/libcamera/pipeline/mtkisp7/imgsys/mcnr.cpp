@@ -644,7 +644,6 @@ void MeATask::notifyDone()
 	if (syncLtrMeA_)
 		imgSys_->syncPool().put(syncLtrMeA_);
 
-	manager_->onDeviceTuner_->tuneMe(request_, frames_);
 	Task::notifyDone();
 }
 

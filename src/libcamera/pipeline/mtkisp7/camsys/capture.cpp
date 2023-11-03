@@ -6,6 +6,7 @@
  */
 
 #include "capture.h"
+#include <cstdint>
 
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
@@ -109,13 +110,16 @@ std::tuple<QueueTask *, DequeueTask *, SofTask *>
 CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 				      const std::string &id,
 				      Request *request,
-				      CaptureFrames &captureFrames)
+				      CaptureFrames &captureFrames,
+				      uint32_t camSysMetaRequestId)
 {
 	(void)id;
 
 	std::string sequence = "padding";
 	if (request)
 		sequence = std::to_string(request->sequence());
+
+	onDeviceTuner_->notifyRequestBegin(camSysMetaRequestId);
 
 	// Create CaptureData after CaptureFrames SharedMailBoxes are set.
 	auto data = std::make_shared<CaptureData>(captureFrames);
@@ -171,7 +175,6 @@ void QueueTask::run()
 			camSys->setTestPattern(
 				static_cast<controls::draft::TestPatternModeEnum>(*testPatternControl));
 		}
-		manager_->onDeviceTuner_->loadTuneRequest(request_->sequence());
 	}
 
 	auto &frames = data_->frames;

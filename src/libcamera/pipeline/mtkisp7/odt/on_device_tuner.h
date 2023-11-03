@@ -9,11 +9,14 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 
 #include <libcamera/request.h>
 
+#include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/aaa_hal_def.h"
 #include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
@@ -32,12 +35,19 @@ struct LpnrDipFrames;
 class OnDeviceTuner
 {
 public:
+	void initialize();
 	void configure(const std::string &sensorId, unsigned int camsysIndex);
 
-	void loadTuneRequest(int requestNumber);
+	void notifyRequestBegin(int requestNumber);
+	void notifyRequestEnd(int requestNumber);
+	void notifyStillCapture(int requestNumber);
 
 	// P1 Camsys
 	void tuneCamsys(Request *request, CaptureFrames &frames);
+
+	// 3A
+	void tune3ARequest(
+		Request *request, mtk::hal3a::v1_0::mtk_3a_request &r3aRequest);
 
 	// P2 Imgsys driver
 	void tuneImgsysMetadata(
@@ -74,6 +84,7 @@ private:
 	InfoFrame getFrameInfoFromRequest(
 		Request *request, FrameBuffer *buffer);
 	bool isImgsysCaptureStage(PEU_Stage stage);
+	void loadTuneRequest(int requestNumber);
 	int prepareNewExportDirectory();
 	bool shouldExportDumpNow(uint32_t requestNumber);
 	bool shouldImportDumpNow(uint32_t requestNumber);
@@ -82,8 +93,11 @@ private:
 		  bool forceDump = false);
 
 	bool enabled_;
+	int sessionTimestamp_;
 	std::string sensorId_;
 
+	int prevStartedRequestNum_;
+	int prevEndedRequestNum_;
 	uint32_t exportBegin_;
 	uint32_t exportEnd_;
 	uint32_t importBegin_;
@@ -91,6 +105,7 @@ private:
 	std::filesystem::path currentExportPath_;
 
 	std::map<Dump::Id, Dump::Config> dumpConfig_;
+	std::set<int> stillCaptureRequestIds_;
 
 	std::unique_ptr<CamsysDebug> camsysDebug_;
 };

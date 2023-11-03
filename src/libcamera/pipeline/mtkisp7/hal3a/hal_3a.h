@@ -11,6 +11,7 @@
 #include "libcamera/geometry.h"
 #include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
 
@@ -19,7 +20,7 @@ class Hal3A
 public:
 	static const uint32_t kRawMetaSize = 113664;
 
-	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp);
+	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt);
 
 	void configure(Size camsysYuvSize) { camsysYuvSize_ = camsysYuvSize; }
 	void start();
@@ -29,7 +30,7 @@ public:
 			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			   MtkCameraFaceMetadata *metadata, bool newFdResult,
 			   std::pair<uint32_t, uint32_t> *exposureAndGain,
-			   AaaIspExchange *aaaIspExchange);
+			   AaaIspExchange *aaaIspExchange, Request *request);
 
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
@@ -60,6 +61,8 @@ private:
 	std::shared_ptr<mtk::hal3a::IPeripheralController> peripheralController_ = nullptr;
 
 	mtk::hal3a::v1_0::mtk_hw_initial_setting initialSetting_ = {};
+
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 } /* namespace libcamera */

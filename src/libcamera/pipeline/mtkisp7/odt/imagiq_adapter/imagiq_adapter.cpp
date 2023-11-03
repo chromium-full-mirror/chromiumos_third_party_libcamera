@@ -18,6 +18,9 @@
 #include "libcamera/internal/formats.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "mtkcam-interfaces/utils/debug/Properties.h"
+#include "mtkcam-interfaces/utils/ndd/INdd.h"
+#include "mtkcam-interfaces/utils/std/Time.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/mtk_headers/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
@@ -42,6 +45,9 @@ const std::filesystem::path kImportConfigPath = "dump_import.cfg";
 
 } // namespace
 
+std::unique_ptr<NSCam::TuningUtils::NddInitializer>
+	ImagiqAdapter::mtkTuningInitializer_;
+
 const ImagiqAdapter::SensorIdMap ImagiqAdapter::kSensorIdMap(kGeraltSensorMap);
 
 const std::array<std::string, 2> ImagiqAdapter::kYcPlaneNames{
@@ -63,6 +69,39 @@ std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
 	       kStageStrMap.at(dump.metadata.stage) + ',' +
 	       std::to_string(dump.metadata.layer) + ',' +
 	       std::to_string(dump.metadata.action.has_value() ? static_cast<int>(dump.metadata.action.value()) : -1);
+}
+
+/**
+ * @brief Enable tuning tool for MTK HAL3A / HALISP library
+ *
+ * Libcamera doesn't have the pointer to the dump data,
+ * and doesn't have control to the dump export timing.
+ * This function allows MTK private library to do dump
+ * export/import on their own.
+ * 
+ * @return 0 if success
+ */
+int ImagiqAdapter::enableMtkTuningTool(std::filesystem::path workDir)
+{
+	mtkTuningInitializer_.reset();
+	int ret = NSCam::Utils::Properties::property_set(
+		"vendor.debug.ndd.thdnum", "1");
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.ndd.rootpath", (workDir.string() + "/").c_str());
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.ndd.subdir", "1");
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.ndd.cfgpath", (workDir / kDumpConfigPath).c_str());
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.ndd.gen_cfg", "1");
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.ndd.prv_ready", "0");
+	if (ret != 0) {
+		LOG(MtkISP7, Error) << "Failed to setprop";
+		return ret;
+	}
+	mtkTuningInitializer_.reset(new NSCam::TuningUtils::NddInitializer());
+	return 0;
 }
 
 ImagiqAdapter::ExportResult ImagiqAdapter::exportDump(const Dump &dump)
@@ -168,6 +207,26 @@ std::string ImagiqAdapter::formatPlaneName(int planeNumber, const PixelFormat &p
 		return kYuvPlaneNames[planeNumber];
 	}
 	return "";
+}
+
+std::string ImagiqAdapter::formatTimestamp(int timestamp)
+{
+	std::ostringstream ss;
+	ss << std::setw(9) << std::setfill('0') << timestamp;
+	return ss.str();
+}
+
+/**
+ * @brief Generate acceptable timestamp for Imagiq
+ *
+ * Imagiq wants a 9-digit timestamp, this function will call
+ * an MTK library to do just that.
+ * 
+ * @return timestamp ranged [1e8, 1e9)
+ */
+int ImagiqAdapter::generateDumpTimestamp()
+{
+	return NSCam::Utils::TimeTool::getReadableTime();
 }
 
 std::string ImagiqAdapter::getDumpFileName(const Dump &dump)
@@ -437,7 +496,7 @@ int ImagiqAdapter::loadBaseConfig(
 			config[id] = {
 				.dumpFileNameFormat = fileNameFormat,
 				.enableExport = parsed[5] == "1",
-				.enableImport = parsed[6].length() > 0 ? parsed[6][0] == '1' : false
+				.writeReimportConfig = parsed[6].length() > 0 ? parsed[6][0] == '1' : false
 			};
 		}
 	}
@@ -554,13 +613,51 @@ int ImagiqAdapter::loadImportConfig(
 	return 0;
 }
 
+void ImagiqAdapter::notifyExportRequest(int count)
+{
+	int ret = NSCam::Utils::Properties::property_set(
+		"vendor.debug.ndd.prv_ready", std::to_string(count).c_str());
+	if (ret != 0) {
+		LOG(MtkISP7, Error) << "Failed to setprop!";
+	}
+}
+
+void ImagiqAdapter::notifyNewSession(std::string sensorId, int dumpTimestamp)
+{
+	for (const auto &[_, mtkSensorId] : kSensorIdMap) {
+		int sensorIdInt = static_cast<int>(mtkSensorId);
+		NSCam::TuningUtils::INdd::getInstance()->stream_off(
+			{ sensorIdInt });
+	}
+	int sensorIdInt =
+		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
+	NSCam::TuningUtils::INdd::getInstance()->stream_on(
+		{ sensorIdInt }, dumpTimestamp);
+}
+
+void ImagiqAdapter::notifyRequestBegin(
+	std::string sensorId, int requestNumber)
+{
+	int sensorIdInt =
+		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
+	NSCam::TuningUtils::INdd::getInstance()->frame_begin(
+		sensorIdInt, requestNumber);
+}
+
+void ImagiqAdapter::notifyRequestEnd(std::string sensorId, int requestNumber)
+{
+	int sensorIdInt =
+		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
+	NSCam::TuningUtils::INdd::getInstance()->frame_end(
+		sensorIdInt, requestNumber);
+}
+
 NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 {
 	NSCam::TuningUtils::NddData ndd;
 	ndd.requestNo = dump.requestNumber;
 	ndd.frameNo = dump.requestNumber;
-	ndd.timestamp = std::chrono::system_clock::to_time_t(
-		std::chrono::system_clock::now());
+	ndd.timestamp = dump.timestamp;
 	ndd.sensorId = kSensorIdMap.at(dump.sensorId);
 
 	ndd.feature = static_cast<int>(dump.metadata.featureId);

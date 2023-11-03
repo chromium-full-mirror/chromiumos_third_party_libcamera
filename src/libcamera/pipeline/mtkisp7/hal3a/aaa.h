@@ -97,7 +97,7 @@ public:
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 	       FaceDetector *faceDetector)
-		: Task(scheduler, id), manager_(manager),
+		: Task(scheduler, id), request_(nullptr), manager_(manager),
 		  captureFrames_(captureFrames), hal3A_(hal3A),
 		  internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId), faceDetector_(faceDetector) {}
@@ -108,6 +108,10 @@ public:
 	}
 
 	void run() override final;
+
+	void setRequest(Request *request);
+
+	Request *request_;
 
 	Hal3AManager *manager_;
 	CaptureFrames captureFrames_;

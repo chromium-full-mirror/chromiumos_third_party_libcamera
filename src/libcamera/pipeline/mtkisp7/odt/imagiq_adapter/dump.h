@@ -28,7 +28,7 @@ struct Dump {
 	struct Config {
 		std::vector<std::string> dumpFileNameFormat = {};
 		bool enableExport = false;
-		bool enableImport = false;
+		bool writeReimportConfig = false;
 		SavedPath savedDumps = {};
 	};
 
@@ -304,6 +304,7 @@ struct Dump {
 	Id id;
 	uint32_t requestNumber;
 	std::string sensorId;
+	int timestamp;
 	std::filesystem::path workPath;
 	std::optional<InfoFrame> frame;
 	Metadata metadata;

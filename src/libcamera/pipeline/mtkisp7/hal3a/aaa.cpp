@@ -11,6 +11,9 @@
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "libcamera/request.h"
+#include "libfdft_lib/faces.h"
+
 #include "hal_3a.h"
 
 namespace libcamera {
@@ -205,14 +208,25 @@ void AATask::run()
 			      mappedBuffer.planes()[0].data(),
 			      prevFaceMetadata_, newFdResult,
 			      &exposureAndGain,
-			      &captureFrames_.aaaIspExchange->get());
-
+			      &captureFrames_.aaaIspExchange->get(),
+			      request_);
 	captureFrames_.exposureAndGainOutput->put(
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>
 			   &exposureAndGain) {});
 
 	notifyDone();
+}
+
+/**
+ * \brief Set the related application request
+ * \param[in] cfg The request coming from application layer
+ *
+ * For dummy frames, this function will never be called.
+ */
+void AATask::setRequest(Request *request)
+{
+	request_ = request;
 }
 
 void AFTask::run()

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
 #include <libcamera/base/signal.h>
@@ -80,7 +81,8 @@ public:
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *>
 	makeCaptureTasks(Scheduler *scheduler, const std::string &id,
-			 Request *request, CaptureFrames &captureFrames);
+			 Request *request, CaptureFrames &captureFrames,
+			 uint32_t camSysMetaRequestId);
 
 private:
 	friend QueueTask;

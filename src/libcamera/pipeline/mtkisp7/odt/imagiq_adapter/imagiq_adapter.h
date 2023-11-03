@@ -11,6 +11,7 @@
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "mtkcam-interfaces/utils/ndd/INdd.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 
 namespace libcamera {
@@ -25,15 +26,31 @@ public:
 	};
 	using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
 
+	static int enableMtkTuningTool(std::filesystem::path workDir);
+
 	static ExportResult exportDump(const Dump &dump);
+
+	static std::string formatTimestamp(int timestamp);
 
 	static int loadConfig(
 		std::map<Dump::Id, Dump::Config> &config,
 		const std::filesystem::path &workPath);
 
+	static int generateDumpTimestamp();
+
 	static std::string getDumpFileName(const Dump &dump);
 
 	static int importDump(const Dump &dump);
+
+	static void notifyExportRequest(int count);
+
+	static void notifyNewSession(std::string sensorId, int dumpTimestamp);
+
+	static void notifyRequestBegin(
+		std::string sensorId, int requestNumber);
+
+	static void notifyRequestEnd(
+		std::string sensorId, int requestNumber);
 
 	static int prepareReimport(const ExportResult &dumpResult);
 
@@ -77,6 +94,9 @@ private:
 	parseNdd(const Dump &dumpInfo);
 
 	static bool shouldSplitExport(const PixelFormat &pixelFormat);
+
+	static std::unique_ptr<NSCam::TuningUtils::NddInitializer>
+		mtkTuningInitializer_;
 
 	static const SensorIdMap kSensorIdMap;
 	static const std::array<std::string, 2> kYcPlaneNames;

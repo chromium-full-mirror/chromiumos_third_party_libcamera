@@ -102,6 +102,7 @@ class CompleteRequestTask : public Task
 public:
 	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
 			    Request *request, PipelineHandler *pipe,
+			    OnDeviceTuner *odt,
 			    FaceDetector *faceDetector);
 
 	virtual void run() override final;
@@ -112,15 +113,17 @@ private:
 	PipelineHandler *pipe_;
 	Request *request_;
 	FaceDetector *faceDetector_;
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
 					 const std::string &id,
 					 Request *request,
 					 PipelineHandler *pipe,
+					 OnDeviceTuner *odt,
 					 FaceDetector *faceDetector)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
-	  faceDetector_(faceDetector)
+	  faceDetector_(faceDetector), onDeviceTuner_(odt)
 {
 }
 
@@ -330,6 +333,7 @@ void CompleteRequestTask::run()
 		pipe_->completeBuffer(request_, buffer);
 	}
 
+	onDeviceTuner_->notifyRequestEnd(request_->sequence());
 	pipe_->completeRequest(request_);
 	Task::notifyDone();
 }
@@ -510,6 +514,8 @@ int PipelineHandlerMtkISP7::queueRequestDevice(Camera *camera, Request *request)
 
 bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 {
+	onDeviceTuner_.initialize();
+
 	DeviceMatch camSysDM("mtk-cam");
 	camSysDM.add("mtk-cam raw-0");
 	camSysDM.add("mtk-cam raw-1");
@@ -545,8 +551,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
-	hal3A_[0] = std::make_unique<Hal3A>(0, &halIsp_[0]);
-	hal3A_[1] = std::make_unique<Hal3A>(1, &halIsp_[1]);
+	hal3A_[0] = std::make_unique<Hal3A>(0, &halIsp_[0], &onDeviceTuner_);
+	hal3A_[1] = std::make_unique<Hal3A>(1, &halIsp_[1], &onDeviceTuner_);
 
 	halIsp_[0].init(0, 1);
 	halIsp_[1].init(1, 2);
@@ -666,6 +672,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			++iter;
 
 		auto *prevAATask = static_cast<AATask *>(*iter);
+		prevAATask->setRequest(request);
 		captureFrames.tuning = prevAATask->captureFrames_.tuningOutput;
 
 		prevAATask->setPerFrameControl(perFrameControl);
@@ -674,7 +681,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	}
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
-		scheduler, id, request, captureFrames);
+		scheduler, id, request, captureFrames, camSysMetaRequestId);
 
 	auto [aaTask, afTask] = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
@@ -907,7 +914,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, pipeline,
-		faceDetector_);
+		onDeviceTuner_, faceDetector_);
 
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
@@ -936,7 +943,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 		auto [meATunTask, meBTunTask, trTunTask, dipTunTask] =
 			mcnrTunManager.makeMcnrTunTasks(mcnr, aaaIspExchange, scheduler,
-					"MCNR " + sequence, request, internalRequestId);
+							"MCNR " + sequence, request, internalRequestId);
 
 		auto [taskMeA, taskMeB, tempTaskTr, taskDip1, tempTaskDip2] =
 			mcnrManager.makeMcnrTasks(mcnr, scheduler, "MCNR " + sequence,
@@ -990,11 +997,12 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	}
 
 	if (still1Buffer || still2Buffer) {
+		onDeviceTuner_->notifyStillCapture(request->sequence());
 		LPNRFrames lpnr;
 		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 
 		auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
-				lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
+			lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
 
 		auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
 			lpnr, scheduler, "Lpnr " + sequence, request, imgSysDev_);
