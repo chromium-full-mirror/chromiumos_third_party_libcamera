@@ -218,13 +218,13 @@ void SofTask::trigger()
 		auto lensFocusDistance = hal3AManager_->getLensFocusDistance();
 		metadata.set(controls::SensorTimestamp, timestamp);
 		if (hal3AManager_->isLensMoving()) {
-			metadata.set(controls::LensState, 1);
+			metadata.set(controls::draft::LensState, 1);
 			LOG(MtkISP7, Debug) << "Lens is moving: " << lensFocusDistance;
 		} else {
-			metadata.set(controls::LensState, 0);
+			metadata.set(controls::draft::LensState, 0);
 			LOG(MtkISP7, Debug) << "Lens is staionary: " << lensFocusDistance;
 		}
-		metadata.set(controls::LensFocusDistance, lensFocusDistance);
+		metadata.set(controls::draft::LensFocusDistance, lensFocusDistance);
 		manager_->pipe_->completeMetadata(request_, metadata);
 	}
 

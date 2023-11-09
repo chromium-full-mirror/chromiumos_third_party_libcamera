@@ -266,11 +266,11 @@ void AAATask::AAAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
 
 void AAATask::setPerFrameControl(PerFrameControl perFrameControl)
 {
-	float oldFocusDistance = perFrameControl_.controls.get(controls::LensFocusDistance).value_or(0);
+	float oldFocusDistance = perFrameControl_.controls.get(controls::draft::LensFocusDistance).value_or(0);
 	perFrameControl_ = perFrameControl;
 	if (perFrameControl.delayIdx >= static_cast<int>(CaptureTasksManager::kRawMetaDelay - 2)) {
 		// Lens change event is fast, delay it by 2 frames to synchroize with lens state.
-		perFrameControl_.controls.set(controls::LensFocusDistance, oldFocusDistance);
+		perFrameControl_.controls.set(controls::draft::LensFocusDistance, oldFocusDistance);
 	}
 }
 

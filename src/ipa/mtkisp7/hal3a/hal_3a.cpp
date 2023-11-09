@@ -578,7 +578,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.inflight_capture = 0;
 	if (controls_opt) {
 		r_3a_param.control_mode = controls_opt->get(controls::Mode3A).value_or(1);
-		r_3a_param.ae_mode = controls_opt->get(controls::AeMode).value_or(1);
+		r_3a_param.ae_mode = controls_opt->get(controls::draft::AeMode).value_or(1);
 		r_3a_param.ae_lock = controls_opt->get(controls::AeLocked).value_or(0);
 		r_3a_param.ae_precap_trigger = controls_opt->get(controls::draft::AePrecaptureTrigger).value_or(0);
 		r_3a_param.sensor_frame_duration = controls_opt->get(controls::FrameDuration).value_or(33'333'333);
@@ -586,7 +586,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.sensor_sensitivity = controls_opt->get(controls::AnalogueGain).value_or(100);
 		r_3a_param.awb_lock = controls_opt->get(controls::AwbLocked).value_or(0);
 		r_3a_param.awb_mode = controls_opt->get(controls::AwbMode).value_or(1);
-		r_3a_param.ae_anti_banding_mode = controls_opt->get(controls::AeAntiBandingMode).value_or(3);
+		r_3a_param.ae_anti_banding_mode = controls_opt->get(controls::draft::AeAntiBandingMode).value_or(3);
 		std::array<int64_t, 2> defaultFrameLimites = { 33'333, 66'666 };
 		const auto &frameDurationLimits =
 			controls_opt->get(controls::FrameDurationLimits).value_or(defaultFrameLimites);
@@ -606,7 +606,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 			r_3a_param.af_mode = 0;
 		}
 		r_3a_param.af_trigger = controls_opt->get(controls::AfTrigger).value_or(0);
-		r_3a_param.af_focus_distance = controls_opt->get(controls::LensFocusDistance).value_or(0);
+		r_3a_param.af_focus_distance = controls_opt->get(controls::draft::LensFocusDistance).value_or(0);
 
 		r_3a_param.af_region.count = 0;
 		std::memset(&r_3a_param.af_region, 0, sizeof(r_3a_param.af_region));
@@ -623,14 +623,14 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		}
 
 		if (isStillCapture) {
-			r_3a_param.color_correct_mode = controls_opt->get(controls::ColorCorrectionMode).value_or(2);
+			r_3a_param.color_correct_mode = controls_opt->get(controls::draft::ColorCorrectionMode).value_or(2);
 		} else {
-			r_3a_param.color_correct_mode = controls_opt->get(controls::ColorCorrectionMode).value_or(1);
+			r_3a_param.color_correct_mode = controls_opt->get(controls::draft::ColorCorrectionMode).value_or(1);
 		}
 		const float defaultColorCorrectionGains[4] = { 1.0f,
 							       1.0f,
 							       1.0f };
-		const auto &colorCorrectionGains = controls_opt->get(controls::ColorCorrectionGains).value_or(defaultColorCorrectionGains);
+		const auto &colorCorrectionGains = controls_opt->get(controls::draft::ColorCorrectionGains).value_or(defaultColorCorrectionGains);
 		for (unsigned int i = 0; i < kMaxColorGainsCount; i++) {
 			r_3a_param.color_correct_gain[i] = colorCorrectionGains[i];
 		}

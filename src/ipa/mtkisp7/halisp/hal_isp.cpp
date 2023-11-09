@@ -396,7 +396,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 
 	uint8_t android_color_correction_mode = 1;
 
-	android_color_correction_mode = controls_opt.get(controls::ColorCorrectionMode).value_or(1);
+	android_color_correction_mode = controls_opt.get(controls::draft::ColorCorrectionMode).value_or(1);
 
 	tuning_param_p1.cam_info->color_correction_mode =
 		(android_color_correction_mode) ? mtk::isphal::v1_0::kColorCorrectionModeAuto : mtk::isphal::v1_0::kColorCorrectionModeManual;
@@ -412,15 +412,15 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	memcpy(tuning_param_p1.cam_info->color_correction_transform.mat,
 	       colorCorrectionMatrix.data(), colorCorrectionMatrix.size() * sizeof(float));
 
-	uint8_t android_tonemap_mode = controls_opt.get(controls::TonemapMode).value_or(1);
+	uint8_t android_tonemap_mode = controls_opt.get(controls::draft::TonemapMode).value_or(1);
 	if (android_tonemap_mode == 0) {
 		tuning_param_p1.cam_info->tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
 		std::vector<float> default_tonemap_curve_red = { 0.0f, 0.0f, 1.0f, 1.0f };
 		std::vector<float> default_tonemap_curve_green = { 0.0f, 0.0f, 1.0f, 1.0f };
 		std::vector<float> default_tonemap_curve_blue = { 0.0f, 0.0f, 1.0f, 1.0f };
-		auto tonemap_curve_red = controls_opt.get(controls::TonemapCurveRed).value_or(default_tonemap_curve_red);
-		auto tonemap_curve_green = controls_opt.get(controls::TonemapCurveGreen).value_or(default_tonemap_curve_blue);
-		auto tonemap_curve_blue = controls_opt.get(controls::TonemapCurveBlue).value_or(default_tonemap_curve_green);
+		auto tonemap_curve_red = controls_opt.get(controls::draft::TonemapCurveRed).value_or(default_tonemap_curve_red);
+		auto tonemap_curve_green = controls_opt.get(controls::draft::TonemapCurveGreen).value_or(default_tonemap_curve_blue);
+		auto tonemap_curve_blue = controls_opt.get(controls::draft::TonemapCurveBlue).value_or(default_tonemap_curve_green);
 		tuning_param_p1.cam_info->tone_map_curve.red_Cnt = tonemap_curve_red.size() / 2;
 		for (auto i = 0; i < (int)tonemap_curve_red.size() / 2; i++) {
 			tuning_param_p1.cam_info->tone_map_curve.red_X[i] = tonemap_curve_red[i * 2];
@@ -1157,15 +1157,15 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 
 		tuning_param_p2.cam_info.rMapping_Info.eCustomFeature = NSIspTuning::ECustomFeature_OFF;
 
-		uint8_t android_tonemap_mode = controls_opt.get(controls::TonemapMode).value_or(1);
+		uint8_t android_tonemap_mode = controls_opt.get(controls::draft::TonemapMode).value_or(1);
 		if (android_tonemap_mode == 0) {
 			tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
 			std::vector<float> default_tonemap_curve_red = { 0.0f, 0.0f, 1.0f, 1.0f };
 			std::vector<float> default_tonemap_curve_green = { 0.0f, 0.0f, 1.0f, 1.0f };
 			std::vector<float> default_tonemap_curve_blue = { 0.0f, 0.0f, 1.0f, 1.0f };
-			auto tonemap_curve_red = controls_opt.get(controls::TonemapCurveRed).value_or(default_tonemap_curve_red);
-			auto tonemap_curve_green = controls_opt.get(controls::TonemapCurveGreen).value_or(default_tonemap_curve_blue);
-			auto tonemap_curve_blue = controls_opt.get(controls::TonemapCurveBlue).value_or(default_tonemap_curve_green);
+			auto tonemap_curve_red = controls_opt.get(controls::draft::TonemapCurveRed).value_or(default_tonemap_curve_red);
+			auto tonemap_curve_green = controls_opt.get(controls::draft::TonemapCurveGreen).value_or(default_tonemap_curve_blue);
+			auto tonemap_curve_blue = controls_opt.get(controls::draft::TonemapCurveBlue).value_or(default_tonemap_curve_green);
 			tuning_param_p2.cam_info.tone_map_curve.red_Cnt = tonemap_curve_red.size() / 2;
 			for (auto i = 0; i < (int)tonemap_curve_red.size() / 2; i++) {
 				tuning_param_p2.cam_info.tone_map_curve.red_X[i] = tonemap_curve_red[i * 2];
@@ -1186,7 +1186,7 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		}
 
 		tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOn;
-		uint8_t android_edge_mode = controls_opt.get(controls::EdgeMode).value_or(1);
+		uint8_t android_edge_mode = controls_opt.get(controls::draft::EdgeMode).value_or(1);
 		if ((android_edge_mode == MTK_EDGE_MODE_OFF) ||
 		    (android_edge_mode == MTK_EDGE_MODE_ZERO_SHUTTER_LAG))
 			tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOff;

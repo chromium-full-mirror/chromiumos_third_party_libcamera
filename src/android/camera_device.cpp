@@ -1073,7 +1073,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
-		controls.set(controls::AeMode, static_cast<int>(data[0]));
+		controls.set(controls::draft::AeMode, static_cast<int>(data[0]));
 	}
 
 	if (settings.getEntry(ANDROID_SENSOR_EXPOSURE_TIME, &entry)) {
@@ -1113,7 +1113,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
-		controls.set(controls::AeAntiBandingMode, static_cast<int32_t>(data[0]));
+		controls.set(controls::draft::AeAntiBandingMode, static_cast<int32_t>(data[0]));
 	}
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)) {
@@ -1135,12 +1135,12 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_LENS_FOCUS_DISTANCE, &entry)) {
 		const float *data = entry.data.f;
-		controls.set(controls::LensFocusDistance, static_cast<float>(data[0]));
+		controls.set(controls::draft::LensFocusDistance, static_cast<float>(data[0]));
 	}
 
 	if (settings.getEntry(ANDROID_COLOR_CORRECTION_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
-		controls.set(controls::ColorCorrectionMode, static_cast<int>(data[0]));
+		controls.set(controls::draft::ColorCorrectionMode, static_cast<int>(data[0]));
 	}
 
 	if (settings.getEntry(ANDROID_COLOR_CORRECTION_TRANSFORM, &entry)) {
@@ -1163,12 +1163,12 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 			const float *data_f = entry.data.f + i;
 			correctionGains[i] = *data_f;
 		}
-		controls.set(controls::ColorCorrectionGains, correctionGains);
+		controls.set(controls::draft::ColorCorrectionGains, correctionGains);
 	}
 
 	if (settings.getEntry(ANDROID_TONEMAP_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
-		controls.set(controls::TonemapMode, static_cast<int>(data[0]));
+		controls.set(controls::draft::TonemapMode, static_cast<int>(data[0]));
 	}
 
 	if (settings.getEntry(ANDROID_TONEMAP_CURVE_RED, &entry)) {
@@ -1176,7 +1176,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		for (int i = 0; i < (int)entry.count; i++) {
 			tonemapCurveRed.push_back(*(entry.data.f + i));
 		}
-		controls.set(controls::TonemapCurveRed, tonemapCurveRed);
+		controls.set(controls::draft::TonemapCurveRed, tonemapCurveRed);
 	}
 
 	if (settings.getEntry(ANDROID_TONEMAP_CURVE_GREEN, &entry)) {
@@ -1184,7 +1184,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		for (int i = 0; i < (int)entry.count; i++) {
 			tonemapCurveGreen.push_back(*(entry.data.f + i));
 		}
-		controls.set(controls::TonemapCurveGreen, tonemapCurveGreen);
+		controls.set(controls::draft::TonemapCurveGreen, tonemapCurveGreen);
 	}
 
 	if (settings.getEntry(ANDROID_TONEMAP_CURVE_BLUE, &entry)) {
@@ -1192,7 +1192,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		for (int i = 0; i < (int)entry.count; i++) {
 			tonemapCurveBlue.push_back(*(entry.data.f + i));
 		}
-		controls.set(controls::TonemapCurveBlue, tonemapCurveBlue);
+		controls.set(controls::draft::TonemapCurveBlue, tonemapCurveBlue);
 	}
 
 	if (settings.getEntry(ANDROID_NOISE_REDUCTION_MODE, &entry)) {
@@ -1202,12 +1202,12 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_EDGE_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
-		controls.set(controls::EdgeMode, static_cast<int>(data[0]));
+		controls.set(controls::draft::EdgeMode, static_cast<int>(data[0]));
 	}
 
 	if (settings.getEntry(VENDOR_TAG_STILL_CAPTURE_MULTI_FRAME_NOISE_REDUCTION, &entry)) {
 		const uint8_t *data = entry.data.u8;
-		controls.set(controls::StillCaptureMultiFrameNoiseReduction, static_cast<bool>(data[0]));
+		controls.set(controls::draft::StillCaptureMultiFrameNoiseReduction, static_cast<bool>(data[0]));
 	}
 
 	return 0;
@@ -2007,7 +2007,7 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_SENSOR_EXPOSURE_TIME, exposure_time * 1000ULL);
 	}
 
-	if (metadata.contains(controls::AE_STATE)) {
+	if (metadata.contains(controls::draft::AE_STATE)) {
 		const auto &aeState = metadata.get(controls::draft::AeState);
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_STATE, aeState.value_or(0));
 	}
@@ -2017,8 +2017,8 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_CONTROL_AF_STATE, afState.value_or(0));
 	}
 
-	if (metadata.contains(controls::LENS_FOCUS_DISTANCE)) {
-		const auto &lensFocusDistance = metadata.get(controls::LensFocusDistance);
+	if (metadata.contains(controls::draft::LENS_FOCUS_DISTANCE)) {
+		const auto &lensFocusDistance = metadata.get(controls::draft::LensFocusDistance);
 		resultMetadata->addEntry(ANDROID_LENS_FOCUS_DISTANCE, lensFocusDistance.value_or(0));
 	}
 
@@ -2028,7 +2028,7 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 	}
 
 	const auto &awbState = metadata.get(controls::draft::AwbState);
-	if (metadata.contains(controls::AWB_STATE)) {
+	if (metadata.contains(controls::draft::AWB_STATE)) {
 		resultMetadata->addEntry(ANDROID_CONTROL_AWB_STATE, awbState.value_or(0));
 	}
 
@@ -2037,8 +2037,8 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION, frameDuration.value_or(33'333'333));
 	}
 
-	const auto &lensState = metadata.get(controls::LensState);
-	if (metadata.contains(controls::LENS_STATE)) {
+	const auto &lensState = metadata.get(controls::draft::LensState);
+	if (metadata.contains(controls::draft::LENS_STATE)) {
 		resultMetadata->addEntry(ANDROID_LENS_STATE, lensState.value_or(0));
 	}
 
@@ -2188,7 +2188,7 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings,
 		return nullptr;
 	}
 
-	if (!metadata.contains(controls::AE_STATE))
+	if (!metadata.contains(controls::draft::AE_STATE))
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_STATE,
 					 ANDROID_CONTROL_AE_STATE_CONVERGED);
 
@@ -2196,11 +2196,11 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings,
 		resultMetadata->addEntry(ANDROID_CONTROL_AF_STATE,
 					 ANDROID_CONTROL_AF_STATE_INACTIVE);
 
-	if (!metadata.contains(controls::AWB_STATE))
+	if (!metadata.contains(controls::draft::AWB_STATE))
 		resultMetadata->addEntry(ANDROID_CONTROL_AWB_STATE,
 					 ANDROID_CONTROL_AWB_STATE_CONVERGED);
 
-	if (!metadata.contains(controls::LENS_STATE))
+	if (!metadata.contains(controls::draft::LENS_STATE))
 		resultMetadata->addEntry(ANDROID_LENS_STATE,
 					 ANDROID_LENS_STATE_STATIONARY);
 

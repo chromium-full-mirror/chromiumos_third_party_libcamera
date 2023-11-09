@@ -776,9 +776,9 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			static_cast<uint8_t>(controls::FaceDetectModeSimple)
 		};
 		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
-		controls[&controls::AeMode] = ControlInfo(controls::AeModeValues);
+		controls[&controls::draft::AeMode] = ControlInfo(controls::draft::AeModeValues);
 		controls[&controls::AeLocked] = ControlInfo(true, false);
-		controls[&controls::AeAntiBandingMode] = ControlInfo(controls::AeAntiBandingModeValues);
+		controls[&controls::draft::AeAntiBandingMode] = ControlInfo(controls::draft::AeAntiBandingModeValues);
 
 		controls[&controls::AwbMode] = ControlInfo(controls::AwbModeValues);
 		controls[&controls::AwbEnable] = ControlInfo(true, false);
@@ -795,24 +795,24 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::AfTrigger] = ControlInfo(controls::AfTriggerValues);
 		controls[&controls::AfWindows] = ControlInfo(Rectangle{}, Rectangle{}, Rectangle{});
 
-		controls[&controls::ColorCorrectionGains] = ControlInfo(0.0f, 100.0f);
+		controls[&controls::draft::ColorCorrectionGains] = ControlInfo(0.0f, 100.0f);
 		controls[&controls::ColourCorrectionMatrix] = ControlInfo(-100.0f, 100.0f);
-		controls[&controls::ColorCorrectionMode] = ControlInfo(controls::ColorCorrectionModeValues);
+		controls[&controls::draft::ColorCorrectionMode] = ControlInfo(controls::draft::ColorCorrectionModeValues);
 
-		controls[&controls::TonemapMode] = ControlInfo(controls::TonemapModeValues);
-		controls[&controls::TonemapCurveRed] = ControlInfo(0.0f, 1.0f);
-		controls[&controls::TonemapCurveGreen] = ControlInfo(0.0f, 1.0f);
-		controls[&controls::TonemapCurveBlue] = ControlInfo(0.0f, 1.0f);
+		controls[&controls::draft::TonemapMode] = ControlInfo(controls::draft::TonemapModeValues);
+		controls[&controls::draft::TonemapCurveRed] = ControlInfo(0.0f, 1.0f);
+		controls[&controls::draft::TonemapCurveGreen] = ControlInfo(0.0f, 1.0f);
+		controls[&controls::draft::TonemapCurveBlue] = ControlInfo(0.0f, 1.0f);
 
 		if (camSysDev_[i].getCameraLens()) {
 			// TODO, update minimum focus distance from real lens setting.
 			float infiniteFocusDistance = 0.1f;
 			float minimumFocusDistance = 1.0f / 0.08f; // 1 / 0.08(m) = 12.5 diopters
-			controls[&controls::LensFocusDistance] =
+			controls[&controls::draft::LensFocusDistance] =
 				ControlInfo(infiniteFocusDistance, minimumFocusDistance, 1.0f);
 			controls[&controls::LensPosition] = ControlInfo(0.0f, 1000.0f);
 		} else {
-			controls[&controls::LensFocusDistance] =
+			controls[&controls::draft::LensFocusDistance] =
 				ControlInfo(0.0f, 0.0f);
 			controls[&controls::LensPosition] = ControlInfo(0.0f, 0.0f);
 		}
@@ -834,9 +834,9 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		};
 		controls[&controls::SceneMode] = ControlInfo(supportedSceneModes);
 
-		controls[&controls::EdgeMode] = ControlInfo(controls::EdgeModeValues);
+		controls[&controls::draft::EdgeMode] = ControlInfo(controls::draft::EdgeModeValues);
 
-		controls[&controls::StillCaptureMultiFrameNoiseReduction] =
+		controls[&controls::draft::StillCaptureMultiFrameNoiseReduction] =
 			ControlInfo(false, true, false);
 
 		// Create CameraData
@@ -873,7 +873,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			}
 			break;
 		}
-		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
+		controls[&controls::draft::LensFocalLength] = ControlInfo(availableFocalLength);
 		properties.set(controls::ScalerCrop, cropRegion);
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
@@ -1495,7 +1495,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool nddEnabled = onDeviceTuner_->isEnabled();
 	bool hasStillCapture = still1Buffer || still2Buffer;
 
-	bool useMfnr = request->controls().get(controls::StillCaptureMultiFrameNoiseReduction).value_or(false);
+	bool useMfnr = request->controls().get(controls::draft::StillCaptureMultiFrameNoiseReduction).value_or(false);
 
 	if (requestCount_ == 0 || aaControlChanged || nddEnabled) {
 		size_t needed = 0;
@@ -1866,24 +1866,24 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		return true;
 	}
 	std::vector<int32_t> checkList{
-		controls::AE_MODE,
+		controls::draft::AE_MODE,
 		controls::AE_LOCKED,
 		controls::EXPOSURE_TIME,
 		controls::ANALOGUE_GAIN,
-		controls::AE_PRECAPTURE_TRIGGER,
+		controls::draft::AE_PRECAPTURE_TRIGGER,
 		controls::AWB_MODE,
 		controls::AWB_ENABLE,
 		controls::AWB_LOCKED,
-		controls::AE_ANTI_BANDING_MODE,
+		controls::draft::AE_ANTI_BANDING_MODE,
 		controls::FRAME_DURATION,
 		controls::FRAME_DURATION_LIMITS,
 		controls::AF_MODE,
 		controls::AF_TRIGGER,
 		controls::AF_WINDOWS,
 		controls::LENS_POSITION,
-		controls::LENS_FOCUS_DISTANCE,
-		controls::COLOR_CORRECTION_MODE,
-		controls::COLOR_CORRECTION_GAINS,
+		controls::draft::LENS_FOCUS_DISTANCE,
+		controls::draft::COLOR_CORRECTION_MODE,
+		controls::draft::COLOR_CORRECTION_GAINS,
 		controls::COLOUR_CORRECTION_MATRIX,
 	};
 

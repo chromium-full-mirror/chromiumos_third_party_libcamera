@@ -1021,7 +1021,7 @@ void IpaBase::applyControls(const ControlList &controls)
 			break;
 		}
 
-		case controls::NOISE_REDUCTION_MODE: {
+		case controls::draft::NOISE_REDUCTION_MODE: {
 			RPiController::DenoiseAlgorithm *sdn = dynamic_cast<RPiController::DenoiseAlgorithm *>(
 				controller_.getAlgorithm("SDN"));
 			/* Some platforms may have a combined "denoise" algorithm instead. */

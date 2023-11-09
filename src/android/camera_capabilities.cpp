@@ -1359,7 +1359,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_LENS_FACING, lensFacing);
 
 	auto lensFocalLengthsIter =
-		camera_->controls().find(controls::LensFocalLength.id());
+		camera_->controls().find(controls::draft::LensFocalLength.id());
 	if (lensFocalLengthsIter != camera_->controls().end()) {
 		const ControlInfo &lensFocalLengthInfo = lensFocalLengthsIter->second;
 		std::vector<float> lensFocalLengths;
@@ -1387,7 +1387,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	};
 
 	auto lensFocusDistanceIter =
-		camera_->controls().find(controls::LensFocusDistance.id());
+		camera_->controls().find(controls::draft::LensFocusDistance.id());
 	if (lensFocusDistanceIter != camera_->controls().end()) {
 		const ControlInfo &lensFocusDistanceRange = lensFocusDistanceIter->second;
 		auto minFocusDistance = lensFocusDistanceRange.max().get<float>();
