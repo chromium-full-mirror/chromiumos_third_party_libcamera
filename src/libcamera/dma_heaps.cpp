@@ -55,7 +55,9 @@ UniqueFD DmaHeap::alloc(std::size_t size, Type type)
 {
 	struct dma_heap_allocation_data heap_data{
 		.len = size,
+		.fd = 0,
 		.fd_flags = O_RDWR | O_CLOEXEC,
+		.heap_flags = 0,
 	};
 
 	int dmaFd = (type == CMA) ? dmaHeapCmaHandle_.get() : dmaHeapHandle_.get();

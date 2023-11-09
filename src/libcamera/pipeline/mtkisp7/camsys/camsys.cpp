@@ -392,6 +392,7 @@ int CamSysDevice::setupResource()
 	struct v4l2_ext_control ext_ctrl {
 		.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC,
 		.size = sizeof(camsysResource),
+		.reserved2 = {},
 		.ptr = &camsysResource
 	};
 
@@ -426,6 +427,7 @@ int CamSysDevice::setFormat(V4L2VideoDevice *device, const PixelFormat &format,
 	V4L2DeviceFormat outputFormat = {
 		.fourcc = device->toV4L2PixelFormat(format),
 		.size = size,
+		.colorSpace = std::nullopt,
 		.planes = { {{0, info.stride(size.width, 0)}} },
 		.planesCount = 1,
 	};
