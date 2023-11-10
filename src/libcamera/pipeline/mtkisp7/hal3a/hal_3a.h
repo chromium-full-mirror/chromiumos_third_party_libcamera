@@ -27,11 +27,13 @@ public:
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			   uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
+			   MtkCameraFaceMetadata *metadata, bool newFdResult,
 			   std::pair<uint32_t, uint32_t> *exposureAndGain);
 
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-			     VcmFocusInformation vcmFocusInfo, int32_t *position);
+			     VcmFocusInformation vcmFocusInfo,
+			     MtkCameraFaceMetadata *metadata, bool newFdResult, int32_t *position);
 
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 
@@ -42,6 +44,7 @@ private:
 	void startInternal();
 
 	mtk::hal3a::v1_0::mtk_3a_param get3AParam(uint32_t internalRequestId,
+						  MtkCameraFaceMetadata *faceMetadata, bool newFdResult,
 						  bool isAF = false,
 						  bool isStillCapture = false);
 

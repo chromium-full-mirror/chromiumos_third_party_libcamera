@@ -10,8 +10,10 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "libcamera/base/thread.h"
+#include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/camsys/camsys.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
+#include "pipeline/mtkisp7/face_detect/detector.h"
 
 #include "hal_3a.h"
 
@@ -53,7 +55,8 @@ public:
 	std::tuple<AATask *, AFTask *>
 	make3ATasks(Scheduler *scheduler, Request *request,
 		    CaptureFrames &captureFrames,
-		    uint32_t internalRequestId, uint32_t camSysMetaRequestId);
+		    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+		    FaceDetector *faceDetector);
 
 	void fetchTuningBuffer(SharedMailBox<InfoFrame> &mailBox)
 	{
@@ -88,13 +91,16 @@ public:
 		bool isStillCapture = false;
 	};
 
+	MtkCameraFaceMetadata *prevFaceMetadata_ = nullptr;
+
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
-	       uint32_t internalRequestId, uint32_t camSysMetaRequestId)
+	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+	       FaceDetector *faceDetector)
 		: Task(scheduler, id), manager_(manager),
 		  captureFrames_(captureFrames), hal3A_(hal3A),
 		  internalRequestId_(internalRequestId),
-		  camSysMetaRequestId_(camSysMetaRequestId) {}
+		  camSysMetaRequestId_(camSysMetaRequestId), faceDetector_(faceDetector) {}
 
 	void setPerFrameControl(PerFrameControl perFrameControl)
 	{
@@ -111,20 +117,24 @@ public:
 	uint32_t internalRequestId_;
 	uint32_t camSysMetaRequestId_;
 
+	FaceDetector *faceDetector_;
+
 	PerFrameControl perFrameControl_;
 };
 
 class AFTask : public Task
 {
 public:
+	MtkCameraFaceMetadata *prevFaceMetadata_ = nullptr;
+
 	AFTask(Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-	       FocusController *focusController)
+	       FocusController *focusController, FaceDetector *faceDetector)
 		: Task(scheduler, id), captureFrames_(captureFrames),
 		  hal3A_(hal3A), internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId),
-		  focusController_(focusController) {}
+		  focusController_(focusController), faceDetector_(faceDetector) {}
 
 	void run() override final;
 
@@ -136,6 +146,7 @@ public:
 	uint32_t camSysMetaRequestId_;
 
 	FocusController *focusController_;
+	FaceDetector *faceDetector_;
 };
 
 } // namespace libcamera

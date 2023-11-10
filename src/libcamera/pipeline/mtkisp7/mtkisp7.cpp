@@ -639,7 +639,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	auto [aaTask, afTask] = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
-		camSysMetaRequestId);
+		camSysMetaRequestId, faceDetector_);
 
 	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaTask, afTask);
 
