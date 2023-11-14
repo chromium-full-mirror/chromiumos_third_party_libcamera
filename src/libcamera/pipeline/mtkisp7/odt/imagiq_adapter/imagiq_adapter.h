@@ -54,6 +54,8 @@ public:
 
 	static int prepareReimport(const ExportResult &dumpResult);
 
+	static const SensorIdMap kSensorIdMap;
+
 private:
 	static std::string createImportConfigId(const Dump &dump);
 
@@ -98,7 +100,6 @@ private:
 	static std::unique_ptr<NSCam::TuningUtils::NddInitializer>
 		mtkTuningInitializer_;
 
-	static const SensorIdMap kSensorIdMap;
 	static const std::array<std::string, 2> kYcPlaneNames;
 	static const std::array<std::string, 3> kYuvPlaneNames;
 	static const std::array<std::string, 2> kWarpPlaneNames;

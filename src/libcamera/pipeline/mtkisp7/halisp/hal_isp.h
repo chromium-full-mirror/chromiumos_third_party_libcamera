@@ -14,6 +14,7 @@
 #include <libcamera/geometry.h>
 #include <libcamera/internal/info_frame.h>
 
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 
@@ -45,16 +46,18 @@ struct ImgMetaRequest {
 class HalIsp
 {
 public:
-	HalIsp();
+	HalIsp(OnDeviceTuner *odt);
 
 	int init(int32_t sensorIdx, int32_t sensorDev);
 
 	int getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize, AaaIspExchange *aaaIspExchange);
+				size_t bufSize, AaaIspExchange *aaaIspExchange,
+				Request *request);
 
 	int getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
-				ImgMetaRequest &imgMetaRequest);
+				ImgMetaRequest &imgMetaRequest,
+				Request *request);
 
 	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
 
@@ -72,6 +75,7 @@ private:
 
 	std::shared_ptr<mtk::isphal::v1::ITuningDataProvider> provider_;
 	std::optional<uint32_t> lpnrThredshold_;
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 } // namespace libcamera

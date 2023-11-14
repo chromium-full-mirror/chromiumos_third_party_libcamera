@@ -24,6 +24,7 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
+#include "platform/mtkisp7/halisp/IspControls.h"
 
 namespace libcamera {
 
@@ -194,6 +195,39 @@ void OnDeviceTuner::notifyStillCapture(int requestNumber)
 	stillCaptureRequestIds_.insert(requestNumber);
 }
 
+bool OnDeviceTuner::parseHalIspNdd(
+        Request *request,
+        mtk::isphal::v1_0::NddInfo &ndd)
+{
+    uint32_t requestNumber = request->sequence();
+    bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+    if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+        return false;
+    }
+    if (isStillCapture) {
+        ndd.ndd_data.action =
+                static_cast<int>(Action::Capture);
+        ndd.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
+        ndd.ndd_data.feature =
+                static_cast<int>(Feature::Capture_lpnr);
+    } else {
+        ndd.ndd_category =
+                NSCam::TuningUtils::eCategory::kSTREAMING;
+        ndd.ndd_data.feature =
+                static_cast<int>(Feature::Preview);
+    }
+    ndd.ndd_data.requestNo = request->sequence();
+    ndd.ndd_data.frameNo = request->sequence();
+    ndd.ndd_data.platform = 8188;
+    ndd.ndd_data.timestamp = sessionTimestamp_;
+    ndd.ndd_data.sensorId =
+            ImagiqAdapter::kSensorIdMap.at(sensorId_);
+    ndd.ndd_data.dualCamId = NSCam::TuningUtils::eDualCamId::kINVALID;
+    ndd.ndd_data.pixelHeight = -1;
+    ndd.ndd_data.pixelWidth = -1;
+    return true;
+}
+
 int OnDeviceTuner::prepareNewExportDirectory()
 {
 	std::filesystem::path workPath(kWorkDir);
@@ -287,6 +321,32 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 			frames.raw->get().buffer()->metadata().sequence,
 			requestNumber, dumpPath);
 	}
+}
+
+bool OnDeviceTuner::tuneCamsysHalIsp(
+        Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam)
+{
+    if (!enabled_) {
+        return false;
+    }
+    tuningParam.cam_info->rNdd_info.ndd_data.stage =
+            static_cast<int>(Stage::P1);
+    return parseHalIspNdd(request, tuningParam.cam_info->rNdd_info);
+}
+
+void OnDeviceTuner::tuneImgsysHalIsp(
+        Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+        EStage_T stage)
+{
+    if (!enabled_) {
+        return;
+    }
+    tuningParam.cam_info.rNdd_info.ndd_data.stage = stage;
+    tuningParam.cam_info.sr_para.decision_param.staticInfo.sensorId =
+            static_cast<int32_t>(ImagiqAdapter::kSensorIdMap.at(sensorId_));
+    tuningParam.cam_info.rNdd_info.ndd_data.action =
+            static_cast<int>(Action::Preview);
+    parseHalIspNdd(request, tuningParam.cam_info.rNdd_info);
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(

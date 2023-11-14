@@ -184,7 +184,7 @@ void LpnrTunXtrTask::run()
 		.fullDipSize = manager_->lpnrSizes[0]};
 
 	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	notifyDone();
 }
@@ -228,7 +228,7 @@ void LpnrTunDipTask::run()
 		.outputSize2 = manager_->yuvOutput2Size_,
 		.fullDipSize = manager_->lpnrSizes[0]};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	manager_->lpnrTun_.fetch(dipTun_[2]);
 
@@ -240,7 +240,7 @@ void LpnrTunDipTask::run()
 		.outputSize2 = manager_->yuvOutput2Size_,
 		.fullDipSize = manager_->lpnrSizes[0]};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	manager_->lpnrTun_.fetch(dipTun_[1]);
 
@@ -252,7 +252,7 @@ void LpnrTunDipTask::run()
 		.outputSize2 = manager_->yuvOutput2Size_,
 		.fullDipSize = manager_->lpnrSizes[0]};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	if (highIsoMode) {
 		manager_->lpnrTun_.fetch(dipTun_[0]);
@@ -265,7 +265,7 @@ void LpnrTunDipTask::run()
 			.outputSize2 = manager_->yuvOutput2Size_,
 			.fullDipSize = manager_->lpnrSizes[0]};
 
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 		manager_->lpnrTun_.fetch(dipTunY2YPq_);
 
@@ -278,7 +278,7 @@ void LpnrTunDipTask::run()
 			.outputSize2 = manager_->yuvOutput2Size_,
 			.fullDipSize = manager_->lpnrSizes[0]};
 
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 	} else {
 		manager_->lpnrTun_.fetch(dipTunPq_);
 
@@ -291,7 +291,7 @@ void LpnrTunDipTask::run()
 			.outputSize2 = manager_->yuvOutput2Size_,
 			.fullDipSize = manager_->lpnrSizes[0]};
 
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 	}
 
 	notifyDone();

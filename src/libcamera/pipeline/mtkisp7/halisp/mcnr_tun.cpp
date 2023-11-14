@@ -293,7 +293,7 @@ void McnrMeATask::run()
 		.inputSize = Size{576, 432}, .outputSize = manager_->yuvOutputSize1_,
 		.outputSize2 = manager_->yuvOutputSize2_, .fullDipSize = manager_->yuvInputSize_ };
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	manager_->meTun_.fetch(meATun);
 	manager_->fwmeFst_.fetch(fwMeFst);
@@ -311,7 +311,7 @@ void McnrMeATask::run()
 	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD1] = prevPrevMeBFst->get();
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	notifyDone();
 }
@@ -362,7 +362,7 @@ void McnrMeBTask::run()
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MMG_RST] = fwMmRst->get();
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MIL] = meMil->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 
 	request = ImgMetaRequest {
@@ -377,7 +377,7 @@ void McnrMeBTask::run()
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWMM_MMG_RST] = fwMmRst->get();
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	notifyDone();
 }
@@ -411,7 +411,7 @@ void McnrTrTask::run()
 		.inputSize = manager_->mcnrSizes[1], .outputSize = manager_->yuvOutputSize1_,
 		.outputSize2 = manager_->yuvOutputSize2_, .fullDipSize = manager_->yuvInputSize_ };
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	manager_->trawTun_.fetch(trTunF4);
 
@@ -422,7 +422,7 @@ void McnrTrTask::run()
 		.inputSize = manager_->mcnrSizes[4], .outputSize = manager_->yuvOutputSize1_,
 		.outputSize2 = manager_->yuvOutputSize2_, .fullDipSize = manager_->yuvInputSize_ };
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	notifyDone();
 }
@@ -463,7 +463,7 @@ void McnrDipTask::run()
 		.inputSize = manager_->mcnrSizes[1], .outputSize = manager_->yuvOutputSize1_,
 		.outputSize2 = manager_->yuvOutputSize2_, .fullDipSize = manager_->yuvInputSize_ };
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	manager_->trawTun_.fetch(ltrTunF4);
 
@@ -474,7 +474,7 @@ void McnrDipTask::run()
 		.inputSize = manager_->mcnrSizes[4], .outputSize = manager_->yuvOutputSize1_,
 		.outputSize2 = manager_->yuvOutputSize2_, .fullDipSize = manager_->yuvInputSize_ };
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	manager_->trawTun_.fetch(ltrTunVbi);
 
@@ -485,7 +485,7 @@ void McnrDipTask::run()
 		.inputSize = manager_->mcnrSizes[3], .outputSize = manager_->yuvOutputSize1_,
 		.outputSize2 = manager_->yuvOutputSize2_, .fullDipSize = manager_->yuvInputSize_ };
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	manager_->trawTun_.fetch(wpeTun);
 
@@ -496,7 +496,7 @@ void McnrDipTask::run()
 		.inputSize = manager_->yuvInputSize_, .outputSize = manager_->yuvOutputSize1_,
 		.outputSize2 = manager_->yuvOutputSize2_, .fullDipSize = manager_->yuvInputSize_ };
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	for (size_t i = 0; i < dipTun.size(); i++) {
 		manager_->dipTun_.fetch(dipTun[i]);
@@ -512,7 +512,7 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	request = ImgMetaRequest {
 		.isCapture = false,
@@ -524,7 +524,7 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	request = ImgMetaRequest {
 		.isCapture = false,
@@ -536,7 +536,7 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	request = ImgMetaRequest {
 		.isCapture = false,
@@ -548,7 +548,7 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	request = ImgMetaRequest {
 		.isCapture = false,
@@ -560,7 +560,7 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	request = ImgMetaRequest {
 		.isCapture = false,
@@ -572,7 +572,7 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	request = ImgMetaRequest {
 		.isCapture = false,
@@ -584,7 +584,7 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
+	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 
 	notifyDone();
 }

@@ -410,7 +410,9 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 }
 
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
-	: PipelineHandler(manager), imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
+	: PipelineHandler(manager),
+	  halIsp_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
+	  imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
 {
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
 	dmaHeap_ = std::make_unique<DmaHeap>();

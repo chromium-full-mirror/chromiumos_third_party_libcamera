@@ -21,6 +21,8 @@
 #include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
+#include "platform/mtkisp7/halisp/IspControls.h"
+#include "platform/mtkisp7/halisp/TuningParam.h"
 
 namespace libcamera {
 
@@ -44,6 +46,13 @@ public:
 
 	// P1 Camsys
 	void tuneCamsys(Request *request, CaptureFrames &frames);
+
+	// HAL ISP
+	bool tuneCamsysHalIsp(
+		Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam);
+	void tuneImgsysHalIsp(
+		Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+		EStage_T stage);
 
 	// 3A
 	void tune3ARequest(
@@ -85,6 +94,9 @@ private:
 		Request *request, FrameBuffer *buffer);
 	bool isImgsysCaptureStage(PEU_Stage stage);
 	void loadTuneRequest(int requestNumber);
+	bool parseHalIspNdd(
+		Request *request,
+		mtk::isphal::v1_0::NddInfo &ndd);
 	int prepareNewExportDirectory();
 	bool shouldExportDumpNow(uint32_t requestNumber);
 	bool shouldImportDumpNow(uint32_t requestNumber);

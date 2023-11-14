@@ -12,12 +12,13 @@
 #include <libcamera/base/log.h>
 
 #include "platform/mtkisp7/mtkcam-core/aaa/include/nvbuf_util.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-HalIsp::HalIsp()
+HalIsp::HalIsp(OnDeviceTuner *odt) : onDeviceTuner_(odt)
 {
 }
 
@@ -133,7 +134,8 @@ uint32_t HalIsp::getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange)
 
 int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize, AaaIspExchange *aaaIspExchange)
+				size_t bufSize, AaaIspExchange *aaaIspExchange,
+				Request *request)
 {
 	ASSERT(aaaIspExchange);
 
@@ -203,6 +205,15 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_param_p1.subsample_count = 1;
 
 	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
+
+	if (request != nullptr) {
+		// Not dummy frame
+		if (onDeviceTuner_->tuneCamsysHalIsp(
+			request, tuning_param_p1)) {
+			m_pHalisp->dump4CamSysModule(
+				&tuning_param_p1, &result_p1);
+		}
+	}
 
 	aaaIspExchange->cam_info = *tuning_param_p1.cam_info;
 	aaaIspExchange->cam_info_3a = *tuning_param_p1.cam_info_3a;
@@ -456,23 +467,24 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 }
 
 int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
-				ImgMetaRequest &request)
+				ImgMetaRequest &imgMetaRequest,
+				Request *request)
 {
-	bool is_capture = request.isCapture;
-	Size inputSize = request.inputSize;
-	Size outputSize = request.outputSize;
-	Size outputSize2 = request.outputSize2;
-	Size fullDipSize = request.fullDipSize;
+	bool is_capture = imgMetaRequest.isCapture;
+	Size inputSize = imgMetaRequest.inputSize;
+	Size outputSize = imgMetaRequest.outputSize;
+	Size outputSize2 = imgMetaRequest.outputSize2;
+	Size fullDipSize = imgMetaRequest.fullDipSize;
 
-	InfoFrame &tuningFrame = request.tuningBuffer;
-	InfoFrame &statisFrame = request.statisticsBuffer;
-	InfoFrame &swHistBuffer = request.swHistBuffer;
+	InfoFrame &tuningFrame = imgMetaRequest.tuningBuffer;
+	InfoFrame &statisFrame = imgMetaRequest.statisticsBuffer;
+	InfoFrame &swHistBuffer = imgMetaRequest.swHistBuffer;
 
 	mtk::isphal::IspTuningControl tuning_control = {};
 	mtk::isphal::IspTuningStatisticsP2 tuning_statistics = {};
 	mtk::isphal::IspTuningBufferP2 tuning_data = {};
 
-	tuning_control.stage = request.stage;
+	tuning_control.stage = imgMetaRequest.stage;
 	tuning_control.mock = false;
 	tuning_control.update_mode = mtk::isphal::kIspUpdateModeAuto;
 
@@ -490,7 +502,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 	tuning_data.p2_meta_buffer = metaBuf;
 	tuning_data.in_image = {};
 
-	fillPqInfo(request.stage, inputSize, outputSize, outputSize2, tuning_data);
+	fillPqInfo(imgMetaRequest.stage, inputSize, outputSize, outputSize2, tuning_data);
 
 	if (statisFrame.buffer()) {
 		mtk::isphal::Buffer statsBuf(
@@ -510,7 +522,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		tuning_statistics.imgsys_hist_buffer = swBuf;
 	}
 
-	for (auto &[key, frame] : request.reserved) {
+	for (auto &[key, frame] : imgMetaRequest.reserved) {
 		mtk::isphal::Buffer reserveBuf(
 			(intptr_t)frame.address(0),
 			frame.buffer()->planes()[0].fd.get(),
@@ -602,7 +614,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 
 	// parseImgSysMetadata
 	{
-		fillIndex(request.stage, is_capture, imgsys_info);
+		fillIndex(imgMetaRequest.stage, is_capture, imgsys_info);
 
 		imgsys_info.sequence_num = camsysFrmId;
 		imgsys_info.is_need_dump_exif = 0;
@@ -612,7 +624,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		imgsys_info.rCropRzInfo.sMEL0out = mel0Out;
 		imgsys_info.rCropRzInfo.sGyroMv = {};
 
-		fillTncInfo(request.stage, inputSize, outputSize, fullDipSize, imgsys_info);
+		fillTncInfo(imgMetaRequest.stage, inputSize, outputSize, fullDipSize, imgsys_info);
 
 		imgsys_info.rWrappingInfo = {};
 		imgsys_info.bypass_nr = 0;
@@ -645,8 +657,6 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		imgsys_info.rMapping_Info = cam_info.rMapping_Info;
 		imgsys_info.rMapping_Info_with_sys_info =
 		    cam_info.rMapping_Info_with_sys_info;
-		imgsys_info.rNdd_info = cam_info.rNdd_info;
-		imgsys_info.sr_para = cam_info.sr_para;
 
 		imgsys_info.rFdInfo_afterWarp = cam_info.rFdInfo;
 
@@ -655,6 +665,14 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		    static_cast<NSIspTuning::EStage_T>(imgsys_info.stage);
 		imgsys_info.rMapping_Info.eAction =
 		    static_cast<NSIspTuning::EAction_T>(imgsys_info.action);
+
+		if (request != nullptr) {
+			// Not dummy frame
+			onDeviceTuner_->tuneImgsysHalIsp(
+				request, tuning_param_p2, imgsys_info.rMapping_Info.eStage);
+		}
+		imgsys_info.rNdd_info = cam_info.rNdd_info;
+		imgsys_info.sr_para = cam_info.sr_para;
 
 	}
 	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
