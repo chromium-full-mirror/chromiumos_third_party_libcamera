@@ -761,7 +761,11 @@ void PipelineHandler::registerCamera(std::shared_ptr<Camera> camera)
  */
 void PipelineHandler::hotplugMediaDevice(MediaDevice *media)
 {
+#ifdef CPP_STD_20
+	media->disconnected.connect(this, [=, this]() { mediaDeviceDisconnected(media); });
+#else
 	media->disconnected.connect(this, [=]() { mediaDeviceDisconnected(media); });
+#endif
 }
 
 /**

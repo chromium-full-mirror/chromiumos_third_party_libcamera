@@ -177,6 +177,10 @@ endif
 c_arguments += common_arguments
 cpp_arguments += common_arguments
 
+if get_option('cpp_std') == 'c++20'
+  add_project_arguments('-DCPP_STD_20=1', language : 'cpp')
+endif
+
 add_project_arguments(c_arguments, language : 'c')
 add_project_arguments(cpp_arguments, language : 'cpp')
 add_project_link_arguments(cpp_arguments, language : 'cpp')
