@@ -14,6 +14,8 @@
 #include "mtkcam-interfaces/utils/ndd/INdd.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 
+#include "mtk_cam_metabuf.h"
+
 namespace libcamera {
 
 class ImagiqAdapter
@@ -42,6 +44,9 @@ public:
 
 	static int importDump(const Dump &dump);
 
+	static void merge2AHistogram(std::vector<uint8_t> &out,
+				     mtk_cam_uapi_meta_raw_stats_0 *stats);
+
 	static void notifyExportRequest(int count);
 
 	static void notifyNewSession(std::string sensorId, int dumpTimestamp);
@@ -59,6 +64,9 @@ public:
 private:
 	static std::string createImportConfigId(const Dump &dump);
 
+	static ExportResult exportArrayDump(
+		const Dump &dump, const NSCam::TuningUtils::NddData &ndd);
+
 	static ExportResult exportDumpMergePlanes(
 		const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
 		const NSCam::TuningUtils::NddData &ndd,
@@ -69,6 +77,9 @@ private:
 		const NSCam::TuningUtils::NddData &ndd,
 		const PixelFormat &pixelFormat,
 		const std::string &fileSuffix = "");
+
+	static ExportResult exportFrameDump(
+		const Dump &dump, const NSCam::TuningUtils::NddData &ndd);
 
 	static std::string formatPlaneName(int planeNumber,
 					   const PixelFormat &pixelFormat);

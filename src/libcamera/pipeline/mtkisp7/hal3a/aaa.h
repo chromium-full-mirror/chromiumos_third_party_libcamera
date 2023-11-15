@@ -14,6 +14,7 @@
 #include "pipeline/mtkisp7/camsys/camsys.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "hal_3a.h"
 
@@ -47,7 +48,8 @@ private:
 class Hal3AManager
 {
 public:
-	void configure(DmaHeap *dmaHeap, CamSysDevice *camSys, Hal3A *hal3A);
+	void configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
+		       Hal3A *hal3A, OnDeviceTuner *odt);
 	void start();
 
 	void releaseBuffers();
@@ -72,6 +74,7 @@ private:
 	DmaHeap *dmaHeap_;
 	CamSysDevice *camSys_;
 	Hal3A *hal3A_;
+	OnDeviceTuner *onDeviceTuner_;
 
 	FocusController focusController_;
 
@@ -94,11 +97,12 @@ public:
 	MtkCameraFaceMetadata *prevFaceMetadata_ = nullptr;
 
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
-	       CaptureFrames &captureFrames, Hal3A *hal3A,
+	       CaptureFrames &captureFrames, Hal3A *hal3A, OnDeviceTuner *odt,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 	       FaceDetector *faceDetector)
 		: Task(scheduler, id), request_(nullptr), manager_(manager),
 		  captureFrames_(captureFrames), hal3A_(hal3A),
+		  onDeviceTuner_(odt),
 		  internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId), faceDetector_(faceDetector) {}
 
@@ -117,6 +121,7 @@ public:
 	CaptureFrames captureFrames_;
 
 	Hal3A *hal3A_;
+	OnDeviceTuner *onDeviceTuner_;
 
 	uint32_t internalRequestId_;
 	uint32_t camSysMetaRequestId_;

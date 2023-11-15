@@ -850,7 +850,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	hal3A_->configure(camsysYuvSize);
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
-	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_);
+	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_);
 
 	imgSysDev_->configure();
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());

@@ -8,6 +8,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -196,36 +197,36 @@ void OnDeviceTuner::notifyStillCapture(int requestNumber)
 }
 
 bool OnDeviceTuner::parseHalIspNdd(
-        Request *request,
-        mtk::isphal::v1_0::NddInfo &ndd)
+	Request *request,
+	mtk::isphal::v1_0::NddInfo &ndd)
 {
-    uint32_t requestNumber = request->sequence();
-    bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
-    if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
-        return false;
-    }
-    if (isStillCapture) {
-        ndd.ndd_data.action =
-                static_cast<int>(Action::Capture);
-        ndd.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
-        ndd.ndd_data.feature =
-                static_cast<int>(Feature::Capture_lpnr);
-    } else {
-        ndd.ndd_category =
-                NSCam::TuningUtils::eCategory::kSTREAMING;
-        ndd.ndd_data.feature =
-                static_cast<int>(Feature::Preview);
-    }
-    ndd.ndd_data.requestNo = request->sequence();
-    ndd.ndd_data.frameNo = request->sequence();
-    ndd.ndd_data.platform = 8188;
-    ndd.ndd_data.timestamp = sessionTimestamp_;
-    ndd.ndd_data.sensorId =
-            ImagiqAdapter::kSensorIdMap.at(sensorId_);
-    ndd.ndd_data.dualCamId = NSCam::TuningUtils::eDualCamId::kINVALID;
-    ndd.ndd_data.pixelHeight = -1;
-    ndd.ndd_data.pixelWidth = -1;
-    return true;
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return false;
+	}
+	if (isStillCapture) {
+		ndd.ndd_data.action =
+			static_cast<int>(Action::Capture);
+		ndd.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
+		ndd.ndd_data.feature =
+			static_cast<int>(Feature::Capture_lpnr);
+	} else {
+		ndd.ndd_category =
+			NSCam::TuningUtils::eCategory::kSTREAMING;
+		ndd.ndd_data.feature =
+			static_cast<int>(Feature::Preview);
+	}
+	ndd.ndd_data.requestNo = request->sequence();
+	ndd.ndd_data.frameNo = request->sequence();
+	ndd.ndd_data.platform = 8188;
+	ndd.ndd_data.timestamp = sessionTimestamp_;
+	ndd.ndd_data.sensorId =
+		ImagiqAdapter::kSensorIdMap.at(sensorId_);
+	ndd.ndd_data.dualCamId = NSCam::TuningUtils::eDualCamId::kINVALID;
+	ndd.ndd_data.pixelHeight = -1;
+	ndd.ndd_data.pixelWidth = -1;
+	return true;
 }
 
 int OnDeviceTuner::prepareNewExportDirectory()
@@ -277,6 +278,7 @@ void OnDeviceTuner::tune(
 				  .timestamp = sessionTimestamp_,
 				  .workPath = currentExportPath_,
 				  .frame = namedFrame.frame,
+				  .array = std::nullopt,
 				  .metadata = metadata,
 				  .config = config });
 	}
@@ -287,6 +289,41 @@ void OnDeviceTuner::tune(
 	if (shouldImportDumpNow(requestNumber)) {
 		batchImport(dumps);
 	}
+}
+
+void OnDeviceTuner::tune(
+	uint32_t requestNumber,
+	std::vector<NamedPointer> namedPointers,
+	bool forceDump)
+{
+	if (!enabled_ && !forceDump &&
+	    !shouldExportDumpNow(requestNumber) && !shouldImportDumpNow(requestNumber)) {
+		return;
+	}
+	std::vector<Dump> dumps;
+	for (auto namedPtr : namedPointers) {
+		Dump::Metadata metadata = kDumpMetadata.at(namedPtr.id);
+		Dump::Config config = dumpConfig_[namedPtr.id];
+		std::vector<uint8_t> buffer(namedPtr.size);
+		std::memcpy(buffer.data(), namedPtr.ptr, namedPtr.size);
+		dumps.push_back({ .id = namedPtr.id,
+				  .requestNumber = requestNumber,
+				  .sensorId = sensorId_,
+				  .timestamp = sessionTimestamp_,
+				  .workPath = currentExportPath_,
+				  .frame = std::nullopt,
+				  .array = buffer,
+				  .metadata = metadata,
+				  .config = config });
+	}
+	if (forceDump || shouldExportDumpNow(requestNumber)) {
+		const auto exportResults = batchExport(dumps);
+		batchPrepareReimport(exportResults);
+	}
+	// todo(yerlandinata, before merge): decide what to do next
+	// if (shouldImportDumpNow(requestNumber)) {
+	//     batchImport(dumps);
+	// }
 }
 
 void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
@@ -312,6 +349,7 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 			.timestamp = sessionTimestamp_,
 			.workPath = currentExportPath_,
 			.frame = std::nullopt,
+			.array = std::nullopt,
 			.metadata = kDumpMetadata.at(Dump::Id::P1_REG_P1),
 			.config = drvRegConfig
 		};
@@ -324,29 +362,29 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 }
 
 bool OnDeviceTuner::tuneCamsysHalIsp(
-        Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam)
+	Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam)
 {
-    if (!enabled_) {
-        return false;
-    }
-    tuningParam.cam_info->rNdd_info.ndd_data.stage =
-            static_cast<int>(Stage::P1);
-    return parseHalIspNdd(request, tuningParam.cam_info->rNdd_info);
+	if (!enabled_) {
+		return false;
+	}
+	tuningParam.cam_info->rNdd_info.ndd_data.stage =
+		static_cast<int>(Stage::P1);
+	return parseHalIspNdd(request, tuningParam.cam_info->rNdd_info);
 }
 
 void OnDeviceTuner::tuneImgsysHalIsp(
-        Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
-        EStage_T stage)
+	Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+	EStage_T stage)
 {
-    if (!enabled_) {
-        return;
-    }
-    tuningParam.cam_info.rNdd_info.ndd_data.stage = stage;
-    tuningParam.cam_info.sr_para.decision_param.staticInfo.sensorId =
-            static_cast<int32_t>(ImagiqAdapter::kSensorIdMap.at(sensorId_));
-    tuningParam.cam_info.rNdd_info.ndd_data.action =
-            static_cast<int>(Action::Preview);
-    parseHalIspNdd(request, tuningParam.cam_info.rNdd_info);
+	if (!enabled_) {
+		return;
+	}
+	tuningParam.cam_info.rNdd_info.ndd_data.stage = stage;
+	tuningParam.cam_info.sr_para.decision_param.staticInfo.sensorId =
+		static_cast<int32_t>(ImagiqAdapter::kSensorIdMap.at(sensorId_));
+	tuningParam.cam_info.rNdd_info.ndd_data.action =
+		static_cast<int>(Action::Preview);
+	parseHalIspNdd(request, tuningParam.cam_info.rNdd_info);
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(
@@ -382,6 +420,7 @@ void OnDeviceTuner::tuneImgsysMetadata(
 			.timestamp = sessionTimestamp_,
 			.workPath = currentExportPath_,
 			.frame = std::nullopt,
+			.array = std::nullopt,
 			.metadata = dumpMetadata,
 			.config = config,
 		});
@@ -413,6 +452,74 @@ void OnDeviceTuner::tune3ARequest(
 		aaaRequest.ndd_data.feature = static_cast<int>(Feature::Preview);
 		aaaRequest.ndd_category = NSCam::TuningUtils::eCategory::kSTREAMING;
 	}
+}
+
+void OnDeviceTuner::tune3AState(Request *request, CaptureFrames &frames,
+				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult)
+{
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return;
+	}
+	MappedFrameBuffer mapped(
+		frames.statistics0->get().buffer(),
+		MappedFrameBuffer::MapFlag::Read);
+	mtk_cam_uapi_meta_raw_stats_0 *stats =
+		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_0 *>(
+			mapped.planes()[0].data());
+	std::vector<uint8_t> merged2AHist;
+	ImagiqAdapter::merge2AHistogram(merged2AHist, stats);
+	std::vector<uint8_t> data(stats->ae_awb_stats.aao_buf.size);
+	std::memcpy(data.data(), reinterpret_cast<uint8_t *>(stats) + stats->ae_awb_stats.aao_buf.offset, data.size());
+
+	std::vector<NamedPointer> namedPointers{
+		// 3A Statistics
+		{
+			.id = Dump::Id::P1_AAO,
+			.ptr = reinterpret_cast<uint8_t *>(stats) + stats->ae_awb_stats.aao_buf.offset,
+			.size = stats->ae_awb_stats.aao_buf.size },
+		{ .id = Dump::Id::P1_AAHO,
+		  .ptr = merged2AHist.data(),
+		  .size = merged2AHist.size() },
+		{ .id = Dump::Id::P1_TSFSO_R1,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->tsf_stats.tsfo_r1_buf.offset,
+		  .size = stats->tsf_stats.tsfo_r1_buf.size },
+		{ .id = Dump::Id::P1_TSFSO_R2,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->tsf_stats.tsfo_r2_buf.offset,
+		  .size = stats->tsf_stats.tsfo_r2_buf.size },
+		{ .id = Dump::Id::P1_LTMSO,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->ltm_stats.ltmso_buf.offset,
+		  .size = stats->ltm_stats.ltmso_buf.size },
+		{ .id = Dump::Id::P1_TNCSYO_R1,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->tncy_stats.tncsyo_buf.offset,
+		  .size = stats->tncy_stats.tncsyo_buf.size },
+		// 3A Result
+		{
+			.id = Dump::Id::P1_LTM_OUT,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->tone_result.p_ltm_alg_data),
+			.size = static_cast<size_t>(mtk3AResult->tone_result.ltm_alg_data_size),
+		},
+		{
+			.id = Dump::Id::P1_AE_OUT,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->ae_result.p_ae_alg_data),
+			.size = static_cast<size_t>(mtk3AResult->ae_result.ae_alg_data_size),
+		},
+		{
+			.id = Dump::Id::P1_FW_ME_TCY_P,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->tone_result.p_me_tcy_in_workbuf_data),
+			.size = static_cast<size_t>(mtk3AResult->tone_result.me_tcy_in_workbuf_data_size),
+		},
+		{
+			.id = Dump::Id::P1_FW_ME_TCY_O,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->tone_result.p_me_tcy_fst_o_data),
+			.size = static_cast<size_t>(mtk3AResult->tone_result.me_tcy_fst_o_data_size),
+		}
+	};
+	LOG(MtkISP7, Info) << "AE_OUT size: " << mtk3AResult->ae_result.ae_alg_data_size;
+	LOG(MtkISP7, Info) << "FW_ME_TCY_P size: " << mtk3AResult->tone_result.me_tcy_in_workbuf_data_size;
+	LOG(MtkISP7, Info) << "FW_ME_TCY_O size: " << mtk3AResult->tone_result.me_tcy_fst_o_data_size;
+	tune(requestNumber, namedPointers, isStillCapture);
 }
 
 void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)

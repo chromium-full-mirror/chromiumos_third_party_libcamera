@@ -40,6 +40,7 @@ struct Dump {
 		NSCam::TuningUtils::eCategory category;
 		std::optional<Action> action = std::nullopt; // nullopt = multi-purpose
 		int layer = -1;
+		std::optional<size_t> elementSize = std::nullopt;
 	};
 
 	// [Stage]_[BufferName]_[Pipeline (optional)]
@@ -52,6 +53,20 @@ struct Dump {
 
 		// P1 driver's registers
 		P1_REG_P1,
+
+		// 3A Statistics
+		P1_AAO,
+		P1_AAHO,
+		P1_TSFSO_R1,
+		P1_TSFSO_R2,
+		P1_LTMSO,
+		P1_TNCSYO_R1,
+
+		// 3A Results
+		P1_FW_ME_TCY_P,
+		P1_FW_ME_TCY_O,
+		P1_LTM_OUT,
+		P1_AE_OUT,
 
 		// IMGSYS MCNR registers
 		LTR_ME_L1_IMGSYS_DRVREG,
@@ -307,6 +322,7 @@ struct Dump {
 	int timestamp;
 	std::filesystem::path workPath;
 	std::optional<InfoFrame> frame;
+	std::optional<std::vector<uint8_t>> array;
 	Metadata metadata;
 	Config config;
 };

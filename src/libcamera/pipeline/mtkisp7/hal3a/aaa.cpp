@@ -13,6 +13,7 @@
 
 #include "libcamera/request.h"
 #include "libfdft_lib/faces.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "hal_3a.h"
 
@@ -82,11 +83,12 @@ bool FocusController::isFirstRun()
 }
 
 void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
-			     Hal3A *hal3A)
+			     Hal3A *hal3A, OnDeviceTuner *odt)
 {
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
 	hal3A_ = hal3A;
+	onDeviceTuner_ = odt;
 
 	focusController_.configure(camSys_->getCameraLens());
 
@@ -143,6 +145,7 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 
 	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
 				    captureFrames, hal3A_,
+				    onDeviceTuner_,
 				    internalRequestId, camSysMetaRequestId,
 				    faceDetector);
 	aaTask->moveToThread(&thread3A_);
@@ -214,6 +217,11 @@ void AATask::run()
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>
 			   &exposureAndGain) {});
+
+	if (request_) {
+		onDeviceTuner_->tune3AState(
+				request_, captureFrames_, &hal3A_->r3AResult_);
+	}
 
 	notifyDone();
 }

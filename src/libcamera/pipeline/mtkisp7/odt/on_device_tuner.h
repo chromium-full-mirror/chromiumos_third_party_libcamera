@@ -57,6 +57,8 @@ public:
 	// 3A
 	void tune3ARequest(
 		Request *request, mtk::hal3a::v1_0::mtk_3a_request &r3aRequest);
+	void tune3AState(Request *request, CaptureFrames &frames,
+			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult);
 
 	// P2 Imgsys driver
 	void tuneImgsysMetadata(
@@ -84,6 +86,11 @@ private:
 		Dump::Id id;
 		InfoFrame &frame;
 	};
+	struct NamedPointer {
+		Dump::Id id;
+		uint8_t *ptr;
+		size_t size;
+	};
 
 	std::vector<ImagiqAdapter::ExportResult> batchExport(
 		const std::vector<Dump> &dumps);
@@ -102,6 +109,9 @@ private:
 	bool shouldImportDumpNow(uint32_t requestNumber);
 	void tune(uint32_t requestNumber,
 		  std::vector<NamedFrame> namedFrames,
+		  bool forceDump = false);
+	void tune(uint32_t requestNumber,
+		  std::vector<NamedPointer> namedPointers,
 		  bool forceDump = false);
 
 	bool enabled_;

@@ -7,6 +7,7 @@
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 
@@ -104,9 +105,37 @@ int ImagiqAdapter::enableMtkTuningTool(std::filesystem::path workDir)
 	return 0;
 }
 
-ImagiqAdapter::ExportResult ImagiqAdapter::exportDump(const Dump &dump)
+ImagiqAdapter::ExportResult ImagiqAdapter::exportArrayDump(
+	const Dump &dump, const NSCam::TuningUtils::NddData &ndd)
 {
-	const NSCam::TuningUtils::NddData ndd(parseNdd(dump));
+	ExportResult result{ .dump = dump };
+	const std::filesystem::path exportPath =
+		getDumpFileNameSingleFile(dump, ndd);
+	std::ofstream exportFile(exportPath, std::ios::binary);
+	if (!exportFile) {
+		LOG(MtkISP7, Error) << "Failed to open export file: "
+				    << exportPath;
+		result.errorCode = -EIO;
+		return result;
+	}
+	exportFile.write(
+		reinterpret_cast<char *>(const_cast<uint8_t *>(dump.array->data())),
+		dump.array->size());
+	if (!exportFile.good()) {
+		LOG(MtkISP7, Error) << "Error writing plane to file: " << exportPath;
+		result.errorCode = -EIO;
+		return result;
+	}
+	LOG(MtkISP7, Info) << "Dump id: " << static_cast<int>(dump.id)
+			   << "; write file size: " << exportFile.tellp()
+			   << "; File name: " << exportPath;
+	result.paths = { { exportPath } };
+	return result;
+}
+
+ImagiqAdapter::ExportResult ImagiqAdapter::exportFrameDump(
+	const Dump &dump, const NSCam::TuningUtils::NddData &ndd)
+{
 	const MappedFrameBuffer mappedBuffer(
 		dump.frame->buffer(), MappedFrameBuffer::MapFlag::Read);
 
@@ -118,6 +147,16 @@ ImagiqAdapter::ExportResult ImagiqAdapter::exportDump(const Dump &dump)
 	} else {
 		return exportDumpMergePlanes(
 			dump, mappedBuffer, ndd, fileSuffix);
+	}
+}
+
+ImagiqAdapter::ExportResult ImagiqAdapter::exportDump(const Dump &dump)
+{
+	const NSCam::TuningUtils::NddData ndd(parseNdd(dump));
+	if (dump.frame.has_value()) {
+		return exportFrameDump(dump, ndd);
+	} else {
+		return exportArrayDump(dump, ndd);
 	}
 }
 
@@ -613,6 +652,32 @@ int ImagiqAdapter::loadImportConfig(
 	return 0;
 }
 
+/**
+ * @brief Merge MTK 2A histogram arrays. 
+ *
+ * MTK 3A library histogram structure:
+ * h1t1, h1t2, ..., h1tN, h2t1, h2t2, ..., h2tN, h3t1, h3t2, ..., h3tN
+ * However, what imagiq wants:
+ * h1t1, h2t1, h3t1, h1t2, h2t2, h3t2, ..., h1tN, h2tN, h3tN
+ */
+void ImagiqAdapter::merge2AHistogram(std::vector<uint8_t> &out,
+				     mtk_cam_uapi_meta_raw_stats_0 *stats)
+{
+	std::array<int32_t, 3> temp{ 0, 0, 0 };
+	out.resize(MTK_CAM_UAPI_AAHO_HIST_SIZE);
+	for (size_t j = 0; j < out.size() / 3; j++) {
+		for (size_t i = 0; i < stats->pipeline_config.num_of_core; i++) {
+			std::memcpy(&temp[i],
+				    reinterpret_cast<void *>(reinterpret_cast<intptr_t>(stats) +
+							     stats->ae_awb_stats.aaho_buf.offset + (MTK_CAM_UAPI_AAHO_HIST_SIZE * i) + (3 * j)),
+				    3);
+		}
+		out[3 * j] = (temp[0] + temp[1] + temp[2]) & 0xFF;
+		out[3 * j + 1] = ((temp[0] + temp[1] + temp[2]) >> 8) & 0xFF;
+		out[3 * j + 2] = ((temp[0] + temp[1] + temp[2]) >> 16) & 0xFF;
+	}
+}
+
 void ImagiqAdapter::notifyExportRequest(int count)
 {
 	int ret = NSCam::Utils::Properties::property_set(
@@ -665,6 +730,14 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	ndd.action = dump.metadata.action.has_value() ? static_cast<int>(dump.metadata.action.value()) : -1;
 	ndd.layer = dump.metadata.layer;
 	ndd.platform = 8188;
+
+	if (dump.array.has_value()) {
+		ndd.width = dump.array->size();
+		if (dump.metadata.elementSize.has_value()) {
+			ndd.width /= *dump.metadata.elementSize;
+		}
+		ndd.height = 1;
+	}
 
 	if (!dump.frame.has_value()) {
 		return ndd;
