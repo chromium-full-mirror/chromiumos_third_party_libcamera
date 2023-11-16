@@ -8,6 +8,7 @@
 
 #include "../halisp/hal_isp.h"
 #include "libcamera/framebuffer.h"
+#include "libcamera/geometry.h"
 #include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 
@@ -20,6 +21,7 @@ public:
 
 	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp);
 
+	void configure(Size camsysYuvSize) { camsysYuvSize_ = camsysYuvSize; }
 	void start();
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
@@ -46,6 +48,7 @@ private:
 	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain);
 
 	const uint32_t sensor_idx_;
+	Size camsysYuvSize_;
 
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;
 	HalIsp *halIsp_ = nullptr;

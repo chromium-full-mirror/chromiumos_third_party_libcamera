@@ -488,13 +488,8 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.app_mode = 0;
 	r_3a_param.zoom_ratio = 100;
 	// TODO: Track the right source in mtk's hal.
-	if (sensor_idx_ == 0) { // back camera
-		r_3a_param.target_size_w = 1280;
-		r_3a_param.target_size_h = 960;
-	} else { // front camera
-		r_3a_param.target_size_w = 1440;
-		r_3a_param.target_size_h = 1080;
-	}
+	r_3a_param.target_size_w = camsysYuvSize_.width;
+	r_3a_param.target_size_h = camsysYuvSize_.height;
 	// r_3a_param.prv_crop_region = { left = 0, top = 0, right = 3264, bottom = 2448, weight = 0 };
 	// r_3a_param.prv_crop_normalize_region = { left = 0, top = 0, right = 3264, bottom = 2448, weight = 0 };
 	if (sensor_idx_ == 0) { // back camera

@@ -794,6 +794,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
+	hal3A_->configure(camsysYuvSize);
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
 	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_);
