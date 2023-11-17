@@ -17,6 +17,7 @@
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/imgsensor_info.h"
 #include "platform/mtkisp7/halsensor_helper.h"
 #include "platform/mtkisp7/imgsensor_info_helper.h"
+#include "platform/mtkisp7/cam_cal_helper.h"
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -32,10 +33,7 @@ SensorInfo::SensorInfo(int sensor_idx)
 	: m_sensor_index(sensor_idx),
 	  m_sensor_dev(0),
 	  m_sensor_id(0),
-	  m_module_id(0),
-	  m_cal_drv(CamCalDrvBase::createInstance())
-{
-}
+	  m_module_id(0) {}
 
 void SensorInfo::init(int sensor_dev, int sensor_id, int module_id)
 {
@@ -138,54 +136,17 @@ void SensorInfo::get_sensor_perframe_dynamic_info(
 }
 
 int SensorInfo::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
-			     void *pCamCalData)
-{
-	unsigned int size = 0;
-	switch (cal_enum) {
-	case CAMERA_CAM_CAL_DATA_MODULE_VERSION:
-		size = sizeof(CAM_CAL_MODULE_VERSION_STRUCT);
-		break;
-	case CAMERA_CAM_CAL_DATA_PART_NUMBER:
-		size = sizeof(CAM_CAL_PART_NUM_STRUCT);
-		break;
-	case CAMERA_CAM_CAL_DATA_SHADING_TABLE:
-		size = sizeof(CAM_CAL_LSC_DATA_STRUCT);
-		break;
-	case CAMERA_CAM_CAL_DATA_3A_GAIN:
-		size = sizeof(CAM_CAL_2A_DATA_STRUCT);
-		break;
-	case CAMERA_CAM_CAL_DATA_STEREO_DATA:
-		size = sizeof(CAM_CAL_STEREO_DATA_STRUCT);
-		break;
-	case CAMERA_CAM_CAL_DATA_PDAF:
-		size = sizeof(CAM_CAL_PDAF_DATA_STRUCT);
-		break;
-	case CAMERA_CAM_CAL_DATA_DUMP:
-		size = sizeof(CAM_CAL_DATA_STRUCT);
-		break;
-	case CAMERA_CAM_CAL_DATA_LENS_ID:
-		size = sizeof(CAM_CAL_LENS_ID_STRUCT);
-		break;
-	default:
-		LOG(MtkISP7, Error) << "Size of type(" << cal_enum << ") is not defined";
-		break;
-	}
-	int result = 0;
-	if (m_cal_drv && pCamCalData) {
-		result = m_cal_drv->GetCamCalCalDataV2(
-			m_sensor_dev, cal_enum, reinterpret_cast<void *>(pCamCalData), size);
-	}
-	LOG(MtkISP7, Info) << "result: " << result;
-	return result;
+                             void* a_pCamCalData) {
+  return CamCalHelper::getInstance()->get_cal_data(cal_enum, m_sensor_id,m_sensor_dev,a_pCamCalData);
 }
 
 bool SensorInfo::is_af_support()
 {
-	if (idx_camsys_map.find(m_sensor_index) != idx_camsys_map.end()) {
-		bool hasAF = idx_camsys_map[m_sensor_index]->getCameraLens();
-		return hasAF;
-	}
-	return false;
+  if (idx_camsys_map.find(m_sensor_index) != idx_camsys_map.end()) {
+    bool hasAF = idx_camsys_map[m_sensor_index]->getCameraLens();
+    return hasAF;
+  }
+  return false;
 }
 
 void SensorInfo::construct_sensor_static_info(

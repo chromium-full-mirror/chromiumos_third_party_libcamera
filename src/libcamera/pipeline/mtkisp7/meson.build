@@ -15,7 +15,6 @@ libcam_halisp_tuning_provider = cc.find_library('cam.halisp.TuningDataProvider',
 
 libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : true)
 libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
-libfeatureiodrv_mem  = cc.find_library('libfeatureiodrv_mem', required : true)
 
 libcamera_deps += [
     libcamalgo_fdft,
@@ -31,7 +30,6 @@ libcamera_deps += [
     libcam_halisp_tuning_provider,
     libmtkcam_tuning_utils,
     libmtkcam_stdutils,
-    libfeatureiodrv_mem,
 ]
 
 libcamera_sources += files([

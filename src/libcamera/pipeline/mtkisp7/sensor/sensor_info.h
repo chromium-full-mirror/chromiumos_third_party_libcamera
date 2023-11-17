@@ -39,7 +39,6 @@ private:
 	uint32_t m_sensor_dev;
 	uint32_t m_sensor_id;
 	uint32_t m_module_id;
-	CamCalDrvBase *m_cal_drv;
 	static std::shared_ptr<SensorInfo> sensor_info_[MAX_SENSOR_INFO_COUNT];
 	static std::map<int, CamSysDevice *> idx_camsys_map;
 	static std::vector<std::shared_ptr<NSCam::SensorStaticInfo>>
@@ -47,6 +46,7 @@ private:
 	static std::vector<CamSysDevice *> camSysDevices_;
 	static void construct_sensor_static_info(
 		int index, std::shared_ptr<NSCam::SensorStaticInfo> pSensorStaticInfo);
+	int get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData);
 };
 
 } // namespace libcamera
