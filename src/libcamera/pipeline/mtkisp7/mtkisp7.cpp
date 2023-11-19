@@ -492,6 +492,7 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 	: PipelineHandler(manager),
+	  camSysDev_{{&onDeviceTuner_}, {&onDeviceTuner_}},
 	  halIsp_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
 	  imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
 {
@@ -963,6 +964,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
+	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 	hal3A_->configure(camsysYuvSize);
 	halIsp_->configure(video1 > video2 ? video1 : video2,
@@ -972,7 +974,6 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_, gyroSensor_);
 
 	imgSysDev_->configure();
-	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still1, still2);
 	mfnrManager.configure(sensorFullSize_,

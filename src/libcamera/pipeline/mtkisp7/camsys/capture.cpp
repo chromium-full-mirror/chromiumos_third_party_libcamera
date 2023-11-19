@@ -12,6 +12,7 @@
 #include <libcamera/geometry.h>
 #include <libcamera/request.h>
 
+#include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/request.h"
 
@@ -68,6 +69,7 @@ void CaptureTasksManager::allocateBuffers()
 	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 14);
 	statistics0Pool_.createBuffers(dmaHeap_, formats::MTFA_MTISP, kStatSize0, 14, DmaHeap::CMA);
 	statistics1Pool_.createBuffers(dmaHeap_, formats::MTFF_MTISP, kStatSize1, 14, DmaHeap::CMA);
+	rawi2Pool_.createBuffers(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_, 14);
 }
 
 void CaptureTasksManager::releaseBuffers()
@@ -84,6 +86,8 @@ void CaptureTasksManager::releaseBuffers()
 
 	statistics0Pool_.release();
 	statistics1Pool_.release();
+
+	rawi2Pool_.release();
 }
 
 void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
@@ -104,6 +108,8 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 	captureFrames.exposureAndGainOutput = makeMailBox<std::pair<uint32_t, uint32_t>>();
 
 	captureFrames.aaaIspExchange = makeMailBox<AaaIspExchange>();
+
+	captureFrames.rawInject = makeMailBox<InfoFrame>();
 }
 
 std::tuple<QueueTask *, DequeueTask *, SofTask *>
@@ -173,6 +179,18 @@ void SofTask::trigger()
 void QueueTask::run()
 {
 	CamSysDevice *camSys = manager_->camSys_;
+	auto &frames = data_->frames;
+	auto &camSysRequest = data_->request;
+
+	if (manager_->onDeviceTuner_->isCamsysDebugFrameEnabled()) {
+		manager_->rawi2Pool_.fetch(frames.rawInject);
+		auto &rawInject = camSysRequest.rawInject;
+		rawInject = frames.rawInject->get().buffer();
+		MappedFrameBuffer mapped(
+			rawInject, MappedFrameBuffer::MapFlag::Read);
+		rawInject->_d()->metadata().planes()[0].bytesused =
+			mapped.planes()[0].size();
+	}
 
 	if (request_) {
 		const auto testPatternControl =
@@ -181,10 +199,10 @@ void QueueTask::run()
 			camSys->setTestPattern(
 				static_cast<controls::draft::TestPatternModeEnum>(*testPatternControl));
 		}
+		manager_->onDeviceTuner_->fillCamsysDebugFrame(
+			internalRequestId_, frames.rawInject);
 	}
 
-	auto &frames = data_->frames;
-	auto &camSysRequest = data_->request;
 
 	manager_->statistics0Pool_.fetch(frames.statistics0);
 	camSysRequest.statistics0 = frames.statistics0->get().buffer();

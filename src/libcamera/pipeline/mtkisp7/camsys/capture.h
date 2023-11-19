@@ -47,6 +47,8 @@ struct CaptureFrames {
 	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGainOutput; // output
 
 	SharedMailBox<AaaIspExchange> aaaIspExchange;
+
+	SharedMailBox<InfoFrame> rawInject; // Debug frame / ODT
 };
 
 class CaptureData
@@ -105,6 +107,7 @@ private:
 	InfoFramePool faceDetectPool_;
 	InfoFramePool statistics0Pool_;
 	InfoFramePool statistics1Pool_;
+	InfoFramePool rawi2Pool_;
 };
 
 class SofTask : public Task

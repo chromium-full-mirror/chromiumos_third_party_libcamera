@@ -66,6 +66,9 @@ public:
 
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
+	void fillCamsysDebugFrame(uint32_t internalRequestId,
+				  SharedMailBox<InfoFrame> debugMailBox);
+	bool isCamsysDebugFrameEnabled();
 
 	// HAL ISP
 	bool tuneCamsysHalIsp(
@@ -180,6 +183,7 @@ private:
 
 	bool enabled_;
 	bool enforceLowIsoLpnr_;
+	bool enableCamsysDebugFrame_;
 	int sessionTimestamp_;
 	std::string sensorId_;
 

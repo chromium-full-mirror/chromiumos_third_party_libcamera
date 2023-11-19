@@ -28,6 +28,7 @@ constexpr unsigned int PAD_SENSOR_OUT = 0;
 constexpr unsigned int PAD_SENINF_OUT = 1;
 constexpr unsigned int PAD_SENINF_IN = 0;
 constexpr unsigned int PAD_RAW_IN = 0;
+constexpr unsigned int PAD_RAWI2_IN = 2;
 constexpr unsigned int PAD_MAIN = 5;
 constexpr unsigned int PAD_YUV1 = 6;
 constexpr unsigned int PAD_YUV2 = 7;
@@ -44,7 +45,8 @@ constexpr unsigned int kRequestCount = 24;
 
 } /* namespace */
 
-CamSysDevice::CamSysDevice() = default;
+CamSysDevice::CamSysDevice(OnDeviceTuner *odt) : onDeviceTuner_(odt)
+{}
 
 int CamSysDevice::init(MediaDevice *media, unsigned int index)
 {
@@ -137,6 +139,7 @@ int CamSysDevice::init(MediaDevice *media, unsigned int index)
 	mainStream_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
 	partialMeta0_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
 	partialMeta1_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
+	rawi2_->requestBufferReady.connect(this, &CamSysDevice::bufferReady);
 
 	return 0;
 }
@@ -260,15 +263,20 @@ int CamSysDevice::queueRequest(Request *request)
 	ret |= drzs4no3_->queueBuffer(request->me, mediaRequest);
 	ret |= rzh1n2to1_->queueBuffer(request->faceDetect, mediaRequest);
 
+	unsigned int queuedBuffers = 8;
+	if (onDeviceTuner_->isCamsysDebugFrameEnabled()) {
+		queuedBuffers = 9;
+		ret |= rawi2_->queueBuffer(request->rawInject, mediaRequest);
+	}
+
 	ret |= media_->queueRequest(mediaRequest);
 	if (ret) {
 		LOG(MtkISP7, Error) << "Fail to queue request";
 		return ret;
 	}
 
-	// todo: Set pending number by the framebuffers queued, instead of
-	// hard coding as a magic number 8.
-	pendingRequests_.emplace_back(PendingRequest{ request, mediaRequest, 8 });
+	pendingRequests_.emplace_back(
+		PendingRequest{request, mediaRequest, queuedBuffers});
 
 	return 0;
 }
@@ -490,6 +498,11 @@ int CamSysDevice::configureMtkCamRaw()
 			      videoHub_.get(), PAD_RZH1N2TO1,
 			      MEDIA_BUS_FMT_SRGGB10_1X10);
 
+	if (onDeviceTuner_->isCamsysDebugFrameEnabled()) {
+		ret |= configureVideo(rawi2_.get(), bayerFormat_, rawFrameSize_,
+				      videoHub_.get(), PAD_RAWI2_IN, mbusCode_);
+	}
+
 	if (ret) {
 		LOG(MtkISP7, Error) << "Fail to configure video nodes";
 		return ret;
@@ -539,7 +552,11 @@ int CamSysDevice::setupLinks(bool enable)
 
 	link = media_->link(seninf_->entity(), PAD_SENINF_OUT,
 			    videoHub_->entity(), PAD_RAW_IN);
-	ret |= link->setEnabled(enable);
+	if (onDeviceTuner_->isCamsysDebugFrameEnabled()) {
+		ret |= link->setEnabled(false);
+	} else {
+		ret |= link->setEnabled(enable);
+	}
 
 	return ret;
 }

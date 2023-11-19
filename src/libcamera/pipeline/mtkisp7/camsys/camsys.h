@@ -17,6 +17,7 @@
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/v4l2_subdevice.h"
 #include "libcamera/internal/v4l2_videodevice.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
 
@@ -33,6 +34,7 @@ public:
 		FrameBuffer *main;
 		FrameBuffer *yuvo1;
 		FrameBuffer *yuvo2;
+		FrameBuffer *rawInject;
 
 		FrameBuffer *me;
 		FrameBuffer *faceDetect;
@@ -43,7 +45,7 @@ public:
 		int mediaRequest;
 	};
 
-	CamSysDevice();
+	CamSysDevice(OnDeviceTuner *odt);
 
 	int init(MediaDevice *media, unsigned int index);
 
@@ -143,6 +145,8 @@ private:
 
 	std::list<PendingRequest> pendingRequests_;
 	std::list<Request *> completedRequests_;
+
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 } /* namespace libcamera */

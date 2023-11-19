@@ -52,6 +52,8 @@ constexpr const char *kEnforceLowIsoLpnr = "/run/camera/enforce_low_iso_lpnr";
 constexpr const char *kExportRequestPath = "/run/camera/export_dump";
 constexpr const char *kImportRequestPath = "/run/camera/import_dump";
 constexpr const char *kWorkDir = "/mnt/stateful_partition/vendor/camera_dump";
+constexpr const char *kEnableCamsysDebugFrame =
+	"/run/camera/camsys_debug_frame";
 
 } // namespace
 
@@ -101,6 +103,7 @@ void OnDeviceTuner::configure(
 	prevStartedRequestNum_ = -1;
 	prevEndedRequestNum_ = -1;
 	sensorId_ = sensorId;
+	enableCamsysDebugFrame_ = false;
 	camsysDebug_ = CamsysDebug::create(camsysIndex);
 	sessionTimestamp_ = ImagiqAdapter::generateDumpTimestamp();
 
@@ -109,9 +112,42 @@ void OnDeviceTuner::configure(
 		LOG(MtkISP7, Warning) << "LPNR is forced to use low-ISO mode!";
 	}
 
+	if (std::filesystem::exists(kEnableCamsysDebugFrame)) {
+		enableCamsysDebugFrame_ = true;
+		LOG(MtkISP7, Warning) << "Camsys raw-inject debug frame "
+				      << "is enabled!";
+	}
+
 	// Immediately create one directory for any capture dumps.
 	prepareNewExportDirectory();
 	ImagiqAdapter::notifyNewSession(sensorId, sessionTimestamp_);
+}
+
+void OnDeviceTuner::fillCamsysDebugFrame(
+	uint32_t internalRequestId, SharedMailBox<InfoFrame> debugMailBox)
+{
+	if (!enabled_ || !enableCamsysDebugFrame_) {
+		return;
+	}
+
+	if (!shouldImportDumpNow(internalRequestId)) {
+		return;
+	}
+
+	Dump::Config imgoCfg = dumpConfig_[Dump::Id::P1_IMGO];
+	Dump imgo{
+		.id = Dump::Id::P1_IMGO,
+		.requestNumber = internalRequestId,
+		.frameNumber = internalRequestId,
+		.sensorId = sensorId_,
+		.timestamp = sessionTimestamp_,
+		.workPath = currentExportPath_,
+		.frame = debugMailBox->get(),
+		.array = std::nullopt,
+		.metadata = kDumpMetadata.at(Dump::Id::P1_IMGO),
+		.config = imgoCfg
+	};
+	ImagiqAdapter::importDump(imgo);
 }
 
 void OnDeviceTuner::initialize()
@@ -137,6 +173,11 @@ void OnDeviceTuner::initialize()
 
 	LOG(MtkISP7, Warning) << "Pipeline tuning enabled";
 	enabled_ = true;
+}
+
+bool OnDeviceTuner::isCamsysDebugFrameEnabled()
+{
+	return enabled_ && enableCamsysDebugFrame_;
 }
 
 bool OnDeviceTuner::isLowIsoLpnrEnforced()
