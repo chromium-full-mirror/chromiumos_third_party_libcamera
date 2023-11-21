@@ -31,6 +31,9 @@
 #include "imgsys/imgsys.h"
 #include "imgsys/mcnr.h"
 #include "imgsys/lpnr.h"
+
+#include "libfdft_lib/faces.h"
+#include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
@@ -51,6 +54,8 @@ enum MtkISP7TaskGroup {
 	Dip1Group,
 	Dip2Group,
 	LpnrDipGroup,
+	AieFaceDetectionGroup,
+	AieParseGroup,
 	CompleteGroup,
 };
 
@@ -63,7 +68,8 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName {
 	{ XtrGroup, "XtrGroup" },
 	{ Dip1Group, "Dip1Group" },
 	{ Dip2Group, "Dip2Group" },
-	{ LpnrDipGroup, "LpnrDipGroup" },
+	{ AieFaceDetectionGroup, "AieFaceDetectionGroup" },
+	{ AieParseGroup, "AieParseGroup" },
 	{ CompleteGroup, "CompleteGroup" },
 };
 
@@ -73,32 +79,40 @@ public:
 	CompleteRequestTask(Scheduler* scheduler,
 			    const std::string& id,
 			    Request* request,
-			    PipelineHandler* pipe);
+			    PipelineHandler* pipe,
+			    SharedMailBox<MtkCameraFaceMetadata> faceMetadata);
 
 	virtual void run() override final;
 
 private:
+	void convertFaceMetadata(ControlList &out);
+
 	PipelineHandler* pipe_;
 	Request* request_;
+	SharedMailBox<MtkCameraFaceMetadata> faceMetadata_;
 };
 
 
 CompleteRequestTask::CompleteRequestTask(Scheduler* scheduler,
 					 const std::string& id,
 					 Request* request,
-					 PipelineHandler* pipe) :
-	Task(scheduler, id), pipe_(pipe), request_(request)
+					 PipelineHandler* pipe,
+					 SharedMailBox<MtkCameraFaceMetadata>
+					 	faceMetadata) :
+	Task(scheduler, id), pipe_(pipe), request_(request),
+	faceMetadata_(std::move(faceMetadata))
 {}
 
 class MtkISP7CameraData : public Camera::Private
 {
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
-			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt, DmaHeap *dmaHeap)
+			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt,
+			  FaceDetector *faceDetector, DmaHeap *dmaHeap)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
-		  lpnrManager(imgSysDev, dmaHeap, odt),
-		  onDeviceTuner_(odt), dmaHeap_(dmaHeap)
+		  lpnrManager(imgSysDev, dmaHeap, odt), onDeviceTuner_(odt),
+		  faceDetector_(faceDetector), dmaHeap_(dmaHeap)
 	{
 	}
 
@@ -129,6 +143,7 @@ public:
 	LpnrTasksManager lpnrManager;
 
 	OnDeviceTuner *onDeviceTuner_;
+	FaceDetector *faceDetector_;
 	DmaHeap *dmaHeap_;
 };
 
@@ -178,6 +193,10 @@ public:
 	MediaDevice *imgSysMedia_;
 	ImgSysDevice imgSysDev_;
 
+	MediaDevice *aieMedia_;
+	AieDevice aieDev_;
+
+	FaceDetector faceDetector_;
 
 private:
 	MtkISP7CameraData *cameraData(Camera *camera)
@@ -185,6 +204,57 @@ private:
 		return static_cast<MtkISP7CameraData *>(camera->_d());
 	}
 };
+
+void CompleteRequestTask::convertFaceMetadata(
+	ControlList &out)
+{
+	std::vector<uint8_t> faceScores;
+	std::vector<Rectangle> faceRectangles;
+	std::vector<Point> faceLandmarks;
+
+	if (faceMetadata_ == nullptr || !faceMetadata_->valid()) {
+		out.set(controls::FaceDetectFaceScores, faceScores);
+		out.set(controls::FaceDetectFaceRectangles, faceRectangles);
+		out.set(controls::FaceDetectFaceLandmark, faceLandmarks);
+		return;
+	}
+	MtkCameraFaceMetadata faceMetadata = faceMetadata_->get();
+	faceScores.reserve(faceMetadata.number_of_faces);
+	faceRectangles.reserve(faceMetadata.number_of_faces);
+	faceLandmarks.reserve(3 * faceMetadata.number_of_faces);
+	for (int i = 0; i < faceMetadata.number_of_faces; i++) {
+		faceScores.push_back(faceMetadata.faces[i].score);
+		Point faceTopLeft = Point{
+			faceMetadata.faces[i].rect[0],
+			faceMetadata.faces[i].rect[1]
+		};
+		Point faceBottomRight = Point{
+			faceMetadata.faces[i].rect[2],
+			faceMetadata.faces[i].rect[3]
+		};
+		faceRectangles.emplace_back(faceTopLeft, faceBottomRight);
+		Point leftEye = Point{
+			(faceMetadata.leyex0[i] + faceMetadata.leyex1[i]) / 2,
+			(faceMetadata.leyey0[i] + faceMetadata.leyey1[i]) / 2
+		};
+		faceLandmarks.push_back(leftEye);
+
+		Point rightEye = Point{
+			(faceMetadata.reyex0[i] + faceMetadata.reyex1[i]) / 2,
+			(faceMetadata.reyey0[i] + faceMetadata.reyey1[i]) / 2
+		};
+		faceLandmarks.push_back(rightEye);
+
+		Point mouth = Point{
+			(faceMetadata.mouthx0[i] + faceMetadata.mouthx1[i]) / 2,
+			(faceMetadata.mouthy0[i] + faceMetadata.mouthy1[i]) / 2
+		};
+		faceLandmarks.push_back(mouth);
+	}
+	out.set(controls::FaceDetectFaceScores, faceScores);
+	out.set(controls::FaceDetectFaceRectangles, faceRectangles);
+	out.set(controls::FaceDetectFaceLandmark, faceLandmarks);
+}
 
 void CompleteRequestTask::run()
 {
@@ -202,6 +272,10 @@ void CompleteRequestTask::run()
 		testPatternMode = *testPatternControl;
 
 	metadata.set(controls::draft::TestPatternMode, testPatternMode);
+
+	// todo(yerlandinata, before CTS): check if face metadata is requested
+	convertFaceMetadata(metadata);
+
 	pipe_->completeMetadata(request_, metadata);
 
 	for (auto it : request_->buffers()) {
@@ -273,7 +347,7 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 }
 
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
-	: PipelineHandler(manager), imgSysDev_(&onDeviceTuner_)
+	: PipelineHandler(manager), imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
 {
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
 	dmaHeap_ = std::make_unique<DmaHeap>();
@@ -400,6 +474,17 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 	imgSysDev_.init(imgSysMedia_, dmaHeap_.get());
 
+	DeviceMatch aieDM("mtk-aie-5.3");
+	aieMedia_ = acquireMediaDevice(enumerator, aieDM);
+	if (!aieMedia_) {
+		LOG(MtkISP7, Error) << "Failed to match AIE Media";
+		return false;
+	}
+	if (aieDev_.init(aieMedia_, dmaHeap_.get()) != 0) {
+		LOG(MtkISP7, Error) << "Failed to init AIE device";
+		return false;
+	}
+
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i))
 			continue;
@@ -428,11 +513,18 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		patterns.emplace_back(static_cast<int32_t>(controls::draft::TestPatternModeColorBars));
 		controls[&controls::draft::TestPatternMode] = ControlInfo(patterns);
 
+		std::vector<ControlValue> supportedFaceDetectModes{
+			static_cast<uint8_t>(controls::FaceDetectModeOff),
+			static_cast<uint8_t>(controls::FaceDetectModeSimple)
+		};
+		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
+
 		// Create CameraData
 		std::unique_ptr<MtkISP7CameraData> data =
 			std::make_unique<MtkISP7CameraData>(this, &camSysDev_[i],
 							    &imgSysDev_,
-								&onDeviceTuner_,
+							    &onDeviceTuner_,
+							    &faceDetector_,
 							    dmaHeap_.get());
 
 		std::set<Stream *> streams = { &data->video1Stream_,
@@ -467,6 +559,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	imgSysDev_->start();
 	mcnrManager.start();
 	lpnrManager.start();
+	faceDetector_->start();
 
 	CaptureFrames captureFrames;
 	captureManager.makeCaptureFrames(captureFrames);
@@ -506,6 +599,8 @@ void MtkISP7CameraData::stopDevice()
 
 	mcnrManager.stop();
 	lpnrManager.stop();
+
+	faceDetector_->stop();
 
 	frameSequence_ = 0;
 }
@@ -600,7 +695,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
-
+	faceDetector_->configure(sensorFullSize_);
 	imgSysDev_->configure();
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
@@ -642,8 +737,24 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	scheduler->queueTask(sofTask, SofGroup);
 	pendingSofTasks_.push_back(sofTask);
 
+	if (faceDetector_->canMakeFaceDetectionTask(request)) {
+		auto [faceDetectionTask, parseTask] =
+			faceDetector_->makeFaceDetectionTask(
+				scheduler, request, captureFrames.faceDecteion);
+
+		scheduler->succeedPrevTaskByStep(AieFaceDetectionGroup,
+						 0, faceDetectionTask);
+		scheduler->succeedPrevTaskByStep(AieParseGroup,
+						 0, parseTask);
+		Scheduler::precede(taskDQBuf, faceDetectionTask);
+		Scheduler::precede(faceDetectionTask, parseTask);
+		scheduler->queueTask(faceDetectionTask, AieFaceDetectionGroup);
+		scheduler->queueTask(parseTask, AieParseGroup);
+	}
+
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
-			scheduler, "Complete " + sequence, request, pipeline);
+		scheduler, "Complete " + sequence, request, pipeline,
+		faceDetector_->getOutputMailBox(request->sequence()));
 
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
@@ -708,6 +819,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	}
 
 	scheduler->succeedPrevTaskByStep(CompleteGroup, 0, completeTask);
+	scheduler->succeedPrevTaskByStep(AieParseGroup,
+					 faceDetector_->getOutputLookbackStep(request->sequence()),
+					 completeTask);
 	scheduler->queueTask(completeTask, CompleteGroup);
 
 	scheduler->schedule();
