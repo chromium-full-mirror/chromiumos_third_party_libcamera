@@ -9,7 +9,6 @@
 
 #include <memory>
 #include <utility>
-#include <vector>
 
 #include <libcamera/control_ids.h>
 #include <libcamera/geometry.h>
@@ -17,7 +16,7 @@
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/mailbox.h"
 
-#include "libfdft_lib/MTKDetection.h"
+#include "mtkcam-core/hw/aie/3.1/hardware/v4l2/cam_fdvt_v4l2.h"
 
 /**
  * \file pipeline/mtkisp7/face_detect/detector.h
@@ -53,7 +52,7 @@ LOG_DECLARE_CATEGORY(MtkISP7)
  */
 FaceDetector::FaceDetector(AieDevice *aieDev)
 	: aieDev_(aieDev), period_(15),
-	  expectedFrameLatency_(2)
+	  expectedFrameLatency_(2), parser_(std::make_shared<AieParser>())
 {
 }
 
@@ -67,15 +66,13 @@ int FaceDetector::configure(const Size &currentSensorSize)
 	currentSensorSize_ = currentSensorSize;
 	prevOutput_ = makeMailBox<MtkCameraFaceMetadata>();
 	latestOutput_ = makeMailBox<MtkCameraFaceMetadata>();
+	faceToneConfig_ = makeMailBox<FdDrv_input_struct>();
 	// todo(yerlandinata, IPC sandboxing):
 	// 	Reset AieParser in the sandbox process every time configure(),
 	//	to clear face coordinates cache when switching camera.
-	algoInterface_.reset(
-		MTKDetection::createInstance(DRV_FD_OBJ_HW));
-	if (algoInterface_.get() == nullptr) {
-		LOG(MtkISP7, Error) << "Failed to initialize MTK Face Detection"
-				    << "library";
-		return -ENOMEM;
+	int ret = parser_->initialize();
+	if (ret != 0) {
+		return ret;
 	}
 	return aieDev_->configure();
 }
@@ -130,20 +127,36 @@ FaceDetector::makeFaceDetectionTask(
 
 	auto requestNum = std::to_string(request->sequence());
 	const std::string fdTaskId = "AieFaceDetectionTask#" + requestNum;
+	const std::string faceToneTaskId = "AieFaceToneClassificationTask#" +
+					   requestNum;
 	const std::string parseTaskId = "AieParseTask#" + requestNum;
-
 	SharedMailBox<InfoFrame> unparsedFaceDetectionMailBox = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> unparsedFaceToneMailBox = makeMailBox<InfoFrame>();
+	FdDrv_input_struct faceDetectDriverConfig(
+		aieDev_->createFaceDetectionDriverConfig());
 
-	AieDevice::AieTask *fdTask =
-		aieDev_->makeFaceDetectionTask(scheduler, detectorInput,
-					       unparsedFaceDetectionMailBox,
-					       fdTaskId);
+	SharedMailBox<FdDrv_input_struct> mailBoxFaceDetectionConfig =
+		makeMailBox<FdDrv_input_struct>();
+	mailBoxFaceDetectionConfig->put(faceDetectDriverConfig,
+					[](FdDrv_input_struct &) {});
+
+	AieDevice::AieTask *fdTask = new AieDevice::AieTask(
+		scheduler, fdTaskId, aieDev_, detectorInput,
+		unparsedFaceDetectionMailBox, mailBoxFaceDetectionConfig);
+	AieDevice::AieTask *faceToneTask = new AieDevice::AieTask(
+		scheduler, faceToneTaskId, aieDev_, detectorInput,
+		unparsedFaceToneMailBox, std::move(faceToneConfig_));
+	faceToneConfig_ = makeMailBox<FdDrv_input_struct>();
 	AieParseTask *parseTask =
-		new AieParseTask(scheduler, parseTaskId, algoInterface_,
-				 detectorInput, unparsedFaceDetectionMailBox,
+		new AieParseTask(scheduler, parseTaskId, parser_,
+				 detectorInput,
+				 unparsedFaceDetectionMailBox,
+				 unparsedFaceToneMailBox,
+				 faceToneConfig_,
 				 latestOutput_,
+				 aieDev_->createFaceToneClassificationDriverConfig(),
 				 currentSensorSize_);
-	return std::make_tuple(fdTask, parseTask);
+	return std::make_tuple(fdTask, faceToneTask, parseTask);
 }
 
 int FaceDetector::start()

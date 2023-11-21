@@ -25,7 +25,9 @@ class FaceDetector
 {
 public:
 	using FaceDetectionTasks =
-		std::tuple<AieDevice::AieTask *, AieParseTask *>;
+		std::tuple<AieDevice::AieTask *,
+			   AieDevice::AieTask *,
+			   AieParseTask *>;
 
 	FaceDetector(AieDevice *aieDev);
 
@@ -45,10 +47,12 @@ private:
 	const uint32_t period_;
 	const uint32_t expectedFrameLatency_;
 
-	std::shared_ptr<MTKDetection> algoInterface_;
+	std::shared_ptr<AieParser> parser_;
 
 	SharedMailBox<MtkCameraFaceMetadata> prevOutput_;
 	SharedMailBox<MtkCameraFaceMetadata> latestOutput_;
+
+	SharedMailBox<FdDrv_input_struct> faceToneConfig_;
 
 	Size currentSensorSize_;
 };

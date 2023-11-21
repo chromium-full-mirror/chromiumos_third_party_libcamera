@@ -43,7 +43,7 @@ public:
 			AieDevice *aieDev,
 			SharedMailBox<InfoFrame> mailBoxInputImage,
 			SharedMailBox<InfoFrame> mailBoxMetadata,
-			const FdDrv_input_struct &driverConfig);
+			SharedMailBox<FdDrv_input_struct> mailBoxDriverConfig);
 
 		void run() override;
 
@@ -62,7 +62,7 @@ public:
 		std::unique_ptr<EventNotifier> fdBufferNotifier_;
 		SharedMailBox<InfoFrame> mailBoxInputImage_;
 		SharedMailBox<InfoFrame> mailBoxMetadata_;
-		FdDrv_input_struct driverConfig_;
+		SharedMailBox<FdDrv_input_struct> mailBoxDriverConfig_;
 		std::chrono::steady_clock::time_point timeBeginRun_;
 
 		int requestFd_;
@@ -75,13 +75,12 @@ public:
 	int start();
 	int stop();
 
-	AieTask *makeFaceDetectionTask(Scheduler *scheduler,
-				       SharedMailBox<InfoFrame> detectorInput,
-				       SharedMailBox<InfoFrame> metadata,
-				       const std::string &id = "");
+	FdDrv_input_struct createFaceDetectionDriverConfig();
+	FdDrv_input_struct createFaceToneClassificationDriverConfig();
 
 private:
 	int configureStreams();
+	FdDrv_input_struct createDefaultDriverConfig();
 	int createRequestFDs(unsigned int count);
 	int releaseBuffers();
 	int requestBuffers();

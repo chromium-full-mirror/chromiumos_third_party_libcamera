@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "mtkcam-core/feature/common/faceeffect/FaceDetection/FD_Tuning/TuningPara.h"
+#include "BuiltinTypes.h"
 
 namespace libcamera {
 
@@ -19,19 +20,49 @@ namespace {
 constexpr int kFdVersion = 1946050;
 }
 
+MUINT8 *AieParser::getWorkingBuffer()
+{
+	return reinterpret_cast<MUINT8 *>(workingBuffer_);
+}
+
+bool AieParser::isValid()
+{
+	return algoInterface.get() != nullptr;
+}
+
+int AieParser::initialize()
+{
+	algoInterface.reset(MTKDetection::createInstance(DRV_FD_OBJ_HW));
+	if (!isValid()) {
+		LOG(MtkISP7, Error) << "Failed to initialize algorithm";
+		return -ENOMEM;
+	}
+	for (int i = 0; i < MAX_CROP_NUM; i++) {
+		parserBufferList_[i] = parserBuffers_[i];
+	}
+	return 0;
+}
+
 AieParseTask::AieParseTask(
 	Scheduler *scheduler, const std::string &id,
-	std::shared_ptr<MTKDetection> algoInterface,
+	std::shared_ptr<AieParser> parser,
 	SharedMailBox<InfoFrame> mailBoxInputImage,
-	SharedMailBox<InfoFrame> mailBoxMetadata,
+	SharedMailBox<InfoFrame> mailBoxFaceDetectionMetadata,
+	SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata,
+	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
 	SharedMailBox<MtkCameraFaceMetadata> mailBoxOutput,
+	const FdDrv_input_struct &defaultFaceToneConfig,
 	const Size &currentSensorSize)
 	: Task(scheduler, id),
-	  algoInterface_(std::move(algoInterface)),
+	  parser_(std::move(parser)),
 	  mailBoxInputImage_(std::move(mailBoxInputImage)),
-	  mailBoxMetadata_(std::move(mailBoxMetadata)),
+	  mailBoxFaceDetectionMetadata_(std::move(mailBoxFaceDetectionMetadata)),
+	  mailBoxFaceToneClassificationMetadata_(
+		  std::move(mailBoxFaceToneClassificationMetadata)),
+	  mailBoxFaceToneConfig_(std::move(mailBoxFaceToneConfig)),
 	  mailBoxOutput_(std::move(mailBoxOutput)),
-	  currentSensorSize_(currentSensorSize)
+	  currentSensorSize_(currentSensorSize),
+	  defaultFaceToneDriverConfig_(defaultFaceToneConfig)
 {
 }
 
@@ -144,7 +175,29 @@ void AieParseTask::init()
 	config.FDVersion = 53;
 	config.ModelVersion = kFdVersion; // same value as in driver
 
-	algoInterface_->FDVTInit(&config);
+	parser_->algoInterface->FDVTInit(&config);
+}
+
+void AieParseTask::updateFaceToneDriverConfig()
+{
+	FdDrv_input_struct config(defaultFaceToneDriverConfig_);
+	const auto &configSource =
+		parser_->parserBuffers_[parser_->parserTaskList_[AIE_ATTR_TYPE_GENDER][0]];
+	config.src_roi.x1 = configSource[0];
+	config.src_roi.y1 = configSource[1];
+	config.src_roi.x2 = configSource[2];
+	config.src_roi.y2 = configSource[3];
+	if (config.src_roi.x1 == 0 &&
+	    config.src_roi.y1 == 0 &&
+	    config.src_roi.x2 == 0 &&
+	    config.src_roi.y2 == 0) {
+		return;
+	}
+	config.src_padding.left = configSource[4];
+	config.src_padding.up = configSource[5];
+	config.src_padding.right = configSource[6];
+	config.src_padding.down = configSource[7];
+	mailBoxFaceToneConfig_->put(config, [](FdDrv_input_struct &) {});
 }
 
 int AieParseTask::parseAll()
@@ -154,18 +207,33 @@ int AieParseTask::parseAll()
 		return ret;
 	}
 	int32_t gammaControl[193];
-	algoInterface_->FDVTMainFastPhase(gammaControl);
-	algoInterface_->FDVTMainPostPhase();
-	algoInterface_->FDVTMainJoinPhaseV2(nullptr, nullptr, -1);
+	parser_->algoInterface->FDVTMainFastPhase(gammaControl);
+	parser_->algoInterface->FDVTMainCropPhaseV2(
+		parser_->parserTaskList_,
+		parser_->parserBufferStatus_,
+		parser_->parserBufferList_,
+		parser_->patchSize_,
+		parser_->parserAttributeTask_);
+	parser_->algoInterface->FDVTMainPostPhase();
+	if (mailBoxFaceToneClassificationMetadata_->valid()) {
+		ret = parseFaceToneClassificationOutput();
+		if (ret) {
+			return ret;
+		}
+		parser_->algoInterface->FDVTMainJoinPhaseV2(
+			parser_->parserBufferStatus_[AIE_ATTR_TYPE_GENDER],
+			parser_->rawFaceToneResult_, 4);
+	}
+	updateFaceToneDriverConfig();
+	parser_->algoInterface->FDVTMainJoinPhaseV2(
+		parser_->parserBufferStatus_[AIE_ATTR_TYPE_POSE],
+		parser_->rawFaceToneResult_, -1);
 	MtkCameraFaceMetadata detectionResult;
 	detectionResult.number_of_faces = 0;
-	// todo(yerlandinata): "result" struct is very big,
-	// consider creating pool.
-	result workingBuffer[MAX_FACE_NUM];
 	auto inputSize = mailBoxInputImage_->get().size();
-	algoInterface_->FDVTGetICSResult(
+	parser_->algoInterface->FDVTGetICSResult(
 		reinterpret_cast<MUINT8 *>(&detectionResult),
-		reinterpret_cast<MUINT8 *>(workingBuffer), inputSize.width,
+		parser_->getWorkingBuffer(), inputSize.width,
 		inputSize.height, 0, 0, 0, 5);
 	transformAllDetectionCoordinates(detectionResult);
 	LOG(MtkISP7, Debug) << id() << " final detected faces: "
@@ -187,8 +255,9 @@ int AieParseTask::parseAll()
  */
 int AieParseTask::parseFaceDetectionOutput()
 {
-	MappedFrameBuffer metaMapped(mailBoxMetadata_->get().buffer(),
-				     MappedFrameBuffer::MapFlag::Read);
+	MappedFrameBuffer metaMapped(
+		mailBoxFaceDetectionMetadata_->get().buffer(),
+		MappedFrameBuffer::MapFlag::Read);
 	if (!metaMapped.isValid()) {
 		LOG(MtkISP7, Error) << "Failed to map metadata buffer!";
 		return metaMapped.error();
@@ -267,6 +336,38 @@ void AieParseTask::parseFaceRoi(
 	algoCalibration_->result_type[calibrationIndex] = GFD_RST_TYPE;
 }
 
+int AieParseTask::parseFaceToneClassificationOutput()
+{
+	MappedFrameBuffer metaMapped(
+		mailBoxFaceToneClassificationMetadata_->get().buffer(),
+		MappedFrameBuffer::MapFlag::Read);
+	if (!metaMapped.isValid()) {
+		LOG(MtkISP7, Error) << "Failed to map metadata buffer!";
+		return metaMapped.error();
+	}
+
+	ATTRIBUTE_V_RESULT &deviceOutput =
+		reinterpret_cast<FdDrv_output_struct *>(
+			metaMapped.planes()[0].data())
+			->ATTRIBUTEOUTPUT;
+
+	auto &targetCopy =
+		parser_->rawFaceToneResult_[parser_->parserTaskList_[AIE_ATTR_TYPE_GENDER][0]];
+
+	targetCopy[0] = deviceOutput.MERGED_GENDER_RESULT.RESULT[0];
+	targetCopy[1] = deviceOutput.MERGED_GENDER_RESULT.RESULT[1];
+	targetCopy[2] = deviceOutput.MERGED_RACE_RESULT.RESULT[0];
+	targetCopy[3] = deviceOutput.MERGED_RACE_RESULT.RESULT[1];
+	targetCopy[4] = deviceOutput.MERGED_RACE_RESULT.RESULT[2];
+	targetCopy[5] = deviceOutput.MERGED_IS_INDIAN_RESULT.RESULT[0];
+	targetCopy[6] = deviceOutput.MERGED_IS_INDIAN_RESULT.RESULT[1];
+	targetCopy[7] = deviceOutput.MERGED_AGE_RESULT.RESULT[0];
+
+	parser_->parserBufferStatus_[AIE_ATTR_TYPE_GENDER][parser_->parserTaskList_[AIE_ATTR_TYPE_GENDER][0]] = 2;
+
+	return 0;
+}
+
 int AieParseTask::prepareBuffer()
 {
 	FdOptions opts = createBufferOptions();
@@ -281,9 +382,9 @@ int AieParseTask::prepareBuffer()
 	opts.ImageBufferUV20 = opts.ImageBufferY;
 	// todo(yerlandinata): check if FDVTGetMode is needed.
 	FDVT_OPERATION_MODE_ENUM mode;
-	algoInterface_->FDVTGetMode(&mode);
-	algoInterface_->FDVTMain(&opts);
-	algoCalibration_ = algoInterface_->FDGetCalData();
+	parser_->algoInterface->FDVTGetMode(&mode);
+	parser_->algoInterface->FDVTMain(&opts);
+	algoCalibration_ = parser_->algoInterface->FDGetCalData();
 	if (algoCalibration_ == nullptr) {
 		LOG(MtkISP7, Error) << "Failed to prepare calibration buffer!";
 		return -ENOMEM;

@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
+#include <functional>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <vector>
@@ -81,6 +82,50 @@ int AieDevice::configure()
 		return ret;
 	}
 	return ret;
+}
+
+FdDrv_input_struct AieDevice::createDefaultDriverConfig()
+{
+	return {
+		.fd_mode = 0,
+		.src_img_fmt = NSCam::NSIoPipe::FMT_YUV420_1P,
+		.src_img_width = inputSize_.width,
+		.src_img_height = inputSize_.height,
+		.src_img_stride = inputSize_.width,
+		.pyramid_base_width = 0,
+		.pyramid_base_height = 0,
+		.number_of_pyramid = 3,
+		.input_rotate_degree = 0,
+		.en_roi = 0,
+		.src_roi = { 0, 0, 0, 0 },
+		.en_padding = 0,
+		.src_padding = { 0, 0, 0, 0 },
+		.freq_level = 0,
+		.fld_face_num = 0,
+		.fld_input = {}
+	};
+}
+
+FdDrv_input_struct AieDevice::createFaceDetectionDriverConfig()
+{
+	FdDrv_input_struct config(createDefaultDriverConfig());
+	config.fd_mode = NSCam::NSIoPipe::FDMODE;
+	config.pyramid_base_width = 480;
+	config.pyramid_base_height = 360;
+	config.en_roi = false;
+	config.en_padding = false;
+	return config;
+}
+
+FdDrv_input_struct AieDevice::createFaceToneClassificationDriverConfig()
+{
+	FdDrv_input_struct config(createDefaultDriverConfig());
+	config.fd_mode = NSCam::NSIoPipe::ATTRIBUTEMODE;
+	config.pyramid_base_width = 0;
+	config.pyramid_base_height = 0;
+	config.en_roi = true;
+	config.en_padding = true;
+	return config;
 }
 
 int AieDevice::createRequestFDs(unsigned int count)
@@ -153,32 +198,6 @@ int AieDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 	LOG(MtkISP7, Debug) << "AIE Device init success!";
 
 	return 0;
-}
-
-AieDevice::AieTask *AieDevice::makeFaceDetectionTask(
-	Scheduler *scheduler, SharedMailBox<InfoFrame> detectorInput,
-	SharedMailBox<InfoFrame> metadata, const std::string &id)
-{
-	FdDrv_input_struct driverConfig{
-		.fd_mode = 0,
-		.src_img_fmt = NSCam::NSIoPipe::FMT_YUV420_1P,
-		.src_img_width = inputSize_.width,
-		.src_img_height = inputSize_.height,
-		.src_img_stride = inputSize_.width,
-		.pyramid_base_width = 480,
-		.pyramid_base_height = 360,
-		.number_of_pyramid = 3,
-		.input_rotate_degree = 0,
-		.en_roi = 0,
-		.src_roi = { 0, 0, 0, 0 },
-		.en_padding = 0,
-		.src_padding = { 0, 0, 0, 0 },
-		.freq_level = 0,
-		.fld_face_num = 0,
-		.fld_input = {}
-	};
-	return new AieTask(scheduler, id, this, std::move(detectorInput),
-			   std::move(metadata), driverConfig);
 }
 
 int AieDevice::releaseBuffers()
@@ -335,11 +354,11 @@ AieDevice::AieTask::AieTask(Scheduler *scheduler, const std::string &id,
 			    AieDevice *aieDev,
 			    SharedMailBox<InfoFrame> mailBoxInputImage,
 			    SharedMailBox<InfoFrame> mailBoxMetadata,
-			    const FdDrv_input_struct &driverConfig)
+			    SharedMailBox<FdDrv_input_struct> mailBoxConfig)
 	: Task(scheduler, id), aieDev_(aieDev),
 	  mailBoxInputImage_(std::move(mailBoxInputImage)),
 	  mailBoxMetadata_(std::move(mailBoxMetadata)),
-	  driverConfig_(driverConfig),
+	  mailBoxDriverConfig_(std::move(mailBoxConfig)),
 	  requestFd_(-1)
 {
 }
@@ -405,6 +424,17 @@ void AieDevice::AieTask::run()
 		return;
 	}
 
+	if (!mailBoxDriverConfig_->valid()) {
+		// The pipeline doesn't have the configuration for this task.
+		// e.g. Face tone classification needs face ROI:
+		// If there is no face then there should be no face tone
+		// classification. First face tone classification task
+		// will always abort.
+		LOG(MtkISP7, Debug) << "Driver config is not available! "
+				    << "Abort " + id();
+		notifyDone();
+		return;
+	}
 	// Queue: video buffer, meta buffer, request.
 	pendingSubTaskCount_ = 3;
 
@@ -414,11 +444,12 @@ void AieDevice::AieTask::run()
 	fdBufferNotifier_->activated.connect(
 		this, &AieDevice::AieTask::requestFdReady);
 
+	FdDrv_input_struct driverConfig(mailBoxDriverConfig_->get());
 	struct v4l2_ext_control extControl {
 		.id = aieDev_->inferenceParamControlId_,
 		.size = sizeof(FdDrv_input_struct),
 		.reserved2 = {},
-		.p_u32 = reinterpret_cast<__u32 *>(&driverConfig_)
+		.p_u32 = reinterpret_cast<__u32 *>(&driverConfig)
 	};
 	int ret = aieDev_->sourceVideo_->setExtControl(&extControl, requestFd_);
 	if (ret != 0) {

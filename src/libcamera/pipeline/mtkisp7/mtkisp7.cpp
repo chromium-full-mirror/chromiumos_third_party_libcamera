@@ -55,6 +55,7 @@ enum MtkISP7TaskGroup {
 	Dip2Group,
 	LpnrDipGroup,
 	AieFaceDetectionGroup,
+	AieFaceToneClassificationGroup,
 	AieParseGroup,
 	CompleteGroup,
 };
@@ -69,6 +70,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName {
 	{ Dip1Group, "Dip1Group" },
 	{ Dip2Group, "Dip2Group" },
 	{ AieFaceDetectionGroup, "AieFaceDetectionGroup" },
+	{ AieFaceToneClassificationGroup, "AieFaceToneClassificationGroup" },
 	{ AieParseGroup, "AieParseGroup" },
 	{ CompleteGroup, "CompleteGroup" },
 };
@@ -738,17 +740,25 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	pendingSofTasks_.push_back(sofTask);
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
-		auto [faceDetectionTask, parseTask] =
+		auto [faceDetectionTask, faceToneTask, parseTask] =
 			faceDetector_->makeFaceDetectionTask(
 				scheduler, request, captureFrames.faceDecteion);
 
+		// Current face tone task depends on previous parse task
+		scheduler->succeedPrevTaskByStep(AieParseGroup,
+						 0, faceToneTask);
+
 		scheduler->succeedPrevTaskByStep(AieFaceDetectionGroup,
 						 0, faceDetectionTask);
+		scheduler->succeedPrevTaskByStep(AieFaceToneClassificationGroup,
+						 0, faceToneTask);
 		scheduler->succeedPrevTaskByStep(AieParseGroup,
 						 0, parseTask);
 		Scheduler::precede(taskDQBuf, faceDetectionTask);
-		Scheduler::precede(faceDetectionTask, parseTask);
+		Scheduler::precede(faceDetectionTask, faceToneTask);
+		Scheduler::precede(faceToneTask, parseTask);
 		scheduler->queueTask(faceDetectionTask, AieFaceDetectionGroup);
+		scheduler->queueTask(faceToneTask, AieFaceToneClassificationGroup);
 		scheduler->queueTask(parseTask, AieParseGroup);
 	}
 
