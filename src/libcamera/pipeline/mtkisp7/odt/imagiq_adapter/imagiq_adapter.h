@@ -49,10 +49,18 @@ public:
 
 	static void notifyExportRequest(int count);
 
+	static void notifyImportRequest(int count);
+
 	static void notifyNewSession(std::string sensorId, int dumpTimestamp);
 
 	static void notifyRequestBegin(
 		std::string sensorId, int requestNumber);
+
+	static void notifyRequestEnd(
+		std::string sensorId, int requestNumber,
+		int dumpSessionTimestamp, bool hasPendingExport,
+		std::filesystem::path rootWorkPath,
+		std::filesystem::path sessionWorkPath);
 
 	static void notifyRequestEnd(
 		std::string sensorId, int requestNumber);
@@ -80,6 +88,11 @@ private:
 
 	static ExportResult exportFrameDump(
 		const Dump &dump, const NSCam::TuningUtils::NddData &ndd);
+
+	static void flushPrivateReimportConfig(
+		std::filesystem::path rootWorkPath,
+		std::filesystem::path sessionWorkPath,
+		int dumpSessionTimestamp);
 
 	static std::string formatPlaneName(int planeNumber,
 					   const PixelFormat &pixelFormat);

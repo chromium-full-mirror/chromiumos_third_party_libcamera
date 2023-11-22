@@ -21,6 +21,7 @@
 
 #include "mtkcam-interfaces/utils/debug/Properties.h"
 #include "mtkcam-interfaces/utils/ndd/INdd.h"
+#include "mtkcam-interfaces/utils/odt/IOnDeviceTuning.h"
 #include "mtkcam-interfaces/utils/std/Time.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/mtk_headers/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
@@ -97,6 +98,15 @@ int ImagiqAdapter::enableMtkTuningTool(std::filesystem::path workDir)
 		"vendor.debug.ndd.gen_cfg", "1");
 	ret |= NSCam::Utils::Properties::property_set(
 		"vendor.debug.ndd.prv_ready", "0");
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.odt.config",
+		(workDir / kImportConfigPath).c_str());
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.odt.enable", "1");
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.odt.start", "0");
+	ret |= NSCam::Utils::Properties::property_set(
+		"vendor.debug.odt.streaming", "1");
 	if (ret != 0) {
 		LOG(MtkISP7, Error) << "Failed to setprop";
 		return ret;
@@ -231,6 +241,41 @@ ImagiqAdapter::ExportResult ImagiqAdapter::exportDumpSplitPlanes(
 		result.paths->push_back(planeExportPath);
 	}
 	return result;
+}
+
+/**
+ * @brief Copy MTK's reimport config to the session directory
+ */
+void ImagiqAdapter::flushPrivateReimportConfig(
+	std::filesystem::path rootWorkPath,
+	std::filesystem::path sessionWorkPath,
+	int dumpSessionTimestamp)
+{
+	std::string timestampStr = formatTimestamp(dumpSessionTimestamp);
+	std::optional<std::filesystem::path> privateCfgPath = std::nullopt;
+	for (const auto &dir : std::filesystem::directory_iterator(rootWorkPath)) {
+		std::string pathStr = dir.path();
+		if (pathStr.find("dumpin.cfg") != std::string::npos &&
+		    pathStr.find(timestampStr) != std::string::npos) {
+			privateCfgPath = dir.path();
+			break;
+		}
+	}
+	if (!privateCfgPath.has_value()) {
+		return;
+	}
+	if (std::filesystem::file_size(*privateCfgPath) == 0) {
+		return;
+	}
+	std::ofstream sessionReimport(
+		sessionWorkPath / kImportConfigPath, std::ios::app);
+	std::ifstream privateReimportIn(*privateCfgPath);
+	std::string line;
+	while (std::getline(privateReimportIn, line)) {
+		sessionReimport << line << std::endl;
+	}
+	privateReimportIn.close();
+	std::ofstream privateReimportOut(*privateCfgPath);
 }
 
 std::string ImagiqAdapter::formatPlaneName(int planeNumber, const PixelFormat &pixelFormat)
@@ -687,17 +732,28 @@ void ImagiqAdapter::notifyExportRequest(int count)
 	}
 }
 
+void ImagiqAdapter::notifyImportRequest(int count)
+{
+	int ret = NSCam::Utils::Properties::property_set(
+		"vendor.debug.odt.start", std::to_string(count).c_str());
+	if (ret != 0) {
+		LOG(MtkISP7, Error) << "Failed to setprop!";
+	}
+}
+
 void ImagiqAdapter::notifyNewSession(std::string sensorId, int dumpTimestamp)
 {
 	for (const auto &[_, mtkSensorId] : kSensorIdMap) {
 		int sensorIdInt = static_cast<int>(mtkSensorId);
 		NSCam::TuningUtils::INdd::getInstance()->stream_off(
 			{ sensorIdInt });
+		NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->stream_off();
 	}
 	int sensorIdInt =
 		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
 	NSCam::TuningUtils::INdd::getInstance()->stream_on(
 		{ sensorIdInt }, dumpTimestamp);
+	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->stream_on();
 }
 
 void ImagiqAdapter::notifyRequestBegin(
@@ -707,14 +763,24 @@ void ImagiqAdapter::notifyRequestBegin(
 		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
 	NSCam::TuningUtils::INdd::getInstance()->frame_begin(
 		sensorIdInt, requestNumber);
+	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->frame_begin(requestNumber);
 }
 
-void ImagiqAdapter::notifyRequestEnd(std::string sensorId, int requestNumber)
+void ImagiqAdapter::notifyRequestEnd(
+	std::string sensorId, int requestNumber,
+	int dumpSessionTimestamp, bool hasPendingExport,
+	std::filesystem::path rootWorkPath,
+	std::filesystem::path sessionWorkPath)
 {
 	int sensorIdInt =
 		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
 	NSCam::TuningUtils::INdd::getInstance()->frame_end(
 		sensorIdInt, requestNumber);
+	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->frame_end(requestNumber);
+	if (!hasPendingExport) {
+		flushPrivateReimportConfig(
+			rootWorkPath, sessionWorkPath, dumpSessionTimestamp);
+	}
 }
 
 NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)

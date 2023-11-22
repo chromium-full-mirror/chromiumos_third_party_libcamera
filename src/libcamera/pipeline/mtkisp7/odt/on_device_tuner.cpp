@@ -148,6 +148,7 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 		std::filesystem::remove(path);
 		importBegin_ = requestNumber;
 		importEnd_ = requestNumber + importRequestCount;
+		ImagiqAdapter::notifyImportRequest(importRequestCount);
 	}
 }
 
@@ -188,7 +189,8 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 	prevEndedRequestNum_ = requestNumber;
 	stillCaptureRequestIds_.erase(requestNumber);
 	ImagiqAdapter::notifyRequestEnd(
-		sensorId_, requestNumber);
+		sensorId_, requestNumber, sessionTimestamp_,
+		shouldExportDumpNow(requestNumber), kWorkDir, currentExportPath_);
 }
 
 void OnDeviceTuner::notifyStillCapture(int requestNumber)
