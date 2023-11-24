@@ -351,7 +351,8 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 		request->sequence(), { { Dump::Id::P1_IMGO, frames.raw->get() },
 				       { Dump::Id::P1_YUVO_R1, frames.yuvo1->get() },
 				       { Dump::Id::P1_YUVO_R2, frames.yuvo2->get() },
-				       { Dump::Id::P1_DRZS4NO_R3, frames.me->get() } });
+				       { Dump::Id::P1_DRZS4NO_R3, frames.me->get() },
+				       { Dump::Id::P1_META_P1, frames.tuning->get() } });
 
 	// Driver's registers
 	Dump::Config drvRegConfig = dumpConfig_[Dump::Id::P1_REG_P1];
@@ -547,6 +548,7 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 		request->sequence(), {
 					     { Dump::Id::LTR_ME_L1_IMGI_T1, frames.in.meL0->get() },
 					     { Dump::Id::LTR_ME_L1_YUVO_T2, frames.out.meL1->get() },
+					     { Dump::Id::LTR_ME_L1_META_P2, frames.in.trMeTun->get() },
 					     { Dump::Id::ME_3PASS_MODE0_MEI_L0, frames.in.meL0->get() },
 					     { Dump::Id::ME_3PASS_MODE0_MEI_L0_P, frames.in.prevMeL0->get() },
 					     { Dump::Id::ME_3PASS_MODE0_MEI_L1, frames.out.meL1->get() },
@@ -559,6 +561,7 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 					     { Dump::Id::ME_3PASS_MODE0_FMB_L0, frames.out.meAFmb0->get() },
 					     { Dump::Id::ME_3PASS_MODE0_FMB_L1, frames.out.meAFmb1->get() },
 					     { Dump::Id::ME_3PASS_MODE0_FST, frames.out.meAFst->get() },
+					     { Dump::Id::ME_3PASS_MODE0_META_P2, frames.in.meATun->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0, frames.in.meL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0_P, frames.in.prevMeL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.in.prevMeL1->get() },
@@ -571,6 +574,7 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 					     { Dump::Id::ME_3PASS_MODE1_FMB_L0, frames.out.meBFmb0->get() }, // ?
 					     { Dump::Id::ME_3PASS_MODE1_LMI, frames.out.meBLmi->get() },
 					     { Dump::Id::ME_3PASS_MODE1_FST, frames.out.meBFst->get() },
+					     { Dump::Id::ME_3PASS_MODE1_META_P2, frames.in.meBTun->get() },
 				     });
 }
 
@@ -590,9 +594,11 @@ void OnDeviceTuner::tuneTr(Request *request, TrFrames &frames)
 				       { Dump::Id::TR_Y2Y_F1_YUVO_T2, frames.out.dipImgi[2]->get() },
 				       { Dump::Id::TR_Y2Y_F1_YUVO_T3, frames.out.dipImgi[3]->get() },
 				       { Dump::Id::TR_Y2Y_F1_YUVO_T4, frames.out.dipImgi[4]->get() },
+				       { Dump::Id::TR_Y2Y_F1_META_P2, frames.in.trTunF1->get() },
 				       { Dump::Id::TR_Y2Y_F4_IMGI_T1, frames.out.dipImgi[4]->get() },
 				       { Dump::Id::TR_Y2Y_F4_YUVO_T2, frames.out.dipImgi[5]->get() },
 				       { Dump::Id::TR_Y2Y_F4_YUVO_T3, frames.out.dipImgi[6]->get() },
+				       { Dump::Id::TR_Y2Y_F4_META_P2, frames.in.trTunF4->get() },
 				       { Dump::Id::TR_Y2Y_Conf_IMGI_T1, frames.in.meConf0->get() },
 				       { Dump::Id::TR_Y2Y_Conf_YUVO_T5, frames.out.meConf5->get() } });
 }
@@ -612,13 +618,17 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
 		{ Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T3, frames.out.dipVipi[3]->get() },
 		{ Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T4, frames.out.dipVipi[4]->get() },
 		{ Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T5, frames.out.dipVbi[2]->get() },
+		{ Dump::Id::WPE_LTR_Y2Y_F1_META_P2, frames.in.ltrTunF1->get() },
 		{ Dump::Id::LTR_VBI_IMGI_T1, frames.out.dipVbi[2]->get() },
 		{ Dump::Id::LTR_VBI_YUVO_T2, frames.out.dipVbi[3]->get() },
 		{ Dump::Id::LTR_VBI_YUVO_T3, frames.out.dipVbi[4]->get() },
 		{ Dump::Id::LTR_VBI_YUVO_T4, frames.out.dipVbi[5]->get() },
+		{ Dump::Id::LTR_VBI_META_P2, frames.in.ltrTunVbi->get() },
 		{ Dump::Id::LTR_Y2Y_F4_IMGI_T1, frames.out.dipVipi[4]->get() },
 		{ Dump::Id::LTR_Y2Y_F4_YUVO_T2, frames.out.dipVipi[5]->get() },
 		{ Dump::Id::LTR_Y2Y_F4_YUVO_T3, frames.out.dipVipi[6]->get() },
+		{ Dump::Id::LTR_Y2Y_F4_META_P2, frames.in.ltrTunF4->get() },
+		{ Dump::Id::WPE_WghtMap_META_P2, frames.in.wpeTun->get() },
 		{ Dump::Id::P2_MS_F1_IMG4O, frames.out.img4oF1->get() },
 		{ Dump::Id::P2_MS_F_SMALL_RECI_D1, frames.out.dipImgi[6]->get() }
 	};
@@ -650,7 +660,8 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
 		else
 			namedFrames.push_back({ Dump::kDip1Img3oDumpIds[i],
 						frames.out.img3o[level]->get() });
-
+		namedFrames.push_back({ Dump::kDip1MetaP2DumpIds[i],
+					frames.in.dipTun[level]->get() });
 	}
 
 	// Stage P2_MS_F1 until P2_MS_F4 + P2_MS_F_SMALL (lv5)
@@ -702,7 +713,8 @@ void OnDeviceTuner::tuneDip2(
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRWO, frames.out.dipTnrwo[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_RECI_D1, frames.in.reci[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMG4O, frames.out.img4oF0->get() },
-		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMGI_D1, frames.in.dipImgi[0]->get() }
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMGI_D1, frames.in.dipImgi[0]->get() },
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_META_P2, frames.in.dipTun[0]->get() },
 	};
 
 	if (videoOut1) {
@@ -727,7 +739,8 @@ void OnDeviceTuner::tuneXtr(Request *request, XtrFrames &frames)
 		{ Dump::Id::TR_R2Y_YUVO_T1, frames.out.dipImgi[0]->get() },
 		{ Dump::Id::TR_R2Y_YUVO_T2, frames.out.dipImgi[1]->get() },
 		{ Dump::Id::TR_R2Y_YUVO_T3, frames.out.dipImgi[2]->get() },
-		{ Dump::Id::TR_R2Y_YUVO_T4, frames.out.dipImgi[3]->get() }
+		{ Dump::Id::TR_R2Y_YUVO_T4, frames.out.dipImgi[3]->get() },
+		{ Dump::Id::TR_R2Y_META_P2, frames.in.xtrTun->get() },
 	};
 	tune(request->sequence(), namedFrames, true);
 }
@@ -745,12 +758,15 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
 	std::vector<NamedFrame> namedFrames{
 		{ Dump::Id::P2_MS_F3_IMGI_D1_LPNR, frames.in.dipImgi[3]->get() },
 		{ Dump::Id::P2_MS_F3_IMG3O_LPNR, dipImg3o[3]->get() },
+		{ Dump::Id::P2_MS_F3_META_P2_LPNR, frames.in.dipTun[3]->get() },
 		{ Dump::Id::P2_MS_F2_IMGI_D1_LPNR, frames.in.dipImgi[2]->get() },
 		{ Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[2]->get() },
 		{ Dump::Id::P2_MS_F2_IMG3O_LPNR, dipImg3o[2]->get() },
+		{ Dump::Id::P2_MS_F2_META_P2_LPNR, frames.in.dipTun[2]->get() },
 		{ Dump::Id::P2_MS_F1_IMGI_D1_LPNR, frames.in.dipImgi[1]->get() },
 		{ Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[1]->get() },
 		{ Dump::Id::P2_MS_F1_IMG3O_LPNR, dipImg3o[1]->get() },
+		{ Dump::Id::P2_MS_F1_META_P2_LPNR, frames.in.dipTun[1]->get() },
 	};
 
 	if ((frames.in.highIsoMode->valid() && !frames.in.highIsoMode->get())) {
@@ -767,6 +783,8 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
 			InfoFrame still2Frame = getFrameInfoFromRequest(request, still2Output);
 			namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, still2Frame });
 		}
+
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_META_P2, frames.in.dipTunPq->get() });
 	}
 
 	tune(request->sequence(), namedFrames, true);

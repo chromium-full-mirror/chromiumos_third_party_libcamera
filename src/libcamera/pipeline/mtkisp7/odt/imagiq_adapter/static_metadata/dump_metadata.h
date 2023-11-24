@@ -99,6 +99,15 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = std::nullopt,
 	  } },
+	{ Dump::Id::P1_META_P1,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P1,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P1,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = std::nullopt,
+		  .version = 2003,
+	  } },
 	// P1 driver's registers
 	{
 		Dump::Id::P1_REG_P1,
@@ -450,7 +459,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  // .action=kActionCapture,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 	  } },
-	// MCNR: ME
+	// MCNR: ME: LTR
 	{
 		Dump::Id::LTR_ME_L1_IMGI_T1,
 		{
@@ -468,14 +477,25 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::ME_3PASS_MODE0_MEI_L0,
+	{ Dump::Id::LTR_ME_L1_META_P2,
 	  {
 		  .featureId = Feature::Preview,
-		  .stage = Stage::ME_3PASS_MODE0,
-		  .moduleId = NSCam::TuningUtils::eModule::kMEI_L0,
+		  .stage = Stage::LTR_ME_L1,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .version = 2000,
 	  } },
+	// MCNR: ME: 3PASS_MODE0
+	{
+		Dump::Id::ME_3PASS_MODE0_MEI_L0,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::ME_3PASS_MODE0,
+			.moduleId = NSCam::TuningUtils::eModule::kMEI_L0,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
 	{ Dump::Id::ME_3PASS_MODE0_MEI_L0_P,
 	  {
 		  .featureId = Feature::Preview,
@@ -564,14 +584,36 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::ME_3PASS_MODE1_MEI_L0,
+	{ Dump::Id::ME_3PASS_MODE0_META_P2,
 	  {
 		  .featureId = Feature::Preview,
-		  .stage = Stage::ME_3PASS_MODE1,
-		  .moduleId = NSCam::TuningUtils::eModule::kMEI_L0,
+		  .stage = Stage::ME_3PASS_MODE0,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .version = 2000,
 	  } },
+	// MCNR: ME: 3PASS_MM
+	{
+		Dump::Id::ME_3PASS_MM_META_P2,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::ME_3PASS_MM,
+			.moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+			.version = 2000,
+		} },
+	// MCNR: ME: 3PASS_MODE1
+	{
+		Dump::Id::ME_3PASS_MODE1_MEI_L0,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::ME_3PASS_MODE1,
+			.moduleId = NSCam::TuningUtils::eModule::kMEI_L0,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
 	{ Dump::Id::ME_3PASS_MODE1_MEI_L0_P,
 	  {
 		  .featureId = Feature::Preview,
@@ -660,7 +702,16 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	// MCNR: TR
+	{ Dump::Id::ME_3PASS_MODE1_META_P2,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::ME_3PASS_MODE1,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
+	// MCNR: TR: DSMAP
 	{
 		Dump::Id::TR_DSMAP_MMAP,
 		{
@@ -694,14 +745,16 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::TR_Y2Y_F1_IMGI_T1,
-	  {
-		  .featureId = Feature::Preview,
-		  .stage = Stage::TR_Y2Y_F1,
-		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
-		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
-		  .action = Action::Preview,
-	  } },
+	// MCNR: TR: Y2Y_F1
+	{
+		Dump::Id::TR_Y2Y_F1_IMGI_T1,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::TR_Y2Y_F1,
+			.moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
 	{ Dump::Id::TR_Y2Y_F1_YUVO_T2,
 	  {
 		  .featureId = Feature::Preview,
@@ -726,14 +779,25 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::TR_Y2Y_F4_IMGI_T1,
+	{ Dump::Id::TR_Y2Y_F1_META_P2,
 	  {
 		  .featureId = Feature::Preview,
-		  .stage = Stage::TR_Y2Y_F4,
-		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+		  .stage = Stage::TR_Y2Y_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .version = 2000,
 	  } },
+	// MCNR: TR: Y2Y_F4
+	{
+		Dump::Id::TR_Y2Y_F4_IMGI_T1,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::TR_Y2Y_F4,
+			.moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
 	{ Dump::Id::TR_Y2Y_F4_YUVO_T2,
 	  {
 		  .featureId = Feature::Preview,
@@ -758,14 +822,25 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::TR_Y2Y_Conf_IMGI_T1,
+	{ Dump::Id::TR_Y2Y_F4_META_P2,
 	  {
 		  .featureId = Feature::Preview,
-		  .stage = Stage::TR_Y2Y_Conf,
-		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+		  .stage = Stage::TR_Y2Y_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .version = 2000,
 	  } },
+	// MCNR: TR: Y2Y_Conf
+	{
+		Dump::Id::TR_Y2Y_Conf_IMGI_T1,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::TR_Y2Y_Conf,
+			.moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
 	{ Dump::Id::TR_Y2Y_Conf_YUVO_T5,
 	  {
 		  .featureId = Feature::Preview,
@@ -774,7 +849,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	// MCNR: Dip1
+	// MCNR: Dip1: WPE_LTR_Y2Y_F1
 	{
 		Dump::Id::WPE_LTR_Y2Y_F1_WPEI,
 		{
@@ -832,14 +907,25 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::LTR_VBI_IMGI_T1,
+	{ Dump::Id::WPE_LTR_Y2Y_F1_META_P2,
 	  {
 		  .featureId = Feature::Preview,
-		  .stage = Stage::LTR_VBI,
-		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+		  .stage = Stage::WPE_LTR_Y2Y_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .version = 2000,
 	  } },
+	// Dip1: LTR VBI
+	{
+		Dump::Id::LTR_VBI_IMGI_T1,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::LTR_VBI,
+			.moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
 	{ Dump::Id::LTR_VBI_YUVO_T2,
 	  {
 		  .featureId = Feature::Preview,
@@ -864,12 +950,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::LTR_Y2Y_F4_IMGI_T1,
-	  { .featureId = Feature::Preview,
-	    .stage = Stage::LTR_Y2Y_F4,
-	    .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
-	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
-	    .action = Action::Preview } },
+	{ Dump::Id::LTR_VBI_META_P2,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::LTR_VBI,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
+	// Dip1: LTR_Y2Y_F4
+	{
+		Dump::Id::LTR_Y2Y_F4_IMGI_T1,
+		{ .featureId = Feature::Preview,
+		  .stage = Stage::LTR_Y2Y_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview } },
 	{ Dump::Id::LTR_Y2Y_F4_YUVO_T2,
 	  { .featureId = Feature::Preview,
 	    .stage = Stage::LTR_Y2Y_F4,
@@ -882,15 +979,26 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	    .moduleId = NSCam::TuningUtils::eModule::kYUVO_T3,
 	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 	    .action = Action::Preview } },
-	{ Dump::Id::WPE_WghtMap_WPEI_F0,
+	{ Dump::Id::LTR_Y2Y_F4_META_P2,
 	  {
 		  .featureId = Feature::Preview,
-		  .stage = Stage::WPE_WghtMap,
-		  .moduleId = NSCam::TuningUtils::eModule::kWPEI,
+		  .stage = Stage::LTR_Y2Y_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
-		  .layer = 0,
+		  .version = 2000,
 	  } },
+	// Dip1: WPE WeightMap
+	{
+		Dump::Id::WPE_WghtMap_WPEI_F0,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::WPE_WghtMap,
+			.moduleId = NSCam::TuningUtils::eModule::kWPEI,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+			.layer = 0,
+		} },
 	{ Dump::Id::WPE_WghtMap_WPE_MAP_F0,
 	  {
 		  .featureId = Feature::Preview,
@@ -1044,14 +1152,25 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .action = Action::Preview,
 		  .layer = 5,
 	  } },
-	{ Dump::Id::P2_IDI_IMGI_D1,
+	{ Dump::Id::WPE_WghtMap_META_P2,
 	  {
 		  .featureId = Feature::Preview,
-		  .stage = Stage::P2_IDI,
-		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .stage = Stage::WPE_WghtMap,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .version = 2000,
 	  } },
+	// Dip1: P2_IDI
+	{
+		Dump::Id::P2_IDI_IMGI_D1,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::P2_IDI,
+			.moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
 	{ Dump::Id::P2_IDI_VIPI,
 	  {
 		  .featureId = Feature::Preview,
@@ -1084,12 +1203,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::P2_MS_F_SMALL_IMGI_D1,
-	  { .featureId = Feature::Preview,
-	    .stage = Stage::P2_MS_F_SMALL,
-	    .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
-	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
-	    .action = Action::Preview } },
+	{ Dump::Id::P2_IDI_META_P2,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_IDI,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
+	// Dip1: P2_MS_F_SMALL
+	{
+		Dump::Id::P2_MS_F_SMALL_IMGI_D1,
+		{ .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F_SMALL,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview } },
 	{ Dump::Id::P2_MS_F_SMALL_VIPI,
 	  { .featureId = Feature::Preview,
 	    .stage = Stage::P2_MS_F_SMALL,
@@ -1158,13 +1288,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	    .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 	    .action = Action::Preview } },
-
-	{ Dump::Id::P2_MS_F4_IMGI_D1,
-	  { .featureId = Feature::Preview,
-	    .stage = Stage::P2_MS_F4,
-	    .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
-	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
-	    .action = Action::Preview } },
+	{ Dump::Id::P2_MS_F_SMALL_META_P2,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F_SMALL,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
+	// Dip1: P2_MS_F4
+	{
+		Dump::Id::P2_MS_F4_IMGI_D1,
+		{ .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview } },
 	{ Dump::Id::P2_MS_F4_VIPI,
 	  { .featureId = Feature::Preview,
 	    .stage = Stage::P2_MS_F4,
@@ -1239,12 +1379,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	    .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 	    .action = Action::Preview } },
-	{ Dump::Id::P2_MS_F3_IMGI_D1_MCNR,
-	  { .featureId = Feature::Preview,
-	    .stage = Stage::P2_MS_F3,
-	    .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
-	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
-	    .action = Action::Preview } },
+	{ Dump::Id::P2_MS_F4_META_P2,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
+	// Dip1: P2_MS_F3
+	{
+		Dump::Id::P2_MS_F3_IMGI_D1_MCNR,
+		{ .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F3,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview } },
 	{ Dump::Id::P2_MS_F3_VIPI,
 	  { .featureId = Feature::Preview,
 	    .stage = Stage::P2_MS_F3,
@@ -1319,12 +1470,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	    .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 	    .action = Action::Preview } },
-	{ Dump::Id::P2_MS_F2_IMGI_D1_MCNR,
-	  { .featureId = Feature::Preview,
-	    .stage = Stage::P2_MS_F2,
-	    .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
-	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
-	    .action = Action::Preview } },
+	{ Dump::Id::P2_MS_F3_META_P2_MCNR,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F3,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
+	// Dip1: P2_MS_F2
+	{
+		Dump::Id::P2_MS_F2_IMGI_D1_MCNR,
+		{ .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F2,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview } },
 	{ Dump::Id::P2_MS_F2_VIPI,
 	  { .featureId = Feature::Preview,
 	    .stage = Stage::P2_MS_F2,
@@ -1399,12 +1561,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	    .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 	    .action = Action::Preview } },
-	{ Dump::Id::P2_MS_F1_IMGI_D1_MCNR,
-	  { .featureId = Feature::Preview,
-	    .stage = Stage::P2_MS_F1,
-	    .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
-	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
-	    .action = Action::Preview } },
+	{ Dump::Id::P2_MS_F2_META_P2_MCNR,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F2,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
+	// Dip1: P2_MS_F1
+	{
+		Dump::Id::P2_MS_F1_IMGI_D1_MCNR,
+		{ .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview } },
 	{ Dump::Id::P2_MS_F1_VIPI,
 	  { .featureId = Feature::Preview,
 	    .stage = Stage::P2_MS_F1,
@@ -1485,6 +1658,15 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	    .moduleId = NSCam::TuningUtils::eModule::kIMG4O,
 	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 	    .action = Action::Preview } },
+	{ Dump::Id::P2_MS_F1_META_P2_MCNR,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
 	// MCNR: Dip2
 	{
 		Dump::Id::WPE_P2_PQDIP_MS_F0_WPETI,
@@ -1583,6 +1765,15 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	    .moduleId = NSCam::TuningUtils::eModule::kWDMAO,
 	    .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 	    .action = Action::Preview } },
+	{ Dump::Id::WPE_P2_PQDIP_MS_F0_META_P2,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::WPE_P2_PQDIP_MS_F0,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .version = 2000,
+	  } },
 	// LPNR: XTR
 	{
 		Dump::Id::TR_R2Y_IMGI_T1,
@@ -1620,7 +1811,16 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kYUVO_T4,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 	  } },
-	// LPNR: Dip
+	{ Dump::Id::TR_R2Y_META_P2,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::TR_R2Y,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	// LPNR Dip: P2_MS_F3
 	{
 		Dump::Id::P2_MS_F3_IMGI_D1_LPNR,
 		{
@@ -1636,13 +1836,24 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 	  } },
-	{ Dump::Id::P2_MS_F2_IMGI_D1_LPNR,
+	{ Dump::Id::P2_MS_F3_META_P2_LPNR,
 	  {
 		  .featureId = Feature::Capture_lpnr,
-		  .stage = Stage::P2_MS_F2,
-		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .stage = Stage::P2_MS_F3,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
+	// LPNR Dip: P2_MS_F2
+	{
+		Dump::Id::P2_MS_F2_IMGI_D1_LPNR,
+		{
+			.featureId = Feature::Capture_lpnr,
+			.stage = Stage::P2_MS_F2,
+			.moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+			.category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		} },
 	{ Dump::Id::P2_MS_F2_RECI_D1_LPNR,
 	  {
 		  .featureId = Feature::Capture_lpnr,
@@ -1657,13 +1868,24 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 	  } },
-	{ Dump::Id::P2_MS_F1_IMGI_D1_LPNR,
+	{ Dump::Id::P2_MS_F2_META_P2_LPNR,
 	  {
 		  .featureId = Feature::Capture_lpnr,
-		  .stage = Stage::P2_MS_F1,
-		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .stage = Stage::P2_MS_F2,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
+	// LPNR Dip: P2_MS_F1
+	{
+		Dump::Id::P2_MS_F1_IMGI_D1_LPNR,
+		{
+			.featureId = Feature::Capture_lpnr,
+			.stage = Stage::P2_MS_F1,
+			.moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+			.category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		} },
 	{ Dump::Id::P2_MS_F1_RECI_D1_LPNR,
 	  {
 		  .featureId = Feature::Capture_lpnr,
@@ -1678,13 +1900,24 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 	  } },
-	{ Dump::Id::P2_MS_F0_PQ_DIP_WROTO,
+	{ Dump::Id::P2_MS_F1_META_P2_LPNR,
 	  {
 		  .featureId = Feature::Capture_lpnr,
-		  .stage = Stage::P2_MS_F0_PQ_DIP,
-		  .moduleId = NSCam::TuningUtils::eModule::kWROTO,
+		  .stage = Stage::P2_MS_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
+	// LPNR Dip: P2_MS_F0_PQ_DIP
+	{
+		Dump::Id::P2_MS_F0_PQ_DIP_WROTO,
+		{
+			.featureId = Feature::Capture_lpnr,
+			.stage = Stage::P2_MS_F0_PQ_DIP,
+			.moduleId = NSCam::TuningUtils::eModule::kWROTO,
+			.category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		} },
 	{ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO,
 	  {
 		  .featureId = Feature::Capture_lpnr,
@@ -1712,6 +1945,15 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .stage = Stage::P2_MS_F0_PQ_DIP,
 		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::P2_MS_F0_PQ_DIP_META_P2,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F0_PQ_DIP,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 };
 } // namespace libcamera

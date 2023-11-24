@@ -73,6 +73,14 @@ const std::array<Dump::Id, 6> Dump::kDip1Img3oDumpIds{
 	Dump::Id::P2_MS_F_SMALL_IMG3O,
 	Dump::Id::P2_IDI_IMG3O
 };
+const std::array<Dump::Id, 6> Dump::kDip1MetaP2DumpIds{
+	Dump::Id::P2_MS_F1_META_P2_MCNR,
+	Dump::Id::P2_MS_F2_META_P2_MCNR,
+	Dump::Id::P2_MS_F3_META_P2_MCNR,
+	Dump::Id::P2_MS_F4_META_P2,
+	Dump::Id::P2_MS_F_SMALL_META_P2,
+	Dump::Id::P2_IDI_META_P2
+};
 const std::array<Dump::Id, 5> Dump::kDip1TnrwiDumpIds{
 	Dump::Id::P2_MS_F1_TNRWI,
 	Dump::Id::P2_MS_F2_TNRWI,

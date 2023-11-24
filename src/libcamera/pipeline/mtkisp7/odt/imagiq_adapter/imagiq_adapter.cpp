@@ -795,6 +795,7 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	ndd.stage = static_cast<int>(dump.metadata.stage);
 	ndd.action = dump.metadata.action.has_value() ? static_cast<int>(dump.metadata.action.value()) : -1;
 	ndd.layer = dump.metadata.layer;
+	ndd.version = dump.metadata.version;
 	ndd.platform = 8188;
 
 	if (dump.array.has_value()) {
