@@ -34,6 +34,7 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 namespace {
 
 constexpr const char *kEnableTuningPath = "/run/camera/enable_tuning";
+constexpr const char *kEnforceLowIsoLpnr = "/run/camera/enforce_low_iso_lpnr";
 constexpr const char *kExportRequestPath = "/run/camera/export_dump";
 constexpr const char *kImportRequestPath = "/run/camera/import_dump";
 constexpr const char *kWorkDir = "/tmp/vendor/camera_dump";
@@ -89,6 +90,11 @@ void OnDeviceTuner::configure(
 	camsysDebug_ = CamsysDebug::create(camsysIndex);
 	sessionTimestamp_ = ImagiqAdapter::generateDumpTimestamp();
 
+	if (std::filesystem::exists(kEnforceLowIsoLpnr)) {
+		enforceLowIsoLpnr_ = true;
+		LOG(MtkISP7, Warning) << "LPNR is forced to use low-ISO mode!";
+	}
+
 	// Immediately create one directory for any capture dumps.
 	prepareNewExportDirectory();
 	ImagiqAdapter::notifyNewSession(sensorId, sessionTimestamp_);
@@ -97,6 +103,7 @@ void OnDeviceTuner::configure(
 void OnDeviceTuner::initialize()
 {
 	enabled_ = false;
+	enforceLowIsoLpnr_ = false;
 
 	if (!std::filesystem::exists(kEnableTuningPath)) {
 		return;
@@ -116,6 +123,11 @@ void OnDeviceTuner::initialize()
 
 	LOG(MtkISP7, Warning) << "Pipeline tuning enabled";
 	enabled_ = true;
+}
+
+bool OnDeviceTuner::isLowIsoLpnrEnforced()
+{
+	return enabled_ && enforceLowIsoLpnr_;
 }
 
 void OnDeviceTuner::loadTuneRequest(int requestNumber)
@@ -739,19 +751,22 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
 		{ Dump::Id::P2_MS_F1_IMGI_D1_LPNR, frames.in.dipImgi[1]->get() },
 		{ Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[1]->get() },
 		{ Dump::Id::P2_MS_F1_IMG3O_LPNR, dipImg3o[1]->get() },
-		{ Dump::Id::P2_MS_F0_PQ_DIP_IMGI_D1, frames.in.dipImgi[0]->get() },
-		{ Dump::Id::P2_MS_F0_PQ_DIP_RECI_D1, reci[0]->get() },
-		{ Dump::Id::P2_MS_F0_PQ_DIP_IMG3O, dipImg3o[0]->get() }
 	};
 
-	if (still1Output) {
-		InfoFrame still1Frame = getFrameInfoFromRequest(request, still1Output);
-		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, still1Frame });
-	}
+	if ((frames.in.highIsoMode->valid() && !frames.in.highIsoMode->get())) {
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_IMGI_D1, frames.in.dipImgi[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_RECI_D1, reci[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_IMG3O, dipImg3o[0]->get() });
 
-	if (still2Output) {
-		InfoFrame still2Frame = getFrameInfoFromRequest(request, still2Output);
-		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, still2Frame });
+		if (still1Output) {
+			InfoFrame still1Frame = getFrameInfoFromRequest(request, still1Output);
+			namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, still1Frame });
+		}
+
+		if (still2Output) {
+			InfoFrame still2Frame = getFrameInfoFromRequest(request, still2Output);
+			namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, still2Frame });
+		}
 	}
 
 	tune(request->sequence(), namedFrames, true);

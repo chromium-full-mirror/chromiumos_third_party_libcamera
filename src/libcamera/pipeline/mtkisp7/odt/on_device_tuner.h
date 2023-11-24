@@ -80,6 +80,7 @@ public:
 			 std::vector<SharedMailBox<InfoFrame>> dipImg3o,
 			 FrameBuffer *still1Output,
 			 FrameBuffer *still2Output);
+	bool isLowIsoLpnrEnforced();
 
 private:
 	struct NamedFrame {
@@ -115,6 +116,7 @@ private:
 		  bool forceDump = false);
 
 	bool enabled_;
+	bool enforceLowIsoLpnr_;
 	int sessionTimestamp_;
 	std::string sensorId_;
 

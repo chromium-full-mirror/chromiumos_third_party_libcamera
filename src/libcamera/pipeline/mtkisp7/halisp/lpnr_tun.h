@@ -29,7 +29,8 @@ class LpnrTunDipTask;
 
 class LpnrTunTasksManager {
 public:
-	LpnrTunTasksManager(DmaHeap *dmaHeap, HalIsp *halIsp);
+	LpnrTunTasksManager(
+		DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
 
 	int configure(const Size &bayerInputSize,
 		      const Size &yuvOutput1Size, const Size &yuvOutput2Size);
@@ -61,6 +62,8 @@ private:
 	InfoFramePool lpnrTun_;
 
 	HalIsp *halIsp_;
+
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 class LpnrTunXtrTask : public Task

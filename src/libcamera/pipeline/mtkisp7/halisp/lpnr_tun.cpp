@@ -102,10 +102,12 @@ static TuningBuffers tuningBuffers;
 			libcamera::DmaHeap::SyncReadWrite);
 }
 
-LpnrTunTasksManager::LpnrTunTasksManager(DmaHeap *dmaHeap, HalIsp *halIsp)
+LpnrTunTasksManager::LpnrTunTasksManager(
+	DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt)
 {
 	dmaHeap_ = dmaHeap;
 	halIsp_ = halIsp;
+	onDeviceTuner_ = odt;
 }
 
 void LpnrTunTasksManager::allocateBuffers()
@@ -215,6 +217,9 @@ void LpnrTunDipTask::run()
 	int32_t sensorSensitivity = aaaIspExchange->aaaResult.ae_result.sensor_sensitivity;
 
 	bool highIsoMode = (sensorSensitivity > threshold) ? true : false;
+	if (manager_->onDeviceTuner_->isLowIsoLpnrEnforced()) {
+		highIsoMode = false;
+	}
 
 	highIsoMode_->put(highIsoMode, nullptr);
 

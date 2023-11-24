@@ -136,7 +136,7 @@ public:
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
-		  lpnrTunManager(dmaHeap, halIsp),
+		  lpnrTunManager(dmaHeap, halIsp, odt),
 		  mcnrTunManager(dmaHeap, halIsp),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A)
