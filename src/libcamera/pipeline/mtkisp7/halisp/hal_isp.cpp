@@ -7,11 +7,18 @@
 
 #include "hal_isp.h"
 
+#include <cstdint>
 #include <sys/mman.h>
 
 #include <libcamera/base/log.h>
 
+#include "libcamera/internal/mapped_framebuffer.h"
+
+#include "debug_exif/aaa/dbg_aaa_param.h"
+#include "libcamera/request.h"
 #include "platform/mtkisp7/mtkcam-core/aaa/include/nvbuf_util.h"
+#include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
@@ -669,13 +676,18 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		if (request != nullptr) {
 			// Not dummy frame
 			onDeviceTuner_->tuneImgsysHalIsp(
-				request, tuning_param_p2, imgsys_info.rMapping_Info.eStage);
+				request, tuning_param_p2, result_p2,
+				aaaIspExchange->aaaResult,
+				imgsys_info.rMapping_Info.eStage);
 		}
 		imgsys_info.rNdd_info = cam_info.rNdd_info;
 		imgsys_info.sr_para = cam_info.sr_para;
 
 	}
 	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
+	onDeviceTuner_->tuneExif(
+		request, tuning_param_p2.exif_3a,
+		result_p2.exif, imgsys_info.rMapping_Info.eStage);
 
 	return 0;
 }

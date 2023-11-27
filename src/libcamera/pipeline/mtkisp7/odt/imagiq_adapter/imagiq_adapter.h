@@ -7,12 +7,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
 #include "mtkcam-interfaces/utils/ndd/INdd.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
+#include "platform/mtkisp7/halisp/TuningParam.h"
 
 #include "mtk_cam_metabuf.h"
 
@@ -62,10 +64,12 @@ public:
 		std::filesystem::path rootWorkPath,
 		std::filesystem::path sessionWorkPath);
 
-	static void notifyRequestEnd(
-		std::string sensorId, int requestNumber);
-
 	static int prepareReimport(const ExportResult &dumpResult);
+
+	static void serializeExif(
+		std::vector<uint8_t> &out,
+		const mtk::isphal::v1_0::ExifInfo3A &exif3a,
+		const mtk::isphal::v1_0::ExifInfoP2 &exifIsp);
 
 	static const SensorIdMap kSensorIdMap;
 

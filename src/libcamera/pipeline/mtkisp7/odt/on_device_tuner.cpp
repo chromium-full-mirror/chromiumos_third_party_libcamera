@@ -387,8 +387,47 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	return parseHalIspNdd(request, tuningParam.cam_info->rNdd_info);
 }
 
+void OnDeviceTuner::tuneExif(
+	Request *request,
+	const mtk::isphal::v1_0::ExifInfo3A &exif3a,
+	const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
+	EStage_T stage)
+{
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return;
+	}
+
+	bool dumpIdFound = isStillCapture ? kLpnrExifDumpIdMap.count(stage) > 0 : kMcnrExifDumpIdMap.count(stage) > 0;
+
+	if (!dumpIdFound) {
+		LOG(MtkISP7, Info) << "No exif dump id for stage: " << static_cast<int>(stage);
+		return;
+	}
+
+	Dump::Id dumpId = isStillCapture ? kLpnrExifDumpIdMap.at(stage) : kMcnrExifDumpIdMap.at(stage);
+
+	std::vector<uint8_t> exifArray;
+	ImagiqAdapter::serializeExif(exifArray, exif3a, exifIsp);
+
+	batchExport({ {
+		.id = dumpId,
+		.requestNumber = requestNumber,
+		.sensorId = sensorId_,
+		.timestamp = sessionTimestamp_,
+		.workPath = currentExportPath_,
+		.frame = std::nullopt,
+		.array = exifArray,
+		.metadata = kDumpMetadata.at(dumpId),
+		.config = dumpConfig_[dumpId],
+	} });
+}
+
 void OnDeviceTuner::tuneImgsysHalIsp(
 	Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+	mtk::isphal::v1_0::ReturnParamDip &tuningResult,
+	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
 	EStage_T stage)
 {
 	if (!enabled_) {
@@ -399,6 +438,15 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 		static_cast<int32_t>(ImagiqAdapter::kSensorIdMap.at(sensorId_));
 	tuningParam.cam_info.rNdd_info.ndd_data.action =
 		static_cast<int>(Action::Preview);
+	tuningParam.is_need_exif = 1;
+	tuningParam.exif_3a.size = sizeof(AAA_DEBUG_INFO1_T);
+	tuningParam.exif_3a.data =
+		reinterpret_cast<uint8_t *>(&mtk3AResult.debug_3a_info);
+
+	tuningResult.exif.valid = true;
+	tuningResult.exif.size = sizeof(AAA_DEBUG_INFO2_T);
+	tuningResult.exif.data =
+		reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info);
 	parseHalIspNdd(request, tuningParam.cam_info.rNdd_info);
 }
 

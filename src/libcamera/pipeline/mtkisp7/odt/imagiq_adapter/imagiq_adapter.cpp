@@ -881,6 +881,32 @@ int ImagiqAdapter::prepareReimport(const ExportResult &exportResult)
 	return 0;
 }
 
+void ImagiqAdapter::serializeExif(
+        std::vector<uint8_t> &out,
+        const mtk::isphal::v1_0::ExifInfo3A &exif3a,
+        const mtk::isphal::v1_0::ExifInfoP2 &exifIsp)
+{
+    out.resize(6 + exif3a.size + 4 + exifIsp.size);
+
+    // 3A
+    uint8_t *exif3aArray = out.data();
+    exif3aArray[0] = 0;
+    exif3aArray[1] = 0;
+    exif3aArray[2] = 0xFF;
+    exif3aArray[3] = 0xE6;
+    exif3aArray[4] = ((exif3a.size + 2) >> 8);
+    exif3aArray[5] = ((exif3a.size + 2) & 0xFF);
+    std::memcpy(&(exif3aArray[6]), exif3a.data, exif3a.size);
+
+    // ISP
+    uint8_t *exifIspArray = out.data() + 6 + exif3a.size;
+    exifIspArray[0] = 0xFF;
+    exifIspArray[1] = 0xE7;
+    exifIspArray[2] = ((exifIsp.size + 2) >> 8);
+    exifIspArray[3] = ((exifIsp.size + 2) & 0xFF);
+    memcpy(&(exifIspArray[4]), exifIsp.data, exifIsp.size);
+}
+
 bool ImagiqAdapter::shouldSplitExport(const PixelFormat &pixelFormat)
 {
 	switch (pixelFormat) {

@@ -23,6 +23,7 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "platform/mtkisp7/halisp/IspControls.h"
 #include "platform/mtkisp7/halisp/TuningParam.h"
+#include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
 
@@ -52,7 +53,13 @@ public:
 		Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam);
 	void tuneImgsysHalIsp(
 		Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+		mtk::isphal::v1_0::ReturnParamDip &tuningResult,
+		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
 		EStage_T stage);
+	void tuneExif(Request *request,
+		      const mtk::isphal::v1_0::ExifInfo3A &exif3a,
+		      const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
+		      EStage_T stage);
 
 	// 3A
 	void tune3ARequest(

@@ -8,12 +8,15 @@
 #pragma once
 
 #include <map>
+#include <optional>
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/mtk_headers/ndd_autogen_def.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/action.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
 #include "platform/mtkisp7/single_device_helper.h"
+#include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
 
@@ -62,6 +65,54 @@ const std::array<PEU_Stage, 7> kImgsysCaptureStages{
 	PEU_Stage::P2_MS_F0_PQ_DIP,
 	PEU_Stage::P2_MS_F0_H,
 	PEU_Stage::P2_Y2Y_PQ_DIP
+};
+
+const std::map<NSIspTuning::EStage_T, Dump::Id> kMcnrExifDumpIdMap{
+	{ NSIspTuning::EStage_T::EStage_LTR_ME_L1,
+	  Dump::Id::LTR_ME_L1_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_ME_3PASS_MODE0,
+	  Dump::Id::ME_3PASS_MODE0_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_ME_3PASS_MM,
+	  Dump::Id::ME_3PASS_MM_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_ME_3PASS_MODE1,
+	  Dump::Id::ME_3PASS_MODE1_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_TR_Y2Y_F1,
+	  Dump::Id::TR_Y2Y_F1_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_TR_Y2Y_F4,
+	  Dump::Id::TR_Y2Y_F4_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_WPE_LTR_Y2Y_F1,
+	  Dump::Id::WPE_LTR_Y2Y_F1_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_LTR_VBI,
+	  Dump::Id::LTR_VBI_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_LTR_Y2Y_F4,
+	  Dump::Id::LTR_Y2Y_F4_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_P2_IDI,
+	  Dump::Id::P2_IDI_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F_SMALL,
+	  Dump::Id::P2_MS_F_SMALL_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F4,
+	  Dump::Id::P2_MS_F4_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F3,
+	  Dump::Id::P2_MS_F3_ISPINFO_MCNR },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F2,
+	  Dump::Id::P2_MS_F2_ISPINFO_MCNR },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F1,
+	  Dump::Id::P2_MS_F1_ISPINFO_MCNR },
+	{ NSIspTuning::EStage_T::EStage_WPE_P2_PQDIP_MS_F0,
+	  Dump::Id::WPE_P2_PQDIP_MS_F0_ISPINFO },
+};
+
+const std::map<NSIspTuning::EStage_T, Dump::Id> kLpnrExifDumpIdMap{
+	{ NSIspTuning::EStage_T::EStage_TR_R2Y,
+	  Dump::Id::TR_R2Y_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F3,
+	  Dump::Id::P2_MS_F3_ISPINFO_LPNR },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F2,
+	  Dump::Id::P2_MS_F2_ISPINFO_LPNR },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F1,
+	  Dump::Id::P2_MS_F1_ISPINFO_LPNR },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F0_PQ_DIP,
+	  Dump::Id::P2_MS_F0_PQ_DIP_ISPINFO },
 };
 
 const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
@@ -1954,6 +2005,178 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
 		  .version = 2000,
+	  } },
+	// ISPINFO / exif: MCNR
+	{
+		Dump::Id::LTR_ME_L1_ISPINFO,
+		{
+			.featureId = Feature::Preview,
+			.stage = Stage::LTR_ME_L1,
+			.moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
+			.action = Action::Preview,
+		} },
+	{ Dump::Id::ME_3PASS_MODE0_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::ME_3PASS_MODE0,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::ME_3PASS_MM_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::ME_3PASS_MM,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::ME_3PASS_MODE1_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::ME_3PASS_MODE1,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::TR_Y2Y_F1_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::TR_Y2Y_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::TR_Y2Y_F4_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::TR_Y2Y_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::WPE_LTR_Y2Y_F1_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::WPE_LTR_Y2Y_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::LTR_VBI_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::LTR_VBI,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::LTR_Y2Y_F4_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::LTR_Y2Y_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::P2_IDI_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_IDI,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::P2_MS_F_SMALL_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F_SMALL,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::P2_MS_F4_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F4,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::P2_MS_F3_ISPINFO_MCNR,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F3,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::P2_MS_F2_ISPINFO_MCNR,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F2,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::P2_MS_F1_ISPINFO_MCNR,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::P2_MS_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	{ Dump::Id::WPE_P2_PQDIP_MS_F0_ISPINFO,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::WPE_P2_PQDIP_MS_F0,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+	  } },
+	// ISPINFO / exif: LPNR
+	{
+		Dump::Id::TR_R2Y_ISPINFO,
+		{
+			.featureId = Feature::Capture_lpnr,
+			.stage = Stage::TR_R2Y,
+			.moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+			.category = NSCam::TuningUtils::eCategory::kCAPTURE,
+			.action = Action::Capture,
+		} },
+	{ Dump::Id::P2_MS_F3_ISPINFO_LPNR,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F3,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+	  } },
+	{ Dump::Id::P2_MS_F2_ISPINFO_LPNR,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F2,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+	  } },
+	{ Dump::Id::P2_MS_F1_ISPINFO_LPNR,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F1,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+	  } },
+	{ Dump::Id::P2_MS_F0_PQ_DIP_ISPINFO,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F0_PQ_DIP,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
 	  } },
 };
 } // namespace libcamera
