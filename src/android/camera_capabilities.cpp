@@ -1138,9 +1138,9 @@ int CameraCapabilities::initializeStaticMetadata()
 
 	/* Statistics static metadata. */
 	int32_t maxFaceCount = 0;
-	if (camera_->controls().count(controls::FaceDetectMode.id()) > 0) {
-		const ControlInfo &faceDetectCtrlInfo =
-			camera_->controls().at(controls::FaceDetectMode.id());
+	auto iter = camera_->controls().find(controls::FaceDetectMode.id());
+	if (iter != camera_->controls().end()) {
+		const ControlInfo &faceDetectCtrlInfo = iter->second;
 		std::vector<uint8_t> faceDetectModes;
 		bool hasFaceDetection = false;
 		for (const auto &value : faceDetectCtrlInfo.values()) {
