@@ -148,7 +148,8 @@ static TuningBuffers tuningBuffers;
 			libcamera::DmaHeap::SyncReadWrite);
 }
 
-McnrTunManager::McnrTunManager(DmaHeap *dmaHeap, HalIsp *halIsp)
+McnrTunManager::McnrTunManager(
+	DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt)
 {
 	poolsWritenByCpu_.emplace_back(&fwmeFst_);
 	poolsWritenByCpu_.emplace_back(&fwmmFst_);
@@ -164,6 +165,7 @@ McnrTunManager::McnrTunManager(DmaHeap *dmaHeap, HalIsp *halIsp)
 
 	dmaHeap_ = dmaHeap;
 	halIsp_ = halIsp;
+	onDeviceTuner_ = odt;
 
 	threadHalIsp_.start();
 }
@@ -363,7 +365,7 @@ void McnrMeBTask::run()
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MIL] = meMil->get();
 
 	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
-
+	manager_->onDeviceTuner_->tuneMeMM(request_, meBTun);
 
 	request = ImgMetaRequest {
 		.isCapture = false,

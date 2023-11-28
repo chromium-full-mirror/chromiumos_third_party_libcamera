@@ -17,6 +17,7 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "platform/mtkisp7/IImgStreamDef.h"
 
 #include "single_device.h"
 
@@ -644,6 +645,7 @@ void MeATask::notifyDone()
 	if (syncLtrMeA_)
 		imgSys_->syncPool().put(syncLtrMeA_);
 
+	manager_->onDeviceTuner_->tuneMeA(request_, frames_);
 	Task::notifyDone();
 }
 
@@ -713,7 +715,7 @@ void MeBTask::allocateOutputBuffers()
 
 void MeBTask::notifyDone()
 {
-	manager_->onDeviceTuner_->tuneMe(request_, frames_);
+	manager_->onDeviceTuner_->tuneMeB(request_, frames_);
 	Task::notifyDone();
 }
 

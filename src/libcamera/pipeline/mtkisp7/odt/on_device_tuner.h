@@ -16,6 +16,9 @@
 
 #include <libcamera/request.h>
 
+#include "libcamera/internal/info_frame.h"
+#include "libcamera/internal/mailbox.h"
+
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/aaa_hal_def.h"
 #include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
@@ -73,7 +76,9 @@ public:
 		InfoFrame &metaFrame);
 
 	// MCNR
-	void tuneMe(Request *request, MeFrames &frames);
+	void tuneMeA(Request *request, MeFrames &frames);
+	void tuneMeMM(Request *request, SharedMailBox<InfoFrame> tuning);
+	void tuneMeB(Request *request, MeFrames &frames);
 	void tuneTr(Request *request, TrFrames &frames);
 	void tuneDip1(Request *request, Dip1Frames &frames);
 	void tuneDip2(

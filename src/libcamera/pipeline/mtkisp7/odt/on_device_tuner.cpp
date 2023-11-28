@@ -585,7 +585,7 @@ void OnDeviceTuner::tune3AState(Request *request, CaptureFrames &frames,
 	tune(requestNumber, namedPointers, isStillCapture);
 }
 
-void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
+void OnDeviceTuner::tuneMeA(Request *request, MeFrames &frames)
 {
 	uint32_t requestNumber = request->sequence();
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
@@ -610,6 +610,18 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 					     { Dump::Id::ME_3PASS_MODE0_FMB_L1, frames.out.meAFmb1->get() },
 					     { Dump::Id::ME_3PASS_MODE0_FST, frames.out.meAFst->get() },
 					     { Dump::Id::ME_3PASS_MODE0_META_P2, frames.in.meATun->get() },
+				     });
+}
+
+void OnDeviceTuner::tuneMeB(Request *request, MeFrames &frames)
+{
+	uint32_t requestNumber = request->sequence();
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+			  !shouldImportDumpNow(requestNumber))) {
+		return;
+	}
+	tune(
+		request->sequence(), {
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0, frames.in.meL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0_P, frames.in.prevMeL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.in.prevMeL1->get() },
@@ -623,6 +635,19 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 					     { Dump::Id::ME_3PASS_MODE1_LMI, frames.out.meBLmi->get() },
 					     { Dump::Id::ME_3PASS_MODE1_FST, frames.out.meBFst->get() },
 					     { Dump::Id::ME_3PASS_MODE1_META_P2, frames.in.meBTun->get() },
+				     });
+}
+
+void OnDeviceTuner::tuneMeMM(Request *request, SharedMailBox<InfoFrame> tuning)
+{
+	uint32_t requestNumber = request->sequence();
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+			  !shouldImportDumpNow(requestNumber))) {
+		return;
+	}
+	tune(
+		request->sequence(), {
+					     { Dump::Id::ME_3PASS_MM_META_P2, tuning->get() },
 				     });
 }
 

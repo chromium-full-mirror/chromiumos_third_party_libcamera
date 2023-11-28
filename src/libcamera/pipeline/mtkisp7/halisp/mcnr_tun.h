@@ -31,7 +31,7 @@ class McnrDipTask;
 
 class McnrTunManager {
 public:
-	McnrTunManager(DmaHeap *dmaHeap, HalIsp *halIsp);
+	McnrTunManager(DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
 	~McnrTunManager();
 
 	int configure(const Size &yuvInputSize, const Size &yuvOutputSize1,
@@ -76,6 +76,7 @@ private:
 
 	DmaHeap *dmaHeap_;
 	HalIsp *halIsp_;
+	OnDeviceTuner *onDeviceTuner_;
 
 	Thread threadHalIsp_;
 };

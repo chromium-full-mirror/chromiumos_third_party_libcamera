@@ -137,7 +137,7 @@ public:
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrTunManager(dmaHeap, halIsp, odt),
-		  mcnrTunManager(dmaHeap, halIsp),
+		  mcnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A)
 	{
