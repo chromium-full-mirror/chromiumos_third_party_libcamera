@@ -130,7 +130,7 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 	captureFrames.yuvo2 = makeMailBox<InfoFrame>();
 
 	captureFrames.me = makeMailBox<InfoFrame>();
-	captureFrames.faceDecteion = makeMailBox<InfoFrame>();
+	captureFrames.faceDetection = makeMailBox<InfoFrame>();
 
 	captureFrames.statistics0 = makeMailBox<InfoFrame>();
 	captureFrames.statistics1 = makeMailBox<InfoFrame>();
@@ -191,8 +191,8 @@ void QueueTask::run()
 	manager_->mePool_.fetch(frames.me);
 	camSysRequest.me = frames.me->get().buffer();
 
-	manager_->faceDetectPool_.fetch(frames.faceDecteion);
-	camSysRequest.faceDetect = frames.faceDecteion->get().buffer();
+	manager_->faceDetectPool_.fetch(frames.faceDetection);
+	camSysRequest.faceDetect = frames.faceDetection->get().buffer();
 
 	manager_->rawPool_.fetch(frames.raw);
 	camSysRequest.main = frames.raw->get().buffer();

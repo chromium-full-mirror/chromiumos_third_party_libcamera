@@ -741,7 +741,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
 		auto [faceDetectionTask, faceToneTask, parseTask] =
 			faceDetector_->makeFaceDetectionTask(
-				scheduler, request, captureFrames.faceDecteion);
+				scheduler, request, captureFrames.faceDetection);
 
 		// Current face tone task depends on previous parse task
 		scheduler->succeedPrevTaskByStep(AieParseGroup,

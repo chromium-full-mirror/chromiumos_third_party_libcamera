@@ -32,7 +32,7 @@ struct CaptureFrames {
 	SharedMailBox<InfoFrame> yuvo1;
 	SharedMailBox<InfoFrame> yuvo2;
 	SharedMailBox<InfoFrame> me;
-	SharedMailBox<InfoFrame> faceDecteion;
+	SharedMailBox<InfoFrame> faceDetection;
 	SharedMailBox<InfoFrame> statistics0;
 	SharedMailBox<InfoFrame> statistics1;
 	SharedMailBox<InfoFrame> tuning;
