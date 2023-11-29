@@ -12,15 +12,14 @@
 namespace libcamera {
 
 enum class Action {
-    Preview,
-    Video,
-    Capture,
+	Preview,
+	Video,
+	Capture,
 };
 
-const std::map<Action, std::string> kActionStrMap
-{
-    {Action::Preview, "Preview"},
-    {Action::Video, "Video"},
-    {Action::Capture, "Capture"},
+const std::map<Action, std::string> kActionStrMap{
+	{ Action::Preview, "Preview" },
+	{ Action::Video, "Video" },
+	{ Action::Capture, "Capture" },
 };
 } // namespace libcamera

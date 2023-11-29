@@ -11,6 +11,7 @@
 
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/task_scheduler.h"
+
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "imgsys.h"
@@ -47,10 +48,11 @@ struct LPNRFrames {
 	FrameBuffer *stillOutput;
 };
 
-class LpnrTasksManager {
+class LpnrTasksManager
+{
 public:
 	LpnrTasksManager(
-			ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt);
+		ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt);
 
 	int configure(const Size &bayerInputSize, const Size &yuvOutputSize);
 
@@ -61,11 +63,11 @@ public:
 
 	void makeLPNRFrames(LPNRFrames &lpnr,
 			    SharedMailBox<InfoFrame> &p1Raw,
-			    FrameBuffer* outputFrame);
+			    FrameBuffer *outputFrame);
 
 	std::tuple<XTRTask *, LpnrDipTask *>
-	makeLpnrTasks(LPNRFrames &lpnr, Scheduler* scheduler, const std::string& id,
-		      Request* request, ImgSysDevice* imgSys);
+	makeLpnrTasks(LPNRFrames &lpnr, Scheduler *scheduler, const std::string &id,
+		      Request *request, ImgSysDevice *imgSys);
 
 private:
 	friend class XTRTask;
@@ -92,8 +94,8 @@ private:
 class XTRTask : public Task
 {
 public:
-	XTRTask(Scheduler* scheduler, const std::string& id, Request* request,
-		ImgSysDevice* imgSys, LPNRFrames &lpnr, LpnrTasksManager* manager);
+	XTRTask(Scheduler *scheduler, const std::string &id, Request *request,
+		ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager);
 
 	void run() override;
 	void notifyDone() override;
@@ -111,8 +113,8 @@ private:
 class LpnrDipTask : public Task
 {
 public:
-	LpnrDipTask(Scheduler* scheduler, const std::string& id, Request* request,
-		 ImgSysDevice* imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager);
+	LpnrDipTask(Scheduler *scheduler, const std::string &id, Request *request,
+		    ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager);
 
 	void run() override;
 	void notifyDone() override;

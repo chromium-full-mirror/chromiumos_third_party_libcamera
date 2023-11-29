@@ -26,20 +26,20 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 
 namespace {
 
-constexpr Size kMeL0Size{576, 432};
-constexpr Size kMeL1Size{144, 108};
+constexpr Size kMeL0Size{ 576, 432 };
+constexpr Size kMeL1Size{ 144, 108 };
 
-constexpr Size kMeMapSize0{289, 217};
-constexpr Size kMeMapSize1{145, 109};
-constexpr Size kMeMapSize2{73, 55};
-constexpr Size kMeMapSize3{37, 28};
+constexpr Size kMeMapSize0{ 289, 217 };
+constexpr Size kMeMapSize1{ 145, 109 };
+constexpr Size kMeMapSize2{ 73, 55 };
+constexpr Size kMeMapSize3{ 37, 28 };
 
-constexpr Size kFmbSize{36, 27};
-constexpr Size kFstSize{1, 112};
-constexpr Size kTnrsoSize{40, 1};
+constexpr Size kFmbSize{ 36, 27 };
+constexpr Size kFstSize{ 1, 112 };
+constexpr Size kTnrsoSize{ 40, 1 };
 
-constexpr Size kTunSize{219348, 1};
-constexpr Size kTrawSttSize{738624, 1};
+constexpr Size kTunSize{ 219348, 1 };
+constexpr Size kTrawSttSize{ 738624, 1 };
 
 static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
@@ -52,19 +52,19 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 	assert(mailBox->valid());
 
 	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::Start,
-			libcamera::DmaHeap::SyncReadWrite);
+		info.buffer()->planes()[0].fd.get(),
+		libcamera::DmaHeap::Start,
+		libcamera::DmaHeap::SyncReadWrite);
 
 	memset(dest, 0, length);
 
 	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::End,
-			libcamera::DmaHeap::SyncReadWrite);
+		info.buffer()->planes()[0].fd.get(),
+		libcamera::DmaHeap::End,
+		libcamera::DmaHeap::SyncReadWrite);
 }
 
-static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t* tuning)
+static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t *tuning)
 {
 	assert(tuning);
 
@@ -77,22 +77,23 @@ static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t* tuning)
 	assert(mailBox->valid());
 
 	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::Start,
-			libcamera::DmaHeap::SyncReadWrite);
+		info.buffer()->planes()[0].fd.get(),
+		libcamera::DmaHeap::Start,
+		libcamera::DmaHeap::SyncReadWrite);
 
 	memcpy(dest, tuning, length);
 
 	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::End,
-			libcamera::DmaHeap::SyncReadWrite);
+		info.buffer()->planes()[0].fd.get(),
+		libcamera::DmaHeap::End,
+		libcamera::DmaHeap::SyncReadWrite);
 }
 
-class TuningBuffers {
+class TuningBuffers
+{
 public:
 	TuningBuffers();
-	void readBuffer(uint8_t *dest, size_t length, const char* file);
+	void readBuffer(uint8_t *dest, size_t length, const char *file);
 	void readAll();
 
 	uint8_t HW_DIP_F0_tunbufi[219348];
@@ -118,7 +119,7 @@ TuningBuffers::TuningBuffers()
 	readAll();
 }
 
-void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char* filename)
+void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char *filename)
 {
 	FILE *file = nullptr;
 	std::string filePath = std::string("/etc/camera/back_settings/") + filename;
@@ -127,7 +128,7 @@ void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char* filenam
 	if (!file)
 		LOG(MtkISP7, Error) << "Fail to open file " << filePath;
 
-	size_t size = fread(dest, length , 1, file);
+	size_t size = fread(dest, length, 1, file);
 	LOG(MtkISP7, Error) << "Read" << filename << " with size " << size;
 	fclose(file);
 }
@@ -160,7 +161,7 @@ static TuningBuffers tuningBuffers;
 using namespace NSCam::NSImgStream;
 
 McnrTasksManager::McnrTasksManager(
-		ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt)
+	ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt)
 {
 	imgSys_ = imgSys;
 	dmaHeap_ = dmaHeap;
@@ -257,13 +258,13 @@ int McnrTasksManager::configure(const Size yuvInputSize, const Size videoOut1Siz
 	meMmapSizes[3] = kMeMapSize3;
 
 	wtSizes.resize(7);
-	wtSizes[0]= mcnrSizes[3];
-	wtSizes[1]= mcnrSizes[3];
-	wtSizes[2]= mcnrSizes[3];
-	wtSizes[3]= mcnrSizes[3];
-	wtSizes[4]= mcnrSizes[4];
-	wtSizes[5]= mcnrSizes[5];
-	wtSizes[6]= mcnrSizes[5];
+	wtSizes[0] = mcnrSizes[3];
+	wtSizes[1] = mcnrSizes[3];
+	wtSizes[2] = mcnrSizes[3];
+	wtSizes[3] = mcnrSizes[3];
+	wtSizes[4] = mcnrSizes[4];
+	wtSizes[5] = mcnrSizes[5];
+	wtSizes[6] = mcnrSizes[5];
 
 	configureBuffers();
 
@@ -368,12 +369,12 @@ int McnrTasksManager::releaseBuffers()
 }
 
 void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
-				  MCNRPrevOutput &prev,
-				  SharedMailBox<InfoFrame> &meL0,
-				  SharedMailBox<InfoFrame> &p1F0,
-				  SharedMailBox<InfoFrame> &p1F1,
-				  FrameBuffer* videoOut1,
-				  FrameBuffer* videoOut2)
+				      MCNRPrevOutput &prev,
+				      SharedMailBox<InfoFrame> &meL0,
+				      SharedMailBox<InfoFrame> &p1F0,
+				      SharedMailBox<InfoFrame> &p1F1,
+				      FrameBuffer *videoOut1,
+				      FrameBuffer *videoOut2)
 {
 	/* Prepare mailboxes shared among MCNR tasks */
 	mcnr.videoOut1 = videoOut1;
@@ -443,7 +444,7 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	std::vector<SharedMailBox<InfoFrame>> dipTnrmi;
 	dipTnrmi.resize(7);
 	for (int i = 0; i < 6; i++)
-		dipTnrmi[i] = dipTnrmo[i+1];
+		dipTnrmi[i] = dipTnrmo[i + 1];
 
 	/* Intermediate frames used by DIP, propagate from low to high levels.
 	 * Link reci[i] to the previous level img3o[i+1] for easier use. */
@@ -451,7 +452,7 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	std::vector<SharedMailBox<InfoFrame>> reci;
 	reci.resize(7);
 	for (int i = 0; i < 6; i++)
-		reci[i] = img3o[i+1];
+		reci[i] = img3o[i + 1];
 
 	/* Rename of meMmap to 7 levels for easier assign as DIP inputs,
 	 * linked as the largest size which is smaller than the corresponding
@@ -594,13 +595,12 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	prev.prevImg4oF1 = dip1Frames.out.img4oF1;
 	prev.prevImg4oF0 = dip2Frames.out.img4oF0;
 	prev.valid = true;
-
 }
 
 std::tuple<MeTask *, TrTask *, Dip1Task *, Dip2Task *>
-McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler* scheduler,
-				const std::string& id, Request* request,
-				ImgSysDevice* imgSys)
+McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler *scheduler,
+				const std::string &id, Request *request,
+				ImgSysDevice *imgSys)
 {
 	(void)id;
 	std::string sequence = std::to_string(request->sequence());
@@ -610,15 +610,15 @@ McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler* scheduler,
 	Dip1Task *dip1Task = new Dip1Task(scheduler, "Dip 1 " + sequence, request, imgSys, mcnr, this);
 
 	Dip2Task *dip2Task = new Dip2Task(scheduler, "Dip 2 " + sequence,
-						      request, imgSys, mcnr, this);
+					  request, imgSys, mcnr, this);
 
 	return std::make_tuple(meTask, trTask, dip1Task, dip2Task);
 }
 
-MeTask::MeTask(Scheduler* scheduler, const std::string& id, Request* request,
-	       ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
-	       :Task(scheduler, id), requestHelper_(this, request, imgSys),
-		request_(request), manager_(manager), imgSys_(imgSys)
+MeTask::MeTask(Scheduler *scheduler, const std::string &id, Request *request,
+	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+	: Task(scheduler, id), requestHelper_(this, request, imgSys),
+	  request_(request), manager_(manager), imgSys_(imgSys)
 {
 	/* Collect MailBoxes used for the task */
 	frames_ = mcnr.meFrames;
@@ -690,8 +690,8 @@ void MeTask::run()
 	/* HW_LTR_ME_L1 */
 	StageEx &HW_LTR_ME_L1 = sdRequest.emplaceStage(PEU_Stage::HW_LTR_ME_L1);
 
-	HW_LTR_ME_L1.input(in.trMeTun->get(), NSCam::NSImgStream::IMG_PORT_METAI, 0, Size{0, 0});
-	HW_LTR_ME_L1.input(in.meL0->get(), NSCam::NSImgStream::IMG_PORT_LTIMGI, 0, Size{0, 0});
+	HW_LTR_ME_L1.input(in.trMeTun->get(), NSCam::NSImgStream::IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_LTR_ME_L1.input(in.meL0->get(), NSCam::NSImgStream::IMG_PORT_LTIMGI, 0, Size{ 0, 0 });
 	HW_LTR_ME_L1.output(out.meL1->get(), NSCam::NSImgStream::IMG_PORT_LTYUV2O, 1, kMeL0Size);
 	HW_LTR_ME_L1.setAplInfo();
 
@@ -701,15 +701,15 @@ void MeTask::run()
 	/* HW_ME_3PASS_MODE_0 */
 	StageEx &HW_ME_3PASS_MODE_0 = sdRequest.emplaceStage(PEU_Stage::HW_ME_3PASS_MODE_0);
 
-	HW_ME_3PASS_MODE_0.input(in.meATun->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_0.input(in.prevMeL0->get(), IMG_PORT_ME_L0_IMG0I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_0.input(in.meL0->get(), IMG_PORT_ME_L0_IMG1I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_0.input(in.prevMeL1->get(), IMG_PORT_ME_L1_IMG0I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_0.input(out.meL1->get(), IMG_PORT_ME_L1_IMG1I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_0.input(in.prevMeAMv1->get(), IMG_PORT_ME_L1_RMVI, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_0.input(in.prevMeBMv0->get(), IMG_PORT_ME_L0_RMVI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.input(in.meATun->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_0.input(in.prevMeL0->get(), IMG_PORT_ME_L0_IMG0I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_0.input(in.meL0->get(), IMG_PORT_ME_L0_IMG1I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_0.input(in.prevMeL1->get(), IMG_PORT_ME_L1_IMG0I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_0.input(out.meL1->get(), IMG_PORT_ME_L1_IMG1I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_0.input(in.prevMeAMv1->get(), IMG_PORT_ME_L1_RMVI, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_0.input(in.prevMeBMv0->get(), IMG_PORT_ME_L0_RMVI, 0, Size{ 0, 0 });
 
-	HW_ME_3PASS_MODE_0.output(out.meAFst->get(), IMG_PORT_ME_FSTO, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_0.output(out.meAFst->get(), IMG_PORT_ME_FSTO, 0, Size{ 0, 0 });
 	HW_ME_3PASS_MODE_0.output(out.meAFmb0->get(), IMG_PORT_ME_L0_FMBO, 0, kFmbSize);
 	HW_ME_3PASS_MODE_0.output(out.meAFmb1->get(), IMG_PORT_ME_L1_FMBO, 0, kFmbSize);
 	HW_ME_3PASS_MODE_0.output(out.meALmi->get(), IMG_PORT_ME_LMIO, 0, kMeL1Size);
@@ -725,19 +725,19 @@ void MeTask::run()
 	/* HW_ME_3PASS_MODE_1 */
 	StageEx &HW_ME_3PASS_MODE_1 = sdRequest.emplaceStage(PEU_Stage::HW_ME_3PASS_MODE_1);
 
-	HW_ME_3PASS_MODE_1.input(in.meBTun->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(in.prevMeL0->get(), IMG_PORT_ME_L0_IMG0I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(in.meL0->get(), IMG_PORT_ME_L0_IMG1I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(in.prevMeL1->get(), IMG_PORT_ME_L1_IMG0I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(out.meL1->get(), IMG_PORT_ME_L1_IMG1I, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(out.meAFmb0->get(), IMG_PORT_ME_L0_FMBI, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(out.meAFmb1->get(), IMG_PORT_ME_L1_FMBI, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(out.meAMv0->get(), IMG_PORT_ME_L0_RMVI, 0, Size{0, 0});
-	HW_ME_3PASS_MODE_1.input(in.meMil->get(), IMG_PORT_ME_MEMILI, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.input(in.meBTun->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(in.prevMeL0->get(), IMG_PORT_ME_L0_IMG0I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(in.meL0->get(), IMG_PORT_ME_L0_IMG1I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(in.prevMeL1->get(), IMG_PORT_ME_L1_IMG0I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(out.meL1->get(), IMG_PORT_ME_L1_IMG1I, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(out.meAFmb0->get(), IMG_PORT_ME_L0_FMBI, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(out.meAFmb1->get(), IMG_PORT_ME_L1_FMBI, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(out.meAMv0->get(), IMG_PORT_ME_L0_RMVI, 0, Size{ 0, 0 });
+	HW_ME_3PASS_MODE_1.input(in.meMil->get(), IMG_PORT_ME_MEMILI, 0, Size{ 0, 0 });
 
 	HW_ME_3PASS_MODE_1.output(out.meConf0->get(), IMG_PORT_ME_CONFO, 0, kMeL1Size);
 	HW_ME_3PASS_MODE_1.output(out.meMmap[0]->get(), IMG_PORT_ME_WMAPO, 0, kMeMapSize0);
-	HW_ME_3PASS_MODE_1.output(out.meBFst->get(), IMG_PORT_ME_FSTO, 0, Size{0, 0});
+	HW_ME_3PASS_MODE_1.output(out.meBFst->get(), IMG_PORT_ME_FSTO, 0, Size{ 0, 0 });
 	HW_ME_3PASS_MODE_1.output(out.meBFmb0->get(), IMG_PORT_ME_L0_FMBO, 0, kFmbSize);
 	HW_ME_3PASS_MODE_1.output(out.meBFmb1->get(), IMG_PORT_ME_L1_FMBO, 0, kFmbSize);
 	HW_ME_3PASS_MODE_1.output(out.meBLmi->get(), IMG_PORT_ME_LMIO, 0, kMeL1Size);
@@ -749,10 +749,10 @@ void MeTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-TrTask::TrTask(Scheduler* scheduler, const std::string& id, Request* request,
-	       ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
-	       :Task(scheduler, id), requestHelper_(this, request, imgSys),
-		request_(request), manager_(manager), imgSys_(imgSys)
+TrTask::TrTask(Scheduler *scheduler, const std::string &id, Request *request,
+	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+	: Task(scheduler, id), requestHelper_(this, request, imgSys),
+	  request_(request), manager_(manager), imgSys_(imgSys)
 {
 	(void)imgSys_;
 	frames_ = mcnr.trFrames;
@@ -807,19 +807,19 @@ void TrTask::run()
 	/* HW_TR_F1 */
 	StageEx &HW_TR_F1 = sdRequest.emplaceStage(PEU_Stage::HW_TR_F1);
 
-	HW_TR_F1.input(in.trTunF1->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_TR_F1.input(in.p1F1->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+	HW_TR_F1.input(in.trTunF1->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_TR_F1.input(in.p1F1->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
 
 	HW_TR_F1.output(out.dipImgi[2]->get(), IMG_PORT_TYUV2O, 2, mcnrSizes[1]);
 	HW_TR_F1.output(out.dipImgi[3]->get(), IMG_PORT_TYUV3O, 2, mcnrSizes[2]);
 	HW_TR_F1.output(out.dipImgi[4]->get(), IMG_PORT_TYUV4O, 2, mcnrSizes[3]);
-	HW_TR_F1.output(out.trawStt->get(), IMG_PORT_IMGSTATO, 0, Size{0, 0});
+	HW_TR_F1.output(out.trawStt->get(), IMG_PORT_IMGSTATO, 0, Size{ 0, 0 });
 
 	/* HW_TR_F4 */
 	StageEx &HW_TR_F4 = sdRequest.emplaceStage(PEU_Stage::HW_TR_F4);
 
-	HW_TR_F4.input(in.trTunF4->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_TR_F4.input(out.dipImgi[4]->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+	HW_TR_F4.input(in.trTunF4->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_TR_F4.input(out.dipImgi[4]->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
 
 	HW_TR_F4.output(out.dipImgi[5]->get(), IMG_PORT_TYUV2O, 2, mcnrSizes[4]);
 	HW_TR_F4.output(out.dipImgi[6]->get(), IMG_PORT_TYUV3O, 2, mcnrSizes[5]);
@@ -827,7 +827,7 @@ void TrTask::run()
 	/* HW_TR_HWMVP */
 	StageEx &HW_TR_HWMVP = sdRequest.emplaceStage(PEU_Stage::HW_TR_HWMVP);
 
-	HW_TR_HWMVP.input(in.meMmap[0]->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+	HW_TR_HWMVP.input(in.meMmap[0]->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
 
 	HW_TR_HWMVP.output(in.meMmap[1]->get(), IMG_PORT_TYUV2O, 0, kMeMapSize1);
 	HW_TR_HWMVP.output(in.meMmap[2]->get(), IMG_PORT_TYUV3O, 0, kMeMapSize2);
@@ -836,7 +836,7 @@ void TrTask::run()
 	/* HW_TR_CONF4 */
 	StageEx &HW_TR_CONF4 = sdRequest.emplaceStage(PEU_Stage::HW_TR_CONF4);
 
-	HW_TR_CONF4.input(in.meConf0->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+	HW_TR_CONF4.input(in.meConf0->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
 	HW_TR_CONF4.output(out.meConf4->get(), IMG_PORT_TYUV5O, 0, kMeL1Size);
 
 	HW_TR_CONF4.setMvFrame(mcnrSizes[0], kMeL0Size);
@@ -844,19 +844,18 @@ void TrTask::run()
 	/* HW_TR_CONF5 */
 	StageEx &HW_TR_CONF5 = sdRequest.emplaceStage(PEU_Stage::HW_TR_CONF5);
 
-	HW_TR_CONF5.input(in.meConf0->get(), IMG_PORT_TIMGI, 0, Size{0, 0});
+	HW_TR_CONF5.input(in.meConf0->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
 	HW_TR_CONF5.output(out.meConf5->get(), IMG_PORT_TYUV5O, 0, kMeL1Size);
 
 	HW_TR_CONF5.setMvFrame(mcnrSizes[0], kMeL0Size);
 
-
 	requestHelper_.queueRequest(sdRequest);
 }
 
-Dip1Task::Dip1Task(Scheduler* scheduler, const std::string& id, Request* request,
-		   ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
-		   :Task(scheduler, id), requestHelper_(this, request, imgSys),
-		    request_(request), manager_(manager), imgSys_(imgSys)
+Dip1Task::Dip1Task(Scheduler *scheduler, const std::string &id, Request *request,
+		   ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+	: Task(scheduler, id), requestHelper_(this, request, imgSys),
+	  request_(request), manager_(manager), imgSys_(imgSys)
 {
 	frames_ = mcnr.dip1Frames;
 
@@ -953,9 +952,9 @@ void Dip1Task::run()
 	/* HW_LTR_F1 */
 	StageEx &HW_LTR_F1 = sdRequest.emplaceStage(PEU_Stage::HW_LTR_F1);
 
-	HW_LTR_F1.input(in.ltrTunF1->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_LTR_F1.input(in.prevImg4oF1->get(), IMG_PORT_WPE_WPEI, 0, Size{0, 0});
-	HW_LTR_F1.input(out.meMmap[0]->get(), IMG_PORT_WPE_VECI, 0, Size{0, 0});
+	HW_LTR_F1.input(in.ltrTunF1->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_LTR_F1.input(in.prevImg4oF1->get(), IMG_PORT_WPE_WPEI, 0, Size{ 0, 0 });
+	HW_LTR_F1.input(out.meMmap[0]->get(), IMG_PORT_WPE_VECI, 0, Size{ 0, 0 });
 
 	HW_LTR_F1.output(out.dipVipi[2]->get(), IMG_PORT_LTYUV2O, 2, mcnrSizes[1]);
 	HW_LTR_F1.output(out.dipVipi[3]->get(), IMG_PORT_LTYUV3O, 2, mcnrSizes[2]);
@@ -972,8 +971,8 @@ void Dip1Task::run()
 	/* HW_LTR_F4 */
 	StageEx &HW_LTR_F4 = sdRequest.emplaceStage(PEU_Stage::HW_LTR_F4);
 
-	HW_LTR_F4.input(in.ltrTunF4->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_LTR_F4.input(out.dipVipi[4]->get(), IMG_PORT_LTIMGI, 0, Size{0, 0});
+	HW_LTR_F4.input(in.ltrTunF4->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_LTR_F4.input(out.dipVipi[4]->get(), IMG_PORT_LTIMGI, 0, Size{ 0, 0 });
 
 	HW_LTR_F4.output(out.dipVipi[5]->get(), IMG_PORT_LTYUV2O, 2, mcnrSizes[4]);
 	HW_LTR_F4.output(out.dipVipi[6]->get(), IMG_PORT_LTYUV3O, 2, mcnrSizes[5]);
@@ -981,8 +980,8 @@ void Dip1Task::run()
 	/* HW_LTR_VBI */
 	StageEx &HW_LTR_VBI = sdRequest.emplaceStage(PEU_Stage::HW_LTR_VBI);
 
-	HW_LTR_VBI.input(in.ltrTunVbi->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_LTR_VBI.input(out.dipVbi[2]->get(), IMG_PORT_LTIMGI, 0, Size{0, 0});
+	HW_LTR_VBI.input(in.ltrTunVbi->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_LTR_VBI.input(out.dipVbi[2]->get(), IMG_PORT_LTIMGI, 0, Size{ 0, 0 });
 
 	HW_LTR_VBI.output(out.dipVbi[3]->get(), IMG_PORT_LTYUV2O, 2, mcnrSizes[2]);
 	HW_LTR_VBI.output(out.dipVbi[4]->get(), IMG_PORT_LTYUV3O, 2, mcnrSizes[3]);
@@ -1020,12 +1019,12 @@ void Dip1Task::run()
 	/* HW_DIP_IDI */
 	StageEx &HW_DIP_IDI = sdRequest.emplaceStage(PEU_Stage::HW_DIP_IDI);
 
-	HW_DIP_IDI.input(in.dipTun[6]->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_DIP_IDI.input(out.dipImgi[6]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
-	HW_DIP_IDI.input(out.dipVipi[6]->get(), IMG_PORT_VIPI, 0, Size{0, 0});
-	HW_DIP_IDI.input(in.preDipTnrso->get(), IMG_PORT_TNRSI, 0, Size{0, 0});
+	HW_DIP_IDI.input(in.dipTun[6]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_DIP_IDI.input(out.dipImgi[6]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	HW_DIP_IDI.input(out.dipVipi[6]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	HW_DIP_IDI.input(in.preDipTnrso->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
 
-	HW_DIP_IDI.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{0, 0});
+	HW_DIP_IDI.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	HW_DIP_IDI.output(out.tnrlfdi->get(), IMG_PORT_IMG3O, 0, mcnrSizes[6]);
 
 	HW_DIP_IDI.setMultiScale(IMG_MULTI_SCALE_DOWN2, 6, 7);
@@ -1067,8 +1066,8 @@ void Dip1Task::setWpeParams(StageEx &stage, unsigned int level)
 	auto &in = frames_.in;
 	auto &out = frames_.out;
 
-	stage.input(in.prevDipTnrwo[level]->get(), IMG_PORT_WPE_WPEI, 0, Size{0, 0});
-	stage.input(out.wpeVeci[level]->get(), IMG_PORT_WPE_VECI, 0, Size{0, 0});
+	stage.input(in.prevDipTnrwo[level]->get(), IMG_PORT_WPE_WPEI, 0, Size{ 0, 0 });
+	stage.input(out.wpeVeci[level]->get(), IMG_PORT_WPE_VECI, 0, Size{ 0, 0 });
 	stage.output(out.dipTnrwi[level]->get(), IMG_PORT_WPE_WPEO, 0, wtSizes[level]);
 	stage.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, wtSizes[level],
 			 NSCam::NSImgStream::EWPE_HW_LITE,
@@ -1089,23 +1088,23 @@ void Dip1Task::setDipParams(StageEx &stage, unsigned int level)
 		stage.output(out.img4oF1->get(), IMG_PORT_IMG4O, 0, mcnrSizes[level]);
 
 	if (level == 5)
-		stage.input(out.dipImgi[level + 1]->get(), IMG_PORT_REC_DSI, 2, Size{0, 0});
+		stage.input(out.dipImgi[level + 1]->get(), IMG_PORT_REC_DSI, 2, Size{ 0, 0 });
 	else
-		stage.input(out.reci[level]->get(), IMG_PORT_REC_DSI, 2, Size{0, 0});
+		stage.input(out.reci[level]->get(), IMG_PORT_REC_DSI, 2, Size{ 0, 0 });
 
-	stage.input(out.dipVipi[level]->get(), IMG_PORT_VIPI, 0, Size{0, 0});
-	stage.input(out.dipVbi[level]->get(), IMG_PORT_TNRVBI, 2, Size{0, 0});
+	stage.input(out.dipVipi[level]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	stage.input(out.dipVbi[level]->get(), IMG_PORT_TNRVBI, 2, Size{ 0, 0 });
 
-	stage.input(in.dipTun[level]->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	stage.input(out.dipImgi[level]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
-	stage.input(out.dipTnrwi[level]->get(), IMG_PORT_TNRWI, 2, Size{0, 0});
-	stage.input(out.dipTnrmi[level]->get(), IMG_PORT_TNRMI, 2, Size{0, 0});
-	stage.input(out.dipTnrso->get(), IMG_PORT_TNRSI, 0, Size{0, 0});
-	stage.input(out.dipTnrci[level]->get(), IMG_PORT_TNRCI, 2, Size{0, 0});
-	stage.input(out.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{0, 0});
+	stage.input(in.dipTun[level]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	stage.input(out.dipImgi[level]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	stage.input(out.dipTnrwi[level]->get(), IMG_PORT_TNRWI, 2, Size{ 0, 0 });
+	stage.input(out.dipTnrmi[level]->get(), IMG_PORT_TNRMI, 2, Size{ 0, 0 });
+	stage.input(out.dipTnrso->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	stage.input(out.dipTnrci[level]->get(), IMG_PORT_TNRCI, 2, Size{ 0, 0 });
+	stage.input(out.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{ 0, 0 });
 
 	stage.output(out.dipTnrwo[level]->get(), IMG_PORT_TNRWO, 0, mcnrSizes[level]);
-	stage.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{0, 0});
+	stage.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 
 	stage.output(out.dipTnrmo[level]->get(), IMG_PORT_TNRMO, 0, mcnrSizes[level]);
 	stage.output(out.img3o[level]->get(), IMG_PORT_IMG3O, 0, mcnrSizes[level]);
@@ -1115,10 +1114,10 @@ void Dip1Task::setDipParams(StageEx &stage, unsigned int level)
 	stage.setMvFrame(mcnrSizes[0], kMeL0Size);
 }
 
-Dip2Task::Dip2Task(Scheduler* scheduler, const std::string& id, Request* request,
-		   ImgSysDevice* imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
-		   :Task(scheduler, id), requestHelper_(this, request, imgSys),
-		    request_(request), manager_(manager), imgSys_(imgSys)
+Dip2Task::Dip2Task(Scheduler *scheduler, const std::string &id, Request *request,
+		   ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+	: Task(scheduler, id), requestHelper_(this, request, imgSys),
+	  request_(request), manager_(manager), imgSys_(imgSys)
 {
 	frames_ = mcnr.dip2Frames;
 	videoOut1 = mcnr.videoOut1;
@@ -1153,20 +1152,20 @@ void Dip2Task::run()
 	/* HW_DIP_F0 */
 	StageEx &HW_DIP_F0 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F0);
 
-	HW_DIP_F0.input(in.prevImg4oF0->get(), IMG_PORT_WPE_TNR_WPEI, 0, Size{0, 0});
-	HW_DIP_F0.input(in.reci[0]->get(), IMG_PORT_REC_DSI, 2, Size{0, 0});
-	HW_DIP_F0.input(in.dipTun[0]->get(), IMG_PORT_METAI, 0, Size{0, 0});
-	HW_DIP_F0.input(in.dipImgi[0]->get(), IMG_PORT_IMGI, 0, Size{0, 0});
-	HW_DIP_F0.input(in.dipTnrwi[0]->get(), IMG_PORT_TNRWI, 2, Size{0, 0});
-	HW_DIP_F0.input(in.dipTnrmi[0]->get(), IMG_PORT_TNRMI, 2, Size{0, 0});
-	HW_DIP_F0.input(out.dipTnrso->get(), IMG_PORT_TNRSI, 0, Size{0, 0});
-	HW_DIP_F0.input(in.dipTnrci[0]->get(), IMG_PORT_TNRCI, 2, Size{0, 0});
-	HW_DIP_F0.input(in.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{0, 0});
-	HW_DIP_F0.input(in.wpeVeci[0]->get(), IMG_PORT_WPE_TNR_VECI, 0, Size{0, 0});
+	HW_DIP_F0.input(in.prevImg4oF0->get(), IMG_PORT_WPE_TNR_WPEI, 0, Size{ 0, 0 });
+	HW_DIP_F0.input(in.reci[0]->get(), IMG_PORT_REC_DSI, 2, Size{ 0, 0 });
+	HW_DIP_F0.input(in.dipTun[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	HW_DIP_F0.input(in.dipImgi[0]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	HW_DIP_F0.input(in.dipTnrwi[0]->get(), IMG_PORT_TNRWI, 2, Size{ 0, 0 });
+	HW_DIP_F0.input(in.dipTnrmi[0]->get(), IMG_PORT_TNRMI, 2, Size{ 0, 0 });
+	HW_DIP_F0.input(out.dipTnrso->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	HW_DIP_F0.input(in.dipTnrci[0]->get(), IMG_PORT_TNRCI, 2, Size{ 0, 0 });
+	HW_DIP_F0.input(in.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{ 0, 0 });
+	HW_DIP_F0.input(in.wpeVeci[0]->get(), IMG_PORT_WPE_TNR_VECI, 0, Size{ 0, 0 });
 
 	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, mcnrSizes[0]);
 	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, mcnrSizes[0]);
-	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{0, 0});
+	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	HW_DIP_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
 	HW_DIP_F0.setPqInfo();
 	HW_DIP_F0.setMvFrame(mcnrSizes[0], kMeL0Size);
@@ -1190,7 +1189,7 @@ void Dip2Task::run()
 			     (unsigned int)NSCam::NSImgStream::EWPE_MVMAP | NSCam::NSImgStream::EWPE_IROI);
 
 	HW_DIP_F0.setCostLevel();
-	HW_DIP_F0.setImg4oCrop(Rectangle{0, 0, mcnrSizes[0].width, mcnrSizes[0].height});
+	HW_DIP_F0.setImg4oCrop(Rectangle{ 0, 0, mcnrSizes[0].width, mcnrSizes[0].height });
 
 	requestHelper_.queueRequest(sdRequest);
 }

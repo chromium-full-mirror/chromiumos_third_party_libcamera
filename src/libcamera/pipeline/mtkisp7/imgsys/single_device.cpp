@@ -13,8 +13,9 @@
 #include <libcamera/formats.h>
 
 #include "libcamera/internal/dma_heaps.h"
-#include <libcamera/internal/formats.h>
 #include "libcamera/internal/framebuffer.h"
+
+#include <libcamera/internal/formats.h>
 
 #include "linux/mtkisp7/mtk_header_desc.h"
 #include "platform/mtkisp7/ImageFormat.h"
@@ -27,7 +28,7 @@ NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &i
 {
 	NSCam::NSImgStream::BufferProperty property;
 
-	switch(info.format()) {
+	switch (info.format()) {
 	case libcamera::formats::SBGGR10_MTISP:
 	case libcamera::formats::SGBRG10_MTISP:
 	case libcamera::formats::SGRBG10_MTISP:
@@ -66,7 +67,7 @@ NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &i
 		std::abort();
 	}
 
-	switch(info.format()) {
+	switch (info.format()) {
 	case libcamera::formats::SBGGR10_MTISP:
 		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_B;
 		break;
@@ -136,14 +137,14 @@ bool syncCache(NSCam::NSImgStream::CacheCtrl const ctrl, int fd)
 	/* todo: Collect fds from each planes and sync once */
 	if (ctrl == NSCam::NSImgStream::eCACHECTRL_INVALID)
 		libcamera::DmaHeap::sync(
-				fd,
-				libcamera::DmaHeap::Start,
-				libcamera::DmaHeap::SyncReadWrite);
+			fd,
+			libcamera::DmaHeap::Start,
+			libcamera::DmaHeap::SyncReadWrite);
 	else
 		libcamera::DmaHeap::sync(
-				fd,
-				libcamera::DmaHeap::End,
-				libcamera::DmaHeap::SyncReadWrite);
+			fd,
+			libcamera::DmaHeap::End,
+			libcamera::DmaHeap::SyncReadWrite);
 	return true;
 }
 
@@ -172,21 +173,22 @@ void StageEx::setWpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id, Size crop, N
 	auto &param = extra_.back();
 
 	param.mID = id;
-	auto crpInfo = WPE_CrpInfo{.x_start_point=0, .x_end_point=crop.width - 1,
-				   .y_start_point=0, .y_end_point=crop.height - 1};
+	auto crpInfo = WPE_CrpInfo{ .x_start_point = 0, .x_end_point = crop.width - 1, .y_start_point = 0, .y_end_point = crop.height - 1 };
 
-	auto crpOfstInfo = WPE_CrpOfstInfo{.x_start=0, .hr_int_ofst=0,
-				      .hr_sub_ofst=0, .y_start=0,
-				      .vt_int_ofst=0, .vt_sub_ofst=0,
-				      .wd=0, .ht=0};
+	auto crpOfstInfo = WPE_CrpOfstInfo{ .x_start = 0, .hr_int_ofst = 0, .hr_sub_ofst = 0, .y_start = 0, .vt_int_ofst = 0, .vt_sub_ofst = 0, .wd = 0, .ht = 0 };
 
 	param.mData.mWPEInfo = WPEInfo{
-		.wpe_mode=(WPE_MODE)mode,
-		.vgen_out=crpInfo,
-		.tbl_sel_v=(PSP_TABLE_SEL)1, .tbl_sel_h=(PSP_TABLE_SEL)1,
-		.extra_feature_index=featureIndex, .rgb_mode=(RGB_MODE)0,
-		.vgen_in=crpOfstInfo, .psp_border_color_y=0, .psp_border_color_u=0,
-		.psp_border_color_v=0};
+		.wpe_mode = (WPE_MODE)mode,
+		.vgen_out = crpInfo,
+		.tbl_sel_v = (PSP_TABLE_SEL)1,
+		.tbl_sel_h = (PSP_TABLE_SEL)1,
+		.extra_feature_index = featureIndex,
+		.rgb_mode = (RGB_MODE)0,
+		.vgen_in = crpOfstInfo,
+		.psp_border_color_y = 0,
+		.psp_border_color_u = 0,
+		.psp_border_color_v = 0
+	};
 }
 
 void StageEx::setMvFrame(Size f0, Size me)
@@ -196,9 +198,8 @@ void StageEx::setMvFrame(Size f0, Size me)
 
 	param.mID = IMG_EXTRA_PARAM_ID_MVFRAME_INFO;
 	param.mData.mMVFrameInfo = MVFrameInfo{
-		.mF0Width=f0.width, .mF0Height=f0.height,
-		.mME0Width=me.width, .mME0Height=me.height,
-		.mConfScaleRatio=4};
+		.mF0Width = f0.width, .mF0Height = f0.height, .mME0Width = me.width, .mME0Height = me.height, .mConfScaleRatio = 4
+	};
 }
 
 void StageEx::setMeInfo(NSCam::NSImgStream::ME_MODE mode)
@@ -207,7 +208,7 @@ void StageEx::setMeInfo(NSCam::NSImgStream::ME_MODE mode)
 	auto &param = extra_.back();
 
 	param.mID = IMG_EXTRA_PARAM_ID_ME_INFO;
-	param.mData.mMEInfo = MEInfo{.me_mode=mode};
+	param.mData.mMEInfo = MEInfo{ .me_mode = mode };
 }
 
 void StageEx::setAplInfo()
@@ -216,7 +217,7 @@ void StageEx::setAplInfo()
 	auto &param = extra_.back();
 
 	param.mID = IMG_EXTRA_PARAM_ID_APL_INFO;
-	param.mData.mAPLInfo = APLInfo{.mAplEnable=1};
+	param.mData.mAPLInfo = APLInfo{ .mAplEnable = 1 };
 }
 
 void StageEx::setMultiScale(NSCam::NSImgStream::IMG_MULTI_SCALE_RATIO ratio,
@@ -227,7 +228,8 @@ void StageEx::setMultiScale(NSCam::NSImgStream::IMG_MULTI_SCALE_RATIO ratio,
 
 	param.mID = IMG_EXTRA_PARAM_ID_DIP_MULTISCALE_INFO;
 	param.mData.mMutiScaleInfo = MultiScaleInfo{
-		.mScaleRatio=ratio, .mScaleIdx=index, .mScaleTotal=total};
+		.mScaleRatio = ratio, .mScaleIdx = index, .mScaleTotal = total
+	};
 }
 
 void StageEx::setPqInfo()
@@ -237,8 +239,8 @@ void StageEx::setPqInfo()
 
 	param.mID = IMG_EXTRA_PARAM_ID_PQ_PORT_INFO;
 	param.mData.mPQPortInfo = PQPortInfo{
-	    .mWdmaoPQIdx=1, .mWdmaoUserString=0, .mWdmaoBypassCrop=0,
-	    .mWrotoPQIdx=2, .mWrotoUserString=0, .mWrotoBypassCrop=0};
+		.mWdmaoPQIdx = 1, .mWdmaoUserString = 0, .mWdmaoBypassCrop = 0, .mWrotoPQIdx = 2, .mWrotoUserString = 0, .mWrotoBypassCrop = 0
+	};
 }
 
 void StageEx::setImg4oCrop(const Rectangle &crop)
@@ -248,11 +250,12 @@ void StageEx::setImg4oCrop(const Rectangle &crop)
 
 	param.mID = IMG_EXTRA_PARAM_ID_P_IMG4O_CROP_INFO;
 	param.mData.mPImg4oCropInfo = PImg4oCropInfo{
-		.p_img4o_crop_x=(uint32_t)crop.x,
-		.p_img4o_crop_y=(uint32_t)crop.y,
-		.p_img4o_crop_w=(uint32_t)crop.width,
-		.p_img4o_crop_h=(uint32_t)crop.height,
-		.tnrwo_scale_ratio=8};
+		.p_img4o_crop_x = (uint32_t)crop.x,
+		.p_img4o_crop_y = (uint32_t)crop.y,
+		.p_img4o_crop_w = (uint32_t)crop.width,
+		.p_img4o_crop_h = (uint32_t)crop.height,
+		.tnrwo_scale_ratio = 8
+	};
 }
 
 void StageEx::setCostLevel()
@@ -261,7 +264,7 @@ void StageEx::setCostLevel()
 	auto &param = extra_.back();
 
 	param.mID = IMG_EXTRA_PARAM_ID_COST_LEVEL_INFO;
-	param.mData.mCostLevel = WPECostLevel{.costlevel=(COST_LEVEL)0};
+	param.mData.mCostLevel = WPECostLevel{ .costlevel = (COST_LEVEL)0 };
 }
 
 void StageEx::addNotify(uint32_t sync)
@@ -300,8 +303,8 @@ void SingleDeviceRequest::fillFrameParams(
 }
 
 void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
-					    InfoFrame &infoDesc,
-					    int requestFd, size_t stage)
+						    InfoFrame &infoDesc,
+						    int requestFd, size_t stage)
 {
 	std::vector<FrameParams> mvFrameParams;
 	auto &frameParams = mvFrameParams.emplace_back();
@@ -314,10 +317,10 @@ void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
 	pParams->mRequestNo = sequence();
 	pParams->mFrameNo = sequence();
 	pParams->mNumBatchRun = 1;
-	pParams->mvFrameParams = std::vector<FrameParams>({mvFrameParams});
+	pParams->mvFrameParams = std::vector<FrameParams>({ mvFrameParams });
 
 	NSCam::NSImgStream::IImageBuffer imageCM(toBufferPropery(infoCtrl));
-	CtrlMetaBuf CMBuf {
+	CtrlMetaBuf CMBuf{
 		.mFd = imageCM.getPlaneFD(0),
 		.mOffset = (MUINT32)imageCM.getPlaneOffsetInBytes(0),
 		.mBufSize = (MINT32)imageCM.getBufSizeInBytes(0),
@@ -366,7 +369,7 @@ void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
 		for (auto &input : frameParam.mvIn)
 			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
 				syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID,
-						  input.mBuffer->getPlaneFD(0));
+					  input.mBuffer->getPlaneFD(0));
 	}
 
 	createSingleDevBuffer(&reqInfo, &initParam, userid, V4L2_MODE_SIGNLE_DEVICE, &descBuf);
@@ -375,7 +378,7 @@ void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
 		for (auto &input : frameParam.mvIn)
 			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
 				syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH,
-						  input.mBuffer->getPlaneFD(0));
+					  input.mBuffer->getPlaneFD(0));
 	}
 
 	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoCtrl.buffer()->planes()[0].fd.get());
@@ -403,9 +406,8 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 	pParams->mNumBatchRun = 1;
 	pParams->mvFrameParams.swap(mvFrameParams);
 
-
 	NSCam::NSImgStream::IImageBuffer imageCM(toBufferPropery(infoCtrl));
-	CtrlMetaBuf CMBuf {
+	CtrlMetaBuf CMBuf{
 		.mFd = imageCM.getPlaneFD(0),
 		.mOffset = (MUINT32)imageCM.getPlaneOffsetInBytes(0),
 		.mBufSize = (MINT32)imageCM.getBufSizeInBytes(0),
@@ -448,7 +450,7 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 		for (auto &input : frameParam.mvIn)
 			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
 				syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID,
-						  input.mBuffer->getPlaneFD(0));
+					  input.mBuffer->getPlaneFD(0));
 	}
 
 	createSingleDevBuffer(&reqInfo, &initParam, userid, V4L2_MODE_SIGNLE_DEVICE, &descBuf);
@@ -457,7 +459,7 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 		for (auto &input : frameParam.mvIn)
 			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
 				syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH,
-						  input.mBuffer->getPlaneFD(0));
+					  input.mBuffer->getPlaneFD(0));
 	}
 
 	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoCtrl.buffer()->planes()[0].fd.get());
@@ -469,12 +471,10 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 std::vector<PEU_Stage> SingleDeviceRequest::getStageEnums() const
 {
 	std::vector<PEU_Stage> stageEnums;
-	for (const auto &stage: stages_) {
+	for (const auto &stage : stages_) {
 		stageEnums.push_back(stage.getStageEnum());
 	}
 	return stageEnums;
 }
 
 } // namespace libcamera
-
-

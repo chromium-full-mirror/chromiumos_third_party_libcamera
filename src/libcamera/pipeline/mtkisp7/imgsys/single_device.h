@@ -7,23 +7,22 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <cstddef>
+#include <stdint.h>
 #include <vector>
 
+#include "libcamera/internal/info_frame.h"
+
 #include "libcamera/framebuffer.h"
+#include "linux/mtkisp7/drv/7.1/common.h"
+#include "linux/mtkisp7/drv/7.1/hw_definition.h"
 #include "platform/mtkisp7/BuiltinTypes.h"
-#include "platform/mtkisp7/eightcc.h"
 #include "platform/mtkisp7/IImgStreamDef.h"
 #include "platform/mtkisp7/ImageFormat.h"
 #include "platform/mtkisp7/ImgPortDef.h"
-#include "platform/mtkisp7/single_device_helper.h"
 #include "platform/mtkisp7/UITypes.h"
-
-#include "linux/mtkisp7/drv/7.1/hw_definition.h"
-#include "linux/mtkisp7/drv/7.1/common.h"
-
-#include "libcamera/internal/info_frame.h"
+#include "platform/mtkisp7/eightcc.h"
+#include "platform/mtkisp7/single_device_helper.h"
 
 #define V4L2_STANDARD_MODE false
 
@@ -59,29 +58,32 @@ struct PortInfoEx {
 
 	uint32_t portIdx;
 	int mResizeRatio;
-	int CropX;       //! X integer start position for cropping
-	int CropY;       //! Y integer start position for crpping
-	int CropW;       //! width integer of cropped image
-	int CropH;       //! height integer of cropped image
-	int CropFloatX;  //! X float start position for cropping
-	int CropFloatY;  //! Y float start position for cropping
-	int CropFloatW;  //! width float of cropped image
-	int CropFloatH;  //! height float of cropped image
+	int CropX; //! X integer start position for cropping
+	int CropY; //! Y integer start position for crpping
+	int CropW; //! width integer of cropped image
+	int CropH; //! height integer of cropped image
+	int CropFloatX; //! X float start position for cropping
+	int CropFloatY; //! Y float start position for cropping
+	int CropFloatW; //! width float of cropped image
+	int CropFloatH; //! height float of cropped image
 };
 
-class StageEx {
+class StageEx
+{
 public:
 	StageEx(PEU_Stage stageEnum) { stageEnum_ = stageEnum; }
 	~StageEx() = default;
 
 	void input(const InfoFrame &info, uint32_t idx, int ratio, const Rectangle &crop);
-	void input(const InfoFrame &info, uint32_t idx, int ratio, const Size &size) {
-		input(info, idx, ratio, Rectangle{size});
+	void input(const InfoFrame &info, uint32_t idx, int ratio, const Size &size)
+	{
+		input(info, idx, ratio, Rectangle{ size });
 	}
 
 	void output(const InfoFrame &info, uint32_t idx, int ratio, const Rectangle &crop);
-	void output(const InfoFrame &info, uint32_t idx, int ratio, const Size &size) {
-		output(info, idx, ratio, Rectangle{size});
+	void output(const InfoFrame &info, uint32_t idx, int ratio, const Size &size)
+	{
+		output(info, idx, ratio, Rectangle{ size });
 	}
 
 	void setWpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id,
@@ -102,11 +104,13 @@ public:
 
 	PEU_Stage getStageEnum() const { return stageEnum_; }
 
-	const std::vector<PortInfoEx> &getInputs() {
+	const std::vector<PortInfoEx> &getInputs()
+	{
 		return inputs_;
 	}
 
-	const std::vector<PortInfoEx> &getOutputs() {
+	const std::vector<PortInfoEx> &getOutputs()
+	{
 		return outputs_;
 	}
 
@@ -123,12 +127,14 @@ private:
 	PEU_Stage stageEnum_;
 };
 
-class SingleDeviceRequest {
+class SingleDeviceRequest
+{
 public:
 	StageEx &emplaceStage(PEU_Stage stageEnum) { return stages_.emplace_back(stageEnum); }
 	std::vector<StageEx> &Stages() { return stages_; }
 
-	void init(uint32_t sequence, uint32_t timestamp, const std::string &id) {
+	void init(uint32_t sequence, uint32_t timestamp, const std::string &id)
+	{
 		sequence_ = sequence;
 		timestamp_ = timestamp;
 		id_ = id;

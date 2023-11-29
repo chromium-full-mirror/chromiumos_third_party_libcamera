@@ -6,8 +6,8 @@
  */
 
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <libcamera/base/log.h>
 
@@ -27,11 +27,9 @@
 
 #include "camsys/camsys.h"
 #include "camsys/capture.h"
-
 #include "imgsys/imgsys.h"
-#include "imgsys/mcnr.h"
 #include "imgsys/lpnr.h"
-
+#include "imgsys/mcnr.h"
 #include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -60,7 +58,7 @@ enum MtkISP7TaskGroup {
 	CompleteGroup,
 };
 
-static const std::map<MtkISP7TaskGroup, std::string> kGroupName {
+static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ SofGroup, "SofGroup" },
 	{ CaptureQueueGroup, "CaptureQueueGroup" },
 	{ CaptureDequeueGroup, "CaptureDequeueGroup" },
@@ -78,10 +76,10 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName {
 class CompleteRequestTask : public Task
 {
 public:
-	CompleteRequestTask(Scheduler* scheduler,
-			    const std::string& id,
-			    Request* request,
-			    PipelineHandler* pipe,
+	CompleteRequestTask(Scheduler *scheduler,
+			    const std::string &id,
+			    Request *request,
+			    PipelineHandler *pipe,
 			    SharedMailBox<MtkCameraFaceMetadata> faceMetadata);
 
 	virtual void run() override final;
@@ -89,21 +87,21 @@ public:
 private:
 	void convertFaceMetadata(ControlList &out);
 
-	PipelineHandler* pipe_;
-	Request* request_;
+	PipelineHandler *pipe_;
+	Request *request_;
 	SharedMailBox<MtkCameraFaceMetadata> faceMetadata_;
 };
 
-
-CompleteRequestTask::CompleteRequestTask(Scheduler* scheduler,
-					 const std::string& id,
-					 Request* request,
-					 PipelineHandler* pipe,
+CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
+					 const std::string &id,
+					 Request *request,
+					 PipelineHandler *pipe,
 					 SharedMailBox<MtkCameraFaceMetadata>
-					 	faceMetadata) :
-	Task(scheduler, id), pipe_(pipe), request_(request),
-	faceMetadata_(std::move(faceMetadata))
-{}
+						 faceMetadata)
+	: Task(scheduler, id), pipe_(pipe), request_(request),
+	  faceMetadata_(std::move(faceMetadata))
+{
+}
 
 class MtkISP7CameraData : public Camera::Private
 {
@@ -132,7 +130,7 @@ public:
 	Stream stillStream_;
 
 	uint32_t frameSequence_ = 0;
-	std::list<SofTask*> pendingSofTasks_;
+	std::list<SofTask *> pendingSofTasks_;
 
 	Size sensorFullSize_;
 	CamSysDevice *camSysDev_;
@@ -170,7 +168,7 @@ public:
 	PipelineHandlerMtkISP7(CameraManager *manager);
 
 	std::unique_ptr<CameraConfiguration> generateConfiguration(Camera *camera,
-		Span<const StreamRole> roles) override;
+								   Span<const StreamRole> roles) override;
 	int configure(Camera *camera, CameraConfiguration *config) override;
 
 	int exportFrameBuffers(Camera *camera, Stream *stream,
@@ -304,14 +302,15 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 		{ 1280, 960 },
 		{ 1600, 1200 },
 		{ 1920, 1080 },
-		{ 1920, 1440},
+		{ 1920, 1440 },
 		{ 2560, 1440 },
 		{ 2560, 1920 },
 	};
 
-	const Stream* streams[2]{
+	const Stream *streams[2]{
 		&data_->video1Stream_,
-		&data_->video2Stream_};
+		&data_->video2Stream_
+	};
 
 	int videoCnt = 0;
 	for (StreamConfiguration &cfg : config_) {
@@ -329,19 +328,19 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 		switch (cfg.role) {
 		case StreamRole::Viewfinder:
 		case StreamRole::VideoRecording:
-				if (videoCnt >= 2) {
-					LOG(MtkISP7, Error)
-						<< "Support only 2 Preview/Video streams";
-					return Invalid;
-				}
-				cfg.setStream(const_cast<Stream *>(streams[videoCnt++]));
-				break;
-		case StreamRole::StillCapture:
-				cfg.setStream(const_cast<Stream *>(&data_->stillStream_));
-				break;
-		default:
-				LOG(MtkISP7, Error) << "Invalid StreamRole " << cfg.role;
+			if (videoCnt >= 2) {
+				LOG(MtkISP7, Error)
+					<< "Support only 2 Preview/Video streams";
 				return Invalid;
+			}
+			cfg.setStream(const_cast<Stream *>(streams[videoCnt++]));
+			break;
+		case StreamRole::StillCapture:
+			cfg.setStream(const_cast<Stream *>(&data_->stillStream_));
+			break;
+		default:
+			LOG(MtkISP7, Error) << "Invalid StreamRole " << cfg.role;
+			return Invalid;
 		}
 	}
 
@@ -368,13 +367,13 @@ PipelineHandlerMtkISP7::generateConfiguration(Camera *camera, Span<const StreamR
 	Size maxSize = data->sensorFullSize_;
 	PixelFormat pixelFormat = formats::NV12;
 
-	std::map<PixelFormat, std::vector<SizeRange>> streamFormats =
-		{ {pixelFormat, { { CamSysDevice::kMinResolution, maxSize } } } };
+	std::map<PixelFormat, std::vector<SizeRange>> streamFormats = { { pixelFormat, { { CamSysDevice::kMinResolution, maxSize } } } };
 	StreamFormats formats(streamFormats);
 
-	 Stream* streams[2]{
+	Stream *streams[2]{
 		&data->video1Stream_,
-		&data->video2Stream_};
+		&data->video2Stream_
+	};
 
 	int videoCnt = 0;
 	for (const StreamRole role : roles) {
@@ -645,9 +644,9 @@ void MtkISP7CameraData::frameStart(uint32_t sequence)
 int MtkISP7CameraData::configure(CameraConfiguration *c)
 {
 	Size camsysYuvSize;
-	Size video1 = Size{0, 0};
-	Size video2 = Size{0, 0};
-	Size still = Size{0, 0};
+	Size video1 = Size{ 0, 0 };
+	Size video2 = Size{ 0, 0 };
+	Size still = Size{ 0, 0 };
 
 	/* Only cover the video resolution */
 	for (auto &cfg : *c) {
@@ -666,11 +665,11 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 
 	/* Only support 4:3 resolution as output of CamSys */
 	std::vector<Size> supportedSize = {
-		{1280, 960},
-		{1440, 1080},
-		{1600, 1200},
-		{1920, 1440},
-		{2560, 1920},
+		{ 1280, 960 },
+		{ 1440, 1080 },
+		{ 1600, 1200 },
+		{ 1920, 1440 },
+		{ 2560, 1920 },
 	};
 
 	/* Support sensor full size. */
@@ -678,7 +677,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 
 	/* Find the smallest supported size which covers video streams */
 	bool found = false;
-	for (auto &size :supportedSize) {
+	for (auto &size : supportedSize) {
 		if (size >= camsysYuvSize) {
 			camsysYuvSize = size;
 			found = true;
@@ -810,7 +809,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, stillBuffer);
 
 		auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
-				lpnr, scheduler, "Lpnr " + sequence, request, imgSysDev_);
+			lpnr, scheduler, "Lpnr " + sequence, request, imgSysDev_);
 
 		if (hasVideo) {
 			Scheduler::precede(taskTr, taskXtr);

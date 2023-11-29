@@ -15,72 +15,73 @@
 
 namespace libcamera {
 
-class ImagiqAdapter {
+class ImagiqAdapter
+{
 public:
-    struct ExportResult {
-        Dump dump;
-        std::optional<int> errorCode = std::nullopt;
-        std::optional<std::vector<std::filesystem::path>> paths = std::nullopt;
-    };
-    using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
+	struct ExportResult {
+		Dump dump;
+		std::optional<int> errorCode = std::nullopt;
+		std::optional<std::vector<std::filesystem::path>> paths = std::nullopt;
+	};
+	using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
 
-    static ExportResult exportDump(const Dump& dump);
+	static ExportResult exportDump(const Dump &dump);
 
-    static int loadConfig(
-            std::map<Dump::Id, Dump::Config> &config,
-            const std::filesystem::path &workPath);
+	static int loadConfig(
+		std::map<Dump::Id, Dump::Config> &config,
+		const std::filesystem::path &workPath);
 
-    static std::string getDumpFileName(const Dump &dump);
+	static std::string getDumpFileName(const Dump &dump);
 
-    static int importDump(const Dump &dump);
+	static int importDump(const Dump &dump);
 
-    static int prepareReimport(const ExportResult &dumpResult);
+	static int prepareReimport(const ExportResult &dumpResult);
 
 private:
-    static std::string createImportConfigId(const Dump &dump);
+	static std::string createImportConfigId(const Dump &dump);
 
-    static ExportResult exportDumpMergePlanes(
-            const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
-            const NSCam::TuningUtils::NddData &ndd,
-            const std::string &fileSuffix="");
+	static ExportResult exportDumpMergePlanes(
+		const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
+		const NSCam::TuningUtils::NddData &ndd,
+		const std::string &fileSuffix = "");
 
-    static ExportResult exportDumpSplitPlanes(
-            const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
-            const NSCam::TuningUtils::NddData &ndd,
-            const PixelFormat &pixelFormat,
-            const std::string &fileSuffix="");
+	static ExportResult exportDumpSplitPlanes(
+		const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
+		const NSCam::TuningUtils::NddData &ndd,
+		const PixelFormat &pixelFormat,
+		const std::string &fileSuffix = "");
 
-    static std::string formatPlaneName(int planeNumber,
-                                       const PixelFormat &pixelFormat);
+	static std::string formatPlaneName(int planeNumber,
+					   const PixelFormat &pixelFormat);
 
-    static std::filesystem::path getDumpFileNameSplitPlanes(
-            const Dump &dumpInfo, const NSCam::TuningUtils::NddData &ndd,
-            int planeNumber, const std::optional<PixelFormat> pixelFormat,
-            const std::string &suffix="");
+	static std::filesystem::path getDumpFileNameSplitPlanes(
+		const Dump &dumpInfo, const NSCam::TuningUtils::NddData &ndd,
+		int planeNumber, const std::optional<PixelFormat> pixelFormat,
+		const std::string &suffix = "");
 
-    static std::filesystem::path getDumpFileNameSingleFile(
-            const Dump &dumpInfo, const NSCam::TuningUtils::NddData &ndd,
-            const std::string &suffix="");
+	static std::filesystem::path getDumpFileNameSingleFile(
+		const Dump &dumpInfo, const NSCam::TuningUtils::NddData &ndd,
+		const std::string &suffix = "");
 
-    static std::string getFileExtension(const PixelFormat &pixelFormat);
+	static std::string getFileExtension(const PixelFormat &pixelFormat);
 
-    static int loadBaseConfig(
-            std::map<Dump::Id, Dump::Config> &config,
-            const std::filesystem::path &workPath);
+	static int loadBaseConfig(
+		std::map<Dump::Id, Dump::Config> &config,
+		const std::filesystem::path &workPath);
 
-    static int loadImportConfig(
-            std::map<Dump::Id, Dump::Config> &config,
-            const std::filesystem::path &workPath);
+	static int loadImportConfig(
+		std::map<Dump::Id, Dump::Config> &config,
+		const std::filesystem::path &workPath);
 
-    static NSCam::TuningUtils::NddData
-    parseNdd(const Dump &dumpInfo);
+	static NSCam::TuningUtils::NddData
+	parseNdd(const Dump &dumpInfo);
 
-    static bool shouldSplitExport(const PixelFormat &pixelFormat);
+	static bool shouldSplitExport(const PixelFormat &pixelFormat);
 
-    static const SensorIdMap kSensorIdMap;
-    static const std::array<std::string, 2> kYcPlaneNames;
-    static const std::array<std::string, 3> kYuvPlaneNames;
-    static const std::array<std::string, 2> kWarpPlaneNames;
+	static const SensorIdMap kSensorIdMap;
+	static const std::array<std::string, 2> kYcPlaneNames;
+	static const std::array<std::string, 3> kYuvPlaneNames;
+	static const std::array<std::string, 2> kWarpPlaneNames;
 };
 
 } // namespace libcamera

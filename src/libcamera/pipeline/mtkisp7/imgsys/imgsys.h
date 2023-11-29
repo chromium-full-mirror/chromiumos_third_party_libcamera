@@ -10,13 +10,13 @@
 #include <string>
 
 #include "libcamera/internal/info_frame.h"
+#include "libcamera/internal/task_scheduler.h"
 #include "libcamera/internal/v4l2_subdevice.h"
 #include "libcamera/internal/v4l2_videodevice.h"
-#include "libcamera/internal/task_scheduler.h"
-
-#include "single_device.h"
 
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
+#include "single_device.h"
 
 namespace libcamera {
 
@@ -28,7 +28,7 @@ class ImgsysVideoDevice : public V4L2VideoDevice
 {
 public:
 	using V4L2VideoDevice::V4L2VideoDevice;
-	int configure(V4L2DeviceFormat* fmt, int resizeRatio, Rectangle crop);
+	int configure(V4L2DeviceFormat *fmt, int resizeRatio, Rectangle crop);
 
 private:
 	int resizeRatio_;
@@ -80,7 +80,8 @@ private:
 	std::unique_ptr<V4L2Subdevice> mtkIspDip_;
 	std::unordered_map<
 		NSCam::NSImgStream::IMG_PORT,
-		std::unique_ptr<ImgsysVideoDevice>> allVideoDevices_;
+		std::unique_ptr<ImgsysVideoDevice>>
+		allVideoDevices_;
 
 	InfoFramePool descPool_;
 	InfoFramePool ctrlMetaPool_;
@@ -100,7 +101,7 @@ private:
 	std::list<Request *> completedRequests_;
 
 	MediaDevice *media_;
-	DmaHeap* dmaHeap_;
+	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
 
 	void *backEndLibrary_;
@@ -109,9 +110,10 @@ private:
 class ImgSysRequestHelper
 {
 public:
-	ImgSysRequestHelper(Task *task, Request *request, ImgSysDevice* imgSys)
-			    :task_(task), request_(request), imgSys_(imgSys)
-	{}
+	ImgSysRequestHelper(Task *task, Request *request, ImgSysDevice *imgSys)
+		: task_(task), request_(request), imgSys_(imgSys)
+	{
+	}
 
 	void queueRequest(SingleDeviceRequest &sdRequest);
 	void requestReady(ImgSysDevice::Request *request);

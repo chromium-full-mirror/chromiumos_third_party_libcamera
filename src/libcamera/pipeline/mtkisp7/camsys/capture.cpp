@@ -7,16 +7,17 @@
 
 #include "capture.h"
 
-#include "linux/mtkisp7/mtk_cam-meta-mt8188.h"
-
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
 #include <libcamera/request.h>
 
 #include "libcamera/internal/framebuffer.h"
-#include <libcamera/internal/info_frame.h>
 #include "libcamera/internal/mapped_framebuffer.h"
 #include "libcamera/internal/pipeline_handler.h"
+
+#include <libcamera/internal/info_frame.h>
+
+#include "linux/mtkisp7/mtk_cam-meta-mt8188.h"
 
 #include "camsys.h"
 
@@ -28,11 +29,12 @@ namespace {
 
 static constexpr Size kMeSize = Size{ 576, 432 };
 static constexpr Size kFdSize = Size{ 640, 480 };
-static constexpr Size kMetaSize = Size{113664, 1};
-static constexpr Size kStatSize0 = Size{1081344, 1};
-static constexpr Size kStatSize1 = Size{528384, 1};
+static constexpr Size kMetaSize = Size{ 113664, 1 };
+static constexpr Size kStatSize0 = Size{ 1081344, 1 };
+static constexpr Size kStatSize1 = Size{ 528384, 1 };
 
-class TuningBuffers {
+class TuningBuffers
+{
 public:
 	TuningBuffers();
 	void fillTuningBuffer(FrameBuffer *buffer);
@@ -43,14 +45,14 @@ private:
 
 TuningBuffers::TuningBuffers()
 {
-	FILE *file = fopen("/etc/camera/back_settings/raw_meta.bin","rb");
+	FILE *file = fopen("/etc/camera/back_settings/raw_meta.bin", "rb");
 	if (!file) {
 		LOG(MtkISP7, Error) << "Fail to load tuning file";
 		return;
 	}
 
 	LOG(MtkISP7, Error) << "Size of P1 tuning " << sizeof(tuning_);
-	(void)fread(&tuning_, sizeof(tuning_) , 1, file);
+	(void)fread(&tuning_, sizeof(tuning_), 1, file);
 	fclose(file);
 }
 
@@ -68,11 +70,12 @@ static TuningBuffers tuningBuffers;
 
 CaptureTasksManager::CaptureTasksManager(OnDeviceTuner *odt)
 	: onDeviceTuner_(odt)
-{}
+{
+}
 
 int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 				   CamSysDevice *camSys,
-				   PipelineHandler* pipe,
+				   PipelineHandler *pipe,
 				   const Size &rawFrameSize,
 				   const Size &yuvFrameSize)
 {
@@ -134,9 +137,9 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 }
 
 std::tuple<QueueTask *, DequeueTask *, SofTask *>
-CaptureTasksManager::makeCaptureTasks(Scheduler* scheduler,
-				      const std::string& id,
-				      Request* request,
+CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
+				      const std::string &id,
+				      Request *request,
 				      CaptureFrames &captureFrames)
 {
 	(void)id;
@@ -235,8 +238,7 @@ void DequeueTask::requestReady(CamSysDevice::Request *request)
 void DequeueTask::done()
 {
 	if (request_) {
-		FrameBuffer *buffer = (data_->request.main) ?
-			data_->request.main : data_->request.yuvo1;
+		FrameBuffer *buffer = (data_->request.main) ? data_->request.main : data_->request.yuvo1;
 
 		ControlList metadata;
 		metadata.set(controls::SensorTimestamp,

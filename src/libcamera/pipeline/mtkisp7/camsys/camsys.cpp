@@ -7,15 +7,15 @@
 
 #include "camsys.h"
 
-#include "linux/mtkisp7/imgsensor-user.h"
-#include "linux/v4l2-controls.h"
-
-#include <libcamera/framebuffer.h>
 #include <libcamera/formats.h>
+#include <libcamera/framebuffer.h>
 #include <libcamera/geometry.h>
 
-#include "libcamera/internal/media_device.h"
 #include "libcamera/internal/camera_sensor_properties.h"
+#include "libcamera/internal/media_device.h"
+
+#include "linux/mtkisp7/imgsensor-user.h"
+#include "linux/v4l2-controls.h"
 
 namespace libcamera {
 
@@ -81,8 +81,7 @@ int CamSysDevice::init(MediaDevice *media, unsigned int index)
 	/* Helper function to create video nodes and collect them into
 	 * allVideoDevices_ for easier StreamOn/Off. */
 	auto getVideoDevice = [this](const std::string &name,
-				 std::unique_ptr<V4L2VideoDevice> &videoDevice) {
-
+				     std::unique_ptr<V4L2VideoDevice> &videoDevice) {
 		MediaEntity *entity = media_->getEntityByName(name);
 		videoDevice = std::make_unique<V4L2VideoDevice>(entity);
 
@@ -119,7 +118,7 @@ int CamSysDevice::init(MediaDevice *media, unsigned int index)
 		// For now, ignore the open error for rawi2.
 		if (ret && device != rawi2_.get()) {
 			LOG(MtkISP7, Error) << "Fail to open "
-					   << device->devicePath();
+					    << device->devicePath();
 			close();
 			return ret;
 		}
@@ -164,7 +163,7 @@ int CamSysDevice::start()
 		ret = device->streamOn();
 		if (ret) {
 			LOG(MtkISP7, Error) << "Fail to streamOn "
-					   << device->devicePath();
+					    << device->devicePath();
 			return ret;
 		}
 	}
@@ -198,7 +197,7 @@ int CamSysDevice::stop()
 		ret = device->releaseBuffers();
 		if (ret) {
 			LOG(MtkISP7, Error) << "Fail to release buffers "
-					   << device->devicePath();
+					    << device->devicePath();
 			return ret;
 		}
 	}
@@ -291,7 +290,7 @@ int CamSysDevice::queueRequest(Request *request)
 
 	// todo: Set pending number by the framebuffers queued, instead of
 	// hard coding as a magic number 8.
-	pendingRequests_.emplace_back(PendingRequest{request, mediaRequest, 8});
+	pendingRequests_.emplace_back(PendingRequest{ request, mediaRequest, 8 });
 
 	return 0;
 }
@@ -363,25 +362,25 @@ int CamSysDevice::setupResource()
 	struct mtk_cam_resource camsysResource;
 	camsysResource.sink_fmt = (__u64)&format.subdevFmt.format;
 
-	auto& sensorResource = camsysResource.sensor_res;
+	auto &sensorResource = camsysResource.sensor_res;
 
 	IPACameraSensorInfo sensorInfo;
 	sensor_->sensorInfo(&sensorInfo);
-	auto ctrls = sensor_->getControls({V4L2_CID_HBLANK, V4L2_CID_VBLANK});
+	auto ctrls = sensor_->getControls({ V4L2_CID_HBLANK, V4L2_CID_VBLANK });
 
 	const ControlInfo hblank = ctrls.infoMap()->at(V4L2_CID_HBLANK);
 	const ControlInfo vblank = ctrls.infoMap()->at(V4L2_CID_VBLANK);
 
-	sensorResource.interval = {1, 30};
+	sensorResource.interval = { 1, 30 };
 	sensorResource.hblank = hblank.min().get<int32_t>();
 	sensorResource.vblank = vblank.max().get<int32_t>();
 	sensorResource.pixel_rate = sensorInfo.pixelRate;
 	sensorResource.cust_pixel_rate = sensorInfo.pixelRate;
 
-	auto& rawResource(camsysResource.raw_res);
+	auto &rawResource(camsysResource.raw_res);
 	rawResource.feature = 0;
 	rawResource.strategy = 3;
-	rawResource.raw_max = (uint8_t)MTK_CAM_RESOURCE_DEFAULT;;
+	rawResource.raw_max = (uint8_t)MTK_CAM_RESOURCE_DEFAULT;
 	rawResource.raw_min = (uint8_t)MTK_CAM_RESOURCE_DEFAULT;
 	rawResource.raw_used = 0;
 	rawResource.bin = 0;
@@ -414,7 +413,7 @@ int CamSysDevice::setFormat(V4L2Subdevice *device, int pad,
 	if (ret)
 		LOG(MtkISP7, Error) << "Fail to set format to "
 				    << device->entity()->id()
-				   << " pad " << pad << " format " << format;
+				    << " pad " << pad << " format " << format;
 
 	return ret;
 }
@@ -428,7 +427,7 @@ int CamSysDevice::setFormat(V4L2VideoDevice *device, const PixelFormat &format,
 		.fourcc = device->toV4L2PixelFormat(format),
 		.size = size,
 		.colorSpace = std::nullopt,
-		.planes = { {{0, info.stride(size.width, 0)}} },
+		.planes = { { { 0, info.stride(size.width, 0) } } },
 		.planesCount = 1,
 	};
 
@@ -467,7 +466,7 @@ int CamSysDevice::initSensor(MediaEntity *seninfEntity)
 	mbusCode_ = 0;
 	for (auto code : sensor->mbusCodes()) {
 		const auto &iter = mbusCodes.find(code);
-		if(iter != mbusCodes.end()) {
+		if (iter != mbusCodes.end()) {
 			mbusCode_ = code;
 			bayerFormat_ = iter->second;
 		}
@@ -528,8 +527,8 @@ int CamSysDevice::configureMtkCamRaw()
 	Size halfYuvSize = yuvFrameSize_ / 2;
 
 	ret = configureVideo(mainStream_.get(), bayerFormat_, rawFrameSize_,
-			      videoHub_.get(), PAD_MAIN,
-			      mbusCode_);
+			     videoHub_.get(), PAD_MAIN,
+			     mbusCode_);
 	ret |= configureVideo(yuvo1_.get(), formats::NV12_10P_MTISP, yuvFrameSize_,
 			      videoHub_.get(), PAD_YUV1,
 			      MEDIA_BUS_FMT_SRGGB10_1X10);
@@ -610,7 +609,6 @@ void CamSysDevice::bufferReady(FrameBuffer *buffer)
 	bool foundRequest = false;
 	for (auto iter = pendingRequests_.begin();
 	     iter != pendingRequests_.end(); iter++) {
-
 		Request *request = iter->request;
 		if (request->main != buffer &&
 		    request->yuvo1 != buffer &&

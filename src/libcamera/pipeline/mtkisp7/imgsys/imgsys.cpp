@@ -7,12 +7,9 @@
 
 #include "imgsys.h"
 
-#include <numeric>
-
 #include <dlfcn.h>
+#include <numeric>
 #include <sys/ioctl.h>
-
-#include "linux/mtkisp7/mtk_imgsys.h"
 
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
@@ -22,6 +19,7 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pools.h"
 
+#include "linux/mtkisp7/mtk_imgsys.h"
 #include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/ImgPortDef.h"
@@ -34,7 +32,7 @@ using namespace NSCam::NSImgStream;
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-int ImgsysVideoDevice::configure(V4L2DeviceFormat* fmt, int resizeRatio,
+int ImgsysVideoDevice::configure(V4L2DeviceFormat *fmt, int resizeRatio,
 				 Rectangle crop)
 {
 	int ret;
@@ -75,18 +73,19 @@ Rectangle ImgSysDevice::getCrop(Size inSize, Size outSize)
 {
 	/* 4:3 */
 	if (outSize.width * 3 == outSize.height * 4)
-		return {0, 0, inSize.width, inSize.height};
+		return { 0, 0, inSize.width, inSize.height };
 
 	/* 16:9 */
 	unsigned int height = inSize.width * 9 / 16;
 	int y = (inSize.height - height) / 2;
 
-	return {0, y, inSize.width, height};
+	return { 0, y, inSize.width, height };
 }
 
-ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt) :
-	onDeviceTuner_(odt), backEndLibrary_(nullptr)
-{}
+ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt)
+	: onDeviceTuner_(odt), backEndLibrary_(nullptr)
+{
+}
 
 int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 {
@@ -136,12 +135,10 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 			// Weak ptr for sigdevNorm for easier queuing requests
 			sigdevNorm_ = videoDev.get();
 			configureVideo(videoDev.get(), formats::MTSR_MTISP, { 640, 480 });
-		}
-		else if (entity == ctrlMeta) {
+		} else if (entity == ctrlMeta) {
 			ctrlMeta_ = videoDev.get();
 			configureVideo(videoDev.get(), formats::MTFP_MTISP, { 24704, 1 });
-		}
-		else if (entity == tuningMeta)
+		} else if (entity == tuningMeta)
 			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 38408, 1 });
 		else
 			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 640, 480 });
@@ -205,7 +202,7 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 	return 0;
 }
 
-void reconfigureVideoNode(ImgsysVideoDevice &device, const PortInfoEx& info)
+void reconfigureVideoNode(ImgsysVideoDevice &device, const PortInfoEx &info)
 {
 	if (info.portIdx == IMG_PORT_METAI ||
 	    info.portIdx == IMG_PORT_DRV_CTRLMETAI ||
@@ -223,15 +220,14 @@ void reconfigureVideoNode(ImgsysVideoDevice &device, const PortInfoEx& info)
 	format.fourcc = V4L2PixelFormat(fourcc);
 	format.planesCount = info.img.getPlaneCount();
 	for (unsigned int i = 0; i < format.planesCount; ++i) {
-		format.planes[i] =
-			{ static_cast<uint32_t>(info.img.getBufSizeInBytes(i)),
-			  static_cast<uint32_t>(info.img.getBufStridesInBytes(i))};
+		format.planes[i] = { static_cast<uint32_t>(info.img.getBufSizeInBytes(i)),
+				     static_cast<uint32_t>(info.img.getBufStridesInBytes(i)) };
 	}
 
 	Rectangle crop =
 		Rectangle(info.CropX, info.CropY,
-			{ static_cast<unsigned int>(info.CropW),
-			  static_cast<unsigned int>(info.CropH) });
+			  { static_cast<unsigned int>(info.CropW),
+			    static_cast<unsigned int>(info.CropH) });
 
 	device.configure(&format, info.mResizeRatio, crop);
 }
@@ -239,19 +235,19 @@ void reconfigureVideoNode(ImgsysVideoDevice &device, const PortInfoEx& info)
 static IMG_PORT getDevicePort(uint32_t portIdx)
 {
 	switch (portIdx) {
-		case IMG_PORT_LTIMGI:
-			return IMG_PORT_TIMGI;
-		case IMG_PORT_LTYUV2O:
-			return IMG_PORT_TYUV2O;
-		case IMG_PORT_LTYUV3O:
-			return IMG_PORT_TYUV3O;
-		case IMG_PORT_LTYUV4O:
-			return IMG_PORT_TYUV4O;
-		case IMG_PORT_LTYUV5O:
-		case IMG_PORT_FEO:
-			return IMG_PORT_TYUV5O;
-		default:
-			return IMG_PORT(portIdx);
+	case IMG_PORT_LTIMGI:
+		return IMG_PORT_TIMGI;
+	case IMG_PORT_LTYUV2O:
+		return IMG_PORT_TYUV2O;
+	case IMG_PORT_LTYUV3O:
+		return IMG_PORT_TYUV3O;
+	case IMG_PORT_LTYUV4O:
+		return IMG_PORT_TYUV4O;
+	case IMG_PORT_LTYUV5O:
+	case IMG_PORT_FEO:
+		return IMG_PORT_TYUV5O;
+	default:
+		return IMG_PORT(portIdx);
 	}
 }
 
@@ -298,7 +294,7 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 		return ret;
 	}
 
-	pendingRequests_.push_back({request, mediaRequest, ctrlMeta, singleDevNorm});
+	pendingRequests_.push_back({ request, mediaRequest, ctrlMeta, singleDevNorm });
 
 	return 0;
 }
@@ -328,7 +324,7 @@ int ImgSysDevice::queueRequest(Request *request)
 		return ret;
 	}
 
-	pendingRequests_.push_back({request, mediaRequest, ctrlMeta, singleDevNorm});
+	pendingRequests_.push_back({ request, mediaRequest, ctrlMeta, singleDevNorm });
 	return 0;
 }
 
@@ -347,13 +343,12 @@ int ImgSysDevice::claimCompletedRequest(Request *request)
 
 void ImgSysDevice::bufferReady(std::pair<FrameBuffer *, int> pair)
 {
-	auto[buffer, mediaRequest] = pair;
+	auto [buffer, mediaRequest] = pair;
 	ASSERT(buffer);
 
 	bool foundRequest = false;
 	for (auto iter = pendingRequests_.begin();
 	     iter != pendingRequests_.end(); iter++) {
-
 		PendingRequest &request = *iter;
 		if (request.mediaRequest != mediaRequest)
 			continue;
@@ -393,8 +388,8 @@ int ImgSysDevice::configure()
 	handleKva(Delete, descPool_);
 	handleIova(Delete, ctrlMetaPool_);
 
-	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{238544, 1}, 32);
-	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{24704, 1}, 32);
+	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 238544, 1 }, 32);
+	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 24704, 1 }, 32);
 
 	handleKva(Add, descPool_);
 	handleIova(Add, ctrlMetaPool_);
@@ -487,11 +482,11 @@ void ImgSysRequestHelper::queueRequest(SingleDeviceRequest &sdRequest)
 {
 #if V4L2_STANDARD_MODE
 	for (size_t stage = 0; stage < sdRequest.Stages().size(); ++stage) {
-		imgSysRequests_.push_back({&sdRequest, stage, 0});
+		imgSysRequests_.push_back({ &sdRequest, stage, 0 });
 		imgSys_->queueRequestV4L2(&imgSysRequests_.back());
 	}
 #else
-	imgSysRequests_.push_back({&sdRequest, 0, 0});
+	imgSysRequests_.push_back({ &sdRequest, 0, 0 });
 	imgSys_->queueRequest(&imgSysRequests_.back());
 #endif
 
@@ -501,7 +496,7 @@ void ImgSysRequestHelper::queueRequest(SingleDeviceRequest &sdRequest)
 
 void ImgSysRequestHelper::requestReady(ImgSysDevice::Request *request)
 {
-	for (auto &imgSysRequest: imgSysRequests_) {
+	for (auto &imgSysRequest : imgSysRequests_) {
 		if (request != &imgSysRequest)
 			continue;
 		imgSys_->claimCompletedRequest(request);

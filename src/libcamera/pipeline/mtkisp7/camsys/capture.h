@@ -8,11 +8,12 @@
 
 #include <memory>
 
-#include <libcamera/geometry.h>
-
 #include <libcamera/base/signal.h>
 
+#include <libcamera/geometry.h>
+
 #include "libcamera/internal/task_scheduler.h"
+
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "camsys.h"
@@ -37,12 +38,13 @@ struct CaptureFrames {
 	SharedMailBox<InfoFrame> tuning;
 };
 
-class CaptureTasksManager {
+class CaptureTasksManager
+{
 public:
 	CaptureTasksManager(OnDeviceTuner *odt);
 	~CaptureTasksManager() = default;
 
-	int configure(DmaHeap *dmaHeap, CamSysDevice *camSys, PipelineHandler* pipe,
+	int configure(DmaHeap *dmaHeap, CamSysDevice *camSys, PipelineHandler *pipe,
 		      const Size &rawFrameSize, const Size &yuvFrameSize);
 
 	void allocateBuffers();
@@ -51,8 +53,8 @@ public:
 	void makeCaptureFrames(CaptureFrames &captureFrames);
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *>
-	makeCaptureTasks(Scheduler* scheduler, const std::string& id,
-			 Request* request, CaptureFrames &captureFrames);
+	makeCaptureTasks(Scheduler *scheduler, const std::string &id,
+			 Request *request, CaptureFrames &captureFrames);
 
 private:
 	friend QueueTask;
@@ -78,9 +80,11 @@ private:
 	InfoFramePool statistics1Pool_;
 };
 
-class CaptureData {
+class CaptureData
+{
 public:
-	CaptureData(CaptureFrames &captureFrames): frames(captureFrames) {}
+	CaptureData(CaptureFrames &captureFrames)
+		: frames(captureFrames) {}
 
 	CamSysDevice::Request request;
 	CaptureFrames frames;
@@ -89,28 +93,29 @@ public:
 class SofTask : public Task
 {
 public:
-	SofTask(Scheduler* scheduler, const std::string& id, Request *request)
-		:Task(scheduler, id), request_(request) {}
+	SofTask(Scheduler *scheduler, const std::string &id, Request *request)
+		: Task(scheduler, id), request_(request) {}
 
 	virtual void run() override final {}
 	void trigger();
 
-	Request* request_;
+	Request *request_;
 };
 
 class QueueTask : public Task
 {
 public:
 	QueueTask(CaptureTasksManager *manager,
-		 Scheduler* scheduler, const std::string& id, Request* request,
-		 std::shared_ptr<CaptureData> &data)
-		:Task(scheduler, id), request_(request), manager_(manager),
-		 data_(data)
-	{}
+		  Scheduler *scheduler, const std::string &id, Request *request,
+		  std::shared_ptr<CaptureData> &data)
+		: Task(scheduler, id), request_(request), manager_(manager),
+		  data_(data)
+	{
+	}
 
 	void run() override final;
 
-	Request* request_;
+	Request *request_;
 	CaptureTasksManager *manager_;
 	std::shared_ptr<CaptureData> data_;
 };
@@ -119,21 +124,21 @@ class DequeueTask : public Task
 {
 public:
 	DequeueTask(CaptureTasksManager *manager,
-		  Scheduler* scheduler, const std::string& id, Request* request,
-		  std::shared_ptr<CaptureData> &data)
-		:Task(scheduler, id), request_(request), manager_(manager),
-		 data_(data)
-	{}
+		    Scheduler *scheduler, const std::string &id, Request *request,
+		    std::shared_ptr<CaptureData> &data)
+		: Task(scheduler, id), request_(request), manager_(manager),
+		  data_(data)
+	{
+	}
 
 	void run() override final;
 	void done();
 	void requestReady(CamSysDevice::Request *request);
 
-	Request* request_;
+	Request *request_;
 	CaptureTasksManager *manager_;
 
 	std::shared_ptr<CaptureData> data_;
 };
-
 
 } /* namespace libcamera */
