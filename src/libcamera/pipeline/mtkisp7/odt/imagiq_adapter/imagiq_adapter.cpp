@@ -31,9 +31,9 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 namespace {
 
 const ImagiqAdapter::SensorIdMap kGeraltSensorMap{
-	{ "/base/soc/i2c@11ec1000/sensor0@1",
+	{ "/base/soc/i2c@11ec1000/sensor0@20",
 	  NSCam::TuningUtils::eSensorId::kMAIN },
-	{ "/base/soc/i2c@11ec0000/sensor1@1",
+	{ "/base/soc/i2c@11ec0000/sensor1@31",
 	  NSCam::TuningUtils::eSensorId::kSUB }
 };
 
