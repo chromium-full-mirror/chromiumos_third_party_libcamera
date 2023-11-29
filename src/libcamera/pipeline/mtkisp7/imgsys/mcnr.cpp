@@ -249,7 +249,7 @@ int McnrTasksManager::configureBuffers()
 	wt_[5].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 128);
 	wt_[6].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 128);
 
-	img3o_[0].createBuffers(dmaHeap_, formats::NV21, mcnrSizes[0], 3);
+	img3o_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 3);
 	img3o_[1].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 12);
 	img3o_[2].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[2], 12);
 	img3o_[3].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[3], 12);
@@ -563,6 +563,7 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	dip2Frames.in.dipImgi = dipImgi;
 	dip2Frames.in.dipTnrci = dipTnrci;
 
+	dip2Frames.out.img3o = img3o;
 	dip2Frames.out.img4oF0 = makeMailBox<InfoFrame>();
 	dip2Frames.out.dipTnrso = dipTnrso;
 	dip2Frames.out.dipTnrwo = dipTnrwo;

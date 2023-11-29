@@ -793,6 +793,7 @@ void OnDeviceTuner::tuneDip2(
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRSO, frames.out.dipTnrso->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRWO, frames.out.dipTnrwo[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_RECI_D1, frames.in.reci[0]->get() },
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMG3O, frames.out.img3o[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMG4O, frames.out.img4oF0->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMGI_D1, frames.in.dipImgi[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_META_P2, frames.in.dipTun[0]->get() },

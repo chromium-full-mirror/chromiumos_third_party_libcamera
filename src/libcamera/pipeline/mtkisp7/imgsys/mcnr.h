@@ -166,6 +166,7 @@ struct Dip2Frames {
 	struct {
 		SharedMailBox<InfoFrame> img4oF0;
 		SharedMailBox<InfoFrame> dipTnrso;
+		std::vector<SharedMailBox<InfoFrame>> img3o;
 		std::vector<SharedMailBox<InfoFrame>> dipTnrwo;
 	} out;
 };
