@@ -53,7 +53,9 @@ public:
 
 	// HAL ISP
 	bool tuneCamsysHalIsp(
-		Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam);
+		Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam,
+		mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
+		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult);
 	void tuneImgsysHalIsp(
 		Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
 		mtk::isphal::v1_0::ReturnParamDip &tuningResult,

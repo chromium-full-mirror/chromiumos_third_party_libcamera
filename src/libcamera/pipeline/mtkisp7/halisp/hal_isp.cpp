@@ -8,6 +8,7 @@
 #include "hal_isp.h"
 
 #include <cstdint>
+#include <cstring>
 #include <sys/mman.h>
 
 #include <libcamera/base/log.h>
@@ -211,15 +212,25 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_param_p1.aaa_magic_num = aaaFrmId;
 	tuning_param_p1.subsample_count = 1;
 
-	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
-
+	bool shouldDump = false;
 	if (request != nullptr) {
 		// Not dummy frame
-		if (onDeviceTuner_->tuneCamsysHalIsp(
-			request, tuning_param_p1)) {
-			m_pHalisp->dump4CamSysModule(
-				&tuning_param_p1, &result_p1);
-		}
+		shouldDump = onDeviceTuner_->tuneCamsysHalIsp(
+			request, tuning_param_p1, result_p1, aaaIspExchange->aaaResult);
+	}
+
+	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
+
+	if (result_p1.exif.valid) {
+		// Exif data may be filled by IHalIsp::getCamSysMetaTuning
+		std::memcpy(
+			reinterpret_cast<uint8_t*>(&aaaIspExchange->aaaResult.debug_isp_info),
+			result_p1.exif.data, sizeof(AAA_DEBUG_INFO2_T));
+	}
+
+	if (shouldDump) {
+		m_pHalisp->dump4CamSysModule(
+			&tuning_param_p1, &result_p1);
 	}
 
 	aaaIspExchange->cam_info = *tuning_param_p1.cam_info;

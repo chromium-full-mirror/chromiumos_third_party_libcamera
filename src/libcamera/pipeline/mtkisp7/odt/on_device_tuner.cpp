@@ -17,7 +17,9 @@
 
 #include <libcamera/stream.h>
 
+#include "debug_exif/aaa/dbg_aaa_param.h"
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
+#include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 #include "pipeline/mtkisp7/imgsys/lpnr.h"
 #include "pipeline/mtkisp7/imgsys/mcnr.h"
@@ -377,13 +379,19 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 }
 
 bool OnDeviceTuner::tuneCamsysHalIsp(
-	Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam)
+	Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam,
+	mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
+	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult)
 {
 	if (!enabled_) {
 		return false;
 	}
 	tuningParam.cam_info->rNdd_info.ndd_data.stage =
 		static_cast<int>(Stage::P1);
+	tuningParam.cam_info->rNdd_info.ndd_data.action = -1;
+	tuningParam.is_need_exif = 1;
+	tuningResult.exif.valid = true;
+	std::memcpy(tuningResult.exif.data, reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info), sizeof(AAA_DEBUG_INFO2_T));
 	return parseHalIspNdd(request, tuningParam.cam_info->rNdd_info);
 }
 
