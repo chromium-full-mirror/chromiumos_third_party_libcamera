@@ -494,8 +494,8 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.bitsPerPixel = 8,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = false,
-		.pixelsPerGroup = 64,
-		.planes = {{ { 64, 1 }, { 0, 0 }, { 0, 0 } }},
+		.pixelsPerGroup = 1,
+		.planes = {{ { 1, 1 }, { 0, 0 }, { 0, 0 } }},
 	} },
 	{ formats::R10, {
 		.name = "R10",
