@@ -335,8 +335,11 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	m_hal3a_->GetResult(r3AResult_);
 	*rawMeta = r3AResult_.raw_meta;
 
+	AaaIspExchange aaaIspExchange;
+	aaaIspExchange.aaaResult = r3AResult_;
+
 	halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
-				     rawMetaFd, (intptr_t)rawMetaBuffer, 0, kRawMetaSize);
+				     rawMetaFd, (intptr_t)rawMetaBuffer, 0, kRawMetaSize, &aaaIspExchange);
 
 	getExposureAndGain(exposureAndGain);
 }

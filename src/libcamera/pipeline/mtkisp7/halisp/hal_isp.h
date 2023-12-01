@@ -14,7 +14,16 @@
 
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 
+#include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
+
 namespace libcamera {
+
+/* Struct to exchange information between 3A and HalIsp tasks */
+struct AaaIspExchange {
+	mtk::isphal::v1_0::IspPerframeControl cam_info;
+	mtk::isphal::v1_0::IspReadOnlyControl cam_info_3a;
+	mtk::hal3a::v1_0::mtk_3a_result aaaResult;
+};
 
 class HalIsp
 {
@@ -25,7 +34,7 @@ public:
 
 	int getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize);
+				size_t bufSize, AaaIspExchange *aaaIspExchange);
 
 private:
 	int32_t sensorIdx_;

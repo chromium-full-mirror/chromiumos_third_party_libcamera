@@ -111,8 +111,10 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 
 int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize)
+				size_t bufSize, AaaIspExchange *aaaIspExchange)
 {
+	ASSERT(aaaIspExchange);
+
 	mtk::isphal::IspTuningBufferP1 tuning_data = {};
 
 	mtk::isphal::Buffer regBuf1((intptr_t)va, fd, offset, bufSize);
@@ -179,6 +181,9 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_param_p1.subsample_count = 1;
 
 	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
+
+	aaaIspExchange->cam_info = *tuning_param_p1.cam_info;
+	aaaIspExchange->cam_info_3a = *tuning_param_p1.cam_info_3a;
 
 	return 0;
 }
