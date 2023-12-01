@@ -13,6 +13,8 @@
 
 #include <libcamera/geometry.h>
 
+#include "libcamera/internal/info_frame.h"
+#include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/imgsys/mcnr.h"
@@ -64,6 +66,7 @@ private:
 	InfoFramePool fwmmFst_;
 	InfoFramePool fwmmRst_;
 	InfoFramePool fwmmMil_;
+	InfoFramePool fwmmGyro_;
 
 	InfoFramePool swHist_;
 	InfoFramePool meTun_;
@@ -129,6 +132,7 @@ public:
 	SharedMailBox<InfoFrame> fwMeFst;
 	SharedMailBox<InfoFrame> fwMmFst;
 	SharedMailBox<InfoFrame> fwMmRst;
+	SharedMailBox<InfoFrame> fwMmGryo;
 
 	SharedMailBox<InfoFrame> meAFst;
 	SharedMailBox<InfoFrame> meAFmb0;

@@ -85,6 +85,7 @@ McnrTasksManager::McnrTasksManager(
 	allBufferPools_.emplace_back(&fwmmFst);
 	allBufferPools_.emplace_back(&fwmmRst_);
 	allBufferPools_.emplace_back(&fwmmMil_);
+	allBufferPools_.emplace_back(&fwmmGyro_);
 	allBufferPools_.emplace_back(&meIn_);
 	allBufferPools_.emplace_back(&meMv0_);
 	allBufferPools_.emplace_back(&meMv1_);
@@ -128,6 +129,7 @@ McnrTasksManager::McnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&fwmmFst);
 	poolsWritenByCpu_.emplace_back(&fwmmRst_);
 	poolsWritenByCpu_.emplace_back(&fwmmMil_);
+	poolsWritenByCpu_.emplace_back(&fwmmGyro_);
 	poolsWritenByCpu_.emplace_back(&meTun_);
 	poolsWritenByCpu_.emplace_back(&wpeTun_);
 	poolsWritenByCpu_.emplace_back(&dipTun_);
@@ -204,6 +206,7 @@ int McnrTasksManager::configureBuffers()
 	fwmmFst.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMmFstSize, 8);
 	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMmRstSize, 8);
 	fwmmMil_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8, DmaHeap::System, 64);
+	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
 	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21);
 	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 3);
 	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);

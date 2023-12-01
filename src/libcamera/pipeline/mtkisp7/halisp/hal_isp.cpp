@@ -638,9 +638,9 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		imgsys_info.is_need_dump_exif = 0;
 
 		mtk::isphal::Size mel0Out(576, 432);
-		//mtk::isphal::Size gyroOut(32, 24);
+		mtk::isphal::Size gyroOut(32, 24);
 		imgsys_info.rCropRzInfo.sMEL0out = mel0Out;
-		imgsys_info.rCropRzInfo.sGyroMv = {};
+		imgsys_info.rCropRzInfo.sGyroMv = gyroOut;
 
 		fillTncInfo(imgMetaRequest.stage, inputSize, outputSize, fullDipSize, imgsys_info);
 

@@ -229,6 +229,7 @@ private:
 	InfoFramePool fwmmFst;
 	InfoFramePool fwmmRst_;
 	InfoFramePool fwmmMil_;
+	InfoFramePool fwmmGyro_;
 	InfoFramePool meIn_;
 	InfoFramePool meMv0_;
 	InfoFramePool meMv1_;

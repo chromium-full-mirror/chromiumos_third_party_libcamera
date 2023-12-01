@@ -14,7 +14,10 @@
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
 
+#include "libcamera/internal/info_frame.h"
+#include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/task_scheduler.h"
+#include "mtkcam-interfaces/isphal/IspTuningMeta.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "hal_isp.h"
@@ -155,6 +158,7 @@ McnrTunManager::McnrTunManager(
 	poolsWritenByCpu_.emplace_back(&fwmmFst_);
 	poolsWritenByCpu_.emplace_back(&fwmmRst_);
 	poolsWritenByCpu_.emplace_back(&fwmmMil_);
+	poolsWritenByCpu_.emplace_back(&fwmmGyro_);
 	poolsWritenByCpu_.emplace_back(&swHist_);
 
 	poolsWritenByCpu_.emplace_back(&meTun_);
@@ -181,6 +185,7 @@ void McnrTunManager::allocateBuffers()
 	fwmeFst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{400, 1}, 8);
 	fwmmFst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{80, 1}, 8);
 	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{132, 1}, 8);
+	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
 	fwmmMil_.createBuffers(dmaHeap_, formats::Y8_MTISP, kMeL1Size, 8);
 	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 56);
 	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 8);
@@ -332,6 +337,7 @@ McnrMeBTask::McnrMeBTask(MCNRFrames &mcnr,
 	fwMeFst = mcnr.meFrames.in.fwMeFst;
 	fwMmFst = mcnr.meFrames.in.fwMmFst;
 	fwMmRst = mcnr.meFrames.in.fwMmRst;
+	fwMmGryo = makeMailBox<InfoFrame>();
 
 	meAFst = mcnr.meFrames.out.meAFst;
 	meAFmb0 = mcnr.meFrames.out.meAFmb0;
@@ -349,6 +355,7 @@ void McnrMeBTask::run()
 	manager_->fwmmFst_.fetch(fwMmFst);
 	manager_->fwmmRst_.fetch(fwMmRst);
 	manager_->fwmmMil_.fetch(meMil);
+	manager_->fwmmGyro_.fetch(fwMmGryo);
 
 	ImgMetaRequest request = {};
 	request = ImgMetaRequest {
@@ -363,6 +370,7 @@ void McnrMeBTask::run()
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MMG_FBFST] = fwMmFst->get();
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MMG_RST] = fwMmRst->get();
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MIL] = meMil->get();
+	request.reserved[mtk::isphal::kISPExtBif_IN_GYRO_MV] = fwMmGryo->get();
 
 	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 	manager_->onDeviceTuner_->tuneMeMM(request_, meBTun);
