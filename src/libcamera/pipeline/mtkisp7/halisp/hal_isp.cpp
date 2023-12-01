@@ -43,6 +43,13 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 		_sensorIdxInfo.moduleId = 0;
 		_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
 	}
+
+	m_P1CamInfo.i4_sensor_id = _sensorIdxInfo.sensorId;
+	m_P1CamInfo.app_iso_value = 100;
+	m_P1CamInfo.i4ZoomRatio_x100 = 100;
+	m_P1CamInfo.fgFDEnable = 1;
+	m_P1CamInfo.rFdInfo.FD_source = 1;
+
 	NvBufUtil::initSensorInfo(sensorIdx_, _sensorIdxInfo);
 	m_pHalisp = mtk::isphal::v1::IHalIsp::createInstance(sensorDev, sensorIdx, 0);
 
@@ -79,19 +86,9 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 	if (sensorIdx_ == 1) {
 		m_P1CamInfo.rCropRzInfo.sTGout = mtk::isphal::Size{ 3264, 2448 };
 		activeArray_ = Rectangle{ 0, 0, 3264, 2448 };
-		//configInfo.tg_width = 3264;
-		//configInfo.tg_height = 2448;
-		//configInfo.sub_sample_count = 1;
-		//configInfo.direct_yuv_path = 0;
-		//configInfo.yuv_after_rrz = 0;
 	} else { // sensor_idx_ == 0
 		m_P1CamInfo.rCropRzInfo.sTGout = mtk::isphal::Size{ 4208, 3120 };
 		activeArray_ = Rectangle{ 0, 0, 4208, 3120 };
-		//configInfo.tg_width = 4208;
-		//configInfo.tg_height = 3120;
-		//configInfo.sub_sample_count = 1;
-		//configInfo.direct_yuv_path = 0;
-		//configInfo.yuv_after_rrz = 0;
 	}
 
 	m_P1CamInfo.rMapping_Info.eFeature = NSIspTuning::EFeature_Preview;
@@ -121,12 +118,11 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	mtk::isphal::Buffer regBuf1((intptr_t)va, fd, offset, bufSize);
 	tuning_data.p1_meta_buffer = regBuf1;
 
-	m_P1CamInfo.i4_sensor_id = 0;
 	m_P1CamInfo.mock_camsys = false;
 
 	// Target structure
-	mtk::isphal::v1_0::TuningParamP1 tuning_param_p1;
-	mtk::isphal::v1_0::ReturnParamP1 result_p1;
+	mtk::isphal::v1_0::TuningParamP1 tuning_param_p1 = {};
+	mtk::isphal::v1_0::ReturnParamP1 result_p1 = {};
 
 	// setup input/out data
 	result_p1.tuning_data = &tuning_data;
@@ -153,7 +149,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 		mtk::isphal::Size{ activeArray_.width, activeArray_.height };
 
 	tuning_param_p1.cam_info->control_mode = mtk::isphal::v1_0::kControlModeOn;
-	tuning_param_p1.capture_mode = mtk::isphal::v1_0::kCaptureModeNormal;
+	tuning_param_p1.capture_mode = mtk::isphal::v1_0::kCaptureModeNone;
 	tuning_param_p1.cam_info->color_correction_mode = mtk::isphal::v1_0::kColorCorrectionModeAuto;
 	tuning_param_p1.cam_info->sensor_test_pattern_mode = mtk::isphal::v1_0::kSensorTestPatternModeOff;
 
