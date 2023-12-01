@@ -1207,6 +1207,7 @@ unsigned int PixelFormatInfo::stride(unsigned int width, unsigned int plane,
  * \param[in] size The size of the frame, in pixels
  * \param[in] plane The plane index
  * \param[in] align The stride alignment, in bytes (1 for default alignment)
+ * \param[in] scanAlign The scanline alignment, in bytes (1 for default alignment)
  *
  * The plane size is computed by multiplying the line stride and the frame
  * height, taking subsampling and other format characteristics into account.
@@ -1219,13 +1220,19 @@ unsigned int PixelFormatInfo::stride(unsigned int width, unsigned int plane,
  * format
  */
 unsigned int PixelFormatInfo::planeSize(const Size &size, unsigned int plane,
-					unsigned int align) const
+					unsigned int align, unsigned scanAlign) const
 {
 	unsigned int stride = PixelFormatInfo::stride(size.width, plane, align);
 	if (!stride)
 		return 0;
 
-	return planeSize(size.height, plane, stride);
+	unsigned int vertSubSample = planes[plane].verticalSubSampling;
+	if (!vertSubSample)
+		return 0;
+
+	unsigned int planeHeight = (size.height + vertSubSample - 1) / vertSubSample;
+
+	return stride * ((planeHeight + scanAlign - 1) / scanAlign * scanAlign);
 }
 
 /**
