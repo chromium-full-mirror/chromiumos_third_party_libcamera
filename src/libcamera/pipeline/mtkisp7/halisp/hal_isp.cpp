@@ -210,4 +210,451 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	return 0;
 }
 
+void fillPqInfo(NSIspTuning::EStage_T stage, Size inputSize,
+		Size outputSize, mtk::isphal::IspTuningBufferP2 &tuning_data)
+{
+	(void) inputSize;
+	mtk::isphal::PQInfo pqInfo = {};
+	mtk::isphal::WPEInfo wpeInfo = {};
+
+	switch (stage) {
+	case EStage_P2_Y2Y_PQ_DIP:
+	case EStage_P2_MS_F0_PQ_DIP:
+		pqInfo.CropSize = { inputSize.width, inputSize.height };
+		pqInfo.OutSize = { outputSize.width, outputSize.height };
+		pqInfo.serial_id = 1;
+		tuning_data.pq_info.push_back(pqInfo);
+
+		pqInfo.serial_id = 2;
+		tuning_data.pq_info.push_back(pqInfo);
+		break;
+	case EStage_WPE_LTR_Y2Y_F1:
+		wpeInfo.buf_id = mtk::isphal::kWPE_LITE;
+		wpeInfo.is_motion = 1;
+		tuning_data.wpe_info.push_back(wpeInfo);
+		break;
+	case EStage_WPE_WghtMap:
+		wpeInfo.is_motion = 1;
+		wpeInfo.buf_id = mtk::isphal::kWPE_TNR;
+		tuning_data.wpe_info.push_back(wpeInfo);
+		wpeInfo.buf_id = mtk::isphal::kWPE_LITE;
+		tuning_data.wpe_info.push_back(wpeInfo);
+		break;
+	case EStage_WPE_P2_PQDIP_MS_F0:
+		pqInfo.CropSize = { inputSize.width, inputSize.height };
+		pqInfo.OutSize = { outputSize.width, outputSize.height };
+		pqInfo.serial_id = 1;
+		pqInfo.active_tcc = 1;
+		pqInfo.ctrl = mtk::isphal::kIspPQControlModeAuto;
+		tuning_data.pq_info.push_back(pqInfo);
+
+		pqInfo.serial_id = 2;
+		tuning_data.pq_info.push_back(pqInfo);
+
+		wpeInfo.is_motion = 1;
+		wpeInfo.buf_id = mtk::isphal::kWPE_TNR;
+		tuning_data.wpe_info.push_back(wpeInfo);
+		break;
+	case EStage_TR_Y2Y_F1:
+	case EStage_TR_R2Y:
+	case EStage_TR_Y2Y_F4:
+	case EStage_LTR_VBI:
+	case EStage_LTR_Y2Y_F4:
+	case EStage_P2_MS_F0_H:
+	case EStage_ME_3PASS_MODE0:
+	case EStage_ME_3PASS_MM:
+	case EStage_ME_3PASS_MODE1:
+	case EStage_LTR_ME_L1:
+	case EStage_P2_IDI:
+	case EStage_P2_MS_F_SMALL:
+	case EStage_P2_MS_F4:
+	case EStage_P2_MS_F3:
+	case EStage_P2_MS_F2:
+	case EStage_P2_MS_F1:
+		break;
+	default:
+		ASSERT(false);
+	}
+}
+
+void fillIndex(NSIspTuning::EStage_T stage, bool isCapture,
+	       mtk::isphal::v1_0::IspImgSysControl& imgsys_info)
+{
+	imgsys_info.tnr_fw_config.frameIndex = 0;
+	imgsys_info.tnr_fw_config.scaleIndex = 0;
+	imgsys_info.tnr_fw_config.totalScaleNo = 0;
+	imgsys_info.tnr_fw_config.bInkMode = 0;
+	imgsys_info.tnr_fw_config.frameTotal = 0;
+	imgsys_info.ds_mode = 0;
+	imgsys_info.total_frame_num = 0;
+
+	switch (stage) {
+	case EStage_TR_Y2Y_F1:
+	case EStage_TR_Y2Y_F4:
+	case EStage_LTR_VBI:
+	case EStage_LTR_Y2Y_F4:
+	case EStage_WPE_LTR_Y2Y_F1:
+	case EStage_WPE_WghtMap:
+	case EStage_TR_R2Y:
+	case EStage_ME_3PASS_MODE0:
+	case EStage_ME_3PASS_MM:
+	case EStage_ME_3PASS_MODE1:
+	case EStage_LTR_ME_L1:
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_P2_Y2Y_PQ_DIP:
+	case EStage_P2_MS_F0_PQ_DIP:
+		imgsys_info.ds_mode = 1;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_P2_MS_F0_H:
+		imgsys_info.ds_mode = 1;
+		imgsys_info.total_frame_num = 1;
+		imgsys_info.tnr_fw_config.scaleIndex = 0;
+		break;
+	case EStage_P2_IDI:
+		imgsys_info.tnr_fw_config.frameIndex = 255;
+		imgsys_info.tnr_fw_config.scaleIndex = 6;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_P2_MS_F_SMALL:
+		imgsys_info.tnr_fw_config.frameIndex = 255;
+		imgsys_info.tnr_fw_config.scaleIndex = 5;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_P2_MS_F4:
+		imgsys_info.tnr_fw_config.frameIndex = 255;
+		imgsys_info.tnr_fw_config.scaleIndex = 4;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_P2_MS_F3:
+		imgsys_info.tnr_fw_config.frameIndex = 255;
+		imgsys_info.tnr_fw_config.scaleIndex = 3;
+		if (isCapture)
+			imgsys_info.tnr_fw_config.totalScaleNo = 4;
+		else
+			imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_P2_MS_F2:
+		imgsys_info.tnr_fw_config.frameIndex = 255;
+		imgsys_info.tnr_fw_config.scaleIndex = 2;
+		if (isCapture)
+			imgsys_info.tnr_fw_config.totalScaleNo = 4;
+		else
+			imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_P2_MS_F1:
+		imgsys_info.tnr_fw_config.frameIndex = 255;
+		imgsys_info.tnr_fw_config.scaleIndex = 1;
+		if (isCapture)
+			imgsys_info.tnr_fw_config.totalScaleNo = 4;
+		else
+			imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_WPE_P2_PQDIP_MS_F0:
+		imgsys_info.tnr_fw_config.frameIndex = 255;
+		imgsys_info.tnr_fw_config.scaleIndex = 0;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.total_frame_num = 1;
+		break;
+	default:
+		ASSERT(false);
+	}
+}
+
+void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, Size fullDipSize,
+		 mtk::isphal::v1_0::IspImgSysControl& imgsys_info)
+{
+	(void) stage;
+	(void) outputSize;
+	imgsys_info.rCropRzInfo.rBefore_Warp_Crop = {};
+	imgsys_info.rCropRzInfo.rBefore_Warp_Size = {};
+	imgsys_info.tncs_info = {};
+	imgsys_info.tnc_roi = {};
+
+	switch (stage) {
+	case EStage_TR_Y2Y_F1:
+	case EStage_TR_R2Y:
+		imgsys_info.rCropRzInfo.rBefore_Warp_Crop =
+			mtk::isphal::Rectangle { 0, 0, inputSize.width, inputSize.width };
+		imgsys_info.rCropRzInfo.rBefore_Warp_Size = mtk::isphal::Size {
+			inputSize.width, inputSize.height };
+		break;
+	case EStage_P2_Y2Y_PQ_DIP:
+	case EStage_P2_MS_F0_PQ_DIP:
+	case EStage_WPE_P2_PQDIP_MS_F0:
+	case EStage_P2_IDI:
+		imgsys_info.rCropRzInfo.rBefore_Warp_Size = mtk::isphal::Size {
+			inputSize.width, inputSize.height };
+		break;
+	case EStage_P2_MS_F_SMALL:
+	case EStage_P2_MS_F4:
+	case EStage_P2_MS_F3:
+	case EStage_P2_MS_F2:
+	case EStage_P2_MS_F1:
+	case EStage_TR_Y2Y_F4:
+	case EStage_LTR_VBI:
+	case EStage_LTR_Y2Y_F4:
+	case EStage_WPE_LTR_Y2Y_F1:
+	case EStage_WPE_WghtMap:
+	case EStage_P2_MS_F0_H:
+	case EStage_ME_3PASS_MODE0:
+	case EStage_ME_3PASS_MM:
+	case EStage_ME_3PASS_MODE1:
+	case EStage_LTR_ME_L1:
+		break;
+	default:
+		ASSERT(false);
+	}
+
+	switch (stage) {
+	case EStage_TR_Y2Y_F1:
+	case EStage_TR_R2Y:
+		imgsys_info.tncs_info.bValid = 1;
+		imgsys_info.tncs_info.tncs_in_cropinfo = mtk::isphal::Rectangle {
+			0, 0, inputSize.width, inputSize.height };;
+		imgsys_info.tncs_info.target_tnc_size = mtk::isphal::Size {
+			fullDipSize.width, fullDipSize.height };
+		break;
+	case EStage_P2_Y2Y_PQ_DIP:
+	case EStage_P2_MS_F0_PQ_DIP:
+	case EStage_P2_IDI:
+	case EStage_WPE_P2_PQDIP_MS_F0:
+		imgsys_info.tnc_roi.bValid = 1;
+		imgsys_info.tnc_roi.tnc_in_cropinfo = mtk::isphal::Rectangle {
+			0, 0, inputSize.width, inputSize.height };
+		break;
+	case EStage_P2_MS_F_SMALL:
+	case EStage_P2_MS_F4:
+	case EStage_P2_MS_F3:
+	case EStage_P2_MS_F2:
+	case EStage_P2_MS_F1:
+	case EStage_TR_Y2Y_F4:
+	case EStage_LTR_VBI:
+	case EStage_LTR_Y2Y_F4:
+	case EStage_WPE_LTR_Y2Y_F1:
+	case EStage_WPE_WghtMap:
+	case EStage_P2_MS_F0_H:
+	case EStage_ME_3PASS_MODE0:
+	case EStage_ME_3PASS_MM:
+	case EStage_ME_3PASS_MODE1:
+	case EStage_LTR_ME_L1:
+		break;
+	default:
+		ASSERT(false);
+	}
+}
+
+int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
+				ImgMetaRequest &request)
+{
+	bool is_capture = request.isCapture;
+	Size inputSize = request.inputSize;
+	Size outputSize = request.outputSize;
+	Size fullDipSize = request.fullDipSize;
+
+	InfoFrame &tuningFrame = request.tuningBuffer;
+	InfoFrame &statisFrame = request.statisticsBuffer;
+	InfoFrame &swHistBuffer = request.swHistBuffer;
+
+	mtk::isphal::IspTuningControl tuning_control = {};
+	mtk::isphal::IspTuningStatisticsP2 tuning_statistics = {};
+	mtk::isphal::IspTuningBufferP2 tuning_data = {};
+
+	tuning_control.stage = request.stage;
+	tuning_control.mock = false;
+	tuning_control.update_mode = mtk::isphal::kIspUpdateModeAuto;
+
+	if (is_capture)
+		tuning_control.action = NSIspTuning::EAction_Capture;
+	else
+		tuning_control.action = NSIspTuning::EAction_Preview;
+
+	mtk::isphal::Buffer metaBuf(
+		(intptr_t)tuningFrame.address(0),
+		tuningFrame.buffer()->planes()[0].fd.get(),
+		tuningFrame.buffer()->planes()[0].offset,
+		tuningFrame.buffer()->planes()[0].length);
+
+	tuning_data.p2_meta_buffer = metaBuf;
+	tuning_data.in_image = {};
+
+	fillPqInfo(request.stage, inputSize, outputSize, tuning_data);
+
+	if (statisFrame.buffer()) {
+		mtk::isphal::Buffer statsBuf(
+			(intptr_t)statisFrame.address(0),
+			statisFrame.buffer()->planes()[0].fd.get(),
+			statisFrame.buffer()->planes()[0].offset,
+			statisFrame.buffer()->planes()[0].length);
+		tuning_statistics.imgsys_statistics = statsBuf;
+	}
+
+	if (swHistBuffer.buffer()) {
+		mtk::isphal::Buffer swBuf(
+			(intptr_t)swHistBuffer.address(0),
+			swHistBuffer.buffer()->planes()[0].fd.get(),
+			swHistBuffer.buffer()->planes()[0].offset,
+			swHistBuffer.buffer()->planes()[0].length);
+		tuning_statistics.imgsys_hist_buffer = swBuf;
+	}
+
+	for (auto &[key, frame] : request.reserved) {
+		mtk::isphal::Buffer reserveBuf(
+			(intptr_t)frame.address(0),
+			frame.buffer()->planes()[0].fd.get(),
+			frame.buffer()->planes()[0].offset,
+			frame.buffer()->planes()[0].length);
+		tuning_statistics.reserved[key] = reserveBuf;
+	}
+
+	mtk::isphal::v1_0::TuningParamDip tuning_param_p2 = {};
+	mtk::isphal::v1_0::ReturnParamDip result_p2 = {};
+
+	tuning_param_p2.tuning_stat.push_back(&tuning_statistics);
+
+	tuning_param_p2.imgsys_info.emplace_back();
+	mtk::isphal::v1_0::IspImgSysControl& imgsys_info = tuning_param_p2.imgsys_info.back();
+
+	result_p2.tuning_data.push_back(&tuning_data);
+
+	imgsys_info.mock_imgsys = tuning_control.mock;
+
+	int camsysFrmId = 0;
+
+	/* parsePipelineMetadata */
+	{
+		mtk::isphal::v1_0::IspPerframeControl *pCaminfoBuf = NULL;
+		mtk::isphal::v1_0::IspReadOnlyControl *pCaminfoBuf_3a = NULL;
+		const uint8_t* pModuleBuf = NULL;
+
+		pCaminfoBuf = &aaaIspExchange->cam_info;
+		pCaminfoBuf_3a = &aaaIspExchange->cam_info_3a;
+
+		tuning_param_p2.is_need_exif = 0;
+
+		tuning_param_p2.cam_info = *pCaminfoBuf;
+		tuning_param_p2.cam_info_3a = pCaminfoBuf_3a;
+		tuning_param_p2.pModulesCtrl = pModuleBuf;
+
+		tuning_param_p2.cam_info.drzs8t_crop_info.is_valid = true;
+		tuning_param_p2.cam_info.drzs8t_crop_info.crop_region =
+			NSCam::MRect(activeArray_.width, activeArray_.height);
+		tuning_param_p2.cam_info.drzs8t_crop_info.dst_size =
+			NSCam::MSize(fullDipSize.width, fullDipSize.height);
+
+		// Update u8Id to pipe frame no to align NDD, internalId?
+		camsysFrmId = tuning_param_p2.cam_info.u8Id;
+		tuning_param_p2.cam_info.ISP_3A_result_id = camsysFrmId;
+		//tuning_param_p2.cam_info.u8Id = camsysFrmId - 4;
+
+		auto &shading = aaaIspExchange->aaaResult.shading_result;
+		int32_t lsc_data_size = shading.lsc_data.size();
+
+		if (lsc_data_size > 0) {
+			tuning_param_p2.shading_table = shading.lsc_data.data();
+			tuning_param_p2.shading_table_size = shading.lsc_data.size();
+			tuning_param_p2.cam_info.shd_info.data_valid = true;
+		}
+
+		tuning_param_p2.cam_info.multi_frame_bss_index = 0;
+		tuning_param_p2.cam_info.user_id = 0;
+
+		if (is_capture)
+			tuning_param_p2.cam_info.rMapping_Info.eFeature = NSIspTuning::EFeature_Capture_lpnr;
+		else
+			tuning_param_p2.cam_info.rMapping_Info.eFeature = NSIspTuning::EFeature_Video;
+
+		tuning_param_p2.cam_info.rMapping_Info.eCustomFeature = NSIspTuning::ECustomFeature_OFF;
+
+		tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeAuto;
+		tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOn;
+
+		if (is_capture) {
+			tuning_param_p2.camsys_history.tone_map_mode = MTK_TONEMAP_MODE_HIGH_QUALITY;
+			tuning_param_p2.camsys_history.edge_mode = MTK_EDGE_MODE_HIGH_QUALITY;
+			tuning_param_p2.camsys_history.nr_mode = MTK_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+		} else {
+			tuning_param_p2.camsys_history.tone_map_mode = MTK_TONEMAP_MODE_FAST;
+			tuning_param_p2.camsys_history.edge_mode = MTK_EDGE_MODE_FAST;
+			tuning_param_p2.camsys_history.nr_mode = MTK_NOISE_REDUCTION_MODE_FAST;
+		}
+
+		if (is_capture)
+			tuning_param_p2.capture_mode = mtk::isphal::v1_0::kCaptureModeNormal;
+		else
+			tuning_param_p2.capture_mode = mtk::isphal::v1_0::kCaptureModeNone;
+
+		mtk::isphal::Size tSize(inputSize.width, inputSize.height);
+		tuning_param_p2.cam_info.rCropRzInfo.targetSize = tSize;
+	}
+
+	// parseImgSysMetadata
+	{
+		fillIndex(request.stage, is_capture, imgsys_info);
+
+		imgsys_info.sequence_num = camsysFrmId;
+		imgsys_info.is_need_dump_exif = 0;
+
+		mtk::isphal::Size mel0Out(576, 432);
+		//mtk::isphal::Size gyroOut(32, 24);
+		imgsys_info.rCropRzInfo.sMEL0out = mel0Out;
+		imgsys_info.rCropRzInfo.sGyroMv = {};
+
+		fillTncInfo(request.stage, inputSize, outputSize, fullDipSize, imgsys_info);
+
+		imgsys_info.rWrappingInfo = {};
+		imgsys_info.bypass_nr = 0;
+	}
+
+	// parseImgSysBriefPart
+	{
+		uint8_t u1P2TuningUpdate = tuning_control.update_mode;
+		imgsys_info.tuing_update_mode =
+			static_cast<mtk::isphal::v1_0::TuningUpdateMode>(u1P2TuningUpdate);
+
+		imgsys_info.stage = static_cast<NSIspTuning::EStage_T>(tuning_control.stage);
+
+		mtk::isphal::Size imgsys_in_size(inputSize.width, inputSize.height);
+		imgsys_info.rCropRzInfo.imgsys_in_size = imgsys_in_size;
+
+		imgsys_info.is_capture = is_capture;
+		imgsys_info.action = tuning_control.action;
+	}
+
+	mtk::isphal::v1_0::IspPerframeControl& cam_info = tuning_param_p2.cam_info;
+	{
+		// Check the following values
+		imgsys_info.srcimg_descriptor.p2_in_img_fmg = 0;
+		imgsys_info.srcimg_descriptor.format = mtk::isphal::kImageFormatMtkRawBayer;
+
+		imgsys_info.nr_mode = mtk::isphal::v1_0::kNoiseReductionModeOn;
+
+		// copy caminfo
+		imgsys_info.rMapping_Info = cam_info.rMapping_Info;
+		imgsys_info.rMapping_Info_with_sys_info =
+		    cam_info.rMapping_Info_with_sys_info;
+		imgsys_info.rNdd_info = cam_info.rNdd_info;
+		imgsys_info.sr_para = cam_info.sr_para;
+
+		imgsys_info.rFdInfo_afterWarp = cam_info.rFdInfo;
+
+		// replace with correct stage
+		imgsys_info.rMapping_Info.eStage =
+		    static_cast<NSIspTuning::EStage_T>(imgsys_info.stage);
+		imgsys_info.rMapping_Info.eAction =
+		    static_cast<NSIspTuning::EAction_T>(imgsys_info.action);
+
+	}
+	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
+
+	return 0;
+}
+
 } // namespace libcamera

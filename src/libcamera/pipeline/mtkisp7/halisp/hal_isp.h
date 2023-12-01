@@ -12,6 +12,7 @@
 #include "stdint.h"
 
 #include <libcamera/geometry.h>
+#include <libcamera/internal/info_frame.h>
 
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
@@ -27,6 +28,20 @@ struct AaaIspExchange {
 	mtk::hal3a::v1_0::mtk_3a_result aaaResult;
 };
 
+struct ImgMetaRequest {
+	bool isCapture;
+	NSIspTuning::EStage_T stage;
+	InfoFrame tuningBuffer;
+	InfoFrame statisticsBuffer;
+	InfoFrame swHistBuffer;
+	Size inputSize;
+	Size outputSize;
+	Size outputSize2;
+	Size fullDipSize;
+
+	std::unordered_map<mtk::isphal::kISPExtBuf, InfoFrame> reserved;
+};
+
 class HalIsp
 {
 public:
@@ -37,6 +52,9 @@ public:
 	int getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
 				size_t bufSize, AaaIspExchange *aaaIspExchange);
+
+	int getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
+				ImgMetaRequest &imgMetaRequest);
 
 	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
 
