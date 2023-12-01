@@ -12,6 +12,7 @@ libcam_peripheralcontroller = cc.find_library('libcam.peripheralcontroller', req
 libcam_halisp_utils_pub = cc.find_library('libcam.halisp.utils.pub', required : true)
 
 libcam_halisp_imp_v4l2 = cc.find_library('cam.halisp.imp.v4l2', required : true)
+libcam_halisp_tuning_provider = cc.find_library('cam.halisp.TuningDataProvider', required : true)
 
 libcamera_deps += [
     libcamalgo_fdft,
@@ -25,6 +26,7 @@ libcamera_deps += [
     libcam_peripheralcontroller,
     libcam_halisp_utils_pub,
     libcam_halisp_imp_v4l2,
+    libcam_halisp_tuning_provider,
 ]
 
 libcamera_sources += files([

@@ -7,12 +7,14 @@
 
 #pragma once
 
-#include <memory.h>
-#include <stdint.h>
+#include <memory>
+#include <optional>
+#include "stdint.h"
 
 #include <libcamera/geometry.h>
 
 #include "platform/mtkisp7/halisp/IHalIsp.h"
+#include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 
@@ -36,6 +38,8 @@ public:
 				int fd, intptr_t va, size_t offset,
 				size_t bufSize, AaaIspExchange *aaaIspExchange);
 
+	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
+
 private:
 	int32_t sensorIdx_;
 	int32_t sensorDev_;
@@ -45,8 +49,11 @@ private:
 	std::shared_ptr<mtk::isphal::v1::IHalIsp> m_pHalisp;
 	mtk::isphal::v1_0::IspPerframeControl m_P1CamInfo;
 	mtk::isphal::v1_0::IspReadOnlyControl m_P1CamInfo_3a;
-	mtk::isphal::v1_0::IspPerframeControl m_BackupCamInfo; // for p2
-	mtk::isphal::v1_0::IspReadOnlyControl m_BackupCamInfo_3a; // for p2
+	mtk::isphal::v1_0::IspPerframeControl m_BackupCamInfo;     // for p2
+	mtk::isphal::v1_0::IspReadOnlyControl m_BackupCamInfo_3a;  // for p2
+
+	std::shared_ptr<mtk::isphal::v1::ITuningDataProvider> provider_;
+	std::optional<uint32_t> lpnrThredshold_;
 };
 
 } // namespace libcamera

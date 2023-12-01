@@ -103,10 +103,32 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 	m_P1CamInfo.hwhdr_info.i4fus_num = 0;
 	m_P1CamInfo.hwhdr_info.hdr_type = mtk::isphal::v1_0::EISP_HWHDRType_None;
 
-	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r2_ds = 2;
-	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r4_ds = 0;
+        m_P1CamInfo.yuvo_ds_mode_info.yuvo_r2_ds = 2;
+        m_P1CamInfo.yuvo_ds_mode_info.yuvo_r4_ds = 0;
+
+	provider_ = mtk::isphal::v1_0::TuningDataProvider::createInstance(
+		sensorIdx_, sensorDev_, 0);
 
 	return 0;
+}
+
+uint32_t HalIsp::getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange)
+{
+	if (lpnrThredshold_)
+		return lpnrThredshold_.value();
+
+	mtk::isphal::v1::isp_lpnrthres_Param param;
+	CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO qry =
+		aaaIspExchange->cam_info.rMapping_Info_with_sys_info;
+
+	qry.mapping_info.eFeature = EFeature_Capture_lpnr;
+	qry.mapping_info.eStage = EStage_TR_R2Y;
+	qry.mapping_info.eAction = EAction_Capture;
+
+	provider_->readDataForFeature(&param, sizeof(param), EModuleDB_LPNR_THRES, qry);
+	lpnrThredshold_ = static_cast<uint32_t>(param.LPNR_ISO_HIGH_TH);
+
+	return lpnrThredshold_.value();
 }
 
 int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
