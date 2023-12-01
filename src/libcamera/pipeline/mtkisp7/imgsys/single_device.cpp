@@ -49,6 +49,9 @@ NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &i
 	case libcamera::formats::GREY:
 		property.format = eImgFmt_Y8;
 		break;
+	case libcamera::formats::Y8_MTISP:
+		property.format = eImgFmt_STA_BYTE;
+		break;
 	case libcamera::formats::Y16_MTISP:
 		property.format = eImgFmt_STA_2BYTE;
 		break;
