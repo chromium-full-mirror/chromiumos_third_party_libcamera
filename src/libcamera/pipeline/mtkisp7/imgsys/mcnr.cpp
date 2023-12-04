@@ -68,99 +68,6 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 		libcamera::DmaHeap::SyncReadWrite);
 }
 
-static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t *tuning)
-{
-	assert(tuning);
-
-	InfoFrame &info = mailBox->get();
-
-	void *dest = info.address(0);
-	size_t length = info.buffer()->planes()[0].length;
-
-	assert(dest);
-	assert(mailBox->valid());
-
-	libcamera::DmaHeap::sync(
-		info.buffer()->planes()[0].fd.get(),
-		libcamera::DmaHeap::Start,
-		libcamera::DmaHeap::SyncReadWrite);
-
-	memcpy(dest, tuning, length);
-
-	libcamera::DmaHeap::sync(
-		info.buffer()->planes()[0].fd.get(),
-		libcamera::DmaHeap::End,
-		libcamera::DmaHeap::SyncReadWrite);
-}
-
-class TuningBuffers
-{
-public:
-	TuningBuffers();
-	void readBuffer(uint8_t *dest, size_t length, const char *file);
-	void readAll();
-
-	uint8_t HW_DIP_F0_tunbufi[219348];
-	uint8_t HW_DIP_F1_tunbufi[219348];
-	uint8_t HW_DIP_F2_tunbufi[219348];
-	uint8_t HW_DIP_F3_tunbufi[219348];
-	uint8_t HW_DIP_F4_tunbufi[219348];
-	uint8_t HW_DIP_IDI2_tunbufi[219348];
-	uint8_t HW_DIP_IDI_tunbufi[219348];
-	uint8_t HW_LTR_F1_tunbufi[219348];
-	uint8_t HW_LTR_F4_tunbufi[219348];
-	uint8_t HW_LTR_VBI_tunbufi[219348];
-	uint8_t HW_WPE_W_F0_tunbufi[219348];
-	uint8_t HW_ME_3PASS_MODE_0_tunbufi[219348];
-	uint8_t HW_ME_3PASS_MODE_1_tunbufi[219348];
-	uint8_t HW_ME_3PASS_MODE_1_me_mili[15552];
-	uint8_t HW_TR_F1_tunbufi[219348];
-	uint8_t HW_TR_F4_tunbufi[219348];
-	uint8_t HW_LTR_ME_L1_tunbufi[219348];
-};
-
-TuningBuffers::TuningBuffers()
-{
-	readAll();
-}
-
-void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char *filename)
-{
-	FILE *file = nullptr;
-	std::string filePath = std::string("/etc/camera/back_settings/") + filename;
-	file = fopen(filePath.c_str(), "rb");
-
-	if (!file)
-		LOG(MtkISP7, Error) << "Fail to open file " << filePath;
-
-	size_t size = fread(dest, length, 1, file);
-	LOG(MtkISP7, Error) << "Read" << filename << " with size " << size;
-	fclose(file);
-}
-
-void TuningBuffers::readAll()
-{
-	readBuffer(HW_DIP_F0_tunbufi, 219348, "HW_DIP_F0_tunbufi.bin");
-	readBuffer(HW_DIP_F1_tunbufi, 219348, "HW_DIP_F1_tunbufi.bin");
-	readBuffer(HW_DIP_F2_tunbufi, 219348, "HW_DIP_F2_tunbufi.bin");
-	readBuffer(HW_DIP_F3_tunbufi, 219348, "HW_DIP_F3_tunbufi.bin");
-	readBuffer(HW_DIP_F4_tunbufi, 219348, "HW_DIP_F4_tunbufi.bin");
-	readBuffer(HW_DIP_IDI2_tunbufi, 219348, "HW_DIP_IDI2_tunbufi.bin");
-	readBuffer(HW_DIP_IDI_tunbufi, 219348, "HW_DIP_IDI_tunbufi.bin");
-	readBuffer(HW_LTR_F1_tunbufi, 219348, "HW_LTR_F1_tunbufi.bin");
-	readBuffer(HW_LTR_F4_tunbufi, 219348, "HW_LTR_F4_tunbufi.bin");
-	readBuffer(HW_LTR_VBI_tunbufi, 219348, "HW_LTR_VBI_tunbufi.bin");
-	readBuffer(HW_WPE_W_F0_tunbufi, 219348, "HW_WPE_W_F0_tunbufi.bin");
-	readBuffer(HW_ME_3PASS_MODE_0_tunbufi, 219348, "HW_ME_3PASS_MODE_0_tunbufi.bin");
-	readBuffer(HW_ME_3PASS_MODE_1_me_mili, 15552, "HW_ME_3PASS_MODE_1_me_mili.bin");
-	readBuffer(HW_ME_3PASS_MODE_1_tunbufi, 219348, "HW_ME_3PASS_MODE_1_tunbufi.bin");
-	readBuffer(HW_TR_F1_tunbufi, 219348, "HW_TR_F1_tunbufi.bin");
-	readBuffer(HW_TR_F4_tunbufi, 219348, "HW_TR_F4_tunbufi.bin");
-	readBuffer(HW_LTR_ME_L1_tunbufi, 219348, "HW_LTR_ME_L1_tunbufi.bin");
-}
-
-static TuningBuffers tuningBuffers;
-
 } // namespace
 
 /* todo: hide the NSCam::NSImgStream namespace in the single device interface. */
@@ -692,19 +599,7 @@ MeATask::MeATask(Scheduler *scheduler, const std::string &id, Request *request,
 
 void MeATask::allocateOutputBuffers()
 {
-	auto &in = frames_.in;
 	auto &out = frames_.out;
-
-	/* todo: The tuning buffer should be allocated and filled by IPA.
-	 * Remove the workaround once the IPA is ready */
-	manager_->trawTun_.fetch(in.trMeTun);
-	fillTuning(in.trMeTun, &tuningBuffers.HW_LTR_ME_L1_tunbufi[0]);
-	manager_->meTun_.fetch(in.meATun);
-	fillTuning(in.meATun, &tuningBuffers.HW_ME_3PASS_MODE_0_tunbufi[0]);
-	manager_->meTun_.fetch(in.meBTun);
-	fillTuning(in.meBTun, &tuningBuffers.HW_ME_3PASS_MODE_1_tunbufi[0]);
-	manager_->fwmmMil_.fetch(in.meMil);
-	fillTuning(in.meMil, &tuningBuffers.HW_ME_3PASS_MODE_1_me_mili[0]);
 
 	manager_->meIn_.fetch(out.meL1);
 	manager_->meMv0_.fetch(out.meAMv0);
@@ -860,15 +755,7 @@ TrTask::TrTask(Scheduler *scheduler, const std::string &id, Request *request,
 
 void TrTask::allocateOutputBuffers()
 {
-	auto &in = frames_.in;
 	auto &out = frames_.out;
-
-	/* todo: The tuning buffer should be allocated and filled by IPA.
-	 * Remove the workaround once the IPA is ready */
-	manager_->trawTun_.fetch(in.trTunF1);
-	fillTuning(in.trTunF1, &tuningBuffers.HW_TR_F1_tunbufi[0]);
-	manager_->trawTun_.fetch(in.trTunF4);
-	fillTuning(in.trTunF4, &tuningBuffers.HW_TR_F4_tunbufi[0]);
 
 	/* dipImgi[0] (p1F0) and dipImgi[1] (p1F1) are from P1 */
 	manager_->img3o_[2].fetch(out.dipImgi[2]);
@@ -965,31 +852,7 @@ Dip1Task::Dip1Task(Scheduler *scheduler, const std::string &id, Request *request
 
 void Dip1Task::allocateOutputBuffers()
 {
-	auto &in = frames_.in;
 	auto &out = frames_.out;
-
-	/* todo: The tuning buffer should be allocated and filled by IPA.
-	 * Remove the workaround once the IPA is ready */
-	manager_->trawTun_.fetch(in.ltrTunF1);
-	fillTuning(in.ltrTunF1, &tuningBuffers.HW_LTR_F1_tunbufi[0]);
-	manager_->trawTun_.fetch(in.ltrTunF4);
-	fillTuning(in.ltrTunF4, &tuningBuffers.HW_LTR_F4_tunbufi[0]);
-	manager_->trawTun_.fetch(in.ltrTunVbi);
-	fillTuning(in.ltrTunVbi, &tuningBuffers.HW_LTR_VBI_tunbufi[0]);
-	manager_->trawTun_.fetch(in.wpeTun);
-	fillTuning(in.wpeTun, &tuningBuffers.HW_WPE_W_F0_tunbufi[0]);
-
-	for (size_t i = 0; i < in.dipTun.size(); i++) {
-		manager_->dipTun_.fetch(in.dipTun[i]);
-	}
-
-	fillTuning(in.dipTun[0], &tuningBuffers.HW_DIP_F0_tunbufi[0]);
-	fillTuning(in.dipTun[1], &tuningBuffers.HW_DIP_F1_tunbufi[0]);
-	fillTuning(in.dipTun[2], &tuningBuffers.HW_DIP_F2_tunbufi[0]);
-	fillTuning(in.dipTun[3], &tuningBuffers.HW_DIP_F3_tunbufi[0]);
-	fillTuning(in.dipTun[4], &tuningBuffers.HW_DIP_F4_tunbufi[0]);
-	fillTuning(in.dipTun[5], &tuningBuffers.HW_DIP_IDI2_tunbufi[0]);
-	fillTuning(in.dipTun[6], &tuningBuffers.HW_DIP_IDI_tunbufi[0]);
 
 	/* dipVipi[0] is not used. */
 	for (int i = 1; i < 7; i++)
