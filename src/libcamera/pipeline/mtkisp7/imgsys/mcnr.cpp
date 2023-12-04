@@ -106,6 +106,7 @@ public:
 	uint8_t HW_LTR_F1_tunbufi[219348];
 	uint8_t HW_LTR_F4_tunbufi[219348];
 	uint8_t HW_LTR_VBI_tunbufi[219348];
+	uint8_t HW_WPE_W_F0_tunbufi[219348];
 	uint8_t HW_ME_3PASS_MODE_0_tunbufi[219348];
 	uint8_t HW_ME_3PASS_MODE_1_tunbufi[219348];
 	uint8_t HW_ME_3PASS_MODE_1_me_mili[15552];
@@ -145,6 +146,7 @@ void TuningBuffers::readAll()
 	readBuffer(HW_LTR_F1_tunbufi, 219348, "HW_LTR_F1_tunbufi.bin");
 	readBuffer(HW_LTR_F4_tunbufi, 219348, "HW_LTR_F4_tunbufi.bin");
 	readBuffer(HW_LTR_VBI_tunbufi, 219348, "HW_LTR_VBI_tunbufi.bin");
+	readBuffer(HW_WPE_W_F0_tunbufi, 219348, "HW_WPE_W_F0_tunbufi.bin");
 	readBuffer(HW_ME_3PASS_MODE_0_tunbufi, 219348, "HW_ME_3PASS_MODE_0_tunbufi.bin");
 	readBuffer(HW_ME_3PASS_MODE_1_me_mili, 15552, "HW_ME_3PASS_MODE_1_me_mili.bin");
 	readBuffer(HW_ME_3PASS_MODE_1_tunbufi, 219348, "HW_ME_3PASS_MODE_1_tunbufi.bin");
@@ -393,6 +395,7 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	tunings.ltrTunF4 = makeMailBox<InfoFrame>();
 	tunings.meMil = makeMailBox<InfoFrame>();
 	tunings.ltrTunVbi = makeMailBox<InfoFrame>();
+	tunings.wpeTun = makeMailBox<InfoFrame>();
 	tunings.dipTun = makeMailBoxVector<InfoFrame>(7);
 
 	/* Outputs of ME, motion estimation confidence */
@@ -548,6 +551,7 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	dip1Frames.in.ltrTunF1 = tunings.ltrTunF1;
 	dip1Frames.in.ltrTunF4 = tunings.ltrTunF4;
 	dip1Frames.in.ltrTunVbi = tunings.ltrTunVbi;
+	dip1Frames.in.wpeTun = tunings.wpeTun;
 	dip1Frames.in.dipTun = tunings.dipTun;
 	dip1Frames.in.preDipTnrso = prev.preDipTnrso;
 	dip1Frames.in.prevImg4oF0 = prev.prevImg4oF0;
@@ -878,6 +882,8 @@ void Dip1Task::allocateOutputBuffers()
 	fillTuning(in.ltrTunF4, &tuningBuffers.HW_LTR_F4_tunbufi[0]);
 	manager_->trawTun_.fetch(in.ltrTunVbi);
 	fillTuning(in.ltrTunVbi, &tuningBuffers.HW_LTR_VBI_tunbufi[0]);
+	manager_->trawTun_.fetch(in.wpeTun);
+	fillTuning(in.wpeTun, &tuningBuffers.HW_WPE_W_F0_tunbufi[0]);
 
 	for (size_t i = 0; i < in.dipTun.size(); i++) {
 		manager_->dipTun_.fetch(in.dipTun[i]);
@@ -1068,6 +1074,7 @@ void Dip1Task::setWpeParams(StageEx &stage, unsigned int level)
 	auto &in = frames_.in;
 	auto &out = frames_.out;
 
+	stage.input(in.wpeTun->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 	stage.input(in.prevDipTnrwo[level]->get(), IMG_PORT_WPE_WPEI, 0, Size{ 0, 0 });
 	stage.input(out.wpeVeci[level]->get(), IMG_PORT_WPE_VECI, 0, Size{ 0, 0 });
 	stage.output(out.dipTnrwi[level]->get(), IMG_PORT_WPE_WPEO, 0, wtSizes[level]);

@@ -48,6 +48,7 @@ struct TuningFrames {
 	SharedMailBox<InfoFrame> trTunF1; // Tuning of TR for stage HW_TR_F1
 	SharedMailBox<InfoFrame> trTunF4; // Tuning of TR for stage HW_TR_F4
 	SharedMailBox<InfoFrame> ltrTunVbi; // Tuning of LTR for stage HW_LTR_VBI
+	SharedMailBox<InfoFrame> wpeTun;    // Tuning of WPE for stage HW_WPE_W_F*
 	std::vector<SharedMailBox<InfoFrame>> dipTun; // Tuning of DIP for each stages
 };
 
@@ -104,6 +105,7 @@ struct Dip1Frames {
 		SharedMailBox<InfoFrame> ltrTunF1;
 		SharedMailBox<InfoFrame> ltrTunF4;
 		SharedMailBox<InfoFrame> ltrTunVbi;
+		SharedMailBox<InfoFrame> wpeTun;
 		std::vector<SharedMailBox<InfoFrame>> dipTun;
 		SharedMailBox<InfoFrame> preDipTnrso;
 		SharedMailBox<InfoFrame> prevImg4oF0;
