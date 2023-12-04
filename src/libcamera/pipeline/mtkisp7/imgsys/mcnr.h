@@ -17,7 +17,8 @@ namespace libcamera {
 
 class Dip1Task;
 class Dip2Task;
-class MeTask;
+class MeATask;
+class MeBTask;
 class TrTask;
 
 struct MCNRPrevOutput {
@@ -196,7 +197,7 @@ public:
 			    FrameBuffer *videoOut1,
 			    FrameBuffer *videoOut2);
 
-	std::tuple<MeTask *, TrTask *, Dip1Task *, Dip2Task *>
+	std::tuple<MeATask *, MeBTask *, TrTask *, Dip1Task *, Dip2Task *>
 	makeMcnrTasks(MCNRFrames &mcnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
 		      ImgSysDevice *imgSys);
@@ -205,7 +206,8 @@ private:
 	friend class Dip1Task;
 	friend class Dip2Task;
 	friend class TrTask;
-	friend class MeTask;
+	friend class MeATask;
+	friend class MeBTask;
 
 	int configureBuffers();
 
@@ -260,11 +262,11 @@ private:
 	OnDeviceTuner *onDeviceTuner_;
 };
 
-class MeTask : public Task
+class MeATask : public Task
 {
 public:
-	MeTask(Scheduler *scheduler, const std::string &id, Request *request,
-	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
+	MeATask(Scheduler *scheduler, const std::string &id, Request *request,
+		ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
 	void notifyDone() override;
@@ -280,6 +282,26 @@ private:
 	Request *request_;
 	McnrTasksManager *manager_;
 	ImgSysDevice *imgSys_;
+};
+
+class MeBTask : public Task
+{
+public:
+	MeBTask(Scheduler *scheduler, const std::string &id, Request *request,
+	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+
+private:
+	void allocateOutputBuffers();
+
+	MeFrames frames_;
+
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	McnrTasksManager *manager_;
+	[[maybe_unused]] ImgSysDevice *imgSys_;
 };
 
 class TrTask : public Task

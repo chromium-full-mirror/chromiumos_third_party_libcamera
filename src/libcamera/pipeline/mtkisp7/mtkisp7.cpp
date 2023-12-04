@@ -50,7 +50,8 @@ enum MtkISP7TaskGroup {
 	CaptureDequeueGroup,
 	AAGroup,
 	AFGroup,
-	MeGroup,
+	MeAGroup,
+	MeBGroup,
 	TrGroup,
 	XtrGroup,
 	Dip1Group,
@@ -68,7 +69,8 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ CaptureDequeueGroup, "CaptureDequeueGroup" },
 	{ AAGroup, "AAGroup" },
 	{ AFGroup, "AFGroup" },
-	{ MeGroup, "MeGroup" },
+	{ MeAGroup, "MeAGroup" },
+	{ MeBGroup, "MeBGroup" },
 	{ TrGroup, "TrGroup" },
 	{ XtrGroup, "XtrGroup" },
 	{ Dip1Group, "Dip1Group" },
@@ -869,18 +871,22 @@ int MtkISP7CameraData::queueRequest(Request *request)
 					   video1Buffer,
 					   video2Buffer);
 
-		auto [taskME, tempTaskTr, taskDip1, tempTaskDip2] =
+		auto [taskMeA, taskMeB, tempTaskTr, taskDip1, tempTaskDip2] =
 			mcnrManager.makeMcnrTasks(mcnr, scheduler, "MCNR " + sequence,
 						  request, imgSysDev_);
 
 		taskTr = tempTaskTr;
 		taskDip2 = tempTaskDip2;
 
-		Scheduler::precede(taskDQBuf, taskME);
-		scheduler->succeedPrevTaskByStep(MeGroup, 0, taskME);
-		scheduler->queueTask(taskME, MeGroup);
+		Scheduler::precede(taskDQBuf, taskMeA);
+		scheduler->succeedPrevTaskByStep(MeAGroup, 0, taskMeA);
+		scheduler->queueTask(taskMeA, MeAGroup);
 
-		Scheduler::precede(taskME, taskTr);
+		Scheduler::precede(taskMeA, taskMeB);
+		scheduler->succeedPrevTaskByStep(MeBGroup, 0, taskMeB);
+		scheduler->queueTask(taskMeB, MeBGroup);
+
+		Scheduler::precede(taskMeB, taskTr);
 		scheduler->succeedPrevTaskByStep(TrGroup, 0, taskTr);
 		scheduler->queueTask(taskTr, TrGroup);
 

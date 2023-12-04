@@ -661,25 +661,26 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	prev.valid = true;
 }
 
-std::tuple<MeTask *, TrTask *, Dip1Task *, Dip2Task *>
-McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler *scheduler,
+std::tuple<MeATask *, MeBTask *, TrTask *, Dip1Task *, Dip2Task *>
+McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler  *scheduler,
 				const std::string &id, Request *request,
-				ImgSysDevice *imgSys)
+				ImgSysDevice* imgSys)
 {
 	(void)id;
 	std::string sequence = std::to_string(request->sequence());
 
-	MeTask *meTask = new MeTask(scheduler, "Me " + sequence, request, imgSys, mcnr, this);
+	MeATask *meATask = new MeATask(scheduler, "MeA " + sequence, request, imgSys, mcnr, this);
+	MeBTask *meBTask = new MeBTask(scheduler, "MeB " + sequence, request, imgSys, mcnr, this);
 	TrTask *trTask = new TrTask(scheduler, "Tr " + sequence, request, imgSys, mcnr, this);
 	Dip1Task *dip1Task = new Dip1Task(scheduler, "Dip 1 " + sequence, request, imgSys, mcnr, this);
 
 	Dip2Task *dip2Task = new Dip2Task(scheduler, "Dip 2 " + sequence,
 					  request, imgSys, mcnr, this);
 
-	return std::make_tuple(meTask, trTask, dip1Task, dip2Task);
+	return std::make_tuple(meATask, meBTask, trTask, dip1Task, dip2Task);
 }
 
-MeTask::MeTask(Scheduler *scheduler, const std::string &id, Request *request,
+MeATask::MeATask(Scheduler *scheduler, const std::string &id, Request *request,
 	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
 	  request_(request), manager_(manager), imgSys_(imgSys)
@@ -689,7 +690,7 @@ MeTask::MeTask(Scheduler *scheduler, const std::string &id, Request *request,
 	syncLtrMeA_ = 0;
 }
 
-void MeTask::allocateOutputBuffers()
+void MeATask::allocateOutputBuffers()
 {
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -730,7 +731,7 @@ void MeTask::allocateOutputBuffers()
 	syncLtrMeA_ = imgSys_->syncPool().get();
 }
 
-void MeTask::notifyDone()
+void MeATask::notifyDone()
 {
 	if (syncLtrMeA_)
 		imgSys_->syncPool().put(syncLtrMeA_);
@@ -739,14 +740,14 @@ void MeTask::notifyDone()
 	Task::notifyDone();
 }
 
-void MeTask::run()
+void MeATask::run()
 {
 	allocateOutputBuffers();
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "MeTask");
+	sdRequest.init(request_->sequence(), timestampMili, "MeATask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -785,6 +786,41 @@ void MeTask::run()
 
 	/* Set wait fence for HW_ME_3PASS_MODE_0 from HW_TR_ME_L1 */
 	HW_ME_3PASS_MODE_0.addWait(syncLtrMeA_);
+
+	requestHelper_.queueRequest(sdRequest);
+}
+
+MeBTask::MeBTask(Scheduler *scheduler, const std::string &id, Request *request,
+		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+	: Task(scheduler, id), requestHelper_(this, request, imgSys),
+	  request_(request), manager_(manager), imgSys_(imgSys)
+{
+	/* Collect MailBoxes used for the task */
+	frames_ = mcnr.meFrames;
+}
+
+void MeBTask::allocateOutputBuffers()
+{
+	// TODO: Move corresponding allocation to here.
+}
+
+void MeBTask::notifyDone()
+{
+	manager_->onDeviceTuner_->tuneMe(request_, frames_);
+	Task::notifyDone();
+}
+
+void MeBTask::run()
+{
+	//allocateOutputBuffers();
+
+	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
+	SingleDeviceRequest sdRequest;
+
+	sdRequest.init(request_->sequence(), timestampMili, "MeBTask");
+
+	auto &in = frames_.in;
+	auto &out = frames_.out;
 
 	/* HW_ME_3PASS_MODE_1 */
 	StageEx &HW_ME_3PASS_MODE_1 = sdRequest.emplaceStage(PEU_Stage::HW_ME_3PASS_MODE_1);
