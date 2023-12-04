@@ -175,6 +175,7 @@ LpnrTasksManager::LpnrTasksManager(
 		allBufferPools_.emplace_back(&lpnr_[i]);
 
 	poolsWritenByCpu_.emplace_back(&lpnrTun_);
+	poolsWritenByCpu_.emplace_back(&lpnrStt_);
 }
 
 void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
