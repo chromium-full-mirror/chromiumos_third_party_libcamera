@@ -194,6 +194,8 @@ void AATask::run()
 		prevFaceMetadata_ = &(latestFaceMetadata->get());
 	}
 
+	captureFrames_.aaaIspExchange->put({}, nullptr);
+
 	std::pair<uint32_t, uint32_t> exposureAndGain;
 	hal3A_->doCalculation(captureFrames_.statistics0->get().buffer(),
 			      captureFrames_.timestamp->get(),
@@ -202,7 +204,9 @@ void AATask::run()
 			      tuningBuffer->planes()[0].fd.get(),
 			      mappedBuffer.planes()[0].data(),
 			      prevFaceMetadata_, newFdResult,
-			      &exposureAndGain);
+			      &exposureAndGain,
+			      &captureFrames_.aaaIspExchange->get());
+
 	captureFrames_.exposureAndGainOutput->put(
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>

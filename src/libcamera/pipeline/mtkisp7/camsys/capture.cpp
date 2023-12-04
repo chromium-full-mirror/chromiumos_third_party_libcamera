@@ -101,6 +101,8 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 
 	captureFrames.timestamp = makeMailBox<uint64_t>();
 	captureFrames.exposureAndGainOutput = makeMailBox<std::pair<uint32_t, uint32_t>>();
+
+	captureFrames.aaaIspExchange = makeMailBox<AaaIspExchange>();
 }
 
 std::tuple<QueueTask *, DequeueTask *, SofTask *>

@@ -286,7 +286,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			  MtkCameraFaceMetadata *metadata, bool newFdResult,
-			  std::pair<uint32_t, uint32_t> *exposureAndGain)
+			  std::pair<uint32_t, uint32_t> *exposureAndGain,
+			  AaaIspExchange *aaaIspExchange)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
 	if (sensor_idx_ == 0) { // back camera
@@ -335,11 +336,9 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	m_hal3a_->GetResult(r3AResult_);
 	*rawMeta = r3AResult_.raw_meta;
 
-	AaaIspExchange aaaIspExchange;
-	aaaIspExchange.aaaResult = r3AResult_;
-
+	aaaIspExchange->aaaResult = r3AResult_;
 	halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
-				     rawMetaFd, (intptr_t)rawMetaBuffer, 0, kRawMetaSize, &aaaIspExchange);
+				     rawMetaFd, (intptr_t)rawMetaBuffer, 0, kRawMetaSize, aaaIspExchange);
 
 	getExposureAndGain(exposureAndGain);
 }

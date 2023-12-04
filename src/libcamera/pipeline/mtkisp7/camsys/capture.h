@@ -15,6 +15,7 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/hal3a/hal_3a.h"
+#include "pipeline/mtkisp7/halisp/hal_isp.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "camsys.h"
@@ -43,6 +44,8 @@ struct CaptureFrames {
 
 	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGain; // input
 	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGainOutput; // output
+
+	SharedMailBox<AaaIspExchange> aaaIspExchange;
 };
 
 class CaptureData
