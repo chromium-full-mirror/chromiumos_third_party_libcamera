@@ -460,8 +460,15 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	dipTnrci.resize(7);
 	dipTnrci[0] = dipTnrci[1] = meConf0;
 	dipTnrci[2] = dipTnrci[3] = meConf0;
-	dipTnrci[4] = meConf4;
-	dipTnrci[5] = dipTnrci[6] = meConf5;
+	if (mcnrSizes[4] > kMeL1Size)
+		dipTnrci[4] = meConf0;
+	else
+		dipTnrci[4] = meConf4;
+
+	if (mcnrSizes[5] > kMeL1Size)
+		dipTnrci[5] = dipTnrci[6] = meConf0;
+	else
+		dipTnrci[5] = dipTnrci[6] = meConf5;
 
 	/* Inputs/outptus of DIP, propagate from low to high levels. Link
 	 * tnrmi[i] to the previous level tnrmo[i+1] for easier use. */
