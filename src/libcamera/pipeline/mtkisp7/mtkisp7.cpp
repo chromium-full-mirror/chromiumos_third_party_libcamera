@@ -46,6 +46,8 @@ static const ControlInfoMap::Map MtkISP7Controls = {
 	{ &controls::draft::PipelineDepth, ControlInfo(8, 8, 8) },
 };
 
+static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
+
 enum MtkISP7TaskGroup {
 	SofGroup = 0,
 	CaptureQueueGroup,
@@ -396,6 +398,8 @@ PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 {
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
 	dmaHeap_ = std::make_unique<DmaHeap>();
+
+	thread()->setThreadAffinity(kMainThreadCpuAffinity);
 }
 
 std::unique_ptr<CameraConfiguration>
