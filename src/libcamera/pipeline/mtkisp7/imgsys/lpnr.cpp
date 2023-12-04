@@ -26,81 +26,7 @@ namespace {
 static constexpr Size kTunSize{ 219348, 1 };
 static constexpr Size kTrawSttSize{ 738624, 1 };
 
-class TuningBuffers
-{
-public:
-	TuningBuffers();
-	void readBuffer(uint8_t *dest, size_t length, const char *file);
-	void readAll();
-
-	uint8_t capture_TR_R2Y_tunbufi[219348];
-	uint8_t capture_P2_MS_F3_tunbufi[219348];
-	uint8_t capture_P2_MS_F2_tunbufi[219348];
-	uint8_t capture_P2_MS_F1_tunbufi[219348];
-	uint8_t capture_P2_MS_F0_H_tunbufi[219348];
-	uint8_t capture_P2_Y2Y_PQ_DIP_tunbufi[219348];
-	uint8_t capture_P2_MS_F0_PQ_DIP_tunbufi[219348];
-};
-
-TuningBuffers::TuningBuffers()
-{
-	readAll();
-}
-
-void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char *filename)
-{
-	FILE *file = nullptr;
-	std::string filePath = std::string("/etc/camera/back_settings/") + filename;
-	file = fopen(filePath.c_str(), "rb");
-
-	if (!file)
-		LOG(MtkISP7, Error) << "Fail to open file " << filePath;
-
-	size_t size = fread(dest, length, 1, file);
-	LOG(MtkISP7, Error) << "Read" << filename << " with size " << size;
-	fclose(file);
-}
-
-void TuningBuffers::readAll()
-{
-	readBuffer(capture_TR_R2Y_tunbufi, 219348, "capture_TR_R2Y_tunbufi.bin");
-	readBuffer(capture_P2_MS_F3_tunbufi, 219348, "capture_P2_MS_F3_tunbufi.bin");
-	readBuffer(capture_P2_MS_F2_tunbufi, 219348, "capture_P2_MS_F2_tunbufi.bin");
-	readBuffer(capture_P2_MS_F1_tunbufi, 219348, "capture_P2_MS_F1_tunbufi.bin");
-	readBuffer(capture_P2_MS_F0_H_tunbufi, 219348, "capture_P2_MS_F0_H_tunbufi.bin");
-	readBuffer(capture_P2_Y2Y_PQ_DIP_tunbufi, 219348, "capture_P2_Y2Y_PQ_DIP_tunbufi.bin");
-
-	readBuffer(capture_P2_MS_F0_PQ_DIP_tunbufi, 219348, "capture_P2_MS_F0_PQ_DIP_tunbufi.bin");
-}
-
-static TuningBuffers tuningBuffers;
-
 } //namespace
-
-static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t *tuning)
-{
-	assert(tuning);
-
-	InfoFrame &info = mailBox->get();
-
-	void *dest = info.address(0);
-	size_t length = info.buffer()->planes()[0].length;
-
-	assert(dest);
-	assert(mailBox->valid());
-
-	libcamera::DmaHeap::sync(
-		info.buffer()->planes()[0].fd.get(),
-		libcamera::DmaHeap::Start,
-		libcamera::DmaHeap::SyncReadWrite);
-
-	memcpy(dest, tuning, length);
-
-	libcamera::DmaHeap::sync(
-		info.buffer()->planes()[0].fd.get(),
-		libcamera::DmaHeap::End,
-		libcamera::DmaHeap::SyncReadWrite);
-}
 
 int LpnrTasksManager::configure(const Size &bayerInputSize, const Size &yuvOutputSize)
 {
@@ -234,13 +160,7 @@ XTRTask::XTRTask(Scheduler *scheduler, const std::string &id, Request *request,
 
 void XTRTask::allocateOutputBuffers()
 {
-	auto &in = frames_.in;
 	auto &out = frames_.out;
-
-	/* todo: The tuning buffer should be allocated and filled by IPA.
-	 * Remove the workaround once the IPA is ready */
-	manager_->lpnrTun_.fetch(in.xtrTun);
-	fillTuning(in.xtrTun, &tuningBuffers.capture_TR_R2Y_tunbufi[0]);
 
 	/* Downscaled demosaic YUV frames */
 	for (unsigned int i = 0; i < manager_->lpnr_.size(); i++)
@@ -308,28 +228,6 @@ LpnrDipTask::LpnrDipTask(Scheduler *scheduler, const std::string &id, Request *r
 
 void LpnrDipTask::allocateOutputBuffers()
 {
-	auto &in = frames_.in;
-
-	/* todo: The tuning buffer should be allocated and filled by IPA.
-	 * Remove the workaround once the IPA is ready */
-	manager_->lpnrTun_.fetch(in.dipTunPq);
-	fillTuning(in.dipTunPq, &tuningBuffers.capture_P2_MS_F0_PQ_DIP_tunbufi[0]);
-
-	manager_->lpnrTun_.fetch(in.dipTunY2YPq);
-	fillTuning(in.dipTunY2YPq, &tuningBuffers.capture_P2_Y2Y_PQ_DIP_tunbufi[0]);
-
-	manager_->lpnrTun_.fetch(in.dipTun[0]);
-	fillTuning(in.dipTun[0], &tuningBuffers.capture_P2_MS_F0_H_tunbufi[0]);
-
-	manager_->lpnrTun_.fetch(in.dipTun[1]);
-	fillTuning(in.dipTun[1], &tuningBuffers.capture_P2_MS_F1_tunbufi[0]);
-
-	manager_->lpnrTun_.fetch(in.dipTun[2]);
-	fillTuning(in.dipTun[2], &tuningBuffers.capture_P2_MS_F2_tunbufi[0]);
-
-	manager_->lpnrTun_.fetch(in.dipTun[3]);
-	fillTuning(in.dipTun[3], &tuningBuffers.capture_P2_MS_F3_tunbufi[0]);
-
 	/* allocate img3o (NR frame) for each stages */
 	for (unsigned int i = 0; i < dipImg3o.size(); i++)
 		manager_->lpnr_[i].fetch(dipImg3o[i]);
@@ -384,8 +282,10 @@ void LpnrDipTask::run()
 
 	P2_MS_F1.setMultiScale(IMG_MULTI_SCALE_DOWN4, 1, 4);
 
-	// Depend on 3A result to choose between high or low iso stage
-	HighIsoStage(sdRequest);
+	if (in.highIsoMode->get())
+		HighIsoStage(sdRequest);
+	else
+		LowIsoStages(sdRequest);
 
 	requestHelper_.queueRequest(sdRequest);
 }

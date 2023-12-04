@@ -30,6 +30,7 @@
 #include "hal3a/aaa.h"
 #include "hal3a/hal_3a.h"
 #include "halisp/hal_isp.h"
+#include "halisp/lpnr_tun.h"
 #include "halisp/mcnr_tun.h"
 #include "imgsys/imgsys.h"
 #include "imgsys/lpnr.h"
@@ -62,6 +63,8 @@ enum MtkISP7TaskGroup {
 	Dip2Group,
 	DipTunGroup,
 	LpnrDipGroup,
+	LpnrTunXtrTaskGroup,
+	LpnrTunDipTaskGroup,
 	AieFaceDetectionGroup,
 	AieFaceToneClassificationGroup,
 	AieParseGroup,
@@ -84,6 +87,8 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ DipTunGroup, "DipTunGroup" },
 	{ Dip1Group, "Dip1Group" },
 	{ Dip2Group, "Dip2Group" },
+	{ LpnrTunXtrTaskGroup, "LpnrTunXtrTaskGroup" },
+	{ LpnrTunDipTaskGroup, "LpnrTunDipTaskGroup" },
 	{ AieFaceDetectionGroup, "AieFaceDetectionGroup" },
 	{ AieFaceToneClassificationGroup, "AieFaceToneClassificationGroup" },
 	{ AieParseGroup, "AieParseGroup" },
@@ -126,6 +131,7 @@ public:
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
+		  lpnrTunManager(dmaHeap, halIsp),
 		  mcnrTunManager(dmaHeap, halIsp),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A)
@@ -167,6 +173,7 @@ public:
 	McnrTasksManager mcnrManager;
 	LpnrTasksManager lpnrManager;
 
+	LpnrTunTasksManager lpnrTunManager;
 	McnrTunManager mcnrTunManager;
 
 	OnDeviceTuner *onDeviceTuner_;
@@ -728,6 +735,7 @@ void MtkISP7CameraData::releaseDevice()
 	mcnrManager.releaseBuffers();
 	lpnrManager.releaseBuffers();
 
+	lpnrTunManager.releaseBuffers();
 	mcnrTunManager.releaseBuffers();
 }
 
@@ -821,6 +829,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still);
 
+	lpnrTunManager.configure(sensorFullSize_, still);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
 	return 0;
 }
@@ -963,6 +972,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		LPNRFrames lpnr;
 		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, stillBuffer);
 
+		auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
+				lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
+
 		auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
 			lpnr, scheduler, "Lpnr " + sequence, request, imgSysDev_);
 
@@ -970,6 +982,17 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			Scheduler::precede(taskTr, taskXtr);
 			Scheduler::precede(taskDip2, taskLpnrDip);
 		}
+
+		Scheduler::precede(calculatingAATask, lpnrTunXtrTask);
+		Scheduler::precede(lpnrTunXtrTask, taskXtr);
+		scheduler->succeedPrevTaskByStep(LpnrTunXtrTaskGroup, 0, lpnrTunXtrTask);
+		scheduler->queueTask(lpnrTunXtrTask, LpnrTunXtrTaskGroup);
+
+		Scheduler::precede(calculatingAATask, lpnrTunDipTask);
+		Scheduler::precede(taskXtr, lpnrTunDipTask);
+		Scheduler::precede(lpnrTunDipTask, taskLpnrDip);
+		scheduler->succeedPrevTaskByStep(LpnrTunDipTaskGroup, 0, lpnrTunDipTask);
+		scheduler->queueTask(lpnrTunDipTask, LpnrTunDipTaskGroup);
 
 		Scheduler::precede(taskDQBuf, taskXtr);
 		scheduler->succeedPrevTaskByStep(XtrGroup, 0, taskXtr);
