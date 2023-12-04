@@ -1173,13 +1173,13 @@ void Dip2Task::run()
 	assert(videoOut1 || videoOut2);
 
 	if (videoOut1) {
-		InfoFrame info(formats::NV12, manager_->videoOut1Size_, videoOut1);
+		InfoFrame info(formats::NV12, manager_->videoOut1Size_, videoOut1, 64);
 		Rectangle crop = ImgSysDevice::getCrop(mcnrSizes[0], info.size());
 		HW_DIP_F0.output(info, IMG_PORT_WDMAO, 0, crop);
 	}
 
 	if (videoOut2) {
-		InfoFrame info(formats::NV12, manager_->videoOut2Size_, videoOut2);
+		InfoFrame info(formats::NV12, manager_->videoOut2Size_, videoOut2, 64);
 		Rectangle crop = ImgSysDevice::getCrop(mcnrSizes[0], info.size());
 		HW_DIP_F0.output(info, IMG_PORT_WROTO, 0, crop);
 	}

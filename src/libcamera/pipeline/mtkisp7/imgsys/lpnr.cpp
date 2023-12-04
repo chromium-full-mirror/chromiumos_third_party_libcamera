@@ -398,7 +398,7 @@ void LpnrDipTask::LowIsoStages(SingleDeviceRequest &sdRequest)
 	P2_MS_F0_PQ_DIP.input(reci[0]->get(), IMG_PORT_REC_DSI, 1, Size{ 0, 0 });
 	P2_MS_F0_PQ_DIP.input(in.dipTunPq->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
-	InfoFrame info(formats::NV12, manager_->yuvOutputSize_, stillOutput_);
+	InfoFrame info(formats::NV12, manager_->yuvOutputSize_, stillOutput_, 64);
 	Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
 
 	P2_MS_F0_PQ_DIP.output(info, IMG_PORT_WDMAO, 0, crop);
@@ -429,7 +429,7 @@ void LpnrDipTask::HighIsoStage(SingleDeviceRequest &sdRequest)
 	P2_Y2Y_PQ_DIP.input(dipImg3o[0]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
 	P2_Y2Y_PQ_DIP.input(in.dipTunY2YPq->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
-	InfoFrame info(formats::NV12, manager_->yuvOutputSize_, stillOutput_);
+	InfoFrame info(formats::NV12, manager_->yuvOutputSize_, stillOutput_, 64);
 	Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
 
 	P2_Y2Y_PQ_DIP.output(info, IMG_PORT_WDMAO, 0, crop);
