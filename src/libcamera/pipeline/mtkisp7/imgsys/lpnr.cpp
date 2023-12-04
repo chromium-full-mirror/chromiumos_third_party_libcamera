@@ -200,15 +200,15 @@ void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
 	XtrFrames &xtrFrames = lpnr.xtrFrames;
 	xtrFrames.in.p1Raw = p1Raw;
 	xtrFrames.in.xtrTun = xtrTun;
-	xtrFrames.out.dipImgi = makeMailBoxVector<InfoFrame>(4);
-	xtrFrames.out.xtrStt = makeMailBox<InfoFrame>();
+	xtrFrames.out.dipImgi = dipImgi;
+	xtrFrames.out.xtrStt = xtrStt;
 
 	/* Frames used by LpnrDipTask */
 	LpnrDipFrames &lpnrDipFrames = lpnr.lpnrDipFrames;
 	lpnrDipFrames.in.dipTunPq = dipTunPq;
 	lpnrDipFrames.in.dipTunY2YPq = dipTunY2YPq;
 	lpnrDipFrames.in.dipTun = dipTun;
-	lpnrDipFrames.in.dipImgi = xtrFrames.out.dipImgi;
+	lpnrDipFrames.in.dipImgi = dipImgi;
 	lpnrDipFrames.in.highIsoMode = highIsoMode;
 }
 
