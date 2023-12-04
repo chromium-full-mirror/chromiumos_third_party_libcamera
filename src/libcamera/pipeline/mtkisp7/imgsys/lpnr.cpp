@@ -194,6 +194,8 @@ void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
 	SharedMailBox<InfoFrame> xtrStt = makeMailBox<InfoFrame>();
 	std::vector<SharedMailBox<InfoFrame>> dipImgi = makeMailBoxVector<InfoFrame>(4);
 
+	SharedMailBox<bool> highIsoMode = makeMailBox<bool>();
+
 	/* Frames used by XtrTask */
 	XtrFrames &xtrFrames = lpnr.xtrFrames;
 	xtrFrames.in.p1Raw = p1Raw;
@@ -207,6 +209,7 @@ void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
 	lpnrDipFrames.in.dipTunY2YPq = dipTunY2YPq;
 	lpnrDipFrames.in.dipTun = dipTun;
 	lpnrDipFrames.in.dipImgi = xtrFrames.out.dipImgi;
+	lpnrDipFrames.in.highIsoMode = highIsoMode;
 }
 
 std::tuple<XTRTask *, LpnrDipTask *>

@@ -34,6 +34,7 @@ struct XtrFrames {
 
 struct LpnrDipFrames {
 	struct {
+		SharedMailBox<bool> highIsoMode;
 		SharedMailBox<InfoFrame> dipTunPq;
 		SharedMailBox<InfoFrame> dipTunY2YPq;
 		std::vector<SharedMailBox<InfoFrame>> dipTun;
