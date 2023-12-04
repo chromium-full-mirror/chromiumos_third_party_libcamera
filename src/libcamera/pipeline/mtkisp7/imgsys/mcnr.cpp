@@ -41,6 +41,10 @@ constexpr Size kTnrsoSize{ 40, 1 };
 constexpr Size kTunSize{ 219348, 1 };
 constexpr Size kTrawSttSize{ 738624, 1 };
 
+constexpr Size kFwMeFstSize{ 400, 1 };
+constexpr Size kFwMmFstSize{ 80, 1 };
+constexpr Size kFwMmRstSize{ 132, 1 };
+
 static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
 	InfoFrame &info = mailBox->get();
@@ -169,6 +173,9 @@ McnrTasksManager::McnrTasksManager(
 	dmaHeap_ = dmaHeap;
 	onDeviceTuner_ = odt;
 
+	allBufferPools_.emplace_back(&fwmeFst_);
+	allBufferPools_.emplace_back(&fwmmFst);
+	allBufferPools_.emplace_back(&fwmmRst_);
 	allBufferPools_.emplace_back(&fwmmMil_);
 	allBufferPools_.emplace_back(&meIn_);
 	allBufferPools_.emplace_back(&meMv0_);
@@ -209,6 +216,9 @@ McnrTasksManager::McnrTasksManager(
 		allBufferPools_.emplace_back(&vbi_[i]);
 	}
 
+	poolsWritenByCpu_.emplace_back(&fwmeFst_);
+	poolsWritenByCpu_.emplace_back(&fwmmFst);
+	poolsWritenByCpu_.emplace_back(&fwmmRst_);
 	poolsWritenByCpu_.emplace_back(&fwmmMil_);
 	poolsWritenByCpu_.emplace_back(&meTun_);
 	poolsWritenByCpu_.emplace_back(&wpeTun_);
@@ -225,6 +235,13 @@ McnrTasksManager::McnrTasksManager(
 	// Need to memset to zero for the first frame
 	poolsWritenByCpu_.emplace_back(&meMv0_);
 	poolsWritenByCpu_.emplace_back(&meMv1_);
+
+	// Input of FwMM
+	poolsWritenByCpu_.emplace_back(&meFst_);
+	poolsWritenByCpu_.emplace_back(&meFmb0_);
+
+	// Input of DIP Tuning generation
+	poolsWritenByCpu_.emplace_back(&trawStt_);
 
 	// Need to memset to zero for the first frame
 	for (unsigned int i = 0; i < 7; i++)
@@ -275,7 +292,10 @@ int McnrTasksManager::configure(const Size yuvInputSize, const Size videoOut1Siz
 
 int McnrTasksManager::configureBuffers()
 {
-	fwmmMil_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8);
+	fwmeFst_.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMeFstSize, 8);
+	fwmmFst.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMmFstSize, 8);
+	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMmRstSize, 8);
+	fwmmMil_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8, DmaHeap::System, 64);
 	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21);
 	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 3);
 	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
@@ -482,6 +502,22 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 		prev.prevImg4oF0 = p1F0;
 		prev.prevImg4oF1 = p1F1;
 
+		prev.prevFwMeFst = makeMailBox<InfoFrame>();
+		fwmeFst_.fetch(prev.prevFwMeFst);
+		zeroImage(prev.prevFwMeFst);
+
+		prev.prevFwMmFst = makeMailBox<InfoFrame>();
+		fwmmFst.fetch(prev.prevFwMmFst);
+		zeroImage(prev.prevFwMmFst);
+
+		prev.prevMeAFst = makeMailBox<InfoFrame>();
+		meFst_.fetch(prev.prevMeAFst);
+		zeroImage(prev.prevMeAFst);
+
+		prev.prevMeBFst = makeMailBox<InfoFrame>();
+		meFst_.fetch(prev.prevMeBFst);
+		zeroImage(prev.prevMeBFst);
+
 		prev.prevMeAMv1 = makeMailBox<InfoFrame>();
 		meMv1_.fetch(prev.prevMeAMv1);
 		zeroImage(prev.prevMeAMv1);
@@ -509,11 +545,21 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	meFrames.in.meATun = tunings.meATun;
 	meFrames.in.meBTun = tunings.meBTun;
 	meFrames.in.meMil = tunings.meMil;
+
+	meFrames.in.prevFwMeFst = prev.prevFwMeFst;
+	meFrames.in.prevFwMmFst = prev.prevFwMmFst;
+	meFrames.in.prevMeAFst = prev.prevMeAFst;
+	meFrames.in.prevMeBFst = prev.prevMeBFst;
+
 	meFrames.in.prevMeAMv1 = prev.prevMeAMv1;
 	meFrames.in.prevMeBMv0 = prev.prevMeBMv0;
 	meFrames.in.prevMeL0 = prev.prevMeL0;
 	meFrames.in.prevMeL1 = prev.prevMeL1;
 	meFrames.in.meL0 = meL0;
+
+	meFrames.in.fwMeFst = makeMailBox<InfoFrame>();
+	meFrames.in.fwMmFst = makeMailBox<InfoFrame>();
+	meFrames.in.fwMmRst = makeMailBox<InfoFrame>();
 
 	meFrames.out.meAMv0 = makeMailBox<InfoFrame>();
 	meFrames.out.meAMv1 = makeMailBox<InfoFrame>();
@@ -573,6 +619,7 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	dip1Frames.out.dipTnrci = dipTnrci;
 	dip1Frames.out.meMmap = meMmap;
 	dip1Frames.out.img4oF1 = makeMailBox<InfoFrame>();
+	dip1Frames.out.swHist = makeMailBox<InfoFrame>();
 
 	/* Frames for DIP2 task */
 	Dip2Frames &dip2Frames = mcnr.dip2Frames;
@@ -592,6 +639,10 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	dip2Frames.out.dipTnrwo = dipTnrwo;
 
 	/* Update prev */
+	prev.prevFwMeFst = meFrames.in.fwMeFst;
+	prev.prevFwMmFst = meFrames.in.fwMmFst;
+	prev.prevMeAFst = meFrames.out.meAFst;
+	prev.prevMeBFst = meFrames.out.meBFst;
 	prev.prevMeBMv0 = meFrames.out.meBMv0;
 	prev.prevMeAMv1 = meFrames.out.meAMv1;
 	prev.preDipTnrso = dip1Frames.out.dipTnrso;
