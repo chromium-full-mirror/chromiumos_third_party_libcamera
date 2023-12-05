@@ -1040,7 +1040,7 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.v4l2Formats = {
 			V4L2PixelFormat(V4L2_PIX_FMT_WARP2P),
 		},
-		.bitsPerPixel = 0,
+		.bitsPerPixel = 32,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = false,
 		.pixelsPerGroup = 1168,
