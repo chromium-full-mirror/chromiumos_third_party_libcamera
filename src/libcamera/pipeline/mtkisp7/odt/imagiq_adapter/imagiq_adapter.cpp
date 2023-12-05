@@ -815,9 +815,17 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	ndd.bitResultion = pixelFormatInfo.planes[0].bytesPerGroup * 8 /
 			   pixelFormatInfo.pixelsPerGroup;
 
-	ndd.byteWidth = pixelFormatInfo.stride(dump.frame->size().width, 0);
-	ndd.pixelWidth = dump.frame->size().width;
-	ndd.pixelHeight = dump.frame->size().height;
+	unsigned int stride = pixelFormatInfo.stride(
+		dump.frame->size().width,
+		0,
+		dump.frame->strideAlign());
+	ndd.byteWidth = stride;
+	ndd.pixelWidth = stride * 8 / pixelFormatInfo.bitsPerPixel;
+	ndd.pixelHeight = pixelFormatInfo.planeSize(
+				  dump.frame->size(),
+				  0, dump.frame->strideAlign(),
+				  dump.frame->scanAlign()) /
+			  stride;
 
 	switch (dump.frame->format()) {
 	case formats::SBGGR10_MTISP:
@@ -842,8 +850,8 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 		break;
 	}
 
-	ndd.width = ndd.pixelWidth;
-	ndd.height = ndd.pixelHeight;
+	ndd.width = dump.frame->size().width;
+	ndd.height = dump.frame->size().height;
 
 	return ndd;
 }
@@ -882,29 +890,29 @@ int ImagiqAdapter::prepareReimport(const ExportResult &exportResult)
 }
 
 void ImagiqAdapter::serializeExif(
-        std::vector<uint8_t> &out,
-        const mtk::isphal::v1_0::ExifInfo3A &exif3a,
-        const mtk::isphal::v1_0::ExifInfoP2 &exifIsp)
+	std::vector<uint8_t> &out,
+	const mtk::isphal::v1_0::ExifInfo3A &exif3a,
+	const mtk::isphal::v1_0::ExifInfoP2 &exifIsp)
 {
-    out.resize(6 + exif3a.size + 4 + exifIsp.size);
+	out.resize(6 + exif3a.size + 4 + exifIsp.size);
 
-    // 3A
-    uint8_t *exif3aArray = out.data();
-    exif3aArray[0] = 0;
-    exif3aArray[1] = 0;
-    exif3aArray[2] = 0xFF;
-    exif3aArray[3] = 0xE6;
-    exif3aArray[4] = ((exif3a.size + 2) >> 8);
-    exif3aArray[5] = ((exif3a.size + 2) & 0xFF);
-    std::memcpy(&(exif3aArray[6]), exif3a.data, exif3a.size);
+	// 3A
+	uint8_t *exif3aArray = out.data();
+	exif3aArray[0] = 0;
+	exif3aArray[1] = 0;
+	exif3aArray[2] = 0xFF;
+	exif3aArray[3] = 0xE6;
+	exif3aArray[4] = ((exif3a.size + 2) >> 8);
+	exif3aArray[5] = ((exif3a.size + 2) & 0xFF);
+	std::memcpy(&(exif3aArray[6]), exif3a.data, exif3a.size);
 
-    // ISP
-    uint8_t *exifIspArray = out.data() + 6 + exif3a.size;
-    exifIspArray[0] = 0xFF;
-    exifIspArray[1] = 0xE7;
-    exifIspArray[2] = ((exifIsp.size + 2) >> 8);
-    exifIspArray[3] = ((exifIsp.size + 2) & 0xFF);
-    memcpy(&(exifIspArray[4]), exifIsp.data, exifIsp.size);
+	// ISP
+	uint8_t *exifIspArray = out.data() + 6 + exif3a.size;
+	exifIspArray[0] = 0xFF;
+	exifIspArray[1] = 0xE7;
+	exifIspArray[2] = ((exifIsp.size + 2) >> 8);
+	exifIspArray[3] = ((exifIsp.size + 2) & 0xFF);
+	memcpy(&(exifIspArray[4]), exifIsp.data, exifIsp.size);
 }
 
 bool ImagiqAdapter::shouldSplitExport(const PixelFormat &pixelFormat)
