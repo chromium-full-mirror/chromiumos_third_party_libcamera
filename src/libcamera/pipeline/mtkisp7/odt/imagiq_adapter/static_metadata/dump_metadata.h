@@ -407,6 +407,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kREG_DIP,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .layer = 5,
 	  } },
 	{ Dump::Id::P2_MS_F4_IMGSYS_DRVREG,
 	  {
@@ -415,6 +416,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kREG_DIP,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .layer = 4,
 	  } },
 	{ Dump::Id::P2_MS_F3_IMGSYS_DRVREG_MCNR,
 	  {
