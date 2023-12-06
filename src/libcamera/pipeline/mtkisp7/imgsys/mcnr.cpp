@@ -1053,9 +1053,15 @@ void Dip1Task::setWpeParams(StageEx &stage, unsigned int level)
 	stage.input(in.prevDipTnrwo[level]->get(), IMG_PORT_WPE_WPEI, 0, Size{ 0, 0 });
 	stage.input(out.wpeVeci[level]->get(), IMG_PORT_WPE_VECI, 0, Size{ 0, 0 });
 	stage.output(out.dipTnrwi[level]->get(), IMG_PORT_WPE_WPEO, 0, wtSizes[level]);
-	stage.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, wtSizes[level],
-			 NSCam::NSImgStream::EWPE_HW_LITE,
-			 (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
+	if (level == 0) {
+		stage.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, wtSizes[level],
+				 NSCam::NSImgStream::EWPE_HW_TNR,
+				 (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
+	} else {
+		stage.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, wtSizes[level],
+				 NSCam::NSImgStream::EWPE_HW_LITE,
+				 (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
+	}
 	stage.setMvFrame(mcnrSizes[0], kMeL0Size);
 }
 
