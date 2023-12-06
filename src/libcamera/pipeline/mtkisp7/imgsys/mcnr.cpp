@@ -240,22 +240,22 @@ int McnrTasksManager::configureBuffers()
 
 	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4);
 
-	wt_[0].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[0], 12, DmaHeap::System, 192, 128);
-	wt_[1].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[1], 12, DmaHeap::System, 192, 128);
-	wt_[2].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[2], 12, DmaHeap::System, 192, 128);
-	wt_[3].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[3], 12, DmaHeap::System, 192, 128);
+	wt_[0].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[0], 12, DmaHeap::System, 192, 192);
+	wt_[1].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[1], 12, DmaHeap::System, 192, 192);
+	wt_[2].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[2], 12, DmaHeap::System, 192, 192);
+	wt_[3].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[3], 12, DmaHeap::System, 192, 192);
 
-	wt_[4].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[4], 12, DmaHeap::System, 192, 128);
-	wt_[5].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 128);
-	wt_[6].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 128);
+	wt_[4].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[4], 12, DmaHeap::System, 192, 192);
+	wt_[5].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
+	wt_[6].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
 
 	img3o_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 3);
-	img3o_[1].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 12);
-	img3o_[2].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[2], 12);
-	img3o_[3].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[3], 12);
-	img3o_[4].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[4], 12);
-	img3o_[5].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[5], 12);
-	img3o_[6].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[6], 12);
+	img3o_[1].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 12, DmaHeap::System, 1, 64);
+	img3o_[2].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[2], 12, DmaHeap::System, 1, 64);
+	img3o_[3].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[3], 12, DmaHeap::System, 1, 64);
+	img3o_[4].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[4], 12, DmaHeap::System, 1, 64);
+	img3o_[5].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[5], 12, DmaHeap::System, 1, 64);
+	img3o_[6].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[6], 12, DmaHeap::System, 1, 64);
 
 	tnrmo_[1].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[1], 3, DmaHeap::System, 16);
 	tnrmo_[2].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 3, DmaHeap::System, 16);
@@ -264,12 +264,12 @@ int McnrTasksManager::configureBuffers()
 	tnrmo_[5].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 3, DmaHeap::System, 16);
 	tnrmo_[6].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 3, DmaHeap::System, 16);
 
-	vbi_[1].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 64);
-	vbi_[2].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 64);
-	vbi_[3].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 4, DmaHeap::System, 64);
-	vbi_[4].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 4, DmaHeap::System, 64);
-	vbi_[5].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 4, DmaHeap::System, 64);
-	vbi_[6].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 4, DmaHeap::System, 64);
+	vbi_[1].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 16);
+	vbi_[2].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 16);
+	vbi_[3].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 4, DmaHeap::System, 16);
+	vbi_[4].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 4, DmaHeap::System, 16);
+	vbi_[5].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 4, DmaHeap::System, 16);
+	vbi_[6].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 4, DmaHeap::System, 16);
 
 	for (auto &pool : poolsWritenByCpu_)
 		pool->mmap();
