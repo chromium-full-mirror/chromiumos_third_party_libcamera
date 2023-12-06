@@ -944,7 +944,7 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.name = "NV12_12P_MTISP",
 		.format = formats::NV12_12P_MTISP,
 		.v4l2Formats = { V4L2PixelFormat(V4L2_PIX_FMT_MTISP_NV12_12P), },
-		.bitsPerPixel = 20,
+		.bitsPerPixel = 12,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = true,
 		.pixelsPerGroup = 64,
