@@ -410,8 +410,13 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
 					frames.out.dipTnrso->get() });
 		namedFrames.push_back({ Dump::kDip1TnrsoDumpIds[i],
 					frames.out.dipTnrso->get() });
-		namedFrames.push_back({ Dump::kDip1Img3oDumpIds[i],
-					frames.out.img3o[level]->get() });
+		if (Dump::kDip1Img3oDumpIds[i] == Dump::Id::P2_IDI_IMG3O)
+			namedFrames.push_back({ Dump::Id::P2_IDI_IMG3O,
+						frames.out.tnrlfdi->get() });
+		else
+			namedFrames.push_back({ Dump::kDip1Img3oDumpIds[i],
+						frames.out.img3o[level]->get() });
+
 	}
 
 	// Stage P2_MS_F1 until P2_MS_F4 + P2_MS_F_SMALL (lv5)
