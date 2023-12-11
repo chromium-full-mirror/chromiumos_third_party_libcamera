@@ -57,7 +57,8 @@ public:
 	void tuneLpnrDip(Request *request, LpnrDipFrames &frames,
 			 std::vector<SharedMailBox<InfoFrame>> reci,
 			 std::vector<SharedMailBox<InfoFrame>> dipImg3o,
-			 FrameBuffer *stillOutput);
+			 FrameBuffer *still1Output,
+			 FrameBuffer *still2Output);
 
 private:
 	struct NamedFrame {

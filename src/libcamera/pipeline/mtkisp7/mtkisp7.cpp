@@ -159,7 +159,8 @@ public:
 
 	Stream video1Stream_;
 	Stream video2Stream_;
-	Stream stillStream_;
+	Stream still1Stream_;
+	Stream still2Stream_;
 
 	uint32_t frameSequence_ = 0;
 	std::list<SofTask *> pendingSofTasks_;
@@ -353,12 +354,18 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 		{ 2560, 1920 },
 	};
 
-	const Stream *streams[2]{
+	const Stream *vidStreams[2]{
 		&data_->video1Stream_,
 		&data_->video2Stream_
 	};
 
+	const Stream *stillStreams[2]{
+		&data_->still1Stream_,
+		&data_->still2Stream_
+	};
+
 	int videoCnt = 0;
+	int stillCnt = 0;
 	for (StreamConfiguration &cfg : config_) {
 		/* Allows the predefined resolutions plus the sensor size */
 		if (!std::count(resolutions.begin(), resolutions.end(), cfg.size) &&
@@ -379,10 +386,15 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 					<< "Support only 2 Preview/Video streams";
 				return Invalid;
 			}
-			cfg.setStream(const_cast<Stream *>(streams[videoCnt++]));
+			cfg.setStream(const_cast<Stream *>(vidStreams[videoCnt++]));
 			break;
 		case StreamRole::StillCapture:
-			cfg.setStream(const_cast<Stream *>(&data_->stillStream_));
+			if (stillCnt >= 2) {
+				LOG(MtkISP7, Error)
+					<< "Support only 2 StillCapture streams";
+				return Invalid;
+			}
+			cfg.setStream(const_cast<Stream *>(stillStreams[stillCnt++]));
 			break;
 		default:
 			LOG(MtkISP7, Error) << "Invalid StreamRole " << cfg.role;
@@ -432,7 +444,7 @@ PipelineHandlerMtkISP7::generateConfiguration(Camera *camera, Span<const StreamR
 
 		switch (role) {
 		case StreamRole::StillCapture:
-			cfg.setStream(&data->stillStream_);
+			cfg.setStream(&data->still1Stream_);
 			cfg.role = StreamRole::StillCapture;
 			break;
 
@@ -582,7 +594,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
-					       &data->stillStream_ };
+					       &data->still1Stream_ };
 
 		data->sensorFullSize_ = pixelArraySize;
 		data->properties_ = properties;
@@ -774,7 +786,8 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	Size camsysYuvSize;
 	Size video1 = Size{ 0, 0 };
 	Size video2 = Size{ 0, 0 };
-	Size still = Size{ 0, 0 };
+	Size still1 = Size{ 0, 0 };
+	Size still2 = Size{ 0, 0 };
 
 	/* Only cover the video resolution */
 	for (auto &cfg : *c) {
@@ -782,8 +795,10 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 			video1 = cfg.size;
 		else if (cfg.stream() == &video2Stream_)
 			video2 = cfg.size;
-		else if (cfg.stream() == &stillStream_)
-			still = cfg.size;
+		else if (cfg.stream() == &still1Stream_)
+			still1 = cfg.size;
+		else if (cfg.stream() == &still2Stream_)
+			still2 = cfg.size;
 		else
 			return -EINVAL;
 	}
@@ -831,9 +846,9 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	imgSysDev_->configure();
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
-	lpnrManager.configure(sensorFullSize_, still);
+	lpnrManager.configure(sensorFullSize_, still1, still2);
 
-	lpnrTunManager.configure(sensorFullSize_, still);
+	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
 	return 0;
 }
@@ -842,9 +857,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 {
 	FrameBuffer *video1Buffer = request->findBuffer(&video1Stream_);
 	FrameBuffer *video2Buffer = request->findBuffer(&video2Stream_);
-	FrameBuffer *stillBuffer = request->findBuffer(&stillStream_);
+	FrameBuffer *still1Buffer = request->findBuffer(&still1Stream_);
+	FrameBuffer *still2Buffer = request->findBuffer(&still2Stream_);
 
-	if (!video1Buffer && !video2Buffer && !stillBuffer)
+	if (!video1Buffer && !video2Buffer && !still1Buffer && !still2Buffer)
 		return -EINVAL;
 
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
@@ -864,10 +880,11 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	CaptureFrames captureFrames;
 
 	uint32_t internalRequestId = requestCount_++;
+	bool isStillCapture = (still1Buffer || still2Buffer);
 
 	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask] = makeTasks(
 		"Capture " + sequence, request, captureFrames,
-		AATask::PerFrameControl{ .isStillCapture = (bool)stillBuffer },
+		AATask::PerFrameControl{ .isStillCapture = isStillCapture },
 		internalRequestId);
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
@@ -972,9 +989,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		Scheduler::precede(taskDip2, completeTask);
 	}
 
-	if (stillBuffer) {
+	if (still1Buffer || still2Buffer) {
 		LPNRFrames lpnr;
-		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, stillBuffer);
+		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 
 		auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
 				lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);

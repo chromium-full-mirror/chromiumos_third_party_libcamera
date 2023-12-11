@@ -31,7 +31,8 @@ class LpnrTunTasksManager {
 public:
 	LpnrTunTasksManager(DmaHeap *dmaHeap, HalIsp *halIsp);
 
-	int configure(const Size &bayerInputSize, const Size &yuvOutputSize);
+	int configure(const Size &bayerInputSize,
+		      const Size &yuvOutput1Size, const Size &yuvOutput2Size);
 
 	void allocateBuffers();
 	void releaseBuffers();
@@ -49,7 +50,9 @@ private:
 	friend LpnrTunXtrTask;
 	friend LpnrTunDipTask;
 
-	Size yuvOutputSize_;
+	Size yuvOutput1Size_;
+	Size yuvOutput2Size_;
+
 	Size bayerInputSize_;
 
 	std::vector<Size> lpnrSizes;

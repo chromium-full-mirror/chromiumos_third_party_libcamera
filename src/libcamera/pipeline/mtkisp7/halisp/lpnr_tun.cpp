@@ -120,9 +120,12 @@ void LpnrTunTasksManager::releaseBuffers()
 	lpnrTun_.release();
 }
 
-int LpnrTunTasksManager::configure(const Size &bayerInputSize, const Size &yuvOutputSize)
+int LpnrTunTasksManager::configure(const Size &bayerInputSize,
+				   const Size &yuvOutput1Size, const Size &yuvOutput2Size)
 {
-	yuvOutputSize_ = yuvOutputSize;
+	yuvOutput1Size_ = yuvOutput1Size;
+	yuvOutput2Size_ = yuvOutput2Size;
+
 	bayerInputSize_ = bayerInputSize;
 
 	lpnrSizes.resize(4);
@@ -220,7 +223,9 @@ void LpnrTunDipTask::run()
 	request = ImgMetaRequest {
 		.isCapture = true,
 		.stage = EStage_P2_MS_F3, .tuningBuffer = dipTun_[3]->get(), .statisticsBuffer = {},
-		.inputSize = manager_->lpnrSizes[3], .outputSize = manager_->yuvOutputSize_,
+		.inputSize = manager_->lpnrSizes[3],
+		.outputSize = manager_->yuvOutput1Size_,
+		.outputSize2 = manager_->yuvOutput2Size_,
 		.fullDipSize = manager_->lpnrSizes[0]};
 
 	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
@@ -230,7 +235,9 @@ void LpnrTunDipTask::run()
 	request = ImgMetaRequest {
 		.isCapture = true,
 		.stage = EStage_P2_MS_F2, .tuningBuffer = dipTun_[2]->get(), .statisticsBuffer = {},
-		.inputSize = manager_->lpnrSizes[2], .outputSize = manager_->yuvOutputSize_,
+		.inputSize = manager_->lpnrSizes[2],
+		.outputSize = manager_->yuvOutput1Size_,
+		.outputSize2 = manager_->yuvOutput2Size_,
 		.fullDipSize = manager_->lpnrSizes[0]};
 
 	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
@@ -240,7 +247,9 @@ void LpnrTunDipTask::run()
 	request = ImgMetaRequest {
 		.isCapture = true,
 		.stage = EStage_P2_MS_F1, .tuningBuffer = dipTun_[1]->get(), .statisticsBuffer = {},
-		.inputSize = manager_->lpnrSizes[1], .outputSize = manager_->yuvOutputSize_,
+		.inputSize = manager_->lpnrSizes[1],
+		.outputSize = manager_->yuvOutput1Size_,
+		.outputSize2 = manager_->yuvOutput2Size_,
 		.fullDipSize = manager_->lpnrSizes[0]};
 
 	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
@@ -251,7 +260,9 @@ void LpnrTunDipTask::run()
 		request = ImgMetaRequest {
 			.isCapture = true,
 			.stage = EStage_P2_MS_F0_H, .tuningBuffer = dipTun_[0]->get(), .statisticsBuffer = {},
-			.inputSize = manager_->lpnrSizes[0], .outputSize = manager_->yuvOutputSize_,
+			.inputSize = manager_->lpnrSizes[0],
+			.outputSize = manager_->yuvOutput1Size_,
+			.outputSize2 = manager_->yuvOutput2Size_,
 			.fullDipSize = manager_->lpnrSizes[0]};
 
 		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
@@ -262,7 +273,9 @@ void LpnrTunDipTask::run()
 		.isCapture = true,
 			.stage = EStage_P2_Y2Y_PQ_DIP,
 			.tuningBuffer = dipTunY2YPq_->get(), .statisticsBuffer = xtrStt_->get(),
-			.inputSize = manager_->lpnrSizes[0], .outputSize = manager_->yuvOutputSize_,
+			.inputSize = manager_->lpnrSizes[0],
+			.outputSize = manager_->yuvOutput1Size_,
+			.outputSize2 = manager_->yuvOutput2Size_,
 			.fullDipSize = manager_->lpnrSizes[0]};
 
 		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
@@ -273,7 +286,9 @@ void LpnrTunDipTask::run()
 			.isCapture = true,
 			.stage = EStage_P2_MS_F0_PQ_DIP,
 			.tuningBuffer = dipTunPq_->get(), .statisticsBuffer = xtrStt_->get(),
-			.inputSize = manager_->lpnrSizes[0], .outputSize = manager_->yuvOutputSize_,
+			.inputSize = manager_->lpnrSizes[0],
+			.outputSize = manager_->yuvOutput1Size_,
+			.outputSize2 = manager_->yuvOutput2Size_,
 			.fullDipSize = manager_->lpnrSizes[0]};
 
 		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
