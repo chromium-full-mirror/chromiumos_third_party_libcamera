@@ -327,7 +327,7 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 					     { Dump::Id::ME_3PASS_MODE0_FST, frames.out.meAFst->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0, frames.in.meL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0_P, frames.in.prevMeL0->get() },
-					     { Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.out.meL1->get() },
+					     { Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.in.prevMeL1->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MV_L0_M0, frames.out.meAMv0->get() }, // confirmed
 					     { Dump::Id::ME_3PASS_MODE1_MV_L0, frames.out.meBMv1->get() }, // ??
 					     { Dump::Id::ME_3PASS_MODE1_MIL, frames.in.meMil->get() },
