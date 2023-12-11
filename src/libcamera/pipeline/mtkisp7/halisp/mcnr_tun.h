@@ -97,8 +97,8 @@ public:
 
 	SharedMailBox<InfoFrame> prevFwMeFst;
 	SharedMailBox<InfoFrame> prevFwMmFst;
-	SharedMailBox<InfoFrame> prevMeAFst;
-	SharedMailBox<InfoFrame> prevMeBFst;
+	SharedMailBox<InfoFrame> prevPrevMeAFst;
+	SharedMailBox<InfoFrame> prevPrevMeBFst;
 
 	SharedMailBox<InfoFrame> fwMeFst;
 

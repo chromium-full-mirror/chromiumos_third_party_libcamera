@@ -32,6 +32,8 @@ struct MCNRPrevOutput {
 	SharedMailBox<InfoFrame> prevFwMmFst;
 	SharedMailBox<InfoFrame> prevMeAFst;
 	SharedMailBox<InfoFrame> prevMeBFst;
+	SharedMailBox<InfoFrame> prevPrevMeAFst;
+	SharedMailBox<InfoFrame> prevPrevMeBFst;
 	SharedMailBox<InfoFrame> prevMeAMv1;
 	SharedMailBox<InfoFrame> prevMeBMv0;
 	SharedMailBox<InfoFrame> prevMeL0;
@@ -63,6 +65,9 @@ struct MeFrames {
 		SharedMailBox<InfoFrame> prevFwMmFst;
 		SharedMailBox<InfoFrame> prevMeAFst;
 		SharedMailBox<InfoFrame> prevMeBFst;
+
+		SharedMailBox<InfoFrame> prevPrevMeAFst;
+		SharedMailBox<InfoFrame> prevPrevMeBFst;
 
 		SharedMailBox<InfoFrame> prevMeAMv1;
 		SharedMailBox<InfoFrame> prevMeBMv0;

@@ -432,6 +432,14 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 		meFst_.fetch(prev.prevMeBFst);
 		zeroImage(prev.prevMeBFst);
 
+		prev.prevPrevMeAFst = makeMailBox<InfoFrame>();
+		meFst_.fetch(prev.prevPrevMeAFst);
+		zeroImage(prev.prevPrevMeAFst);
+
+		prev.prevPrevMeBFst = makeMailBox<InfoFrame>();
+		meFst_.fetch(prev.prevPrevMeBFst);
+		zeroImage(prev.prevPrevMeBFst);
+
 		prev.prevMeAMv1 = makeMailBox<InfoFrame>();
 		meMv1_.fetch(prev.prevMeAMv1);
 		zeroImage(prev.prevMeAMv1);
@@ -464,6 +472,9 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	meFrames.in.prevFwMmFst = prev.prevFwMmFst;
 	meFrames.in.prevMeAFst = prev.prevMeAFst;
 	meFrames.in.prevMeBFst = prev.prevMeBFst;
+
+	meFrames.in.prevPrevMeAFst = prev.prevPrevMeAFst;
+	meFrames.in.prevPrevMeBFst = prev.prevPrevMeBFst;
 
 	meFrames.in.prevMeAMv1 = prev.prevMeAMv1;
 	meFrames.in.prevMeBMv0 = prev.prevMeBMv0;
@@ -555,6 +566,8 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	/* Update prev */
 	prev.prevFwMeFst = meFrames.in.fwMeFst;
 	prev.prevFwMmFst = meFrames.in.fwMmFst;
+	prev.prevPrevMeAFst = prev.prevMeAFst;
+	prev.prevPrevMeBFst = prev.prevMeBFst;
 	prev.prevMeAFst = meFrames.out.meAFst;
 	prev.prevMeBFst = meFrames.out.meBFst;
 	prev.prevMeBMv0 = meFrames.out.meBMv0;

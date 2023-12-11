@@ -266,8 +266,8 @@ McnrMeATask::McnrMeATask(MCNRFrames &mcnr,
 
 	prevFwMeFst = mcnr.meFrames.in.prevFwMeFst;
 	prevFwMmFst = mcnr.meFrames.in.prevFwMmFst;
-	prevMeAFst = mcnr.meFrames.in.prevMeAFst;
-	prevMeBFst = mcnr.meFrames.in.prevMeBFst;
+	prevPrevMeAFst = mcnr.meFrames.in.prevPrevMeAFst;
+	prevPrevMeBFst = mcnr.meFrames.in.prevPrevMeBFst;
 
 	fwMeFst = mcnr.meFrames.in.fwMeFst;
 
@@ -307,8 +307,8 @@ void McnrMeATask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = prevFwMeFst->get();
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWMM_MMG_FBFST] = prevFwMmFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = prevMeAFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD1] = prevMeBFst->get();
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = prevPrevMeAFst->get();
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD1] = prevPrevMeBFst->get();
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWME_FST] = fwMeFst->get();
 
 	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request);
