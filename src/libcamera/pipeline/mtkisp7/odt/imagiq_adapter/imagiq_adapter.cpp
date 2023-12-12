@@ -815,18 +815,12 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	ndd.bitResultion = pixelFormatInfo.planes[0].bytesPerGroup * 8 /
 			   pixelFormatInfo.pixelsPerGroup;
 
-	unsigned int stride = pixelFormatInfo.stride(
-		dump.frame->size().width,
-		0,
-		dump.frame->strideAlign());
-	ndd.byteWidth = stride;
-	ndd.pixelWidth = stride * 8 / pixelFormatInfo.bitsPerPixel;
-	ndd.pixelHeight = pixelFormatInfo.planeSize(
-				  dump.frame->size(),
-				  0, dump.frame->strideAlign(),
-				  dump.frame->scanAlign()) /
-			  stride;
+	// Quirk-able fields
+	unsigned int bitsPerPixel = pixelFormatInfo.bitsPerPixel;
+	ndd.bayerOrder = -1;
+	ndd.signedness = 0;
 
+	// Quirks
 	switch (dump.frame->format()) {
 	case formats::SBGGR10_MTISP:
 		ndd.bayerOrder = SENSOR_FORMAT_ORDER_RAW_B;
@@ -844,11 +838,25 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 		ndd.bayerOrder = SENSOR_FORMAT_ORDER_RAW_R;
 		ndd.signedness = -1;
 		break;
+	case formats::NV12:
+	case formats::NV21:
+		bitsPerPixel = 8;
+		break;
 	default:
-		ndd.bayerOrder = -1;
-		ndd.signedness = 0;
 		break;
 	}
+
+	unsigned int stride = pixelFormatInfo.stride(
+		dump.frame->size().width,
+		0,
+		dump.frame->strideAlign());
+	ndd.byteWidth = stride;
+	ndd.pixelWidth = stride * 8 / bitsPerPixel;
+	ndd.pixelHeight = pixelFormatInfo.planeSize(
+				  dump.frame->size(),
+				  0, dump.frame->strideAlign(),
+				  dump.frame->scanAlign()) /
+			  stride;
 
 	ndd.width = dump.frame->size().width;
 	ndd.height = dump.frame->size().height;
