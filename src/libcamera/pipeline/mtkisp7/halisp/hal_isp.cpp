@@ -211,7 +211,8 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 }
 
 void fillPqInfo(NSIspTuning::EStage_T stage, Size inputSize,
-		Size outputSize, mtk::isphal::IspTuningBufferP2 &tuning_data)
+		Size outputSize, Size outputSize2,
+		mtk::isphal::IspTuningBufferP2 &tuning_data)
 {
 	(void) inputSize;
 	mtk::isphal::PQInfo pqInfo = {};
@@ -241,14 +242,17 @@ void fillPqInfo(NSIspTuning::EStage_T stage, Size inputSize,
 		tuning_data.wpe_info.push_back(wpeInfo);
 		break;
 	case EStage_WPE_P2_PQDIP_MS_F0:
-		pqInfo.CropSize = { inputSize.width, inputSize.height };
-		pqInfo.OutSize = { outputSize.width, outputSize.height };
-		pqInfo.serial_id = 1;
 		pqInfo.active_tcc = 1;
 		pqInfo.ctrl = mtk::isphal::kIspPQControlModeAuto;
+
+		pqInfo.serial_id = 1;
+		pqInfo.CropSize = { outputSize.width, outputSize.height };
+		pqInfo.OutSize = { outputSize.width, outputSize.height };
 		tuning_data.pq_info.push_back(pqInfo);
 
 		pqInfo.serial_id = 2;
+		pqInfo.CropSize = { outputSize2.width, outputSize2.height };
+		pqInfo.OutSize = { outputSize2.width, outputSize2.height };
 		tuning_data.pq_info.push_back(pqInfo);
 
 		wpeInfo.is_motion = 1;
@@ -457,6 +461,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 	bool is_capture = request.isCapture;
 	Size inputSize = request.inputSize;
 	Size outputSize = request.outputSize;
+	Size outputSize2 = request.outputSize2;
 	Size fullDipSize = request.fullDipSize;
 
 	InfoFrame &tuningFrame = request.tuningBuffer;
@@ -485,7 +490,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 	tuning_data.p2_meta_buffer = metaBuf;
 	tuning_data.in_image = {};
 
-	fillPqInfo(request.stage, inputSize, outputSize, tuning_data);
+	fillPqInfo(request.stage, inputSize, outputSize, outputSize2, tuning_data);
 
 	if (statisFrame.buffer()) {
 		mtk::isphal::Buffer statsBuf(
