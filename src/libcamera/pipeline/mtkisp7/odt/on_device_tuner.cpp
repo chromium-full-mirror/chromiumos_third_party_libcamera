@@ -174,7 +174,9 @@ InfoFrame OnDeviceTuner::getFrameInfoFromRequest(
 		LOG(MtkISP7, Fatal) << "Buffer doesn't exist in request!";
 	}
 	const auto streamCfg = stream->configuration();
-	return InfoFrame(streamCfg.pixelFormat, streamCfg.size, buffer);
+
+	/* Android requires NV12 to align with 64 for buffers from application */
+	return InfoFrame(streamCfg.pixelFormat, streamCfg.size, buffer, 64);
 }
 
 bool OnDeviceTuner::isImgsysCaptureStage(PEU_Stage stage)
