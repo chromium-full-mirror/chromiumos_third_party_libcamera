@@ -12,6 +12,8 @@
 #include "mtkcam-core/feature/common/faceeffect/FaceDetection/FD_Tuning/TuningPara.h"
 #include "mtkcam-halif/def/BuiltinTypes.h"
 
+#include "detector.h"
+
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -50,6 +52,7 @@ AieParseTask::AieParseTask(
 	SharedMailBox<InfoFrame> mailBoxFaceDetectionMetadata,
 	SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata,
 	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
+	FaceDetector *faceDetector,
 	SharedMailBox<MtkCameraFaceMetadata> mailBoxOutput,
 	const FdDrv_input_struct &defaultFaceToneConfig,
 	const Size &currentSensorSize)
@@ -60,6 +63,7 @@ AieParseTask::AieParseTask(
 	  mailBoxFaceToneClassificationMetadata_(
 		  std::move(mailBoxFaceToneClassificationMetadata)),
 	  mailBoxFaceToneConfig_(std::move(mailBoxFaceToneConfig)),
+	  faceDetector_(faceDetector),
 	  mailBoxOutput_(std::move(mailBoxOutput)),
 	  currentSensorSize_(currentSensorSize),
 	  defaultFaceToneDriverConfig_(defaultFaceToneConfig)
@@ -239,6 +243,7 @@ int AieParseTask::parseAll()
 	LOG(MtkISP7, Debug) << id() << " final detected faces: "
 			    << detectionResult.number_of_faces;
 	mailBoxOutput_->put(detectionResult, [](MtkCameraFaceMetadata &) {});
+	faceDetector_->setOutputMailBox(mailBoxOutput_);
 	return 0;
 }
 

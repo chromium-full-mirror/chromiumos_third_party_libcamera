@@ -23,6 +23,8 @@
 
 namespace libcamera {
 
+class FaceDetector;
+
 class AieParser
 {
 public:
@@ -52,6 +54,7 @@ public:
 		SharedMailBox<InfoFrame> mailBoxFaceDetectionMetadata,
 		SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata,
 		SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
+		FaceDetector *faceDetector,
 		SharedMailBox<MtkCameraFaceMetadata> mailBoxOutput,
 		const FdDrv_input_struct &defaultFaceToneConfig,
 		const Size &currentSensorSize);
@@ -82,6 +85,7 @@ private:
 	SharedMailBox<InfoFrame> mailBoxFaceDetectionMetadata_;
 	SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata_;
 	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig_;
+	FaceDetector *faceDetector_;
 	SharedMailBox<MtkCameraFaceMetadata> mailBoxOutput_;
 	const Size currentSensorSize_;
 	std::unique_ptr<MappedFrameBuffer> currentMappedImageBuffer_;

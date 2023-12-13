@@ -36,14 +36,6 @@ LOG_DECLARE_CATEGORY(MtkISP7)
  */
 
 /**
- * \var FaceDetector::expectedFrameLatency_
- * \brief Expected duration (in frame count) of one face detection run.
- *
- * If face detection is executed on frame N, then only from frame
- * N + \a kFaceDetectionFrameLatency we should start using the result.
- */
-
-/**
  * \class FaceDetector
  * \brief Delegates face detector hardware/algorithm lifecycle and configuration
  *
@@ -51,8 +43,7 @@ LOG_DECLARE_CATEGORY(MtkISP7)
  * face detection algorithm library to parse the result of the device.
  */
 FaceDetector::FaceDetector(AieDevice *aieDev)
-	: aieDev_(aieDev), period_(15),
-	  expectedFrameLatency_(2), parser_(std::make_shared<AieParser>())
+	: aieDev_(aieDev), period_(15), parser_(std::make_shared<AieParser>())
 {
 }
 
@@ -64,8 +55,6 @@ bool FaceDetector::canMakeFaceDetectionTask(Request *request)
 int FaceDetector::configure(const Size &currentSensorSize)
 {
 	currentSensorSize_ = currentSensorSize;
-	prevOutput_ = makeMailBox<MtkCameraFaceMetadata>();
-	latestOutput_ = makeMailBox<MtkCameraFaceMetadata>();
 	faceToneConfig_ = makeMailBox<FdDrv_input_struct>();
 	// todo(yerlandinata, IPC sandboxing):
 	// 	Reset AieParser in the sandbox process every time configure(),
@@ -78,43 +67,26 @@ int FaceDetector::configure(const Size &currentSensorSize)
 }
 
 /**
- * @brief Tells which face detection task should be the dependency
- * \param[in] requestNum request number
- *
- * If latest face detection was run at frame N with \a expectedFrameLatency_ = k
- * but \a requestNum < N + k, then the request should depend on previous face
- * detection task (executed at frame N - \a period). Otherwise the request
- * should depend on the latest face detection task.
- *
- * \return how far to look back, 0 means current
+ * @brief Sets the mailbox of face detection result. Should only be called by
+ *        AieParseTasks.
+ * \param[in] output The mailbox from AieParseTask
  */
-int FaceDetector::getOutputLookbackStep(uint32_t requestNum)
+void FaceDetector::setOutputMailBox(SharedMailBox<MtkCameraFaceMetadata> output)
 {
-	if (requestNum % period_ < expectedFrameLatency_) {
-		return 1;
-	} else {
-		return 0;
-	}
+	MutexLocker locker(lock_);
+	latestOutput_ = output;
 }
 
 /**
  * @brief Returns the mailbox of face detection result
- * \param[in] requestNum request number
  *
  * \return the mailbox, should check FaceDetector::getOutputLookbackStep
  *	   to make sure it's not empty.
  */
-SharedMailBox<MtkCameraFaceMetadata> FaceDetector::getOutputMailBox(
-	uint32_t requestNum)
+SharedMailBox<MtkCameraFaceMetadata> FaceDetector::getOutputMailBox()
 {
-	if (requestNum < expectedFrameLatency_) {
-		// There is no "previous" output at this moment.
-		return nullptr;
-	} else if (requestNum % period_ < expectedFrameLatency_) {
-		return prevOutput_;
-	} else {
-		return latestOutput_;
-	}
+	MutexLocker locker(lock_);
+	return latestOutput_;
 }
 
 FaceDetector::FaceDetectionTasks
@@ -122,9 +94,6 @@ FaceDetector::makeFaceDetectionTask(
 	Scheduler *scheduler, Request *request,
 	SharedMailBox<InfoFrame> detectorInput)
 {
-	prevOutput_ = std::move(latestOutput_);
-	latestOutput_ = makeMailBox<MtkCameraFaceMetadata>();
-
 	auto requestNum = std::to_string(request->sequence());
 	const std::string fdTaskId = "AieFaceDetectionTask#" + requestNum;
 	const std::string faceToneTaskId = "AieFaceToneClassificationTask#" +
@@ -153,7 +122,7 @@ FaceDetector::makeFaceDetectionTask(
 				 unparsedFaceDetectionMailBox,
 				 unparsedFaceToneMailBox,
 				 faceToneConfig_,
-				 latestOutput_,
+				 this, makeMailBox<MtkCameraFaceMetadata>(),
 				 aieDev_->createFaceToneClassificationDriverConfig(),
 				 currentSensorSize_);
 	return std::make_tuple(fdTask, faceToneTask, parseTask);

@@ -82,11 +82,9 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 class CompleteRequestTask : public Task
 {
 public:
-	CompleteRequestTask(Scheduler *scheduler,
-			    const std::string &id,
-			    Request *request,
-			    PipelineHandler *pipe,
-			    SharedMailBox<MtkCameraFaceMetadata> faceMetadata);
+	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
+			    Request *request, PipelineHandler *pipe,
+			    FaceDetector *faceDetector);
 
 	virtual void run() override final;
 
@@ -95,17 +93,16 @@ private:
 
 	PipelineHandler *pipe_;
 	Request *request_;
-	SharedMailBox<MtkCameraFaceMetadata> faceMetadata_;
+	FaceDetector *faceDetector_;
 };
 
 CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
 					 const std::string &id,
 					 Request *request,
 					 PipelineHandler *pipe,
-					 SharedMailBox<MtkCameraFaceMetadata>
-						 faceMetadata)
+					 FaceDetector *faceDetector)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
-	  faceMetadata_(std::move(faceMetadata))
+	  faceDetector_(faceDetector)
 {
 }
 
@@ -234,6 +231,8 @@ void CompleteRequestTask::convertFaceMetadata(
 	std::vector<Rectangle> faceRectangles;
 	std::vector<Point> faceLandmarks;
 
+	SharedMailBox<MtkCameraFaceMetadata> faceMetadata_ =
+		faceDetector_->getOutputMailBox();
 	if (faceMetadata_ == nullptr || !faceMetadata_->valid()) {
 		out.set(controls::FaceDetectFaceScores, faceScores);
 		out.set(controls::FaceDetectFaceRectangles, faceRectangles);
@@ -855,7 +854,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, pipeline,
-		faceDetector_->getOutputMailBox(request->sequence()));
+		faceDetector_);
 
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
@@ -920,9 +919,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	}
 
 	scheduler->succeedPrevTaskByStep(CompleteGroup, 0, completeTask);
-	scheduler->succeedPrevTaskByStep(AieParseGroup,
-					 faceDetector_->getOutputLookbackStep(request->sequence()),
-					 completeTask);
 	scheduler->queueTask(completeTask, CompleteGroup);
 
 	scheduler->schedule();
