@@ -1153,6 +1153,7 @@ void Dip2Task::run()
 	HW_DIP_F0.input(in.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{ 0, 0 });
 	HW_DIP_F0.input(in.wpeVeci[0]->get(), IMG_PORT_WPE_TNR_VECI, 0, Size{ 0, 0 });
 
+	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mcnrSizes[0]);
 	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, mcnrSizes[0]);
 	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, mcnrSizes[0]);
 	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
