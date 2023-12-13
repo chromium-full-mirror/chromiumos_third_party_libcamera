@@ -1043,8 +1043,8 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.bitsPerPixel = 32,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = false,
-		.pixelsPerGroup = 1168,
-		.planes = {{ { 1168, 1 }, { 1168, 1 }, { 0, 0 } }},
+		.pixelsPerGroup = 4,
+		.planes = {{ { 16, 1 }, { 16, 1 }, { 0, 0 } }},
 	} },
 	{ formats::Y8_MTISP, {
 		.name = "Y8_MTISP",
@@ -1193,7 +1193,6 @@ unsigned int PixelFormatInfo::stride(unsigned int width, unsigned int plane,
 		LOG(Formats, Warning) << "Invalid plane index, stride is zero";
 		return 0;
 	}
-
 	/* ceil(width / pixelsPerGroup) * bytesPerGroup */
 	unsigned int stride = (width + pixelsPerGroup - 1) / pixelsPerGroup
 			    * planes[plane].bytesPerGroup;
