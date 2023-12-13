@@ -844,14 +844,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		scheduler->succeedPrevTaskByStep(AieParseGroup,
 						 0, faceToneTask);
 
-		scheduler->succeedPrevTaskByStep(AieFaceDetectionGroup,
-						 0, faceDetectionTask);
-		scheduler->succeedPrevTaskByStep(AieFaceToneClassificationGroup,
-						 0, faceToneTask);
-		scheduler->succeedPrevTaskByStep(AieParseGroup,
-						 0, parseTask);
 		Scheduler::precede(taskDQBuf, faceDetectionTask);
-		Scheduler::precede(faceDetectionTask, faceToneTask);
+		Scheduler::precede(taskDQBuf, faceToneTask);
+		Scheduler::precede(faceDetectionTask, parseTask);
 		Scheduler::precede(faceToneTask, parseTask);
 		scheduler->queueTask(faceDetectionTask, AieFaceDetectionGroup);
 		scheduler->queueTask(faceToneTask, AieFaceToneClassificationGroup);
