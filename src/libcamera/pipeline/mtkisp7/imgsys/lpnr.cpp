@@ -307,6 +307,8 @@ void LpnrDipTask::LowIsoStages(SingleDeviceRequest &sdRequest)
 	P2_MS_F0_PQ_DIP.input(reci[0]->get(), IMG_PORT_REC_DSI, 1, Size{ 0, 0 });
 	P2_MS_F0_PQ_DIP.input(in.dipTunPq->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
+	P2_MS_F0_PQ_DIP.output(dipImg3o[0]->get(), IMG_PORT_IMG3O, 0, lpnrSizes[0]);
+
 	if (stillOutput1_) {
 		InfoFrame info(formats::NV12, manager_->yuvOutputSize1_, stillOutput1_, 64);
 		Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
