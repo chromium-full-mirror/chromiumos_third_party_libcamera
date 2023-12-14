@@ -357,6 +357,9 @@ void McnrMeBTask::run()
 	manager_->fwmmMil_.fetch(meMil);
 	manager_->fwmmGyro_.fetch(fwMmGryo);
 
+	/* TODO: Read the Gyro data from gyro sensor */
+	zeroImage(fwMmGryo);
+
 	ImgMetaRequest request = {};
 	request = ImgMetaRequest {
 		.isCapture = false,
