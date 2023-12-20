@@ -138,11 +138,15 @@ void SofTask::run()
 
 void SofTask::trigger()
 {
-	if (data_->frames.exposureAndGain->valid()) {
-		auto [exposure, gain] = data_->frames.exposureAndGain->get();
-		if (exposure != 0) // Assuming it couldn't be zero.
-			camSys_->setExposureGain(exposure, gain);
-		LOG(MtkISP7, Info) << "exposure: " << exposure << ", gain: " << gain;
+	if (run_) { // Avoid race condition of AATask (in another thread) and SofTask.
+		if (!data_->frames.exposureAndGain->valid()) {
+			LOG(MtkISP7, Fatal) << "No exposureAndGain despite SofTask being run";
+		} else {
+			auto [exposure, gain] = data_->frames.exposureAndGain->get();
+			if (exposure != 0) // Assuming it couldn't be zero.
+				camSys_->setExposureGain(exposure, gain);
+			LOG(MtkISP7, Info) << "exposure: " << exposure << ", gain: " << gain;
+		}
 	} else {
 		LOG(MtkISP7, Error) << "SharedMailBox exposureAndGain not "
 				    << "set yet. Skip setting exposure and gain.";
