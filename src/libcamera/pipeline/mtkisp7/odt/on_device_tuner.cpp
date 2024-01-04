@@ -373,7 +373,7 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 		std::filesystem::path dumpPath =
 			ImagiqAdapter::getDumpFileName(registerDump);
 		camsysDebug_->exportDump(
-			frames.raw->get().buffer()->metadata().sequence,
+			frames.raw->get().buffer()->metadata().hwSequence,
 			requestNumber, dumpPath);
 	}
 }
