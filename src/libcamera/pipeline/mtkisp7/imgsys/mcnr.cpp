@@ -492,15 +492,19 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 
 	meFrames.out.meAMv0 = makeMailBox<InfoFrame>();
 	meFrames.out.meAMv1 = makeMailBox<InfoFrame>();
-	meFrames.out.meAFst = makeMailBox<InfoFrame>();
 	meFrames.out.meAFmb0 = makeMailBox<InfoFrame>();
 	meFrames.out.meAFmb1 = makeMailBox<InfoFrame>();
 	meFrames.out.meALmi = makeMailBox<InfoFrame>();
-	meFrames.out.meBMv0 = makeMailBox<InfoFrame>();
-	meFrames.out.meBMv1 = makeMailBox<InfoFrame>();
+	meFrames.out.meAFst = makeMailBox<InfoFrame>();
+
+	/* Hardware ME requires the MV and Fmb buffer to be reused between
+	 * MeA and MeB stages */
+	meFrames.out.meBMv0 = meFrames.out.meAMv0;
+	meFrames.out.meBMv1 = meFrames.out.meAMv1;
+	meFrames.out.meBFmb0 = meFrames.out.meAFmb0;
+	meFrames.out.meBFmb1 = meFrames.out.meAFmb1;
+
 	meFrames.out.meBFst = makeMailBox<InfoFrame>();
-	meFrames.out.meBFmb0 = makeMailBox<InfoFrame>();
-	meFrames.out.meBFmb1 = makeMailBox<InfoFrame>();
 	meFrames.out.meBLmi = makeMailBox<InfoFrame>();
 	meFrames.out.meL1 = meL1;
 	meFrames.out.meMmap = meMmap;
@@ -627,12 +631,8 @@ void MeATask::allocateOutputBuffers()
 	manager_->meFmb0_.fetch(out.meAFmb0);
 	manager_->meFmb1_.fetch(out.meAFmb1);
 
-	manager_->meMv0_.fetch(out.meBMv0);
-	manager_->meMv1_.fetch(out.meBMv1);
 	manager_->meFst_.fetch(out.meBFst);
 	manager_->meLmi_.fetch(out.meBLmi);
-	manager_->meFmb0_.fetch(out.meBFmb0);
-	manager_->meFmb1_.fetch(out.meBFmb1);
 
 	manager_->meConf0_.fetch(out.meConf0);
 
