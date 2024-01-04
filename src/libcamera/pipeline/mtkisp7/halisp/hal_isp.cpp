@@ -635,7 +635,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		fillIndex(imgMetaRequest.stage, is_capture, imgsys_info);
 
 		imgsys_info.sequence_num = camsysFrmId;
-		imgsys_info.is_need_dump_exif = 0;
+		imgsys_info.is_need_dump_exif = 1;
 
 		mtk::isphal::Size mel0Out(576, 432);
 		mtk::isphal::Size gyroOut(32, 24);
