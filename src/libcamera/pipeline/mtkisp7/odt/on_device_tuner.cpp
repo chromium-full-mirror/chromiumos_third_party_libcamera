@@ -791,7 +791,7 @@ void OnDeviceTuner::tuneDip2(
 	}
 	std::vector<NamedFrame> namedFrames{
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_WPETI, frames.in.prevImg4oF0->get() },
-		{ Dump::Id::WPE_P2_PQDIP_MS_F0_WPET_MAP, frames.in.wpeVeci[0]->get() },
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_WPET_MAP, frames.in.meMmap[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRSI, frames.out.dipTnrso->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRWI, frames.in.dipTnrwi[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRMI, frames.in.dipTnrmi[0]->get() },

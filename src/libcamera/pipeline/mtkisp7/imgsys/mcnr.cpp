@@ -563,7 +563,7 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 	dip2Frames.in.reci = reci;
 	dip2Frames.in.dipTnrwi = dipTnrwi;
 	dip2Frames.in.dipTnrmi = dipTnrmi;
-	dip2Frames.in.wpeVeci = wpeVeci;
+	dip2Frames.in.meMmap = meMmap;
 	dip2Frames.in.dipImgi = dipImgi;
 	dip2Frames.in.dipTnrci = dipTnrci;
 
@@ -1151,7 +1151,7 @@ void Dip2Task::run()
 	HW_DIP_F0.input(out.dipTnrso->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
 	HW_DIP_F0.input(in.dipTnrci[0]->get(), IMG_PORT_TNRCI, 2, Size{ 0, 0 });
 	HW_DIP_F0.input(in.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{ 0, 0 });
-	HW_DIP_F0.input(in.wpeVeci[0]->get(), IMG_PORT_WPE_TNR_VECI, 0, Size{ 0, 0 });
+	HW_DIP_F0.input(in.meMmap[0]->get(), IMG_PORT_WPE_TNR_VECI, 0, Size{ 0, 0 });
 
 	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mcnrSizes[0]);
 	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, mcnrSizes[0]);

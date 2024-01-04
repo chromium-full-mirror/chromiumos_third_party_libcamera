@@ -159,7 +159,7 @@ struct Dip2Frames {
 		std::vector<SharedMailBox<InfoFrame>> reci;
 		std::vector<SharedMailBox<InfoFrame>> dipTnrwi;
 		std::vector<SharedMailBox<InfoFrame>> dipTnrmi;
-		std::vector<SharedMailBox<InfoFrame>> wpeVeci;
+		std::vector<SharedMailBox<InfoFrame>> meMmap;
 		std::vector<SharedMailBox<InfoFrame>> dipImgi;
 		std::vector<SharedMailBox<InfoFrame>> dipTnrci;
 	} in;
