@@ -29,8 +29,8 @@ const std::map<PEU_Stage, Dump::Id> kPeuStageDumpIdMap{
 	{ PEU_Stage::HW_TR_F1, Dump::Id::TR_Y2Y_F1_IMGSYS_DRVREG },
 	{ PEU_Stage::HW_TR_F4, Dump::Id::TR_Y2Y_F4_IMGSYS_DRVREG },
 	{ PEU_Stage::HW_TR_HWMVP, Dump::Id::TR_DSMAP_IMGSYS_DRVREG }, // ?
-	{ PEU_Stage::HW_TR_CONF4, Dump::Id::TR_Y2Y_Conf_IMGSYS_DRVREG },
-	{ PEU_Stage::HW_TR_CONF5, Dump::Id::TR_Y2Y_Conf_IMGSYS_DRVREG },
+	{ PEU_Stage::HW_TR_CONF4, Dump::Id::TR_Y2Y_Conf_F4_IMGSYS_DRVREG },
+	{ PEU_Stage::HW_TR_CONF5, Dump::Id::TR_Y2Y_Conf_F5_IMGSYS_DRVREG },
 	{ PEU_Stage::HW_LTR_F1, Dump::Id::WPE_LTR_Y2Y_F1_IMGSYS_DRVREG }, // ??
 	{ PEU_Stage::HW_LTR_F4, Dump::Id::LTR_Y2Y_F4_IMGSYS_DRVREG },
 	{ PEU_Stage::HW_LTR_VBI, Dump::Id::LTR_VBI_IMGSYS_DRVREG },
@@ -330,13 +330,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
 	  } },
-	{ Dump::Id::TR_Y2Y_Conf_IMGSYS_DRVREG,
+	{ Dump::Id::TR_Y2Y_Conf_F4_IMGSYS_DRVREG,
 	  {
 		  .featureId = Feature::Preview,
 		  .stage = Stage::TR_Y2Y_Conf,
 		  .moduleId = NSCam::TuningUtils::eModule::kREG_TRAW,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .layer = 4,
+	  } },
+	{ Dump::Id::TR_Y2Y_Conf_F5_IMGSYS_DRVREG,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::TR_Y2Y_Conf,
+		  .moduleId = NSCam::TuningUtils::eModule::kREG_TRAW,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .layer = 5,
 	  } },
 	{ Dump::Id::WPE_WghtMap_F5_IMGSYS_DRVREG,
 	  {
@@ -894,13 +904,23 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 			.category = NSCam::TuningUtils::eCategory::kSTREAMING,
 			.action = Action::Preview,
 		} },
-	{ Dump::Id::TR_Y2Y_Conf_YUVO_T5,
+	{ Dump::Id::TR_Y2Y_Conf_F4_YUVO_T5,
 	  {
 		  .featureId = Feature::Preview,
 		  .stage = Stage::TR_Y2Y_Conf,
 		  .moduleId = NSCam::TuningUtils::eModule::kYUVO_T5,
 		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
 		  .action = Action::Preview,
+		  .layer = 4,
+	  } },
+	{ Dump::Id::TR_Y2Y_Conf_F5_YUVO_T5,
+	  {
+		  .featureId = Feature::Preview,
+		  .stage = Stage::TR_Y2Y_Conf,
+		  .moduleId = NSCam::TuningUtils::eModule::kYUVO_T5,
+		  .category = NSCam::TuningUtils::eCategory::kSTREAMING,
+		  .action = Action::Preview,
+		  .layer = 5,
 	  } },
 	// MCNR: Dip1: WPE_LTR_Y2Y_F1
 	{

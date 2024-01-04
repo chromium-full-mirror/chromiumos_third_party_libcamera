@@ -687,7 +687,8 @@ void OnDeviceTuner::tuneTr(Request *request, TrFrames &frames)
 				       { Dump::Id::TR_Y2Y_F4_YUVO_T3, frames.out.dipImgi[6]->get() },
 				       { Dump::Id::TR_Y2Y_F4_META_P2, frames.in.trTunF4->get() },
 				       { Dump::Id::TR_Y2Y_Conf_IMGI_T1, frames.in.meConf0->get() },
-				       { Dump::Id::TR_Y2Y_Conf_YUVO_T5, frames.out.meConf5->get() } });
+				       { Dump::Id::TR_Y2Y_Conf_F4_YUVO_T5, frames.out.meConf4->get() },
+				       { Dump::Id::TR_Y2Y_Conf_F5_YUVO_T5, frames.out.meConf5->get() } });
 }
 
 void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
