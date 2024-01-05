@@ -34,7 +34,6 @@ struct XtrFrames {
 
 struct LpnrDipFrames {
 	struct {
-		SharedMailBox<bool> highIsoMode;
 		SharedMailBox<InfoFrame> dipTunPq;
 		SharedMailBox<InfoFrame> dipTunY2YPq;
 		std::vector<SharedMailBox<InfoFrame>> dipTun;
@@ -46,8 +45,7 @@ struct LPNRFrames {
 	XtrFrames xtrFrames;
 	LpnrDipFrames lpnrDipFrames;
 
-	FrameBuffer *still1Output;
-	FrameBuffer *still2Output;
+	FrameBuffer *stillOutput;
 };
 
 class LpnrTasksManager
@@ -56,8 +54,7 @@ public:
 	LpnrTasksManager(
 		ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt);
 
-	int configure(const Size &bayerInputSize,
-		      const Size &yuvOutputSize1, const Size &yuvOutputSize2);
+	int configure(const Size &bayerInputSize, const Size &yuvOutputSize);
 
 	int start();
 	int stop();
@@ -66,8 +63,7 @@ public:
 
 	void makeLPNRFrames(LPNRFrames &lpnr,
 			    SharedMailBox<InfoFrame> &p1Raw,
-			    FrameBuffer *output1Frame,
-			    FrameBuffer *output2Frame);
+			    FrameBuffer *outputFrame);
 
 	std::tuple<XTRTask *, LpnrDipTask *>
 	makeLpnrTasks(LPNRFrames &lpnr, Scheduler *scheduler, const std::string &id,
@@ -77,8 +73,7 @@ private:
 	friend class XTRTask;
 	friend class LpnrDipTask;
 
-	Size yuvOutputSize1_;
-	Size yuvOutputSize2_;
+	Size yuvOutputSize_;
 	Size bayerInputSize_;
 
 	std::vector<Size> lpnrSizes;
@@ -134,8 +129,7 @@ private:
 	std::vector<SharedMailBox<InfoFrame>> reci;
 
 	LpnrDipFrames frames_;
-	FrameBuffer *stillOutput1_;
-	FrameBuffer *stillOutput2_;
+	FrameBuffer *stillOutput_;
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;

@@ -21,9 +21,8 @@ LOG_DEFINE_CATEGORY(InfoFrame)
 
 InfoFrame::InfoFrame() = default;
 
-InfoFrame::InfoFrame(const PixelFormat &format, const Size &size, FrameBuffer *buffer,
-		     unsigned int strideAlign, unsigned int scanAlign)
-	: size_(size), format_(format), buffer_(buffer), strideAlign_(strideAlign), scanAlign_(scanAlign)
+InfoFrame::InfoFrame(const PixelFormat &format, const Size &size, FrameBuffer *buffer)
+	: size_(size), format_(format), buffer_(buffer)
 {
 	numPlanes_ = buffer->planes().size();
 	for (size_t i = 0; i < 3; i++)
@@ -52,8 +51,7 @@ InfoFramePool::~InfoFramePool()
 }
 
 int InfoFramePool::setBuffers(const PixelFormat &format, const Size &size,
-			      std::vector<std::unique_ptr<FrameBuffer>> &buffers,
-			      unsigned int strideAlign, unsigned int scanAlign)
+				  std::vector<std::unique_ptr<FrameBuffer>> &buffers)
 {
 	if (unmap())
 		LOG(InfoFrame, Error) << "Failed to ummap buffers";
@@ -61,9 +59,6 @@ int InfoFramePool::setBuffers(const PixelFormat &format, const Size &size,
 	size_ = size;
 	format_ = format;
 	pool_.setData(buffers);
-	strideAlign_ = strideAlign;
-	scanAlign_ = scanAlign;
-
 	return 0;
 }
 
@@ -122,7 +117,7 @@ InfoFrame InfoFramePool::get()
 {
 	FrameBuffer* buffer = pool_.get();
 
-	InfoFrame info(format_, size_, buffer, strideAlign_, scanAlign_);
+	InfoFrame info(format_, size_, buffer);
 	for (size_t i = 0; i < buffer->planes().size(); i++) {
 		const int fd = buffer->planes()[i].fd.get();
 		const unsigned int offset = buffer->planes()[i].offset;
@@ -149,14 +144,13 @@ void InfoFramePool::fetch(SharedMailBox<InfoFrame> &mailBox)
 }
 
 int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
-				 const PixelFormat &format, const Size &size,
-				 unsigned int count, DmaHeap::Type type,
-				 unsigned int strideAlign, unsigned scanAlign)
+		       const PixelFormat &format, const Size &size,
+		       unsigned int count, DmaHeap::Type type)
 {
 	const PixelFormatInfo &info = PixelFormatInfo::info(format);
 	uint32_t bufferSize = 0;
 	for (unsigned int i = 0; i < info.numPlanes(); i++)
-		bufferSize += info.planeSize(size, i, strideAlign, scanAlign);
+		bufferSize += info.planeSize(size, i);
 
 	std::vector<std::unique_ptr<FrameBuffer>> buffers;
 	buffers.reserve(count);
@@ -174,7 +168,7 @@ int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
 			FrameBuffer::Plane plane;
 			plane.fd = fd;
 			plane.offset = offset;
-			plane.length = info.planeSize(size, j, strideAlign, scanAlign);
+			plane.length = info.planeSize(size, j);
 			planes.emplace_back(plane);
 			offset += plane.length;
 		}
@@ -182,18 +176,17 @@ int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
 		buffers.emplace_back(std::make_unique<FrameBuffer>(planes));
 	}
 
-	return setBuffers(format, size, buffers, strideAlign, scanAlign);
+	return setBuffers(format, size, buffers);
 }
 
 int InfoFramePool::createFlatBuffers(DmaHeap *dmaHeap,
 					 const PixelFormat &format, const Size &size,
-					 unsigned int count, DmaHeap::Type type,
-					 unsigned int align, unsigned scanAlign)
+					 unsigned int count, DmaHeap::Type type)
 {
 	const PixelFormatInfo &info = PixelFormatInfo::info(format);
 	uint32_t bufferSize = 0;
 	for (unsigned int i = 0; i < info.numPlanes(); i++)
-		bufferSize += info.planeSize(size, i, align, scanAlign);
+		bufferSize += info.planeSize(size, i);
 
 	uint32_t totalSize = bufferSize * count;
 	SharedFD fd(dmaHeap->alloc(totalSize, type));
@@ -208,7 +201,7 @@ int InfoFramePool::createFlatBuffers(DmaHeap *dmaHeap,
 			FrameBuffer::Plane plane;
 			plane.fd = fd;
 			plane.offset = offset;
-			plane.length = info.planeSize(size, j, align, scanAlign);
+			plane.length = info.planeSize(size, j);
 			planes.emplace_back(plane);
 			offset += plane.length;
 		}
@@ -216,7 +209,7 @@ int InfoFramePool::createFlatBuffers(DmaHeap *dmaHeap,
 		buffers.emplace_back(std::make_unique<FrameBuffer>(planes));
 	}
 
-	return setBuffers(format, size, buffers, align, scanAlign);
+	return setBuffers(format, size, buffers);
 }
 
 } /* namespace libcamera */

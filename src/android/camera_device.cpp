@@ -193,27 +193,6 @@ const char *directionToString(int stream_type)
 	}
 }
 
-bool isPreviewStream(camera3_stream_t *stream)
-{
-	return (GRALLOC_USAGE_HW_COMPOSER & stream->usage);
-}
-
-bool isVideoStream(camera3_stream_t *stream)
-{
-	return (GRALLOC_USAGE_HW_VIDEO_ENCODER & stream->usage);
-}
-
-bool isYuvSnapshotStream(camera3_stream_t *stream)
-{
-	return (!isVideoStream(stream) && !isPreviewStream(stream) &&
-	       (HAL_PIXEL_FORMAT_YCbCr_420_888 == stream->format));
-}
-
-bool isJpegStream(camera3_stream_t *stream)
-{
-	return (HAL_PIXEL_FORMAT_BLOB == stream->format);
-}
-
 [[maybe_unused]]int buildStreamConfigsDefault(const CameraCapabilities &capabilities,
 					      camera3_stream_configuration_t *stream_list,
 					      std::vector<Camera3StreamConfig>& streamConfigs)
@@ -361,18 +340,10 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 		streamConfig.config.size = size;
 		streamConfig.config.pixelFormat = format;
 
-		if (isJpegStream(stream)) {
+		/* \todo Add suitable helpers to check the roles */
+		if (stream->format == HAL_PIXEL_FORMAT_BLOB) {
 			streamConfig.streams = { { stream, CameraStream::Type::Internal } };
 			streamConfig.config.role = StreamRole::StillCapture;
-		} else if (isYuvSnapshotStream(stream)) {
-			streamConfig.streams = { { stream, CameraStream::Type::Direct } };
-			streamConfig.config.role = StreamRole::StillCapture;
-		} else if (isPreviewStream(stream)) {
-			streamConfig.streams = { { stream, CameraStream::Type::Direct } };
-			streamConfig.config.role = StreamRole::Viewfinder;
-		} else if (isVideoStream(stream)) {
-			streamConfig.streams = { { stream, CameraStream::Type::Direct } };
-			streamConfig.config.role = StreamRole::VideoRecording;
 		} else {
 			streamConfig.streams = { { stream, CameraStream::Type::Direct } };
 			streamConfig.config.role = StreamRole::Viewfinder;

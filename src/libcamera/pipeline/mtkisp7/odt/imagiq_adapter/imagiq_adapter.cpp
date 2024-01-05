@@ -7,7 +7,6 @@
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 
@@ -19,10 +18,6 @@
 #include "libcamera/internal/formats.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 
-#include "mtkcam-interfaces/utils/debug/Properties.h"
-#include "mtkcam-interfaces/utils/ndd/INdd.h"
-#include "mtkcam-interfaces/utils/odt/IOnDeviceTuning.h"
-#include "mtkcam-interfaces/utils/std/Time.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/mtk_headers/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
@@ -36,9 +31,9 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 namespace {
 
 const ImagiqAdapter::SensorIdMap kGeraltSensorMap{
-	{ "/base/soc/i2c@11ec1000/sensor0@20",
+	{ "/base/soc/i2c@11ec1000/sensor0@1",
 	  NSCam::TuningUtils::eSensorId::kMAIN },
-	{ "/base/soc/i2c@11ec0000/sensor1@31",
+	{ "/base/soc/i2c@11ec0000/sensor1@1",
 	  NSCam::TuningUtils::eSensorId::kSUB }
 };
 
@@ -46,9 +41,6 @@ const std::filesystem::path kDumpConfigPath = "dump.cfg";
 const std::filesystem::path kImportConfigPath = "dump_import.cfg";
 
 } // namespace
-
-std::unique_ptr<NSCam::TuningUtils::NddInitializer>
-	ImagiqAdapter::mtkTuningInitializer_;
 
 const ImagiqAdapter::SensorIdMap ImagiqAdapter::kSensorIdMap(kGeraltSensorMap);
 
@@ -73,79 +65,9 @@ std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
 	       std::to_string(dump.metadata.action.has_value() ? static_cast<int>(dump.metadata.action.value()) : -1);
 }
 
-/**
- * @brief Enable tuning tool for MTK HAL3A / HALISP library
- *
- * Libcamera doesn't have the pointer to the dump data,
- * and doesn't have control to the dump export timing.
- * This function allows MTK private library to do dump
- * export/import on their own.
- * 
- * @return 0 if success
- */
-int ImagiqAdapter::enableMtkTuningTool(std::filesystem::path workDir)
+ImagiqAdapter::ExportResult ImagiqAdapter::exportDump(const Dump &dump)
 {
-	mtkTuningInitializer_.reset();
-	int ret = NSCam::Utils::Properties::property_set(
-		"vendor.debug.ndd.thdnum", "1");
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.ndd.rootpath", (workDir.string() + "/").c_str());
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.ndd.subdir", "1");
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.ndd.cfgpath", (workDir / kDumpConfigPath).c_str());
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.ndd.gen_cfg", "1");
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.ndd.prv_ready", "0");
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.odt.config",
-		(workDir / kImportConfigPath).c_str());
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.odt.enable", "1");
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.odt.start", "0");
-	ret |= NSCam::Utils::Properties::property_set(
-		"vendor.debug.odt.streaming", "1");
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to setprop";
-		return ret;
-	}
-	mtkTuningInitializer_.reset(new NSCam::TuningUtils::NddInitializer());
-	return 0;
-}
-
-ImagiqAdapter::ExportResult ImagiqAdapter::exportArrayDump(
-	const Dump &dump, const NSCam::TuningUtils::NddData &ndd)
-{
-	ExportResult result{ .dump = dump };
-	const std::filesystem::path exportPath =
-		getDumpFileNameSingleFile(dump, ndd);
-	std::ofstream exportFile(exportPath, std::ios::binary);
-	if (!exportFile) {
-		LOG(MtkISP7, Error) << "Failed to open export file: "
-				    << exportPath;
-		result.errorCode = -EIO;
-		return result;
-	}
-	exportFile.write(
-		reinterpret_cast<char *>(const_cast<uint8_t *>(dump.array->data())),
-		dump.array->size());
-	if (!exportFile.good()) {
-		LOG(MtkISP7, Error) << "Error writing plane to file: " << exportPath;
-		result.errorCode = -EIO;
-		return result;
-	}
-	LOG(MtkISP7, Info) << "Dump id: " << static_cast<int>(dump.id)
-			   << "; write file size: " << exportFile.tellp()
-			   << "; File name: " << exportPath;
-	result.paths = { { exportPath } };
-	return result;
-}
-
-ImagiqAdapter::ExportResult ImagiqAdapter::exportFrameDump(
-	const Dump &dump, const NSCam::TuningUtils::NddData &ndd)
-{
+	const NSCam::TuningUtils::NddData ndd(parseNdd(dump));
 	const MappedFrameBuffer mappedBuffer(
 		dump.frame->buffer(), MappedFrameBuffer::MapFlag::Read);
 
@@ -157,16 +79,6 @@ ImagiqAdapter::ExportResult ImagiqAdapter::exportFrameDump(
 	} else {
 		return exportDumpMergePlanes(
 			dump, mappedBuffer, ndd, fileSuffix);
-	}
-}
-
-ImagiqAdapter::ExportResult ImagiqAdapter::exportDump(const Dump &dump)
-{
-	const NSCam::TuningUtils::NddData ndd(parseNdd(dump));
-	if (dump.frame.has_value()) {
-		return exportFrameDump(dump, ndd);
-	} else {
-		return exportArrayDump(dump, ndd);
 	}
 }
 
@@ -243,41 +155,6 @@ ImagiqAdapter::ExportResult ImagiqAdapter::exportDumpSplitPlanes(
 	return result;
 }
 
-/**
- * @brief Copy MTK's reimport config to the session directory
- */
-void ImagiqAdapter::flushPrivateReimportConfig(
-	std::filesystem::path rootWorkPath,
-	std::filesystem::path sessionWorkPath,
-	int dumpSessionTimestamp)
-{
-	std::string timestampStr = formatTimestamp(dumpSessionTimestamp);
-	std::optional<std::filesystem::path> privateCfgPath = std::nullopt;
-	for (const auto &dir : std::filesystem::directory_iterator(rootWorkPath)) {
-		std::string pathStr = dir.path();
-		if (pathStr.find("dumpin.cfg") != std::string::npos &&
-		    pathStr.find(timestampStr) != std::string::npos) {
-			privateCfgPath = dir.path();
-			break;
-		}
-	}
-	if (!privateCfgPath.has_value()) {
-		return;
-	}
-	if (std::filesystem::file_size(*privateCfgPath) == 0) {
-		return;
-	}
-	std::ofstream sessionReimport(
-		sessionWorkPath / kImportConfigPath, std::ios::app);
-	std::ifstream privateReimportIn(*privateCfgPath);
-	std::string line;
-	while (std::getline(privateReimportIn, line)) {
-		sessionReimport << line << std::endl;
-	}
-	privateReimportIn.close();
-	std::ofstream privateReimportOut(*privateCfgPath);
-}
-
 std::string ImagiqAdapter::formatPlaneName(int planeNumber, const PixelFormat &pixelFormat)
 {
 	if (pixelFormat == formats::WARP2P_MTISP) {
@@ -291,26 +168,6 @@ std::string ImagiqAdapter::formatPlaneName(int planeNumber, const PixelFormat &p
 		return kYuvPlaneNames[planeNumber];
 	}
 	return "";
-}
-
-std::string ImagiqAdapter::formatTimestamp(int timestamp)
-{
-	std::ostringstream ss;
-	ss << std::setw(9) << std::setfill('0') << timestamp;
-	return ss.str();
-}
-
-/**
- * @brief Generate acceptable timestamp for Imagiq
- *
- * Imagiq wants a 9-digit timestamp, this function will call
- * an MTK library to do just that.
- * 
- * @return timestamp ranged [1e8, 1e9)
- */
-int ImagiqAdapter::generateDumpTimestamp()
-{
-	return NSCam::Utils::TimeTool::getReadableTime();
 }
 
 std::string ImagiqAdapter::getDumpFileName(const Dump &dump)
@@ -580,7 +437,7 @@ int ImagiqAdapter::loadBaseConfig(
 			config[id] = {
 				.dumpFileNameFormat = fileNameFormat,
 				.enableExport = parsed[5] == "1",
-				.writeReimportConfig = parsed[6].length() > 0 ? parsed[6][0] == '1' : false
+				.enableImport = parsed[6].length() > 0 ? parsed[6][0] == '1' : false
 			};
 		}
 	}
@@ -697,114 +554,20 @@ int ImagiqAdapter::loadImportConfig(
 	return 0;
 }
 
-/**
- * @brief Merge MTK 2A histogram arrays. 
- *
- * MTK 3A library histogram structure:
- * h1t1, h1t2, ..., h1tN, h2t1, h2t2, ..., h2tN, h3t1, h3t2, ..., h3tN
- * However, what imagiq wants:
- * h1t1, h2t1, h3t1, h1t2, h2t2, h3t2, ..., h1tN, h2tN, h3tN
- */
-void ImagiqAdapter::merge2AHistogram(std::vector<uint8_t> &out,
-				     mtk_cam_uapi_meta_raw_stats_0 *stats)
-{
-	std::array<int32_t, 3> temp{ 0, 0, 0 };
-	out.resize(MTK_CAM_UAPI_AAHO_HIST_SIZE);
-	for (size_t j = 0; j < out.size() / 3; j++) {
-		for (size_t i = 0; i < stats->pipeline_config.num_of_core; i++) {
-			std::memcpy(&temp[i],
-				    reinterpret_cast<void *>(reinterpret_cast<intptr_t>(stats) +
-							     stats->ae_awb_stats.aaho_buf.offset + (MTK_CAM_UAPI_AAHO_HIST_SIZE * i) + (3 * j)),
-				    3);
-		}
-		out[3 * j] = (temp[0] + temp[1] + temp[2]) & 0xFF;
-		out[3 * j + 1] = ((temp[0] + temp[1] + temp[2]) >> 8) & 0xFF;
-		out[3 * j + 2] = ((temp[0] + temp[1] + temp[2]) >> 16) & 0xFF;
-	}
-}
-
-void ImagiqAdapter::notifyExportRequest(int count)
-{
-	int ret = NSCam::Utils::Properties::property_set(
-		"vendor.debug.ndd.prv_ready", std::to_string(count).c_str());
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to setprop!";
-	}
-}
-
-void ImagiqAdapter::notifyImportRequest(int count)
-{
-	int ret = NSCam::Utils::Properties::property_set(
-		"vendor.debug.odt.start", std::to_string(count).c_str());
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to setprop!";
-	}
-}
-
-void ImagiqAdapter::notifyNewSession(std::string sensorId, int dumpTimestamp)
-{
-	for (const auto &[_, mtkSensorId] : kSensorIdMap) {
-		int sensorIdInt = static_cast<int>(mtkSensorId);
-		NSCam::TuningUtils::INdd::getInstance()->stream_off(
-			{ sensorIdInt });
-		NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->stream_off();
-	}
-	int sensorIdInt =
-		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
-	NSCam::TuningUtils::INdd::getInstance()->stream_on(
-		{ sensorIdInt }, dumpTimestamp);
-	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->stream_on();
-}
-
-void ImagiqAdapter::notifyRequestBegin(
-	std::string sensorId, int requestNumber)
-{
-	int sensorIdInt =
-		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
-	NSCam::TuningUtils::INdd::getInstance()->frame_begin(
-		sensorIdInt, requestNumber);
-	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->frame_begin(requestNumber);
-}
-
-void ImagiqAdapter::notifyRequestEnd(
-	std::string sensorId, int requestNumber,
-	int dumpSessionTimestamp, bool hasPendingExport,
-	std::filesystem::path rootWorkPath,
-	std::filesystem::path sessionWorkPath)
-{
-	int sensorIdInt =
-		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
-	NSCam::TuningUtils::INdd::getInstance()->frame_end(
-		sensorIdInt, requestNumber);
-	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->frame_end(requestNumber);
-	if (!hasPendingExport) {
-		flushPrivateReimportConfig(
-			rootWorkPath, sessionWorkPath, dumpSessionTimestamp);
-	}
-}
-
 NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 {
 	NSCam::TuningUtils::NddData ndd;
 	ndd.requestNo = dump.requestNumber;
 	ndd.frameNo = dump.requestNumber;
-	ndd.timestamp = dump.timestamp;
+	ndd.timestamp = std::chrono::system_clock::to_time_t(
+		std::chrono::system_clock::now());
 	ndd.sensorId = kSensorIdMap.at(dump.sensorId);
 
 	ndd.feature = static_cast<int>(dump.metadata.featureId);
 	ndd.stage = static_cast<int>(dump.metadata.stage);
 	ndd.action = dump.metadata.action.has_value() ? static_cast<int>(dump.metadata.action.value()) : -1;
 	ndd.layer = dump.metadata.layer;
-	ndd.version = dump.metadata.version;
 	ndd.platform = 8188;
-
-	if (dump.array.has_value()) {
-		ndd.width = dump.array->size();
-		if (dump.metadata.elementSize.has_value()) {
-			ndd.width /= *dump.metadata.elementSize;
-		}
-		ndd.height = 1;
-	}
 
 	if (!dump.frame.has_value()) {
 		return ndd;
@@ -815,12 +578,10 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	ndd.bitResultion = pixelFormatInfo.planes[0].bytesPerGroup * 8 /
 			   pixelFormatInfo.pixelsPerGroup;
 
-	// Quirk-able fields
-	unsigned int bitsPerPixel = pixelFormatInfo.bitsPerPixel;
-	ndd.bayerOrder = -1;
-	ndd.signedness = 0;
+	ndd.byteWidth = pixelFormatInfo.stride(dump.frame->size().width, 0);
+	ndd.pixelWidth = dump.frame->size().width;
+	ndd.pixelHeight = dump.frame->size().height;
 
-	// Quirks
 	switch (dump.frame->format()) {
 	case formats::SBGGR10_MTISP:
 		ndd.bayerOrder = SENSOR_FORMAT_ORDER_RAW_B;
@@ -838,28 +599,14 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 		ndd.bayerOrder = SENSOR_FORMAT_ORDER_RAW_R;
 		ndd.signedness = -1;
 		break;
-	case formats::NV12:
-	case formats::NV21:
-		bitsPerPixel = 8;
-		break;
 	default:
+		ndd.bayerOrder = -1;
+		ndd.signedness = 0;
 		break;
 	}
 
-	unsigned int stride = pixelFormatInfo.stride(
-		dump.frame->size().width,
-		0,
-		dump.frame->strideAlign());
-	ndd.byteWidth = stride;
-	ndd.pixelWidth = stride * 8 / bitsPerPixel;
-	ndd.pixelHeight = pixelFormatInfo.planeSize(
-				  dump.frame->size(),
-				  0, dump.frame->strideAlign(),
-				  dump.frame->scanAlign()) /
-			  stride;
-
-	ndd.width = dump.frame->size().width;
-	ndd.height = dump.frame->size().height;
+	ndd.width = ndd.pixelWidth;
+	ndd.height = ndd.pixelHeight;
 
 	return ndd;
 }
@@ -895,32 +642,6 @@ int ImagiqAdapter::prepareReimport(const ExportResult &exportResult)
 				   << importConfigPath;
 	}
 	return 0;
-}
-
-void ImagiqAdapter::serializeExif(
-	std::vector<uint8_t> &out,
-	const mtk::isphal::v1_0::ExifInfo3A &exif3a,
-	const mtk::isphal::v1_0::ExifInfoP2 &exifIsp)
-{
-	out.resize(6 + exif3a.size + 4 + exifIsp.size);
-
-	// 3A
-	uint8_t *exif3aArray = out.data();
-	exif3aArray[0] = 0;
-	exif3aArray[1] = 0;
-	exif3aArray[2] = 0xFF;
-	exif3aArray[3] = 0xE6;
-	exif3aArray[4] = ((exif3a.size + 2) >> 8);
-	exif3aArray[5] = ((exif3a.size + 2) & 0xFF);
-	std::memcpy(&(exif3aArray[6]), exif3a.data, exif3a.size);
-
-	// ISP
-	uint8_t *exifIspArray = out.data() + 6 + exif3a.size;
-	exifIspArray[0] = 0xFF;
-	exifIspArray[1] = 0xE7;
-	exifIspArray[2] = ((exifIsp.size + 2) >> 8);
-	exifIspArray[3] = ((exifIsp.size + 2) & 0xFF);
-	memcpy(&(exifIspArray[4]), exifIsp.data, exifIsp.size);
 }
 
 bool ImagiqAdapter::shouldSplitExport(const PixelFormat &pixelFormat)

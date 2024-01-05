@@ -18,8 +18,8 @@ namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt)
-	: sensor_idx_(sensor_idx), onDeviceTuner_(odt)
+Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp)
+	: sensor_idx_(sensor_idx)
 {
 	ASSERT(halIsp);
 	halIsp_ = halIsp;
@@ -285,9 +285,7 @@ void Hal3A::startInternal()
 void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
-			  MtkCameraFaceMetadata *metadata, bool newFdResult,
-			  std::pair<uint32_t, uint32_t> *exposureAndGain,
-			  AaaIspExchange *aaaIspExchange, Request *request)
+			  std::pair<uint32_t, uint32_t> *exposureAndGain)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
 	if (sensor_idx_ == 0) { // back camera
@@ -306,7 +304,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
 
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(
-		internalRequestId, metadata, newFdResult, isStillCapture);
+		internalRequestId, false, isStillCapture);
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -322,9 +320,6 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 
 	r_3a_request.buf_info.request_id = camSysMetaRequestId;
 	r_3a_request.buf_info.sof_timestamp = timestamp;
-	if (request) {
-		onDeviceTuner_->tune3ARequest(request, r_3a_request);
-	}
 
 	r_3a_request.stt_buf.fd = statistics0->planes()[0].fd.get();
 
@@ -339,20 +334,17 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	m_hal3a_->GetResult(r3AResult_);
 	*rawMeta = r3AResult_.raw_meta;
 
-	aaaIspExchange->aaaResult = r3AResult_;
 	halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
-				     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
-				     kRawMetaSize, aaaIspExchange, request);
+				     rawMetaFd, (intptr_t)rawMetaBuffer, 0, kRawMetaSize);
 
 	getExposureAndGain(exposureAndGain);
 }
 
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-			    VcmFocusInformation vcmFocusInfo,
-			    MtkCameraFaceMetadata *metadata, bool newFdResult, int32_t *position)
+			    VcmFocusInformation vcmFocusInfo, int32_t *position)
 {
-	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(internalRequestId, metadata, newFdResult, true);
+	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(internalRequestId, true);
 	m_hal3a_->SetParamAF(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_af_request r_af_request = {};
@@ -385,8 +377,7 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 }
 
 mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
-	uint32_t internalRequestId,
-	MtkCameraFaceMetadata *faceMetadata, bool newFdResult, bool isStillCapture, [[maybe_unused]] bool isAF)
+	uint32_t internalRequestId, bool isStillCapture, [[maybe_unused]] bool isAF)
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = {};
 
@@ -394,7 +385,6 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.request_id = internalRequestId;
 	// TODO: Track the right source in mtk's hal. 4 or 59.
 	r_3a_param.active_items = 59;
-	// TODO: check if we need false when no 2A / FD is updated.
 	r_3a_param.updated = true;
 	r_3a_param.is_dummy_request = false;
 	r_3a_param.control_mode = 1;
@@ -591,18 +581,17 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.fast_switch_param.full_tg_size.h = 2448;
 	}
 	r_3a_param.fast_switch_param.ae_target_mode_next = 0;
-	r_3a_param.fast_switch_param.ae_valid_exp_next = 1;
+	r_3a_param.fast_switch_param.ae_valid_exp_next = 0;
 	r_3a_param.fast_switch_param.ae_sensor_mode_next = 0;
 	r_3a_param.fast_switch_param.is_seamless = 0;
 	r_3a_param.fast_switch_param.seam_policy = 0;
-
-	if (faceMetadata) {
-		r_3a_param.faces = *faceMetadata;
-		r_3a_param.face_num = faceMetadata->number_of_faces;
-		r_3a_param.is_fd_ready = newFdResult;
-	} else {
+	// TODO: Track the data flow from MtkCameraFaceMetadata
+	if (sensor_idx_ == 0) { // back camera
 		r_3a_param.face_num = 0;
-		r_3a_param.is_fd_ready = false;
+		r_3a_param.is_fd_ready = 0;
+	} else { // front camera
+		r_3a_param.face_num = 1;
+		r_3a_param.is_fd_ready = 1;
 	}
 	r_3a_param.is_fd_enable = 1;
 	r_3a_param.ot_info.is_valid = 0;

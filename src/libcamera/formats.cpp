@@ -494,8 +494,8 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.bitsPerPixel = 8,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = false,
-		.pixelsPerGroup = 1,
-		.planes = {{ { 1, 1 }, { 0, 0 }, { 0, 0 } }},
+		.pixelsPerGroup = 64,
+		.planes = {{ { 64, 1 }, { 0, 0 }, { 0, 0 } }},
 	} },
 	{ formats::R10, {
 		.name = "R10",
@@ -944,7 +944,7 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.name = "NV12_12P_MTISP",
 		.format = formats::NV12_12P_MTISP,
 		.v4l2Formats = { V4L2PixelFormat(V4L2_PIX_FMT_MTISP_NV12_12P), },
-		.bitsPerPixel = 12,
+		.bitsPerPixel = 20,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = true,
 		.pixelsPerGroup = 64,
@@ -1040,11 +1040,11 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.v4l2Formats = {
 			V4L2PixelFormat(V4L2_PIX_FMT_WARP2P),
 		},
-		.bitsPerPixel = 32,
+		.bitsPerPixel = 0,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = false,
-		.pixelsPerGroup = 4,
-		.planes = {{ { 16, 1 }, { 16, 1 }, { 0, 0 } }},
+		.pixelsPerGroup = 1168,
+		.planes = {{ { 1168, 1 }, { 1168, 1 }, { 0, 0 } }},
 	} },
 	{ formats::Y8_MTISP, {
 		.name = "Y8_MTISP",
@@ -1193,6 +1193,7 @@ unsigned int PixelFormatInfo::stride(unsigned int width, unsigned int plane,
 		LOG(Formats, Warning) << "Invalid plane index, stride is zero";
 		return 0;
 	}
+
 	/* ceil(width / pixelsPerGroup) * bytesPerGroup */
 	unsigned int stride = (width + pixelsPerGroup - 1) / pixelsPerGroup
 			    * planes[plane].bytesPerGroup;
@@ -1206,7 +1207,6 @@ unsigned int PixelFormatInfo::stride(unsigned int width, unsigned int plane,
  * \param[in] size The size of the frame, in pixels
  * \param[in] plane The plane index
  * \param[in] align The stride alignment, in bytes (1 for default alignment)
- * \param[in] scanAlign The scanline alignment, in bytes (1 for default alignment)
  *
  * The plane size is computed by multiplying the line stride and the frame
  * height, taking subsampling and other format characteristics into account.
@@ -1219,19 +1219,13 @@ unsigned int PixelFormatInfo::stride(unsigned int width, unsigned int plane,
  * format
  */
 unsigned int PixelFormatInfo::planeSize(const Size &size, unsigned int plane,
-					unsigned int align, unsigned scanAlign) const
+					unsigned int align) const
 {
 	unsigned int stride = PixelFormatInfo::stride(size.width, plane, align);
 	if (!stride)
 		return 0;
 
-	unsigned int vertSubSample = planes[plane].verticalSubSampling;
-	if (!vertSubSample)
-		return 0;
-
-	unsigned int planeHeight = (size.height + vertSubSample - 1) / vertSubSample;
-
-	return stride * ((planeHeight + scanAlign - 1) / scanAlign * scanAlign);
+	return planeSize(size.height, plane, stride);
 }
 
 /**

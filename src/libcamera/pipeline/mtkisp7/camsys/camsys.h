@@ -76,6 +76,7 @@ private:
 	int initSensor(MediaEntity *seninfEntity);
 
 	int setupLinks(bool enable);
+	int setupSeninf(bool enable);
 
 	int setFormat(V4L2Subdevice *device, int pad, uint32_t mbus_code, Size size);
 	int setFormat(V4L2VideoDevice *device, const PixelFormat &format, Size size);

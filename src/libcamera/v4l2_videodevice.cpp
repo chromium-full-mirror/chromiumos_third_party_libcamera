@@ -1904,7 +1904,6 @@ std::pair<FrameBuffer *, int> V4L2VideoDevice::dequeueBuffer()
 			? FrameMetadata::FrameError
 			: FrameMetadata::FrameSuccess;
 	metadata.sequence = buf.sequence;
-	metadata.hwSequence = buf.sequence;
 	metadata.timestamp = buf.timestamp.tv_sec * 1000000000ULL
 			   + buf.timestamp.tv_usec * 1000ULL;
 
@@ -1915,14 +1914,14 @@ std::pair<FrameBuffer *, int> V4L2VideoDevice::dequeueBuffer()
 	 * Detect kernel drivers which do not reset the sequence number to zero
 	 * on stream start.
 	 */
-	 if (!firstFrame_) {
-		 if (buf.sequence)
-			 LOG(V4L2, Info)
-				 << "Zero sequence expected for first frame (got "
-				 << buf.sequence << ")";
-		 firstFrame_ = buf.sequence;
-	 }
-	 metadata.sequence -= firstFrame_.value();
+	if (!firstFrame_) {
+		if (buf.sequence)
+			LOG(V4L2, Info)
+				<< "Zero sequence expected for first frame (got "
+				<< buf.sequence << ")";
+		firstFrame_ = buf.sequence;
+	}
+	metadata.sequence -= firstFrame_.value();
 
 	unsigned int numV4l2Planes = multiPlanar ? buf.length : 1;
 

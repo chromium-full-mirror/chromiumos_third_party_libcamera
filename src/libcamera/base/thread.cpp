@@ -269,31 +269,6 @@ Thread::~Thread()
 	delete data_;
 }
 
-void Thread::setThreadAffinityInternal()
-{
-	if (affinity_.empty())
-		return;
-
-	auto handle = thread_.native_handle();
-
-	cpu_set_t cpuset;
-	CPU_ZERO(&cpuset);
-
-	for (auto cpu : affinity_)
-		CPU_SET(cpu, &cpuset);
-
-	pthread_setaffinity_np(handle, sizeof(cpu_set_t), &cpuset);
-}
-
-void Thread::setThreadAffinity(const std::vector<int> &affinity)
-{
-	affinity_ = affinity;
-
-	MutexLocker locker(data_->mutex_);
-	if (data_->running_)
-		setThreadAffinityInternal();
-}
-
 /**
  * \brief Start the thread
  */
@@ -309,8 +284,6 @@ void Thread::start()
 	data_->exit_.store(false, std::memory_order_relaxed);
 
 	thread_ = std::thread(&Thread::startThread, this);
-
-	setThreadAffinityInternal();
 }
 
 void Thread::startThread()

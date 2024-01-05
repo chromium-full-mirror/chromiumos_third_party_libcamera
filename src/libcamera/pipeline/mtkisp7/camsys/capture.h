@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <memory>
 
 #include <libcamera/base/signal.h>
@@ -16,7 +15,6 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/hal3a/hal_3a.h"
-#include "pipeline/mtkisp7/halisp/hal_isp.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "camsys.h"
@@ -45,8 +43,6 @@ struct CaptureFrames {
 
 	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGain; // input
 	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGainOutput; // output
-
-	SharedMailBox<AaaIspExchange> aaaIspExchange;
 };
 
 class CaptureData
@@ -81,8 +77,7 @@ public:
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *>
 	makeCaptureTasks(Scheduler *scheduler, const std::string &id,
-			 Request *request, CaptureFrames &captureFrames,
-			 uint32_t camSysMetaRequestId);
+			 Request *request, CaptureFrames &captureFrames);
 
 private:
 	friend QueueTask;

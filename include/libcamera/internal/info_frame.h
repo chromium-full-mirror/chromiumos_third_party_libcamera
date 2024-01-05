@@ -26,8 +26,7 @@ public:
 	};
 
 	InfoFrame();
-	InfoFrame(const PixelFormat &format, const Size &size, FrameBuffer *buffers,
-		  unsigned int strideAlign = 1, unsigned int scanAlign = 1);
+	InfoFrame(const PixelFormat &format, const Size &size, FrameBuffer *buffers);
 
 	void setAddress(unsigned int plane, uint8_t *address);
 	uint8_t *address(unsigned int plane) const;
@@ -36,18 +35,14 @@ public:
 	PixelFormat format() const { return format_; }
 	FrameBuffer *buffer() const { return buffer_; }
 	unsigned int numPlanes() const { return numPlanes_; }
-	unsigned int strideAlign() const { return strideAlign_; }
-	unsigned int scanAlign() const { return scanAlign_; }
 
 private:
 	Size size_;
 	PixelFormat format_;
-	FrameBuffer *buffer_ = nullptr;
+	FrameBuffer *buffer_;
 
 	unsigned int numPlanes_;
 	std::array<Plane, 3> planes_;
-	unsigned int strideAlign_ = 1;
-	unsigned int scanAlign_ = 1;
 };
 
 class InfoFramePool {
@@ -62,12 +57,10 @@ public:
 
 	int createBuffers(DmaHeap* dmaHeap, const PixelFormat &format,
 			  const Size &size, uint32_t count,
-			  DmaHeap::Type type = DmaHeap::System,
-			  unsigned int strideAlign = 1, unsigned scanAlign = 1);
+			  DmaHeap::Type type = DmaHeap::System);
 	int createFlatBuffers(DmaHeap* dmaHeap, const PixelFormat &format,
 			      const Size &size, uint32_t count,
-			      DmaHeap::Type type = DmaHeap::System,
-			      unsigned int strideAlign = 1, unsigned scanAlign = 1);
+			      DmaHeap::Type type = DmaHeap::System);
 	void release() { pool_.release(); }
 
 	void fetch(SharedMailBox<InfoFrame> &mailBox);
@@ -86,14 +79,11 @@ private:
 	LIBCAMERA_DISABLE_COPY_AND_MOVE(InfoFramePool)
 
 	int setBuffers(const PixelFormat &format, const Size &size,
-		       std::vector<std::unique_ptr<FrameBuffer>> &buffers,
-		       unsigned int align, unsigned int scanAlign);
+		       std::vector<std::unique_ptr<FrameBuffer>> &buffers);
 
 	Size size_;
 	PixelFormat format_;
 	Pool<FrameBuffer *, std::unique_ptr<FrameBuffer>> pool_;
-	unsigned int strideAlign_;
-	unsigned int scanAlign_;
 
 	std::unordered_map<int, MappedBufferInfo> mappedBuffers_;
 };
