@@ -94,8 +94,6 @@ public:
 		bool isStillCapture = false;
 	};
 
-	MtkCameraFaceMetadata *prevFaceMetadata_ = nullptr;
-
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A, OnDeviceTuner *odt,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
@@ -134,8 +132,6 @@ public:
 class AFTask : public Task
 {
 public:
-	MtkCameraFaceMetadata *prevFaceMetadata_ = nullptr;
-
 	AFTask(Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,

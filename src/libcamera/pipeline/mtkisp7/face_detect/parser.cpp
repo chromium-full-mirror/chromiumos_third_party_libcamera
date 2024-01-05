@@ -53,7 +53,6 @@ AieParseTask::AieParseTask(
 	SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata,
 	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
 	FaceDetector *faceDetector,
-	SharedMailBox<MtkCameraFaceMetadata> mailBoxOutput,
 	const FdDrv_input_struct &defaultFaceToneConfig,
 	const Size &currentSensorSize)
 	: Task(scheduler, id),
@@ -64,7 +63,6 @@ AieParseTask::AieParseTask(
 		  std::move(mailBoxFaceToneClassificationMetadata)),
 	  mailBoxFaceToneConfig_(std::move(mailBoxFaceToneConfig)),
 	  faceDetector_(faceDetector),
-	  mailBoxOutput_(std::move(mailBoxOutput)),
 	  currentSensorSize_(currentSensorSize),
 	  defaultFaceToneDriverConfig_(defaultFaceToneConfig)
 {
@@ -239,11 +237,12 @@ int AieParseTask::parseAll()
 		reinterpret_cast<MUINT8 *>(&detectionResult),
 		parser_->getWorkingBuffer(), inputSize.width,
 		inputSize.height, 0, 0, 0, 5);
+
 	transformAllDetectionCoordinates(detectionResult);
+	faceDetector_->setLatestOutput(detectionResult);
+
 	LOG(MtkISP7, Debug) << id() << " final detected faces: "
 			    << detectionResult.number_of_faces;
-	mailBoxOutput_->put(detectionResult, [](MtkCameraFaceMetadata &) {});
-	faceDetector_->setOutputMailBox(mailBoxOutput_);
 	return 0;
 }
 

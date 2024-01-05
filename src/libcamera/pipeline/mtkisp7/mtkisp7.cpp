@@ -254,51 +254,51 @@ private:
 	}
 };
 
-void CompleteRequestTask::convertFaceMetadata(
-	ControlList &out)
+void CompleteRequestTask::convertFaceMetadata(ControlList &out)
 {
 	std::vector<uint8_t> faceScores;
 	std::vector<Rectangle> faceRectangles;
 	std::vector<Point> faceLandmarks;
 
-	SharedMailBox<MtkCameraFaceMetadata> faceMetadata_ =
-		faceDetector_->getOutputMailBox();
-	if (faceMetadata_ == nullptr || !faceMetadata_->valid()) {
+	std::optional<MtkCameraFaceMetadata> faceMetadata;
+	faceDetector_->getLatestOutput(faceMetadata);
+
+	if (!faceMetadata) {
 		out.set(controls::FaceDetectFaceScores, faceScores);
 		out.set(controls::FaceDetectFaceRectangles, faceRectangles);
 		out.set(controls::FaceDetectFaceLandmark, faceLandmarks);
 		return;
 	}
-	MtkCameraFaceMetadata faceMetadata = faceMetadata_->get();
-	faceScores.reserve(faceMetadata.number_of_faces);
-	faceRectangles.reserve(faceMetadata.number_of_faces);
-	faceLandmarks.reserve(3 * faceMetadata.number_of_faces);
-	for (int i = 0; i < faceMetadata.number_of_faces; i++) {
-		faceScores.push_back(faceMetadata.faces[i].score);
+
+	faceScores.reserve(faceMetadata->number_of_faces);
+	faceRectangles.reserve(faceMetadata->number_of_faces);
+	faceLandmarks.reserve(3 * faceMetadata->number_of_faces);
+	for (int i = 0; i < faceMetadata->number_of_faces; i++) {
+		faceScores.push_back(faceMetadata->faces[i].score);
 		Point faceTopLeft = Point{
-			faceMetadata.faces[i].rect[0],
-			faceMetadata.faces[i].rect[1]
+			faceMetadata->faces[i].rect[0],
+			faceMetadata->faces[i].rect[1]
 		};
 		Point faceBottomRight = Point{
-			faceMetadata.faces[i].rect[2],
-			faceMetadata.faces[i].rect[3]
+			faceMetadata->faces[i].rect[2],
+			faceMetadata->faces[i].rect[3]
 		};
 		faceRectangles.emplace_back(faceTopLeft, faceBottomRight);
 		Point leftEye = Point{
-			(faceMetadata.leyex0[i] + faceMetadata.leyex1[i]) / 2,
-			(faceMetadata.leyey0[i] + faceMetadata.leyey1[i]) / 2
+			(faceMetadata->leyex0[i] + faceMetadata->leyex1[i]) / 2,
+			(faceMetadata->leyey0[i] + faceMetadata->leyey1[i]) / 2
 		};
 		faceLandmarks.push_back(leftEye);
 
 		Point rightEye = Point{
-			(faceMetadata.reyex0[i] + faceMetadata.reyex1[i]) / 2,
-			(faceMetadata.reyey0[i] + faceMetadata.reyey1[i]) / 2
+			(faceMetadata->reyex0[i] + faceMetadata->reyex1[i]) / 2,
+			(faceMetadata->reyey0[i] + faceMetadata->reyey1[i]) / 2
 		};
 		faceLandmarks.push_back(rightEye);
 
 		Point mouth = Point{
-			(faceMetadata.mouthx0[i] + faceMetadata.mouthx1[i]) / 2,
-			(faceMetadata.mouthy0[i] + faceMetadata.mouthy1[i]) / 2
+			(faceMetadata->mouthx0[i] + faceMetadata->mouthx1[i]) / 2,
+			(faceMetadata->mouthy0[i] + faceMetadata->mouthy1[i]) / 2
 		};
 		faceLandmarks.push_back(mouth);
 	}

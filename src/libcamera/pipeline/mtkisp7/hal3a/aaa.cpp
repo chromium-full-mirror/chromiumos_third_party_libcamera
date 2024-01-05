@@ -193,12 +193,9 @@ void AATask::run()
 	tuningBuffer->_d()->metadata().planes()[0].bytesused =
 		tuningBuffer->planes()[0].length;
 
-	auto latestFaceMetadata = faceDetector_->getOutputMailBox();
-	bool newFdResult = false;
-	if (latestFaceMetadata && &(latestFaceMetadata->get()) != prevFaceMetadata_) {
-		newFdResult = true;
-		prevFaceMetadata_ = &(latestFaceMetadata->get());
-	}
+	std::optional<MtkCameraFaceMetadata> faceMetadata;
+	faceDetector_->getLatestOutput(faceMetadata);
+	MtkCameraFaceMetadata *faces = (faceMetadata) ? &(*faceMetadata) : nullptr;
 
 	captureFrames_.aaaIspExchange->put({}, nullptr);
 
@@ -209,7 +206,7 @@ void AATask::run()
 			      perFrameControl_.isStillCapture,
 			      tuningBuffer->planes()[0].fd.get(),
 			      mappedBuffer.planes()[0].data(),
-			      prevFaceMetadata_, newFdResult,
+			      faces,
 			      &exposureAndGain,
 			      &captureFrames_.aaaIspExchange->get(),
 			      request_);
@@ -240,19 +237,17 @@ void AATask::setRequest(Request *request)
 void AFTask::run()
 {
 	int32_t position = -1;
-	auto latestFaceMetadata = faceDetector_->getOutputMailBox();
-	bool newFdResult = false;
-	if (latestFaceMetadata && &(latestFaceMetadata->get()) != prevFaceMetadata_) {
-		newFdResult = true;
-		prevFaceMetadata_ = &(latestFaceMetadata->get());
-	}
+
+	std::optional<MtkCameraFaceMetadata> faceMetadata;
+	faceDetector_->getLatestOutput(faceMetadata);
+	MtkCameraFaceMetadata *faces = (faceMetadata) ? &(*faceMetadata) : nullptr;
 
 	hal3A_->doCalculationAF(captureFrames_.statistics1->get().buffer(),
 				captureFrames_.timestamp->get(),
 				internalRequestId_,
 				camSysMetaRequestId_,
 				focusController_->getFocusInfo(),
-				prevFaceMetadata_, newFdResult, &position);
+				faces, &position);
 
 	focusController_->set(position, captureFrames_.timestamp->get());
 

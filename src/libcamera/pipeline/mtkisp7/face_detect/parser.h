@@ -55,7 +55,6 @@ public:
 		SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata,
 		SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
 		FaceDetector *faceDetector,
-		SharedMailBox<MtkCameraFaceMetadata> mailBoxOutput,
 		const FdDrv_input_struct &defaultFaceToneConfig,
 		const Size &currentSensorSize);
 
@@ -86,7 +85,6 @@ private:
 	SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata_;
 	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig_;
 	FaceDetector *faceDetector_;
-	SharedMailBox<MtkCameraFaceMetadata> mailBoxOutput_;
 	const Size currentSensorSize_;
 	std::unique_ptr<MappedFrameBuffer> currentMappedImageBuffer_;
 	fd_cal_struct *algoCalibration_;

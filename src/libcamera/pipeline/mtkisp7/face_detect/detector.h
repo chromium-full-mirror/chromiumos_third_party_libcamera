@@ -34,8 +34,10 @@ public:
 
 	bool canMakeFaceDetectionTask(Request *request);
 	int configure(const Size &currentSensorSize);
-	SharedMailBox<MtkCameraFaceMetadata> getOutputMailBox();
-	void setOutputMailBox(SharedMailBox<MtkCameraFaceMetadata> output);
+
+	void setLatestOutput(const MtkCameraFaceMetadata &output);
+	void getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest);
+
 	FaceDetectionTasks makeFaceDetectionTask(
 		Scheduler *scheduler, Request *request,
 		SharedMailBox<InfoFrame> detectorInput);
@@ -49,7 +51,7 @@ private:
 	std::shared_ptr<AieParser> parser_;
 
 	Mutex lock_;
-	SharedMailBox<MtkCameraFaceMetadata> latestOutput_;
+	std::optional<MtkCameraFaceMetadata> latestOutput_;
 
 	SharedMailBox<FdDrv_input_struct> faceToneConfig_;
 

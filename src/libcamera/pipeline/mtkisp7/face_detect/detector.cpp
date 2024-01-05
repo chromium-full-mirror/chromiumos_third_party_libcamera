@@ -54,6 +54,8 @@ bool FaceDetector::canMakeFaceDetectionTask(Request *request)
 
 int FaceDetector::configure(const Size &currentSensorSize)
 {
+	latestOutput_.reset();
+
 	currentSensorSize_ = currentSensorSize;
 	faceToneConfig_ = makeMailBox<FdDrv_input_struct>();
 	// todo(yerlandinata, IPC sandboxing):
@@ -67,26 +69,25 @@ int FaceDetector::configure(const Size &currentSensorSize)
 }
 
 /**
- * @brief Sets the mailbox of face detection result. Should only be called by
+ * @brief Sets the latest face detection result. Should only be called by
  *        AieParseTasks.
- * \param[in] output The mailbox from AieParseTask
+ * \param[in] output of the face detection result from AieParseTask
  */
-void FaceDetector::setOutputMailBox(SharedMailBox<MtkCameraFaceMetadata> output)
+void FaceDetector::setLatestOutput(const MtkCameraFaceMetadata &output)
 {
 	MutexLocker locker(lock_);
-	latestOutput_ = output;
+	latestOutput_.emplace(output);
 }
 
 /**
- * @brief Returns the mailbox of face detection result
+ * @brief Get the latest face detection result
  *
- * \return the mailbox, should check FaceDetector::getOutputLookbackStep
- *	   to make sure it's not empty.
+ * \param[in] latest output of the face detection result from AieParseTask
  */
-SharedMailBox<MtkCameraFaceMetadata> FaceDetector::getOutputMailBox()
+void FaceDetector::getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest)
 {
 	MutexLocker locker(lock_);
-	return latestOutput_;
+	latest = latestOutput_;
 }
 
 FaceDetector::FaceDetectionTasks
@@ -122,7 +123,7 @@ FaceDetector::makeFaceDetectionTask(
 				 unparsedFaceDetectionMailBox,
 				 unparsedFaceToneMailBox,
 				 faceToneConfig_,
-				 this, makeMailBox<MtkCameraFaceMetadata>(),
+				 this,
 				 aieDev_->createFaceToneClassificationDriverConfig(),
 				 currentSensorSize_);
 	return std::make_tuple(fdTask, faceToneTask, parseTask);
