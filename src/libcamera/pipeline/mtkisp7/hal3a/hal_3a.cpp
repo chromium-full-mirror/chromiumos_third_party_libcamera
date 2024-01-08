@@ -252,7 +252,7 @@ void Hal3A::startInternal()
 void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
-			  MtkCameraFaceMetadata *metadata,
+			  MtkCameraFaceMetadata *faceMetadata,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain,
 			  AaaIspExchange *aaaIspExchange, Request *request)
 {
@@ -273,7 +273,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
 
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(
-		internalRequestId, metadata, isStillCapture);
+		internalRequestId, faceMetadata, isStillCapture);
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -322,7 +322,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	aaaIspExchange->aaaResult = r3AResult_;
 	halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
 				     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
-				     kRawMetaSize, aaaIspExchange, request);
+				     kRawMetaSize, faceMetadata,
+				     aaaIspExchange, request);
 	libcamera::DmaHeap::sync(
 		rawMetaFd,
 		libcamera::DmaHeap::End,

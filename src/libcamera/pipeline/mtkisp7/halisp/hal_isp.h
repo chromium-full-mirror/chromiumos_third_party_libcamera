@@ -52,7 +52,8 @@ public:
 
 	int getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize, AaaIspExchange *aaaIspExchange,
+				size_t bufSize, MtkCameraFaceMetadata *faces,
+				AaaIspExchange *aaaIspExchange,
 				Request *request);
 
 	int getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
@@ -62,6 +63,9 @@ public:
 	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
 
 private:
+	void fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
+				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo);
+
 	int32_t sensorIdx_;
 	int32_t sensorDev_;
 

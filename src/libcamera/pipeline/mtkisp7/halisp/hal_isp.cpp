@@ -140,9 +140,82 @@ uint32_t HalIsp::getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange)
 	return lpnrThredshold_.value();
 }
 
+void HalIsp::fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
+				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo)
+{
+	static_assert(sizeof(MtkCameraFaceMetadata::YUVsts) <=
+		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::YUVsts),
+		      "face struct YUVsts size error");
+	static_assert(sizeof(MtkCameraFaceMetadata::GenderLabel) <=
+		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_GenderLabel),
+		      "face struct fld_GenderLabel size error");
+	static_assert(sizeof(MtkCameraFaceMetadata::fld_GenderInfo) <=
+		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_GenderInfo),
+		      "face struct fld_GenderInfo size error");
+	static_assert(sizeof(MtkCameraFaceMetadata::fld_rop) <=
+		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_rop),
+		      "face struct fld_rop size error");
+
+	if(!faces) {
+		m_P1CamInfo.fgFDEnable = false;
+		memset(&fdInfo, 0, sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T));
+		return;
+	}
+
+	m_P1CamInfo.fgFDEnable = true;
+	memset(&fdInfo, 0, sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T));
+
+	fdInfo.FD_magicNo = faces->magicNo;
+	fdInfo.FaceNum = faces->number_of_faces;
+
+	memcpy(&(fdInfo.YUVsts), &(faces->YUVsts), sizeof(faces->YUVsts));
+	memcpy(&(fdInfo.fld_GenderLabel), &(faces->GenderLabel), sizeof(faces->GenderLabel));
+	memcpy(&(fdInfo.fld_GenderInfo), &(faces->fld_GenderInfo), sizeof(faces->fld_GenderInfo));
+	memcpy(&(fdInfo.fld_rop), &(faces->fld_rop), sizeof(faces->fld_rop));
+	memcpy(&(fdInfo.Landmark_CV), &(faces->fa_cv), sizeof(faces->fa_cv));
+
+	fdInfo.GenderNum = faces->genderNum;
+	fdInfo.LandmarkNum = faces->poseNum;
+
+	// FD TCY
+	fdInfo.tcy_index = faces->tcy_index;
+	fdInfo.tcy_uv_gain = faces->tcy_uv_gain;
+	memcpy(&(fdInfo.tcy_y_curve), &(faces->tcy_y_curve), sizeof(faces->tcy_y_curve));
+
+	if (faces->number_of_faces != 0) {
+		int i = 0;
+		mtk::hal3a::mtk_3a_area area;
+
+		for (i = 0; i < faces->number_of_faces; i++) {
+			fdInfo.fld_rip[i] = faces->posInfo[i].rip_dir;
+
+			// Face
+			fdInfo.rect[i][0] = faces->faces[i].rect[0];
+			fdInfo.rect[i][1] = faces->faces[i].rect[1];
+			fdInfo.rect[i][2] = faces->faces[i].rect[2];
+			fdInfo.rect[i][3] = faces->faces[i].rect[3];
+
+			if (faces->fa_cv[i] > 0) {
+				// Left eye
+				fdInfo.Face_Leye[i][0] = faces->leyex0[i];
+				fdInfo.Face_Leye[i][1] = faces->leyey0[i];
+				fdInfo.Face_Leye[i][2] = faces->leyex1[i];
+				fdInfo.Face_Leye[i][3] = faces->leyey1[i];
+
+				// Right eye
+				fdInfo.Face_Reye[i][0] = faces->reyex0[i];
+				fdInfo.Face_Reye[i][1] = faces->reyey0[i];
+				fdInfo.Face_Reye[i][2] = faces->reyex1[i];
+				fdInfo.Face_Reye[i][3] = faces->reyey1[i];
+			}
+		}
+	}
+}
+
 int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize, AaaIspExchange *aaaIspExchange,
+				size_t bufSize, MtkCameraFaceMetadata *faces,
+				AaaIspExchange *aaaIspExchange,
 				Request *request)
 {
 	ASSERT(aaaIspExchange);
@@ -153,6 +226,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_data.p1_meta_buffer = regBuf1;
 
 	m_P1CamInfo.mock_camsys = false;
+	fillCamInfoFaceData(faces, m_P1CamInfo.rFdInfo);
 
 	// Target structure
 	mtk::isphal::v1_0::TuningParamP1 tuning_param_p1 = {};
