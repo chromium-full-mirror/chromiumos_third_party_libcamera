@@ -8,9 +8,10 @@
 #include "libcamera/internal/dma_heaps.h"
 
 #include <fcntl.h>
+#include <sys/ioctl.h>
+
 #include <linux/dma-buf.h>
 #include <linux/dma-heap.h>
-#include <sys/ioctl.h>
 
 #include <libcamera/base/log.h>
 
@@ -19,9 +20,9 @@ namespace libcamera {
 LOG_DEFINE_CATEGORY(DmaHeap)
 
 namespace {
-	constexpr const char *kHeapName = "/dev/dma_heap/system";
-	constexpr const char *kHeapCmaName = "/dev/dma_heap/dma_buf_reserved_cma";
-}
+constexpr const char *kHeapName = "/dev/dma_heap/system";
+constexpr const char *kHeapCmaName = "/dev/dma_heap/cma@7A000000";
+} // namespace
 
 DmaHeap::DmaHeap()
 {
@@ -30,7 +31,7 @@ DmaHeap::DmaHeap()
 	int fd = ::open(kHeapName, O_RDWR, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
 		LOG(DmaHeap, Error) << "Failed to open " << kHeapName << ": "
-				   << strerror(errno);
+				    << strerror(errno);
 		return;
 	}
 
@@ -39,7 +40,7 @@ DmaHeap::DmaHeap()
 	fd = ::open(kHeapCmaName, O_RDWR, O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
 		LOG(DmaHeap, Error) << "Failed to open " << kHeapCmaName << ": "
-				   << strerror(errno);
+				    << strerror(errno);
 		return;
 	}
 
@@ -53,7 +54,7 @@ DmaHeap::~DmaHeap() = default;
 
 UniqueFD DmaHeap::alloc(std::size_t size, Type type)
 {
-	struct dma_heap_allocation_data heap_data{
+	struct dma_heap_allocation_data heap_data {
 		.len = size,
 		.fd = 0,
 		.fd_flags = O_RDWR | O_CLOEXEC,
@@ -68,10 +69,10 @@ UniqueFD DmaHeap::alloc(std::size_t size, Type type)
 
 	if (ret) {
 		LOG(DmaHeap, Error) << "Unable to allocate from "
-				   << " DMA-BUF heap " << strerror(errno)
-				   << " type " << ((type == CMA) ? "CMA" : "System")
-				   << " heap_data.fd_flags " << heap_data.fd_flags
-				   << " len " << heap_data.len;
+				    << " DMA-BUF heap " << strerror(errno)
+				    << " type " << ((type == CMA) ? "CMA" : "System")
+				    << " heap_data.fd_flags " << heap_data.fd_flags
+				    << " len " << heap_data.len;
 		return {};
 	}
 
@@ -82,24 +83,24 @@ void DmaHeap::sync(int fd, SyncStep step, SyncType type)
 {
 	uint64_t flags = 0;
 	switch (step) {
-		case Start:
-			flags = DMA_BUF_SYNC_START;
-			break;
-		case End:
-			flags = DMA_BUF_SYNC_END;
-			break;
+	case Start:
+		flags = DMA_BUF_SYNC_START;
+		break;
+	case End:
+		flags = DMA_BUF_SYNC_END;
+		break;
 	}
 
 	switch (type) {
-		case SyncRead:
-			flags = flags | DMA_BUF_SYNC_READ;
-			break;
-		case SyncWrite:
-			flags = flags | DMA_BUF_SYNC_WRITE;
-			break;
-		case SyncReadWrite:
-			flags = flags | DMA_BUF_SYNC_RW;
-			break;
+	case SyncRead:
+		flags = flags | DMA_BUF_SYNC_READ;
+		break;
+	case SyncWrite:
+		flags = flags | DMA_BUF_SYNC_WRITE;
+		break;
+	case SyncReadWrite:
+		flags = flags | DMA_BUF_SYNC_RW;
+		break;
 	}
 
 	struct dma_buf_sync sync = {
@@ -113,7 +114,7 @@ void DmaHeap::sync(int fd, SyncStep step, SyncType type)
 
 	if (ret) {
 		LOG(DmaHeap, Error) << "Unable to sync dma fd " << fd
-				   << " step " << step;
+				    << " step " << step;
 	}
 }
 
