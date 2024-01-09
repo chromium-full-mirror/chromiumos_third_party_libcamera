@@ -242,7 +242,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_param_p1.cam_info->hwhdr_info.i4fus_num = 0;
 	tuning_param_p1.cam_info->hwhdr_info.hdr_type = mtk::isphal::v1_0::EISP_HWHDRType_None;
 
-	tuning_param_p1.is_need_exif = false;
+	tuning_param_p1.is_need_exif = true;
 
 	tuning_param_p1.cam_info->rMapping_Info.eFeature = NSIspTuning::EFeature_Preview;
 	tuning_param_p1.cam_info->rMapping_Info.eStage = NSIspTuning::EStage_P1;
@@ -646,7 +646,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		pCaminfoBuf = &aaaIspExchange->cam_info;
 		pCaminfoBuf_3a = &aaaIspExchange->cam_info_3a;
 
-		tuning_param_p2.is_need_exif = 0;
+		tuning_param_p2.is_need_exif = true;
 
 		tuning_param_p2.cam_info = *pCaminfoBuf;
 		tuning_param_p2.cam_info_3a = pCaminfoBuf_3a;
