@@ -46,6 +46,7 @@ libcamera_sources += files([
     'imgsys/lpnr.cpp',
     'imgsys/imgsys.cpp',
     'imgsys/mcnr.cpp',
+    'imgsys/mfnr.cpp',
     'imgsys/single_device.cpp',
     'odt/imagiq_adapter/static_metadata/static_strings.cpp',
     'odt/imagiq_adapter/dump.cpp',

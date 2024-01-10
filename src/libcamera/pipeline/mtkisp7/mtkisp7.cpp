@@ -36,6 +36,7 @@
 #include "imgsys/imgsys.h"
 #include "imgsys/lpnr.h"
 #include "imgsys/mcnr.h"
+#include "imgsys/mfnr.h"
 #include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -151,6 +152,7 @@ public:
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
+		  mfnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrTunManager(dmaHeap, halIsp, odt),
 		  mcnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
@@ -193,6 +195,7 @@ public:
 	MCNRPrevOutput mcnrPrev;
 	McnrTasksManager mcnrManager;
 	LpnrTasksManager lpnrManager;
+	MfnrTasksManager mfnrManager;
 
 	LpnrTunTasksManager lpnrTunManager;
 	McnrTunManager mcnrTunManager;
@@ -678,6 +681,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 
 	imgSysDev_->start();
 	mcnrManager.start();
+	mfnrManager.start();
 	lpnrManager.start();
 	faceDetector_->start();
 
@@ -783,6 +787,7 @@ void MtkISP7CameraData::stopDevice()
 	mcnrPrev = {};
 
 	mcnrManager.stop();
+	mfnrManager.stop();
 	lpnrManager.stop();
 
 	faceDetector_->stop();
@@ -798,6 +803,7 @@ void MtkISP7CameraData::releaseDevice()
 	captureManager.releaseBuffers();
 	hal3AManager_.releaseBuffers();
 	mcnrManager.releaseBuffers();
+	mfnrManager.releaseBuffers();
 	lpnrManager.releaseBuffers();
 
 	lpnrTunManager.releaseBuffers();
@@ -898,7 +904,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still1, still2);
-
+	mfnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
 
