@@ -15,6 +15,7 @@
 #include <libcamera/geometry.h>
 #include <libcamera/request.h>
 
+#include "libcamera/internal/dma_heaps.h"
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pools.h"
@@ -264,9 +265,15 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	FrameBuffer *singleDev = infoDesc.buffer();
 	int mediaRequest = mediaRequestPool_.get();
 
-	request->sdRequest->fillRequestBufferForStage(
-		infoCtrl, infoDesc, mediaRequest, request->stage);
-	onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
+	{
+		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get());
+		DmaSyncer syncerDesc(infoDesc.buffer()->planes()[0].fd.get());
+
+		request->sdRequest->fillRequestBufferForStage(
+			infoCtrl, infoDesc, mediaRequest, request->stage);
+		onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
+	}
+
 	StageEx &stage = request->sdRequest->Stages()[request->stage];
 	int ret = 0;
 
@@ -312,8 +319,13 @@ int ImgSysDevice::queueRequest(Request *request)
 	FrameBuffer *singleDev = infoDesc.buffer();
 	int mediaRequest = mediaRequestPool_.get();
 
-	request->sdRequest->fillRequestBuffer(infoCtrl, infoDesc, mediaRequest);
-	onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
+	{
+		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get());
+		DmaSyncer syncerDesc(infoDesc.buffer()->planes()[0].fd.get());
+
+		request->sdRequest->fillRequestBuffer(infoCtrl, infoDesc, mediaRequest);
+		onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
+	}
 
 	int ret = sigdevNorm_->queueBuffer(singleDev, mediaRequest);
 	request->buffers_count++;

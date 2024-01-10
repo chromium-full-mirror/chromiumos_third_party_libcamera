@@ -447,9 +447,6 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 		.mbUsed = false,
 	};
 
-	syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID, infoCtrl.buffer()->planes()[0].fd.get());
-	syncCache(NSCam::NSImgStream::eCACHECTRL_INVALID, infoDesc.buffer()->planes()[0].fd.get());
-
 	for (auto &frameParam : mvFrameParams) {
 		for (auto &input : frameParam.mvIn)
 			if (input.mPortIdx == NSCam::NSImgStream::IMG_PORT_METAI)
@@ -465,9 +462,6 @@ void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
 				syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH,
 					  input.mBuffer->getPlaneFD(0));
 	}
-
-	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoCtrl.buffer()->planes()[0].fd.get());
-	syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH, infoDesc.buffer()->planes()[0].fd.get());
 
 	infoDesc.buffer()->_d()->metadata().planes()[0].bytesused = infoDesc.buffer()->planes()[0].length;
 }
