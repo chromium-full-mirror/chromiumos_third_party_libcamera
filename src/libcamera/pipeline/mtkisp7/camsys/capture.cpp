@@ -6,6 +6,7 @@
  */
 
 #include "capture.h"
+#include <cstdint>
 
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
@@ -63,7 +64,7 @@ void CaptureTasksManager::allocateBuffers()
 	rawPool_.createBuffers(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_, 12);
 	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, 12);
 	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, 12);
-	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, 12);
+	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, 12, DmaHeap::System, 64);
 	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 12);
 	statistics0Pool_.createBuffers(dmaHeap_, formats::MTFA_MTISP, kStatSize0, 8, DmaHeap::CMA);
 	statistics1Pool_.createBuffers(dmaHeap_, formats::MTFF_MTISP, kStatSize1, 8, DmaHeap::CMA);
@@ -101,19 +102,24 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 
 	captureFrames.timestamp = makeMailBox<uint64_t>();
 	captureFrames.exposureAndGainOutput = makeMailBox<std::pair<uint32_t, uint32_t>>();
+
+	captureFrames.aaaIspExchange = makeMailBox<AaaIspExchange>();
 }
 
 std::tuple<QueueTask *, DequeueTask *, SofTask *>
 CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 				      const std::string &id,
 				      Request *request,
-				      CaptureFrames &captureFrames)
+				      CaptureFrames &captureFrames,
+				      uint32_t camSysMetaRequestId)
 {
 	(void)id;
 
 	std::string sequence = "padding";
 	if (request)
 		sequence = std::to_string(request->sequence());
+
+	onDeviceTuner_->notifyRequestBegin(camSysMetaRequestId);
 
 	// Create CaptureData after CaptureFrames SharedMailBoxes are set.
 	auto data = std::make_shared<CaptureData>(captureFrames);
@@ -169,7 +175,6 @@ void QueueTask::run()
 			camSys->setTestPattern(
 				static_cast<controls::draft::TestPatternModeEnum>(*testPatternControl));
 		}
-		manager_->onDeviceTuner_->loadTuneRequest(request_->sequence());
 	}
 
 	auto &frames = data_->frames;

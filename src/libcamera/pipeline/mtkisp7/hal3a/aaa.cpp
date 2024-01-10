@@ -11,6 +11,10 @@
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "libcamera/request.h"
+#include "libfdft_lib/faces.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
 #include "hal_3a.h"
 
 namespace libcamera {
@@ -79,11 +83,12 @@ bool FocusController::isFirstRun()
 }
 
 void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
-			     Hal3A *hal3A)
+			     Hal3A *hal3A, OnDeviceTuner *odt)
 {
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
 	hal3A_ = hal3A;
+	onDeviceTuner_ = odt;
 
 	focusController_.configure(camSys_->getCameraLens());
 
@@ -129,7 +134,8 @@ bool Hal3AManager::hasAF() const
 std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	Scheduler *scheduler, Request *request,
 	CaptureFrames &captureFrames, uint32_t internalRequestId,
-	uint32_t camSysMetaRequestId)
+	uint32_t camSysMetaRequestId,
+	FaceDetector *faceDetector)
 {
 	std::string sequence = "padding";
 	if (request)
@@ -139,14 +145,17 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 
 	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
 				    captureFrames, hal3A_,
-				    internalRequestId, camSysMetaRequestId);
+				    onDeviceTuner_,
+				    internalRequestId, camSysMetaRequestId,
+				    faceDetector);
 	aaTask->moveToThread(&thread3A_);
 
 	AFTask *afTask;
 	if (hasAF()) {
 		afTask = new AFTask(scheduler, "AF " + sequence, captureFrames,
 				    hal3A_, internalRequestId,
-				    camSysMetaRequestId, &focusController_);
+				    camSysMetaRequestId, &focusController_,
+				    faceDetector);
 		afTask->moveToThread(&threadAF_);
 	}
 
@@ -184,6 +193,15 @@ void AATask::run()
 	tuningBuffer->_d()->metadata().planes()[0].bytesused =
 		tuningBuffer->planes()[0].length;
 
+	auto latestFaceMetadata = faceDetector_->getOutputMailBox();
+	bool newFdResult = false;
+	if (latestFaceMetadata && &(latestFaceMetadata->get()) != prevFaceMetadata_) {
+		newFdResult = true;
+		prevFaceMetadata_ = &(latestFaceMetadata->get());
+	}
+
+	captureFrames_.aaaIspExchange->put({}, nullptr);
+
 	std::pair<uint32_t, uint32_t> exposureAndGain;
 	hal3A_->doCalculation(captureFrames_.statistics0->get().buffer(),
 			      captureFrames_.timestamp->get(),
@@ -191,23 +209,50 @@ void AATask::run()
 			      perFrameControl_.isStillCapture,
 			      tuningBuffer->planes()[0].fd.get(),
 			      mappedBuffer.planes()[0].data(),
-			      &exposureAndGain);
+			      prevFaceMetadata_, newFdResult,
+			      &exposureAndGain,
+			      &captureFrames_.aaaIspExchange->get(),
+			      request_);
 	captureFrames_.exposureAndGainOutput->put(
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>
 			   &exposureAndGain) {});
 
+	if (request_) {
+		onDeviceTuner_->tune3AState(
+				request_, captureFrames_, &hal3A_->r3AResult_);
+	}
+
 	notifyDone();
+}
+
+/**
+ * \brief Set the related application request
+ * \param[in] cfg The request coming from application layer
+ *
+ * For dummy frames, this function will never be called.
+ */
+void AATask::setRequest(Request *request)
+{
+	request_ = request;
 }
 
 void AFTask::run()
 {
 	int32_t position = -1;
+	auto latestFaceMetadata = faceDetector_->getOutputMailBox();
+	bool newFdResult = false;
+	if (latestFaceMetadata && &(latestFaceMetadata->get()) != prevFaceMetadata_) {
+		newFdResult = true;
+		prevFaceMetadata_ = &(latestFaceMetadata->get());
+	}
+
 	hal3A_->doCalculationAF(captureFrames_.statistics1->get().buffer(),
 				captureFrames_.timestamp->get(),
 				internalRequestId_,
 				camSysMetaRequestId_,
-				focusController_->getFocusInfo(), &position);
+				focusController_->getFocusInfo(),
+				prevFaceMetadata_, newFdResult, &position);
 
 	focusController_->set(position, captureFrames_.timestamp->get());
 

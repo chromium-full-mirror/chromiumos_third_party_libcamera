@@ -30,6 +30,8 @@
 #include "hal3a/aaa.h"
 #include "hal3a/hal_3a.h"
 #include "halisp/hal_isp.h"
+#include "halisp/lpnr_tun.h"
+#include "halisp/mcnr_tun.h"
 #include "imgsys/imgsys.h"
 #include "imgsys/lpnr.h"
 #include "imgsys/mcnr.h"
@@ -44,18 +46,27 @@ static const ControlInfoMap::Map MtkISP7Controls = {
 	{ &controls::draft::PipelineDepth, ControlInfo(8, 8, 8) },
 };
 
+static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
+
 enum MtkISP7TaskGroup {
 	SofGroup = 0,
 	CaptureQueueGroup,
 	CaptureDequeueGroup,
 	AAGroup,
 	AFGroup,
-	MeGroup,
+	MeAGroup,
+	MeBGroup,
+	MeATunGroup,
+	MeBTunGroup,
 	TrGroup,
+	TrTunGroup,
 	XtrGroup,
 	Dip1Group,
 	Dip2Group,
+	DipTunGroup,
 	LpnrDipGroup,
+	LpnrTunXtrTaskGroup,
+	LpnrTunDipTaskGroup,
 	AieFaceDetectionGroup,
 	AieFaceToneClassificationGroup,
 	AieParseGroup,
@@ -68,11 +79,18 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ CaptureDequeueGroup, "CaptureDequeueGroup" },
 	{ AAGroup, "AAGroup" },
 	{ AFGroup, "AFGroup" },
-	{ MeGroup, "MeGroup" },
+	{ MeAGroup, "MeAGroup" },
+	{ MeBGroup, "MeBGroup" },
+	{ MeATunGroup, "MeATunGroup" },
+	{ MeBTunGroup, "MeBTunGroup" },
+	{ TrTunGroup, "TrTunGroup" },
 	{ TrGroup, "TrGroup" },
 	{ XtrGroup, "XtrGroup" },
+	{ DipTunGroup, "DipTunGroup" },
 	{ Dip1Group, "Dip1Group" },
 	{ Dip2Group, "Dip2Group" },
+	{ LpnrTunXtrTaskGroup, "LpnrTunXtrTaskGroup" },
+	{ LpnrTunDipTaskGroup, "LpnrTunDipTaskGroup" },
 	{ AieFaceDetectionGroup, "AieFaceDetectionGroup" },
 	{ AieFaceToneClassificationGroup, "AieFaceToneClassificationGroup" },
 	{ AieParseGroup, "AieParseGroup" },
@@ -84,6 +102,7 @@ class CompleteRequestTask : public Task
 public:
 	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
 			    Request *request, PipelineHandler *pipe,
+			    OnDeviceTuner *odt,
 			    FaceDetector *faceDetector);
 
 	virtual void run() override final;
@@ -94,15 +113,17 @@ private:
 	PipelineHandler *pipe_;
 	Request *request_;
 	FaceDetector *faceDetector_;
+	OnDeviceTuner *onDeviceTuner_;
 };
 
 CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
 					 const std::string &id,
 					 Request *request,
 					 PipelineHandler *pipe,
+					 OnDeviceTuner *odt,
 					 FaceDetector *faceDetector)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
-	  faceDetector_(faceDetector)
+	  faceDetector_(faceDetector), onDeviceTuner_(odt)
 {
 }
 
@@ -111,10 +132,13 @@ class MtkISP7CameraData : public Camera::Private
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
 			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt,
-			  FaceDetector *faceDetector, DmaHeap *dmaHeap, Hal3A *hal3A)
+			  FaceDetector *faceDetector, DmaHeap *dmaHeap, Hal3A *hal3A, HalIsp *halIsp)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
-		  lpnrManager(imgSysDev, dmaHeap, odt), onDeviceTuner_(odt),
+		  lpnrManager(imgSysDev, dmaHeap, odt),
+		  lpnrTunManager(dmaHeap, halIsp, odt),
+		  mcnrTunManager(dmaHeap, halIsp, odt),
+		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A)
 	{
 	}
@@ -130,14 +154,16 @@ public:
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 	makeTasks(const std::string &id, Request *request,
-		  CaptureFrames &captureFrames, AATask::PerFrameControl perFrameControl);
+		  CaptureFrames &captureFrames, AATask::PerFrameControl perFrameControl,
+		  uint32_t internalRequestId);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
 				  SofTask *sofTask, AATask *aaTask,
 				  AFTask *afTask);
 
 	Stream video1Stream_;
 	Stream video2Stream_;
-	Stream stillStream_;
+	Stream still1Stream_;
+	Stream still2Stream_;
 
 	uint32_t frameSequence_ = 0;
 	std::list<SofTask *> pendingSofTasks_;
@@ -152,6 +178,9 @@ public:
 	MCNRPrevOutput mcnrPrev;
 	McnrTasksManager mcnrManager;
 	LpnrTasksManager lpnrManager;
+
+	LpnrTunTasksManager lpnrTunManager;
+	McnrTunManager mcnrTunManager;
 
 	OnDeviceTuner *onDeviceTuner_;
 	FaceDetector *faceDetector_;
@@ -304,6 +333,7 @@ void CompleteRequestTask::run()
 		pipe_->completeBuffer(request_, buffer);
 	}
 
+	onDeviceTuner_->notifyRequestEnd(request_->sequence());
 	pipe_->completeRequest(request_);
 	Task::notifyDone();
 }
@@ -321,19 +351,25 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 		{ 640, 480 },
 		{ 1280, 720 },
 		{ 1280, 960 },
-		{ 1600, 1200 },
+		{ 1440, 1080 },
 		{ 1920, 1080 },
 		{ 1920, 1440 },
 		{ 2560, 1440 },
 		{ 2560, 1920 },
 	};
 
-	const Stream *streams[2]{
+	const Stream *vidStreams[2]{
 		&data_->video1Stream_,
 		&data_->video2Stream_
 	};
 
+	const Stream *stillStreams[2]{
+		&data_->still1Stream_,
+		&data_->still2Stream_
+	};
+
 	int videoCnt = 0;
+	int stillCnt = 0;
 	for (StreamConfiguration &cfg : config_) {
 		/* Allows the predefined resolutions plus the sensor size */
 		if (!std::count(resolutions.begin(), resolutions.end(), cfg.size) &&
@@ -354,10 +390,15 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 					<< "Support only 2 Preview/Video streams";
 				return Invalid;
 			}
-			cfg.setStream(const_cast<Stream *>(streams[videoCnt++]));
+			cfg.setStream(const_cast<Stream *>(vidStreams[videoCnt++]));
 			break;
 		case StreamRole::StillCapture:
-			cfg.setStream(const_cast<Stream *>(&data_->stillStream_));
+			if (stillCnt >= 2) {
+				LOG(MtkISP7, Error)
+					<< "Support only 2 StillCapture streams";
+				return Invalid;
+			}
+			cfg.setStream(const_cast<Stream *>(stillStreams[stillCnt++]));
 			break;
 		default:
 			LOG(MtkISP7, Error) << "Invalid StreamRole " << cfg.role;
@@ -369,10 +410,14 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 }
 
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
-	: PipelineHandler(manager), imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
+	: PipelineHandler(manager),
+	  halIsp_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
+	  imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
 {
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
 	dmaHeap_ = std::make_unique<DmaHeap>();
+
+	thread()->setThreadAffinity(kMainThreadCpuAffinity);
 }
 
 std::unique_ptr<CameraConfiguration>
@@ -405,7 +450,7 @@ PipelineHandlerMtkISP7::generateConfiguration(Camera *camera, Span<const StreamR
 
 		switch (role) {
 		case StreamRole::StillCapture:
-			cfg.setStream(&data->stillStream_);
+			cfg.setStream(&data->still1Stream_);
 			cfg.role = StreamRole::StillCapture;
 			break;
 
@@ -471,6 +516,8 @@ int PipelineHandlerMtkISP7::queueRequestDevice(Camera *camera, Request *request)
 
 bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 {
+	onDeviceTuner_.initialize();
+
 	DeviceMatch camSysDM("mtk-cam");
 	camSysDM.add("mtk-cam raw-0");
 	camSysDM.add("mtk-cam raw-1");
@@ -506,8 +553,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
-	hal3A_[0] = std::make_unique<Hal3A>(0, &halIsp_[0]);
-	hal3A_[1] = std::make_unique<Hal3A>(1, &halIsp_[1]);
+	hal3A_[0] = std::make_unique<Hal3A>(0, &halIsp_[0], &onDeviceTuner_);
+	hal3A_[1] = std::make_unique<Hal3A>(1, &halIsp_[1], &onDeviceTuner_);
 
 	halIsp_[0].init(0, 1);
 	halIsp_[1].init(1, 2);
@@ -551,11 +598,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			std::make_unique<MtkISP7CameraData>(
 				this, &camSysDev_[i], &imgSysDev_,
 				&onDeviceTuner_, &faceDetector_,
-				dmaHeap_.get(), hal3A_[i].get());
+				dmaHeap_.get(), hal3A_[i].get(), &halIsp_[i]);
 
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
-					       &data->stillStream_ };
+					       &data->still1Stream_ };
 
 		data->sensorFullSize_ = pixelArraySize;
 		data->properties_ = properties;
@@ -598,14 +645,14 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames,
-			     AATask::PerFrameControl perFrameControl)
+			     AATask::PerFrameControl perFrameControl,
+			     uint32_t internalRequestId)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 
 	captureManager.makeCaptureFrames(captureFrames);
 
-	uint32_t internalRequestId = requestCount_++;
 	uint32_t camSysMetaRequestId = 0;
 
 	std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
@@ -627,6 +674,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			++iter;
 
 		auto *prevAATask = static_cast<AATask *>(*iter);
+		prevAATask->setRequest(request);
 		captureFrames.tuning = prevAATask->captureFrames_.tuningOutput;
 
 		prevAATask->setPerFrameControl(perFrameControl);
@@ -635,11 +683,11 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	}
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
-		scheduler, id, request, captureFrames);
+		scheduler, id, request, captureFrames, camSysMetaRequestId);
 
 	auto [aaTask, afTask] = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
-		camSysMetaRequestId);
+		camSysMetaRequestId, faceDetector_);
 
 	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaTask, afTask);
 
@@ -711,6 +759,9 @@ void MtkISP7CameraData::releaseDevice()
 	hal3AManager_.releaseBuffers();
 	mcnrManager.releaseBuffers();
 	lpnrManager.releaseBuffers();
+
+	lpnrTunManager.releaseBuffers();
+	mcnrTunManager.releaseBuffers();
 }
 
 /*
@@ -744,7 +795,8 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	Size camsysYuvSize;
 	Size video1 = Size{ 0, 0 };
 	Size video2 = Size{ 0, 0 };
-	Size still = Size{ 0, 0 };
+	Size still1 = Size{ 0, 0 };
+	Size still2 = Size{ 0, 0 };
 
 	/* Only cover the video resolution */
 	for (auto &cfg : *c) {
@@ -752,8 +804,10 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 			video1 = cfg.size;
 		else if (cfg.stream() == &video2Stream_)
 			video2 = cfg.size;
-		else if (cfg.stream() == &stillStream_)
-			still = cfg.size;
+		else if (cfg.stream() == &still1Stream_)
+			still1 = cfg.size;
+		else if (cfg.stream() == &still2Stream_)
+			still2 = cfg.size;
 		else
 			return -EINVAL;
 	}
@@ -796,13 +850,15 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	hal3A_->configure(camsysYuvSize);
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
-	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_);
+	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_);
 
 	imgSysDev_->configure();
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
-	lpnrManager.configure(sensorFullSize_, still);
+	lpnrManager.configure(sensorFullSize_, still1, still2);
 
+	lpnrTunManager.configure(sensorFullSize_, still1, still2);
+	mcnrTunManager.configure(camsysYuvSize, video1, video2);
 	return 0;
 }
 
@@ -810,9 +866,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 {
 	FrameBuffer *video1Buffer = request->findBuffer(&video1Stream_);
 	FrameBuffer *video2Buffer = request->findBuffer(&video2Stream_);
-	FrameBuffer *stillBuffer = request->findBuffer(&stillStream_);
+	FrameBuffer *still1Buffer = request->findBuffer(&still1Stream_);
+	FrameBuffer *still2Buffer = request->findBuffer(&still2Stream_);
 
-	if (!video1Buffer && !video2Buffer && !stillBuffer)
+	if (!video1Buffer && !video2Buffer && !still1Buffer && !still2Buffer)
 		return -EINVAL;
 
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
@@ -825,14 +882,19 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		CaptureFrames captureFrames;
 
 		makeTasks("Padding capture", nullptr, captureFrames,
-			  AATask::PerFrameControl{ .isStillCapture = false });
+			  AATask::PerFrameControl{ .isStillCapture = false },
+			  requestCount_++);
 	}
 
 	CaptureFrames captureFrames;
 
+	uint32_t internalRequestId = requestCount_++;
+	bool isStillCapture = (still1Buffer || still2Buffer);
+
 	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask] = makeTasks(
 		"Capture " + sequence, request, captureFrames,
-		AATask::PerFrameControl{ .isStillCapture = (bool)stillBuffer });
+		AATask::PerFrameControl{ .isStillCapture = isStillCapture },
+		internalRequestId);
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
 		auto [faceDetectionTask, faceToneTask, parseTask] =
@@ -854,11 +916,23 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, pipeline,
-		faceDetector_);
+		onDeviceTuner_, faceDetector_);
 
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
 	bool hasVideo = video1Buffer || video2Buffer;
+
+	// Find out the AATask that calculating the CamSysMetaTuning buffer
+	// for the current request, and tase the AaaIspExchange for
+	// ImgSysMetaTuning calculation
+	std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
+
+	auto iter = capture3ATasks.rbegin();
+	for (uint32_t i = 0; i < CaptureTasksManager::kRawMetaDelay; ++i)
+		++iter;
+
+	AATask *calculatingAATask = static_cast<AATask *>(*iter);
+	SharedMailBox<AaaIspExchange> aaaIspExchange = calculatingAATask->captureFrames_.aaaIspExchange;
 
 	if (hasVideo) {
 		MCNRFrames mcnr;
@@ -869,21 +943,50 @@ int MtkISP7CameraData::queueRequest(Request *request)
 					   video1Buffer,
 					   video2Buffer);
 
-		auto [taskME, tempTaskTr, taskDip1, tempTaskDip2] =
+		auto [meATunTask, meBTunTask, trTunTask, dipTunTask] =
+			mcnrTunManager.makeMcnrTunTasks(mcnr, aaaIspExchange, scheduler,
+							"MCNR " + sequence, request, internalRequestId);
+
+		auto [taskMeA, taskMeB, tempTaskTr, taskDip1, tempTaskDip2] =
 			mcnrManager.makeMcnrTasks(mcnr, scheduler, "MCNR " + sequence,
 						  request, imgSysDev_);
 
 		taskTr = tempTaskTr;
 		taskDip2 = tempTaskDip2;
 
-		Scheduler::precede(taskDQBuf, taskME);
-		scheduler->succeedPrevTaskByStep(MeGroup, 0, taskME);
-		scheduler->queueTask(taskME, MeGroup);
+		Scheduler::precede(taskDQBuf, meATunTask);
+		scheduler->succeedPrevTaskByStep(MeATunGroup, 0, meATunTask);
+		scheduler->succeedPrevTaskByStep(MeBTunGroup, 0, meATunTask);
+		scheduler->queueTask(meATunTask, MeATunGroup);
 
-		Scheduler::precede(taskME, taskTr);
+		Scheduler::precede(meATunTask, taskMeA);
+		Scheduler::precede(taskDQBuf, taskMeA);
+		scheduler->succeedPrevTaskByStep(MeAGroup, 0, taskMeA);
+		scheduler->queueTask(taskMeA, MeAGroup);
+
+		Scheduler::precede(taskMeA, meBTunTask);
+		scheduler->succeedPrevTaskByStep(MeBTunGroup, 0, meBTunTask);
+		scheduler->queueTask(meBTunTask, MeBTunGroup);
+
+		Scheduler::precede(meBTunTask, taskMeB);
+		Scheduler::precede(taskMeA, taskMeB);
+		scheduler->succeedPrevTaskByStep(MeBGroup, 0, taskMeB);
+		scheduler->queueTask(taskMeB, MeBGroup);
+
+		Scheduler::precede(taskMeB, trTunTask);
+		scheduler->succeedPrevTaskByStep(TrTunGroup, 0, trTunTask);
+		scheduler->queueTask(trTunTask, TrTunGroup);
+
+		Scheduler::precede(trTunTask, taskTr);
+		Scheduler::precede(taskMeB, taskTr);
 		scheduler->succeedPrevTaskByStep(TrGroup, 0, taskTr);
 		scheduler->queueTask(taskTr, TrGroup);
 
+		Scheduler::precede(taskTr, dipTunTask);
+		scheduler->succeedPrevTaskByStep(DipTunGroup, 0, dipTunTask);
+		scheduler->queueTask(dipTunTask, DipTunGroup);
+
+		Scheduler::precede(dipTunTask, taskDip1);
 		Scheduler::precede(taskTr, taskDip1);
 		scheduler->succeedPrevTaskByStep(Dip1Group, 0, taskDip1);
 		scheduler->queueTask(taskDip1, Dip1Group);
@@ -895,9 +998,13 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		Scheduler::precede(taskDip2, completeTask);
 	}
 
-	if (stillBuffer) {
+	if (still1Buffer || still2Buffer) {
+		onDeviceTuner_->notifyStillCapture(request->sequence());
 		LPNRFrames lpnr;
-		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, stillBuffer);
+		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
+
+		auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
+			lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
 
 		auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
 			lpnr, scheduler, "Lpnr " + sequence, request, imgSysDev_);
@@ -906,6 +1013,17 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			Scheduler::precede(taskTr, taskXtr);
 			Scheduler::precede(taskDip2, taskLpnrDip);
 		}
+
+		Scheduler::precede(calculatingAATask, lpnrTunXtrTask);
+		Scheduler::precede(lpnrTunXtrTask, taskXtr);
+		scheduler->succeedPrevTaskByStep(LpnrTunXtrTaskGroup, 0, lpnrTunXtrTask);
+		scheduler->queueTask(lpnrTunXtrTask, LpnrTunXtrTaskGroup);
+
+		Scheduler::precede(calculatingAATask, lpnrTunDipTask);
+		Scheduler::precede(taskXtr, lpnrTunDipTask);
+		Scheduler::precede(lpnrTunDipTask, taskLpnrDip);
+		scheduler->succeedPrevTaskByStep(LpnrTunDipTaskGroup, 0, lpnrTunDipTask);
+		scheduler->queueTask(lpnrTunDipTask, LpnrTunDipTaskGroup);
 
 		Scheduler::precede(taskDQBuf, taskXtr);
 		scheduler->succeedPrevTaskByStep(XtrGroup, 0, taskXtr);

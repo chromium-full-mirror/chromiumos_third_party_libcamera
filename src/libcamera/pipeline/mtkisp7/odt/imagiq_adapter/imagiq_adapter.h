@@ -7,11 +7,16 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "mtkcam-interfaces/utils/ndd/INdd.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
+#include "platform/mtkisp7/halisp/TuningParam.h"
+
+#include "mtk_cam_metabuf.h"
 
 namespace libcamera {
 
@@ -25,20 +30,54 @@ public:
 	};
 	using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
 
+	static int enableMtkTuningTool(std::filesystem::path workDir);
+
 	static ExportResult exportDump(const Dump &dump);
+
+	static std::string formatTimestamp(int timestamp);
 
 	static int loadConfig(
 		std::map<Dump::Id, Dump::Config> &config,
 		const std::filesystem::path &workPath);
 
+	static int generateDumpTimestamp();
+
 	static std::string getDumpFileName(const Dump &dump);
 
 	static int importDump(const Dump &dump);
 
+	static void merge2AHistogram(std::vector<uint8_t> &out,
+				     mtk_cam_uapi_meta_raw_stats_0 *stats);
+
+	static void notifyExportRequest(int count);
+
+	static void notifyImportRequest(int count);
+
+	static void notifyNewSession(std::string sensorId, int dumpTimestamp);
+
+	static void notifyRequestBegin(
+		std::string sensorId, int requestNumber);
+
+	static void notifyRequestEnd(
+		std::string sensorId, int requestNumber,
+		int dumpSessionTimestamp, bool hasPendingExport,
+		std::filesystem::path rootWorkPath,
+		std::filesystem::path sessionWorkPath);
+
 	static int prepareReimport(const ExportResult &dumpResult);
+
+	static void serializeExif(
+		std::vector<uint8_t> &out,
+		const mtk::isphal::v1_0::ExifInfo3A &exif3a,
+		const mtk::isphal::v1_0::ExifInfoP2 &exifIsp);
+
+	static const SensorIdMap kSensorIdMap;
 
 private:
 	static std::string createImportConfigId(const Dump &dump);
+
+	static ExportResult exportArrayDump(
+		const Dump &dump, const NSCam::TuningUtils::NddData &ndd);
 
 	static ExportResult exportDumpMergePlanes(
 		const Dump &dumpInfo, const MappedFrameBuffer &mappedBuffer,
@@ -50,6 +89,14 @@ private:
 		const NSCam::TuningUtils::NddData &ndd,
 		const PixelFormat &pixelFormat,
 		const std::string &fileSuffix = "");
+
+	static ExportResult exportFrameDump(
+		const Dump &dump, const NSCam::TuningUtils::NddData &ndd);
+
+	static void flushPrivateReimportConfig(
+		std::filesystem::path rootWorkPath,
+		std::filesystem::path sessionWorkPath,
+		int dumpSessionTimestamp);
 
 	static std::string formatPlaneName(int planeNumber,
 					   const PixelFormat &pixelFormat);
@@ -78,7 +125,9 @@ private:
 
 	static bool shouldSplitExport(const PixelFormat &pixelFormat);
 
-	static const SensorIdMap kSensorIdMap;
+	static std::unique_ptr<NSCam::TuningUtils::NddInitializer>
+		mtkTuningInitializer_;
+
 	static const std::array<std::string, 2> kYcPlaneNames;
 	static const std::array<std::string, 3> kYuvPlaneNames;
 	static const std::array<std::string, 2> kWarpPlaneNames;

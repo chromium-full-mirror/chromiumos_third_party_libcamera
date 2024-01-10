@@ -10,8 +10,11 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "libcamera/base/thread.h"
+#include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/camsys/camsys.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
+#include "pipeline/mtkisp7/face_detect/detector.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "hal_3a.h"
 
@@ -45,7 +48,8 @@ private:
 class Hal3AManager
 {
 public:
-	void configure(DmaHeap *dmaHeap, CamSysDevice *camSys, Hal3A *hal3A);
+	void configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
+		       Hal3A *hal3A, OnDeviceTuner *odt);
 	void start();
 
 	void releaseBuffers();
@@ -53,7 +57,8 @@ public:
 	std::tuple<AATask *, AFTask *>
 	make3ATasks(Scheduler *scheduler, Request *request,
 		    CaptureFrames &captureFrames,
-		    uint32_t internalRequestId, uint32_t camSysMetaRequestId);
+		    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+		    FaceDetector *faceDetector);
 
 	void fetchTuningBuffer(SharedMailBox<InfoFrame> &mailBox)
 	{
@@ -69,6 +74,7 @@ private:
 	DmaHeap *dmaHeap_;
 	CamSysDevice *camSys_;
 	Hal3A *hal3A_;
+	OnDeviceTuner *onDeviceTuner_;
 
 	FocusController focusController_;
 
@@ -88,13 +94,17 @@ public:
 		bool isStillCapture = false;
 	};
 
+	MtkCameraFaceMetadata *prevFaceMetadata_ = nullptr;
+
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
-	       CaptureFrames &captureFrames, Hal3A *hal3A,
-	       uint32_t internalRequestId, uint32_t camSysMetaRequestId)
-		: Task(scheduler, id), manager_(manager),
+	       CaptureFrames &captureFrames, Hal3A *hal3A, OnDeviceTuner *odt,
+	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+	       FaceDetector *faceDetector)
+		: Task(scheduler, id), request_(nullptr), manager_(manager),
 		  captureFrames_(captureFrames), hal3A_(hal3A),
+		  onDeviceTuner_(odt),
 		  internalRequestId_(internalRequestId),
-		  camSysMetaRequestId_(camSysMetaRequestId) {}
+		  camSysMetaRequestId_(camSysMetaRequestId), faceDetector_(faceDetector) {}
 
 	void setPerFrameControl(PerFrameControl perFrameControl)
 	{
@@ -103,13 +113,20 @@ public:
 
 	void run() override final;
 
+	void setRequest(Request *request);
+
+	Request *request_;
+
 	Hal3AManager *manager_;
 	CaptureFrames captureFrames_;
 
 	Hal3A *hal3A_;
+	OnDeviceTuner *onDeviceTuner_;
 
 	uint32_t internalRequestId_;
 	uint32_t camSysMetaRequestId_;
+
+	FaceDetector *faceDetector_;
 
 	PerFrameControl perFrameControl_;
 };
@@ -117,14 +134,16 @@ public:
 class AFTask : public Task
 {
 public:
+	MtkCameraFaceMetadata *prevFaceMetadata_ = nullptr;
+
 	AFTask(Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-	       FocusController *focusController)
+	       FocusController *focusController, FaceDetector *faceDetector)
 		: Task(scheduler, id), captureFrames_(captureFrames),
 		  hal3A_(hal3A), internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId),
-		  focusController_(focusController) {}
+		  focusController_(focusController), faceDetector_(faceDetector) {}
 
 	void run() override final;
 
@@ -136,6 +155,7 @@ public:
 	uint32_t camSysMetaRequestId_;
 
 	FocusController *focusController_;
+	FaceDetector *faceDetector_;
 };
 
 } // namespace libcamera

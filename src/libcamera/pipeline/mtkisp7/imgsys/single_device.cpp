@@ -13,9 +13,8 @@
 #include <libcamera/formats.h>
 
 #include "libcamera/internal/dma_heaps.h"
+#include "libcamera/internal/formats.h"
 #include "libcamera/internal/framebuffer.h"
-
-#include <libcamera/internal/formats.h>
 
 #include "kernel-headers/mtk_header_desc.h"
 #include "mtkcam-halif/def/ImageFormat.h"
@@ -49,6 +48,9 @@ NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &i
 		break;
 	case libcamera::formats::GREY:
 		property.format = eImgFmt_Y8;
+		break;
+	case libcamera::formats::Y8_MTISP:
+		property.format = eImgFmt_STA_BYTE;
 		break;
 	case libcamera::formats::Y16_MTISP:
 		property.format = eImgFmt_STA_2BYTE;
@@ -98,10 +100,12 @@ NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &i
 		property.planes[i].fd = info.buffer()->planes()[i].fd.get();
 		property.planes[i].offset = info.buffer()->planes()[i].offset;
 		property.planes[i].size = info.buffer()->planes()[i].length;
-		property.planes[i].stride = formatInfo.stride(info.size().width, i);
+		property.planes[i].stride = formatInfo.stride(info.size().width, i, info.strideAlign());
 
-		unsigned int planeSize = formatInfo.planeSize(info.size(), i);
-		property.planes[i].scanline = (planeSize / formatInfo.stride(info.size().width, i));
+		unsigned int planeSize = formatInfo.planeSize(
+				info.size(), i, info.strideAlign(), info.scanAlign());
+
+		property.planes[i].scanline = planeSize / property.planes[i].stride;
 		property.planes[i].va = reinterpret_cast<MINTPTR>(info.address(i));
 	}
 

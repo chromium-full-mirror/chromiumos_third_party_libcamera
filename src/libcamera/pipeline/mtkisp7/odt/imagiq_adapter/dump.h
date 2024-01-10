@@ -28,7 +28,7 @@ struct Dump {
 	struct Config {
 		std::vector<std::string> dumpFileNameFormat = {};
 		bool enableExport = false;
-		bool enableImport = false;
+		bool writeReimportConfig = false;
 		SavedPath savedDumps = {};
 	};
 
@@ -40,6 +40,8 @@ struct Dump {
 		NSCam::TuningUtils::eCategory category;
 		std::optional<Action> action = std::nullopt; // nullopt = multi-purpose
 		int layer = -1;
+		std::optional<size_t> elementSize = std::nullopt;
+		int version = -1;
 	};
 
 	// [Stage]_[BufferName]_[Pipeline (optional)]
@@ -49,9 +51,24 @@ struct Dump {
 		P1_YUVO_R1,
 		P1_YUVO_R2,
 		P1_DRZS4NO_R3,
+		P1_META_P1,
 
 		// P1 driver's registers
 		P1_REG_P1,
+
+		// 3A Statistics
+		P1_AAO,
+		P1_AAHO,
+		P1_TSFSO_R1,
+		P1_TSFSO_R2,
+		P1_LTMSO,
+		P1_TNCSYO_R1,
+
+		// 3A Results
+		P1_FW_ME_TCY_P,
+		P1_FW_ME_TCY_O,
+		P1_LTM_OUT,
+		P1_AE_OUT,
 
 		// IMGSYS MCNR registers
 		LTR_ME_L1_IMGSYS_DRVREG,
@@ -63,7 +80,8 @@ struct Dump {
 		WPE_LTR_Y2Y_F1_IMGSYS_DRVREG,
 		LTR_VBI_IMGSYS_DRVREG,
 		LTR_Y2Y_F4_IMGSYS_DRVREG,
-		TR_Y2Y_Conf_IMGSYS_DRVREG,
+		TR_Y2Y_Conf_F4_IMGSYS_DRVREG,
+		TR_Y2Y_Conf_F5_IMGSYS_DRVREG,
 		WPE_WghtMap_F5_IMGSYS_DRVREG,
 		WPE_WghtMap_F4_IMGSYS_DRVREG,
 		WPE_WghtMap_F3_IMGSYS_DRVREG,
@@ -90,8 +108,9 @@ struct Dump {
 		// ME: LTR
 		LTR_ME_L1_IMGI_T1,
 		LTR_ME_L1_YUVO_T2,
-		ME_3PASS_MODE0_MEI_L0,
+		LTR_ME_L1_META_P2,
 		// ME: 3PASS_MODE0
+		ME_3PASS_MODE0_MEI_L0,
 		ME_3PASS_MODE0_MEI_L0_P,
 		ME_3PASS_MODE0_MEI_L1,
 		ME_3PASS_MODE0_MEI_L1_P,
@@ -103,6 +122,9 @@ struct Dump {
 		ME_3PASS_MODE0_FMB_L0,
 		ME_3PASS_MODE0_FMB_L1,
 		ME_3PASS_MODE0_FST,
+		ME_3PASS_MODE0_META_P2,
+		// ME: MM
+		ME_3PASS_MM_META_P2,
 		// ME: 3PASS_MODE1
 		ME_3PASS_MODE1_MEI_L0,
 		ME_3PASS_MODE1_MEI_L0_P,
@@ -116,26 +138,31 @@ struct Dump {
 		ME_3PASS_MODE1_FMB_L0,
 		ME_3PASS_MODE1_LMI,
 		ME_3PASS_MODE1_FST,
+		ME_3PASS_MODE1_META_P2,
 
 		// TR: DSMAP
 		TR_DSMAP_MMAP,
 		TR_DSMAP_MMAP_DS0,
 		TR_DSMAP_MMAP_DS1,
 		TR_DSMAP_MMAP_DS2,
-		// TR: Y2Y
+		// TR: Y2Y F1
 		TR_Y2Y_F1_IMGI_T1,
 		TR_Y2Y_F1_YUVO_T2,
 		TR_Y2Y_F1_YUVO_T3,
 		TR_Y2Y_F1_YUVO_T4,
+		TR_Y2Y_F1_META_P2,
+		// TR: Y2Y F4
 		TR_Y2Y_F4_IMGI_T1,
 		TR_Y2Y_F4_YUVO_T2,
 		TR_Y2Y_F4_YUVO_T3,
 		TR_Y2Y_F4_YUVO_T4,
-		// TR: Conf
+		TR_Y2Y_F4_META_P2,
+		// TR: Y2Y_Conf
 		TR_Y2Y_Conf_IMGI_T1,
-		TR_Y2Y_Conf_YUVO_T5,
+		TR_Y2Y_Conf_F4_YUVO_T5,
+		TR_Y2Y_Conf_F5_YUVO_T5,
 
-		// Dip1: LTR_Y2Y
+		// Dip1: WPE_LTR_Y2Y_F1
 		WPE_LTR_Y2Y_F1_WPEI,
 		WPE_LTR_Y2Y_F1_WPE_MAP,
 		WPE_LTR_Y2Y_F1_WPEO,
@@ -143,15 +170,18 @@ struct Dump {
 		WPE_LTR_Y2Y_F1_YUVO_T3,
 		WPE_LTR_Y2Y_F1_YUVO_T4,
 		WPE_LTR_Y2Y_F1_YUVO_T5,
+		WPE_LTR_Y2Y_F1_META_P2,
 		// Dip1: LTR VBI
 		LTR_VBI_IMGI_T1,
 		LTR_VBI_YUVO_T2,
 		LTR_VBI_YUVO_T3,
 		LTR_VBI_YUVO_T4,
-		// Dip1: LTR Y2Y
+		LTR_VBI_META_P2,
+		// Dip1: LTR_Y2Y_F4
 		LTR_Y2Y_F4_IMGI_T1,
 		LTR_Y2Y_F4_YUVO_T2,
 		LTR_Y2Y_F4_YUVO_T3,
+		LTR_Y2Y_F4_META_P2,
 		// Dip1: WPE WeightMap
 		WPE_WghtMap_WPEI_F0,
 		WPE_WghtMap_WPE_MAP_F0,
@@ -171,12 +201,15 @@ struct Dump {
 		WPE_WghtMap_WPEI_F5,
 		WPE_WghtMap_WPE_MAP_F5,
 		WPE_WghtMap_WPEO_F5,
-		// Dip1: DIP
+		WPE_WghtMap_META_P2,
+		// Dip1: P2_IDI
 		P2_IDI_IMGI_D1,
 		P2_IDI_VIPI,
 		P2_IDI_TNRSI,
 		P2_IDI_TNRSO,
 		P2_IDI_IMG3O,
+		P2_IDI_META_P2,
+		// Dip1: P2_MS_F_SMALL
 		P2_MS_F_SMALL_IMGI_D1,
 		P2_MS_F_SMALL_VIPI,
 		P2_MS_F_SMALL_TNRSI,
@@ -189,6 +222,8 @@ struct Dump {
 		P2_MS_F_SMALL_TNRWO,
 		P2_MS_F_SMALL_RECI_D1,
 		P2_MS_F_SMALL_IMG3O,
+		P2_MS_F_SMALL_META_P2,
+		// Dip1: P2_MS_F4
 		P2_MS_F4_IMGI_D1,
 		P2_MS_F4_VIPI,
 		P2_MS_F4_TNRSI,
@@ -202,6 +237,8 @@ struct Dump {
 		P2_MS_F4_TNRWO,
 		P2_MS_F4_RECI_D1,
 		P2_MS_F4_IMG3O,
+		P2_MS_F4_META_P2,
+		// Dip1: P2_MS_F3
 		P2_MS_F3_IMGI_D1_MCNR,
 		P2_MS_F3_VIPI,
 		P2_MS_F3_TNRSI,
@@ -215,6 +252,8 @@ struct Dump {
 		P2_MS_F3_TNRWO,
 		P2_MS_F3_RECI_D1,
 		P2_MS_F3_IMG3O_MCNR,
+		P2_MS_F3_META_P2_MCNR,
+		// Dip1: P2_MS_F2
 		P2_MS_F2_IMGI_D1_MCNR,
 		P2_MS_F2_VIPI,
 		P2_MS_F2_TNRSI,
@@ -228,6 +267,8 @@ struct Dump {
 		P2_MS_F2_TNRWO,
 		P2_MS_F2_RECI_D1_MCNR,
 		P2_MS_F2_IMG3O_MCNR,
+		P2_MS_F2_META_P2_MCNR,
+		// Dip1: P2_MS_F1
 		P2_MS_F1_IMGI_D1_MCNR,
 		P2_MS_F1_VIPI,
 		P2_MS_F1_TNRSI,
@@ -242,6 +283,7 @@ struct Dump {
 		P2_MS_F1_RECI_D1_MCNR,
 		P2_MS_F1_IMG3O_MCNR,
 		P2_MS_F1_IMG4O,
+		P2_MS_F1_META_P2_MCNR,
 
 		// Dip2
 		WPE_P2_PQDIP_MS_F0_WPETI,
@@ -260,6 +302,7 @@ struct Dump {
 		WPE_P2_PQDIP_MS_F0_IMGI_D1,
 		WPE_P2_PQDIP_MS_F0_WROTO,
 		WPE_P2_PQDIP_MS_F0_WDMAO,
+		WPE_P2_PQDIP_MS_F0_META_P2,
 
 		// Xtr
 		TR_R2Y_IMGI_T1,
@@ -267,21 +310,53 @@ struct Dump {
 		TR_R2Y_YUVO_T2,
 		TR_R2Y_YUVO_T3,
 		TR_R2Y_YUVO_T4,
+		TR_R2Y_META_P2,
 
-		// LPNR Dip
+		// LPNR Dip: P2_MS_F3
 		P2_MS_F3_IMGI_D1_LPNR,
 		P2_MS_F3_IMG3O_LPNR,
+		P2_MS_F3_META_P2_LPNR,
+		// LPNR Dip: P2_MS_F2
 		P2_MS_F2_IMGI_D1_LPNR,
 		P2_MS_F2_RECI_D1_LPNR,
 		P2_MS_F2_IMG3O_LPNR,
+		P2_MS_F2_META_P2_LPNR,
+		// LPNR Dip: P2_MS_F1
 		P2_MS_F1_IMGI_D1_LPNR,
 		P2_MS_F1_RECI_D1_LPNR,
 		P2_MS_F1_IMG3O_LPNR,
+		P2_MS_F1_META_P2_LPNR,
+		// LPNR Dip: P2_MS_F0_PQ_DIP
 		P2_MS_F0_PQ_DIP_WROTO,
 		P2_MS_F0_PQ_DIP_WDMAO,
 		P2_MS_F0_PQ_DIP_IMGI_D1,
 		P2_MS_F0_PQ_DIP_RECI_D1,
 		P2_MS_F0_PQ_DIP_IMG3O,
+		P2_MS_F0_PQ_DIP_META_P2,
+
+		// ISPINFO / exif: MCNR
+		LTR_ME_L1_ISPINFO,
+		ME_3PASS_MODE0_ISPINFO,
+		ME_3PASS_MM_ISPINFO,
+		ME_3PASS_MODE1_ISPINFO,
+		TR_Y2Y_F1_ISPINFO,
+		TR_Y2Y_F4_ISPINFO,
+		WPE_LTR_Y2Y_F1_ISPINFO,
+		LTR_VBI_ISPINFO,
+		LTR_Y2Y_F4_ISPINFO,
+		P2_IDI_ISPINFO,
+		P2_MS_F_SMALL_ISPINFO,
+		P2_MS_F4_ISPINFO,
+		P2_MS_F3_ISPINFO_MCNR,
+		P2_MS_F2_ISPINFO_MCNR,
+		P2_MS_F1_ISPINFO_MCNR,
+		WPE_P2_PQDIP_MS_F0_ISPINFO,
+		// ISPINFO / exif: LPNR
+		TR_R2Y_ISPINFO,
+		P2_MS_F3_ISPINFO_LPNR,
+		P2_MS_F2_ISPINFO_LPNR,
+		P2_MS_F1_ISPINFO_LPNR,
+		P2_MS_F0_PQ_DIP_ISPINFO,
 	};
 
 	const static std::array<Dump::Id, 6> kWpeInputImageDumpIds;
@@ -292,6 +367,7 @@ struct Dump {
 	const static std::array<Dump::Id, 6> kDip1TnrsiDumpIds;
 	const static std::array<Dump::Id, 6> kDip1TnrsoDumpIds;
 	const static std::array<Dump::Id, 6> kDip1Img3oDumpIds;
+	const static std::array<Dump::Id, 6> kDip1MetaP2DumpIds;
 	const static std::array<Dump::Id, 5> kDip1TnrwiDumpIds;
 	const static std::array<Dump::Id, 5> kDip1TnrciDumpIds;
 	const static std::array<Dump::Id, 5> kDip1TnrliDumpIds;
@@ -304,8 +380,10 @@ struct Dump {
 	Id id;
 	uint32_t requestNumber;
 	std::string sensorId;
+	int timestamp;
 	std::filesystem::path workPath;
 	std::optional<InfoFrame> frame;
+	std::optional<std::vector<uint8_t>> array;
 	Metadata metadata;
 	Config config;
 };

@@ -154,12 +154,6 @@ int CamSysDevice::start()
 	if (ret)
 		LOG(MtkISP7, Warning) << "Fail to reset test pattern";
 
-	ret = setupSeninf(true);
-	if (ret) {
-		LOG(MtkISP7, Error) << "Fail to setup Seninf";
-		return ret;
-	}
-
 	for (V4L2VideoDevice *device : allVideoDevices_) {
 		ret = device->streamOn();
 		if (ret) {
@@ -201,12 +195,6 @@ int CamSysDevice::stop()
 					    << device->devicePath();
 			return ret;
 		}
-	}
-
-	ret = setupSeninf(false);
-	if (ret) {
-		LOG(MtkISP7, Error) << "Fail to setup Seninf";
-		return ret;
 	}
 
 	ret = videoHub_->setFrameStartEnabled(false);
@@ -581,14 +569,6 @@ int CamSysDevice::configureVideo(V4L2VideoDevice *device, const PixelFormat &for
 	int ret = setFormat(rawPipe, pad, mbus, resolution);
 	ret |= setFormat(device, format, resolution);
 	return ret;
-}
-
-int CamSysDevice::setupSeninf(bool enable)
-{
-	ControlList ctrl(seninf_->controls());
-	ctrl.set(V4L2_CID_MTK_SENINF_S_STREAM, (int32_t)enable);
-
-	return seninf_->setControls(&ctrl);
 }
 
 int CamSysDevice::setupLinks(bool enable)

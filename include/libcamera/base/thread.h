@@ -35,6 +35,8 @@ public:
 	void exit(int code = 0);
 	bool wait(utils::duration duration = utils::duration::max());
 
+	void setThreadAffinity(const std::vector<int> &affinity);
+
 	bool isRunning();
 
 	Signal<> finished;
@@ -54,6 +56,8 @@ private:
 	void startThread();
 	void finishThread();
 
+	void setThreadAffinityInternal();
+
 	void postMessage(std::unique_ptr<Message> msg, Object *receiver);
 	void removeMessages(Object *receiver);
 
@@ -67,6 +71,8 @@ private:
 
 	std::thread thread_;
 	ThreadData *data_;
+
+	std::vector<int> affinity_;
 };
 
 } /* namespace libcamera */

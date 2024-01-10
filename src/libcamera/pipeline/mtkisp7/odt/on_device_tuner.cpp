@@ -8,6 +8,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -16,7 +17,9 @@
 
 #include <libcamera/stream.h>
 
+#include "debug_exif/aaa/dbg_aaa_param.h"
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
+#include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 #include "pipeline/mtkisp7/imgsys/lpnr.h"
 #include "pipeline/mtkisp7/imgsys/mcnr.h"
@@ -24,6 +27,7 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
+#include "platform/mtkisp7/halisp/IspControls.h"
 
 namespace libcamera {
 
@@ -32,11 +36,9 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 namespace {
 
 constexpr const char *kEnableTuningPath = "/run/camera/enable_tuning";
+constexpr const char *kEnforceLowIsoLpnr = "/run/camera/enforce_low_iso_lpnr";
 constexpr const char *kExportRequestPath = "/run/camera/export_dump";
 constexpr const char *kImportRequestPath = "/run/camera/import_dump";
-// Dump key must be exactly 9 digits.
-constexpr int kMinDumpKey = 1e8;
-constexpr int kMaxDumpKey = 1e9 - 1;
 constexpr const char *kWorkDir = "/tmp/vendor/camera_dump";
 
 } // namespace
@@ -57,9 +59,7 @@ std::vector<ImagiqAdapter::ExportResult> OnDeviceTuner::batchExport(
 void OnDeviceTuner::batchImport(const std::vector<Dump> &dumps)
 {
 	for (auto dump : dumps) {
-		if (dump.config.enableImport) {
-			ImagiqAdapter::importDump(dump);
-		}
+		ImagiqAdapter::importDump(dump);
 	}
 }
 
@@ -67,7 +67,8 @@ void OnDeviceTuner::batchPrepareReimport(
 	const std::vector<ImagiqAdapter::ExportResult> &exportResults)
 {
 	for (const auto &result : exportResults) {
-		if (!result.errorCode.has_value()) {
+		if (!result.errorCode.has_value() &&
+		    result.dump.config.writeReimportConfig) {
 			ImagiqAdapter::prepareReimport(result);
 		}
 	}
@@ -76,8 +77,35 @@ void OnDeviceTuner::batchPrepareReimport(
 void OnDeviceTuner::configure(
 	const std::string &sensorId, unsigned int camsysIndex)
 {
+	if (!enabled_) {
+		return;
+	}
+
+	enabled_ = true;
+	exportBegin_ = 0;
+	exportEnd_ = 0;
+	importBegin_ = 0;
+	importEnd_ = 0;
+	prevStartedRequestNum_ = -1;
+	prevEndedRequestNum_ = -1;
+	sensorId_ = sensorId;
+	camsysDebug_ = CamsysDebug::create(camsysIndex);
+	sessionTimestamp_ = ImagiqAdapter::generateDumpTimestamp();
+
+	if (std::filesystem::exists(kEnforceLowIsoLpnr)) {
+		enforceLowIsoLpnr_ = true;
+		LOG(MtkISP7, Warning) << "LPNR is forced to use low-ISO mode!";
+	}
+
+	// Immediately create one directory for any capture dumps.
+	prepareNewExportDirectory();
+	ImagiqAdapter::notifyNewSession(sensorId, sessionTimestamp_);
+}
+
+void OnDeviceTuner::initialize()
+{
 	enabled_ = false;
-	camsysDebug_.reset();
+	enforceLowIsoLpnr_ = false;
 
 	if (!std::filesystem::exists(kEnableTuningPath)) {
 		return;
@@ -85,22 +113,23 @@ void OnDeviceTuner::configure(
 
 	int ret = ImagiqAdapter::loadConfig(dumpConfig_, kWorkDir);
 	if (ret) {
-		LOG(MtkISP7, Error) << "Attempted to enable pipeline tuning, but failed"
-				    << " to load the config, error code: " << ret;
+		LOG(MtkISP7, Error) << "Failed to load the config, error code: " << ret;
+		return;
+	}
+
+	ret = ImagiqAdapter::enableMtkTuningTool(kWorkDir);
+	if (ret) {
+		LOG(MtkISP7, Error) << "Failed to enable MTK tuning tool";
 		return;
 	}
 
 	LOG(MtkISP7, Warning) << "Pipeline tuning enabled";
 	enabled_ = true;
-	exportBegin_ = 0;
-	exportEnd_ = 0;
-	importBegin_ = 0;
-	importEnd_ = 0;
-	sensorId_ = sensorId;
-	camsysDebug_ = CamsysDebug::create(camsysIndex);
+}
 
-	// Immediately create one directory for any capture dumps.
-	prepareNewExportDirectory();
+bool OnDeviceTuner::isLowIsoLpnrEnforced()
+{
+	return enabled_ && enforceLowIsoLpnr_;
 }
 
 void OnDeviceTuner::loadTuneRequest(int requestNumber)
@@ -108,9 +137,9 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 	if (!enabled_) {
 		return;
 	}
-	int exportRequestCount = 0;
 	std::ifstream exportRequestFile(kExportRequestPath);
 	if (exportRequestFile.good()) {
+		int exportRequestCount = 0;
 		exportRequestFile >> exportRequestCount;
 		LOG(MtkISP7, Info) << "Loaded dump export request from file: "
 				   << exportRequestCount << " frames";
@@ -119,7 +148,7 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 		std::filesystem::remove(path);
 		exportBegin_ = requestNumber;
 		exportEnd_ = requestNumber + exportRequestCount;
-		prepareNewExportDirectory();
+		ImagiqAdapter::notifyExportRequest(exportRequestCount);
 	}
 
 	std::ifstream importRequestFile(kImportRequestPath);
@@ -133,6 +162,7 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 		std::filesystem::remove(path);
 		importBegin_ = requestNumber;
 		importEnd_ = requestNumber + importRequestCount;
+		ImagiqAdapter::notifyImportRequest(importRequestCount);
 	}
 }
 
@@ -144,7 +174,9 @@ InfoFrame OnDeviceTuner::getFrameInfoFromRequest(
 		LOG(MtkISP7, Fatal) << "Buffer doesn't exist in request!";
 	}
 	const auto streamCfg = stream->configuration();
-	return InfoFrame(streamCfg.pixelFormat, streamCfg.size, buffer);
+
+	/* Android requires NV12 to align with 64 for buffers from application */
+	return InfoFrame(streamCfg.pixelFormat, streamCfg.size, buffer, 64);
 }
 
 bool OnDeviceTuner::isImgsysCaptureStage(PEU_Stage stage)
@@ -154,23 +186,73 @@ bool OnDeviceTuner::isImgsysCaptureStage(PEU_Stage stage)
 	       kImgsysCaptureStages.end();
 }
 
+void OnDeviceTuner::notifyRequestBegin(int requestNumber)
+{
+	if (!enabled_ || requestNumber <= prevStartedRequestNum_) {
+		return;
+	}
+	prevStartedRequestNum_ = requestNumber;
+	loadTuneRequest(requestNumber);
+	ImagiqAdapter::notifyRequestBegin(
+		sensorId_, requestNumber);
+}
+
+void OnDeviceTuner::notifyRequestEnd(int requestNumber)
+{
+	if (!enabled_ || requestNumber <= prevEndedRequestNum_) {
+		return;
+	}
+	prevEndedRequestNum_ = requestNumber;
+	stillCaptureRequestIds_.erase(requestNumber);
+	ImagiqAdapter::notifyRequestEnd(
+		sensorId_, requestNumber, sessionTimestamp_,
+		shouldExportDumpNow(requestNumber), kWorkDir, currentExportPath_);
+}
+
+void OnDeviceTuner::notifyStillCapture(int requestNumber)
+{
+	stillCaptureRequestIds_.insert(requestNumber);
+}
+
+bool OnDeviceTuner::parseHalIspNdd(
+	Request *request,
+	mtk::isphal::v1_0::NddInfo &ndd)
+{
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return false;
+	}
+	if (isStillCapture) {
+		ndd.ndd_data.action =
+			static_cast<int>(Action::Capture);
+		ndd.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
+		ndd.ndd_data.feature =
+			static_cast<int>(Feature::Capture_lpnr);
+	} else {
+		ndd.ndd_category =
+			NSCam::TuningUtils::eCategory::kSTREAMING;
+		ndd.ndd_data.feature =
+			static_cast<int>(Feature::Preview);
+	}
+	ndd.ndd_data.requestNo = request->sequence();
+	ndd.ndd_data.frameNo = request->sequence();
+	ndd.ndd_data.platform = 8188;
+	ndd.ndd_data.timestamp = sessionTimestamp_;
+	ndd.ndd_data.sensorId =
+		ImagiqAdapter::kSensorIdMap.at(sensorId_);
+	ndd.ndd_data.dualCamId = NSCam::TuningUtils::eDualCamId::kINVALID;
+	ndd.ndd_data.pixelHeight = -1;
+	ndd.ndd_data.pixelWidth = -1;
+	return true;
+}
+
 int OnDeviceTuner::prepareNewExportDirectory()
 {
-	std::filesystem::path newPath;
 	std::filesystem::path workPath(kWorkDir);
-	int dumpKey;
-	for (dumpKey = kMinDumpKey; dumpKey <= kMaxDumpKey; dumpKey++) {
-		std::filesystem::path exportFolderName = "UKey" + std::to_string(dumpKey);
-		newPath.assign(workPath / exportFolderName);
-		if (!std::filesystem::exists(newPath)) {
-			break;
-		}
-	}
-	if (dumpKey > kMaxDumpKey) {
-		LOG(MtkISP7, Error) << "Failed to create dump directory: "
-				    << "too many dumps already.";
-		return -EEXIST;
-	}
+	std::filesystem::path newPath =
+		workPath /
+		("UKey" + ImagiqAdapter::formatTimestamp(sessionTimestamp_));
 	auto cmd = "mkdir -p " + newPath.string();
 	int ret = system(cmd.c_str());
 	if (ret != 0) {
@@ -211,8 +293,10 @@ void OnDeviceTuner::tune(
 		dumps.push_back({ .id = namedFrame.id,
 				  .requestNumber = requestNumber,
 				  .sensorId = sensorId_,
+				  .timestamp = sessionTimestamp_,
 				  .workPath = currentExportPath_,
 				  .frame = namedFrame.frame,
+				  .array = std::nullopt,
 				  .metadata = metadata,
 				  .config = config });
 	}
@@ -223,6 +307,41 @@ void OnDeviceTuner::tune(
 	if (shouldImportDumpNow(requestNumber)) {
 		batchImport(dumps);
 	}
+}
+
+void OnDeviceTuner::tune(
+	uint32_t requestNumber,
+	std::vector<NamedPointer> namedPointers,
+	bool forceDump)
+{
+	if (!enabled_ && !forceDump &&
+	    !shouldExportDumpNow(requestNumber) && !shouldImportDumpNow(requestNumber)) {
+		return;
+	}
+	std::vector<Dump> dumps;
+	for (auto namedPtr : namedPointers) {
+		Dump::Metadata metadata = kDumpMetadata.at(namedPtr.id);
+		Dump::Config config = dumpConfig_[namedPtr.id];
+		std::vector<uint8_t> buffer(namedPtr.size);
+		std::memcpy(buffer.data(), namedPtr.ptr, namedPtr.size);
+		dumps.push_back({ .id = namedPtr.id,
+				  .requestNumber = requestNumber,
+				  .sensorId = sensorId_,
+				  .timestamp = sessionTimestamp_,
+				  .workPath = currentExportPath_,
+				  .frame = std::nullopt,
+				  .array = buffer,
+				  .metadata = metadata,
+				  .config = config });
+	}
+	if (forceDump || shouldExportDumpNow(requestNumber)) {
+		const auto exportResults = batchExport(dumps);
+		batchPrepareReimport(exportResults);
+	}
+	// todo(yerlandinata, before merge): decide what to do next
+	// if (shouldImportDumpNow(requestNumber)) {
+	//     batchImport(dumps);
+	// }
 }
 
 void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
@@ -236,7 +355,8 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 		request->sequence(), { { Dump::Id::P1_IMGO, frames.raw->get() },
 				       { Dump::Id::P1_YUVO_R1, frames.yuvo1->get() },
 				       { Dump::Id::P1_YUVO_R2, frames.yuvo2->get() },
-				       { Dump::Id::P1_DRZS4NO_R3, frames.me->get() } });
+				       { Dump::Id::P1_DRZS4NO_R3, frames.me->get() },
+				       { Dump::Id::P1_META_P1, frames.tuning->get() } });
 
 	// Driver's registers
 	Dump::Config drvRegConfig = dumpConfig_[Dump::Id::P1_REG_P1];
@@ -245,17 +365,99 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 			.id = Dump::Id::P1_REG_P1,
 			.requestNumber = requestNumber,
 			.sensorId = sensorId_,
+			.timestamp = sessionTimestamp_,
 			.workPath = currentExportPath_,
 			.frame = std::nullopt,
+			.array = std::nullopt,
 			.metadata = kDumpMetadata.at(Dump::Id::P1_REG_P1),
 			.config = drvRegConfig
 		};
 		std::filesystem::path dumpPath =
 			ImagiqAdapter::getDumpFileName(registerDump);
 		camsysDebug_->exportDump(
-			frames.raw->get().buffer()->metadata().sequence,
+			frames.raw->get().buffer()->metadata().hwSequence,
 			requestNumber, dumpPath);
 	}
+}
+
+bool OnDeviceTuner::tuneCamsysHalIsp(
+	Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam,
+	mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
+	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult)
+{
+	if (!enabled_) {
+		return false;
+	}
+	tuningParam.cam_info->rNdd_info.ndd_data.stage =
+		static_cast<int>(Stage::P1);
+	tuningParam.cam_info->rNdd_info.ndd_data.action = -1;
+	tuningParam.is_need_exif = 1;
+	tuningResult.exif.valid = true;
+	std::memcpy(tuningResult.exif.data, reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info), sizeof(AAA_DEBUG_INFO2_T));
+	return parseHalIspNdd(request, tuningParam.cam_info->rNdd_info);
+}
+
+void OnDeviceTuner::tuneExif(
+	Request *request,
+	const mtk::isphal::v1_0::ExifInfo3A &exif3a,
+	const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
+	EStage_T stage)
+{
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return;
+	}
+
+	bool dumpIdFound = isStillCapture ? kLpnrExifDumpIdMap.count(stage) > 0 : kMcnrExifDumpIdMap.count(stage) > 0;
+
+	if (!dumpIdFound) {
+		LOG(MtkISP7, Info) << "No exif dump id for stage: " << static_cast<int>(stage);
+		return;
+	}
+
+	Dump::Id dumpId = isStillCapture ? kLpnrExifDumpIdMap.at(stage) : kMcnrExifDumpIdMap.at(stage);
+
+	std::vector<uint8_t> exifArray;
+	ImagiqAdapter::serializeExif(exifArray, exif3a, exifIsp);
+
+	batchExport({ {
+		.id = dumpId,
+		.requestNumber = requestNumber,
+		.sensorId = sensorId_,
+		.timestamp = sessionTimestamp_,
+		.workPath = currentExportPath_,
+		.frame = std::nullopt,
+		.array = exifArray,
+		.metadata = kDumpMetadata.at(dumpId),
+		.config = dumpConfig_[dumpId],
+	} });
+}
+
+void OnDeviceTuner::tuneImgsysHalIsp(
+	Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+	mtk::isphal::v1_0::ReturnParamDip &tuningResult,
+	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
+	EStage_T stage)
+{
+	if (!enabled_) {
+		return;
+	}
+	tuningParam.cam_info.rNdd_info.ndd_data.stage = stage;
+	tuningParam.cam_info.sr_para.decision_param.staticInfo.sensorId =
+		static_cast<int32_t>(ImagiqAdapter::kSensorIdMap.at(sensorId_));
+	tuningParam.cam_info.rNdd_info.ndd_data.action =
+		static_cast<int>(Action::Preview);
+	tuningParam.is_need_exif = 1;
+	tuningParam.exif_3a.size = sizeof(AAA_DEBUG_INFO1_T);
+	tuningParam.exif_3a.data =
+		reinterpret_cast<uint8_t *>(&mtk3AResult.debug_3a_info);
+
+	tuningResult.exif.valid = true;
+	tuningResult.exif.size = sizeof(AAA_DEBUG_INFO2_T);
+	tuningResult.exif.data =
+		reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info);
+	parseHalIspNdd(request, tuningParam.cam_info.rNdd_info);
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(
@@ -288,8 +490,10 @@ void OnDeviceTuner::tuneImgsysMetadata(
 			.id = id,
 			.requestNumber = sdRequest->sequence(),
 			.sensorId = sensorId_,
+			.timestamp = sessionTimestamp_,
 			.workPath = currentExportPath_,
 			.frame = std::nullopt,
+			.array = std::nullopt,
 			.metadata = dumpMetadata,
 			.config = config,
 		});
@@ -302,7 +506,96 @@ void OnDeviceTuner::tuneImgsysMetadata(
 	}
 }
 
-void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
+void OnDeviceTuner::tune3ARequest(
+	Request *request, mtk::hal3a::v1_0::mtk_3a_request &aaaRequest)
+{
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return;
+	}
+	aaaRequest.ndd_data.timestamp = sessionTimestamp_;
+	aaaRequest.ndd_data.requestNo = request->sequence();
+	aaaRequest.ndd_data.frameNo = request->sequence();
+	aaaRequest.ndd_data.platform = 8188;
+	if (isStillCapture) {
+		aaaRequest.ndd_data.feature = static_cast<int>(Feature::Capture_lpnr);
+		aaaRequest.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
+	} else {
+		aaaRequest.ndd_data.feature = static_cast<int>(Feature::Preview);
+		aaaRequest.ndd_category = NSCam::TuningUtils::eCategory::kSTREAMING;
+	}
+}
+
+void OnDeviceTuner::tune3AState(Request *request, CaptureFrames &frames,
+				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult)
+{
+	uint32_t requestNumber = request->sequence();
+	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
+		return;
+	}
+	MappedFrameBuffer mapped(
+		frames.statistics0->get().buffer(),
+		MappedFrameBuffer::MapFlag::Read);
+	mtk_cam_uapi_meta_raw_stats_0 *stats =
+		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_0 *>(
+			mapped.planes()[0].data());
+	std::vector<uint8_t> merged2AHist;
+	ImagiqAdapter::merge2AHistogram(merged2AHist, stats);
+	std::vector<uint8_t> data(stats->ae_awb_stats.aao_buf.size);
+	std::memcpy(data.data(), reinterpret_cast<uint8_t *>(stats) + stats->ae_awb_stats.aao_buf.offset, data.size());
+
+	std::vector<NamedPointer> namedPointers{
+		// 3A Statistics
+		{
+			.id = Dump::Id::P1_AAO,
+			.ptr = reinterpret_cast<uint8_t *>(stats) + stats->ae_awb_stats.aao_buf.offset,
+			.size = stats->ae_awb_stats.aao_buf.size },
+		{ .id = Dump::Id::P1_AAHO,
+		  .ptr = merged2AHist.data(),
+		  .size = merged2AHist.size() },
+		{ .id = Dump::Id::P1_TSFSO_R1,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->tsf_stats.tsfo_r1_buf.offset,
+		  .size = stats->tsf_stats.tsfo_r1_buf.size },
+		{ .id = Dump::Id::P1_TSFSO_R2,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->tsf_stats.tsfo_r2_buf.offset,
+		  .size = stats->tsf_stats.tsfo_r2_buf.size },
+		{ .id = Dump::Id::P1_LTMSO,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->ltm_stats.ltmso_buf.offset,
+		  .size = stats->ltm_stats.ltmso_buf.size },
+		{ .id = Dump::Id::P1_TNCSYO_R1,
+		  .ptr = reinterpret_cast<uint8_t *>(stats) + stats->tncy_stats.tncsyo_buf.offset,
+		  .size = stats->tncy_stats.tncsyo_buf.size },
+		// 3A Result
+		{
+			.id = Dump::Id::P1_LTM_OUT,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->tone_result.p_ltm_alg_data),
+			.size = static_cast<size_t>(mtk3AResult->tone_result.ltm_alg_data_size),
+		},
+		{
+			.id = Dump::Id::P1_AE_OUT,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->ae_result.p_ae_alg_data),
+			.size = static_cast<size_t>(mtk3AResult->ae_result.ae_alg_data_size),
+		},
+		{
+			.id = Dump::Id::P1_FW_ME_TCY_P,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->tone_result.p_me_tcy_in_workbuf_data),
+			.size = static_cast<size_t>(mtk3AResult->tone_result.me_tcy_in_workbuf_data_size),
+		},
+		{
+			.id = Dump::Id::P1_FW_ME_TCY_O,
+			.ptr = reinterpret_cast<uint8_t *>(mtk3AResult->tone_result.p_me_tcy_fst_o_data),
+			.size = static_cast<size_t>(mtk3AResult->tone_result.me_tcy_fst_o_data_size),
+		}
+	};
+	LOG(MtkISP7, Info) << "AE_OUT size: " << mtk3AResult->ae_result.ae_alg_data_size;
+	LOG(MtkISP7, Info) << "FW_ME_TCY_P size: " << mtk3AResult->tone_result.me_tcy_in_workbuf_data_size;
+	LOG(MtkISP7, Info) << "FW_ME_TCY_O size: " << mtk3AResult->tone_result.me_tcy_fst_o_data_size;
+	tune(requestNumber, namedPointers, isStillCapture);
+}
+
+void OnDeviceTuner::tuneMeA(Request *request, MeFrames &frames)
 {
 	uint32_t requestNumber = request->sequence();
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
@@ -313,6 +606,7 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 		request->sequence(), {
 					     { Dump::Id::LTR_ME_L1_IMGI_T1, frames.in.meL0->get() },
 					     { Dump::Id::LTR_ME_L1_YUVO_T2, frames.out.meL1->get() },
+					     { Dump::Id::LTR_ME_L1_META_P2, frames.in.trMeTun->get() },
 					     { Dump::Id::ME_3PASS_MODE0_MEI_L0, frames.in.meL0->get() },
 					     { Dump::Id::ME_3PASS_MODE0_MEI_L0_P, frames.in.prevMeL0->get() },
 					     { Dump::Id::ME_3PASS_MODE0_MEI_L1, frames.out.meL1->get() },
@@ -325,18 +619,49 @@ void OnDeviceTuner::tuneMe(Request *request, MeFrames &frames)
 					     { Dump::Id::ME_3PASS_MODE0_FMB_L0, frames.out.meAFmb0->get() },
 					     { Dump::Id::ME_3PASS_MODE0_FMB_L1, frames.out.meAFmb1->get() },
 					     { Dump::Id::ME_3PASS_MODE0_FST, frames.out.meAFst->get() },
+					     { Dump::Id::ME_3PASS_MODE0_META_P2, frames.in.meATun->get() },
+
+					     /* The following are input of ME_3PASS_MODE1 and output of ME_3PASS_MODE0.
+					      * Because it will be overwriten by ME_3PASS_MODE1, it should be dumped right
+					      * after ME_3PASS_MODE0. */
+					     { Dump::Id::ME_3PASS_MODE1_MV_L0_M0, frames.out.meAMv0->get() }, // confirmed
+					     { Dump::Id::ME_3PASS_MODE1_FMB_L1_M0,  frames.out.meAFmb1->get()}, // ?
+				     });
+}
+
+void OnDeviceTuner::tuneMeB(Request *request, MeFrames &frames)
+{
+	uint32_t requestNumber = request->sequence();
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+			  !shouldImportDumpNow(requestNumber))) {
+		return;
+	}
+	tune(
+		request->sequence(), {
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0, frames.in.meL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0_P, frames.in.prevMeL0->get() },
-					     { Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.out.meL1->get() },
-					     { Dump::Id::ME_3PASS_MODE1_MV_L0_M0, frames.out.meAMv0->get() }, // confirmed
-					     { Dump::Id::ME_3PASS_MODE1_MV_L0, frames.out.meBMv1->get() }, // ??
+					     { Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.in.prevMeL1->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MIL, frames.in.meMil->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MMAP, frames.out.meMmap[0]->get() },
 					     { Dump::Id::ME_3PASS_MODE1_CONF_MAP, frames.out.meConf0->get() },
-					     { Dump::Id::ME_3PASS_MODE1_FMB_L1_M0, frames.out.meBFmb1->get() }, // ?
+					     { Dump::Id::ME_3PASS_MODE1_MV_L0, frames.out.meBMv0->get() }, // ??
 					     { Dump::Id::ME_3PASS_MODE1_FMB_L0, frames.out.meBFmb0->get() }, // ?
 					     { Dump::Id::ME_3PASS_MODE1_LMI, frames.out.meBLmi->get() },
 					     { Dump::Id::ME_3PASS_MODE1_FST, frames.out.meBFst->get() },
+					     { Dump::Id::ME_3PASS_MODE1_META_P2, frames.in.meBTun->get() },
+				     });
+}
+
+void OnDeviceTuner::tuneMeMM(Request *request, SharedMailBox<InfoFrame> tuning)
+{
+	uint32_t requestNumber = request->sequence();
+	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
+			  !shouldImportDumpNow(requestNumber))) {
+		return;
+	}
+	tune(
+		request->sequence(), {
+					     { Dump::Id::ME_3PASS_MM_META_P2, tuning->get() },
 				     });
 }
 
@@ -356,11 +681,14 @@ void OnDeviceTuner::tuneTr(Request *request, TrFrames &frames)
 				       { Dump::Id::TR_Y2Y_F1_YUVO_T2, frames.out.dipImgi[2]->get() },
 				       { Dump::Id::TR_Y2Y_F1_YUVO_T3, frames.out.dipImgi[3]->get() },
 				       { Dump::Id::TR_Y2Y_F1_YUVO_T4, frames.out.dipImgi[4]->get() },
+				       { Dump::Id::TR_Y2Y_F1_META_P2, frames.in.trTunF1->get() },
 				       { Dump::Id::TR_Y2Y_F4_IMGI_T1, frames.out.dipImgi[4]->get() },
 				       { Dump::Id::TR_Y2Y_F4_YUVO_T2, frames.out.dipImgi[5]->get() },
 				       { Dump::Id::TR_Y2Y_F4_YUVO_T3, frames.out.dipImgi[6]->get() },
+				       { Dump::Id::TR_Y2Y_F4_META_P2, frames.in.trTunF4->get() },
 				       { Dump::Id::TR_Y2Y_Conf_IMGI_T1, frames.in.meConf0->get() },
-				       { Dump::Id::TR_Y2Y_Conf_YUVO_T5, frames.out.meConf5->get() } });
+				       { Dump::Id::TR_Y2Y_Conf_F4_YUVO_T5, frames.out.meConf4->get() },
+				       { Dump::Id::TR_Y2Y_Conf_F5_YUVO_T5, frames.out.meConf5->get() } });
 }
 
 void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
@@ -378,13 +706,17 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
 		{ Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T3, frames.out.dipVipi[3]->get() },
 		{ Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T4, frames.out.dipVipi[4]->get() },
 		{ Dump::Id::WPE_LTR_Y2Y_F1_YUVO_T5, frames.out.dipVbi[2]->get() },
+		{ Dump::Id::WPE_LTR_Y2Y_F1_META_P2, frames.in.ltrTunF1->get() },
 		{ Dump::Id::LTR_VBI_IMGI_T1, frames.out.dipVbi[2]->get() },
 		{ Dump::Id::LTR_VBI_YUVO_T2, frames.out.dipVbi[3]->get() },
 		{ Dump::Id::LTR_VBI_YUVO_T3, frames.out.dipVbi[4]->get() },
 		{ Dump::Id::LTR_VBI_YUVO_T4, frames.out.dipVbi[5]->get() },
+		{ Dump::Id::LTR_VBI_META_P2, frames.in.ltrTunVbi->get() },
 		{ Dump::Id::LTR_Y2Y_F4_IMGI_T1, frames.out.dipVipi[4]->get() },
 		{ Dump::Id::LTR_Y2Y_F4_YUVO_T2, frames.out.dipVipi[5]->get() },
 		{ Dump::Id::LTR_Y2Y_F4_YUVO_T3, frames.out.dipVipi[6]->get() },
+		{ Dump::Id::LTR_Y2Y_F4_META_P2, frames.in.ltrTunF4->get() },
+		{ Dump::Id::WPE_WghtMap_META_P2, frames.in.wpeTun->get() },
 		{ Dump::Id::P2_MS_F1_IMG4O, frames.out.img4oF1->get() },
 		{ Dump::Id::P2_MS_F_SMALL_RECI_D1, frames.out.dipImgi[6]->get() }
 	};
@@ -410,8 +742,14 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
 					frames.out.dipTnrso->get() });
 		namedFrames.push_back({ Dump::kDip1TnrsoDumpIds[i],
 					frames.out.dipTnrso->get() });
-		namedFrames.push_back({ Dump::kDip1Img3oDumpIds[i],
-					frames.out.img3o[level]->get() });
+		if (Dump::kDip1Img3oDumpIds[i] == Dump::Id::P2_IDI_IMG3O)
+			namedFrames.push_back({ Dump::Id::P2_IDI_IMG3O,
+						frames.out.tnrlfdi->get() });
+		else
+			namedFrames.push_back({ Dump::kDip1Img3oDumpIds[i],
+						frames.out.img3o[level]->get() });
+		namedFrames.push_back({ Dump::kDip1MetaP2DumpIds[i],
+					frames.in.dipTun[level]->get() });
 	}
 
 	// Stage P2_MS_F1 until P2_MS_F4 + P2_MS_F_SMALL (lv5)
@@ -453,7 +791,7 @@ void OnDeviceTuner::tuneDip2(
 	}
 	std::vector<NamedFrame> namedFrames{
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_WPETI, frames.in.prevImg4oF0->get() },
-		{ Dump::Id::WPE_P2_PQDIP_MS_F0_WPET_MAP, frames.in.wpeVeci[0]->get() },
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_WPET_MAP, frames.in.meMmap[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRSI, frames.out.dipTnrso->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRWI, frames.in.dipTnrwi[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRMI, frames.in.dipTnrmi[0]->get() },
@@ -462,8 +800,10 @@ void OnDeviceTuner::tuneDip2(
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRSO, frames.out.dipTnrso->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_TNRWO, frames.out.dipTnrwo[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_RECI_D1, frames.in.reci[0]->get() },
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMG3O, frames.out.img3o[0]->get() },
 		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMG4O, frames.out.img4oF0->get() },
-		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMGI_D1, frames.in.dipImgi[0]->get() }
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_IMGI_D1, frames.in.dipImgi[0]->get() },
+		{ Dump::Id::WPE_P2_PQDIP_MS_F0_META_P2, frames.in.dipTun[0]->get() },
 	};
 
 	if (videoOut1) {
@@ -488,7 +828,8 @@ void OnDeviceTuner::tuneXtr(Request *request, XtrFrames &frames)
 		{ Dump::Id::TR_R2Y_YUVO_T1, frames.out.dipImgi[0]->get() },
 		{ Dump::Id::TR_R2Y_YUVO_T2, frames.out.dipImgi[1]->get() },
 		{ Dump::Id::TR_R2Y_YUVO_T3, frames.out.dipImgi[2]->get() },
-		{ Dump::Id::TR_R2Y_YUVO_T4, frames.out.dipImgi[3]->get() }
+		{ Dump::Id::TR_R2Y_YUVO_T4, frames.out.dipImgi[3]->get() },
+		{ Dump::Id::TR_R2Y_META_P2, frames.in.xtrTun->get() },
 	};
 	tune(request->sequence(), namedFrames, true);
 }
@@ -496,27 +837,45 @@ void OnDeviceTuner::tuneXtr(Request *request, XtrFrames &frames)
 void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
 				std::vector<SharedMailBox<InfoFrame>> reci,
 				std::vector<SharedMailBox<InfoFrame>> dipImg3o,
-				FrameBuffer *stillOutput)
+				FrameBuffer *still1Output,
+				FrameBuffer *still2Output)
 {
 	if (!enabled_) {
 		return;
 	}
 	// Capture: always export dumps!
-	InfoFrame stillFrame = getFrameInfoFromRequest(request, stillOutput);
 	std::vector<NamedFrame> namedFrames{
 		{ Dump::Id::P2_MS_F3_IMGI_D1_LPNR, frames.in.dipImgi[3]->get() },
 		{ Dump::Id::P2_MS_F3_IMG3O_LPNR, dipImg3o[3]->get() },
+		{ Dump::Id::P2_MS_F3_META_P2_LPNR, frames.in.dipTun[3]->get() },
 		{ Dump::Id::P2_MS_F2_IMGI_D1_LPNR, frames.in.dipImgi[2]->get() },
 		{ Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[2]->get() },
 		{ Dump::Id::P2_MS_F2_IMG3O_LPNR, dipImg3o[2]->get() },
+		{ Dump::Id::P2_MS_F2_META_P2_LPNR, frames.in.dipTun[2]->get() },
 		{ Dump::Id::P2_MS_F1_IMGI_D1_LPNR, frames.in.dipImgi[1]->get() },
 		{ Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[1]->get() },
 		{ Dump::Id::P2_MS_F1_IMG3O_LPNR, dipImg3o[1]->get() },
-		{ Dump::Id::P2_MS_F0_PQ_DIP_IMGI_D1, frames.in.dipImgi[0]->get() },
-		{ Dump::Id::P2_MS_F0_PQ_DIP_RECI_D1, reci[0]->get() },
-		{ Dump::Id::P2_MS_F0_PQ_DIP_IMG3O, dipImg3o[0]->get() },
-		{ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, stillFrame }
+		{ Dump::Id::P2_MS_F1_META_P2_LPNR, frames.in.dipTun[1]->get() },
 	};
+
+	if ((frames.in.highIsoMode->valid() && !frames.in.highIsoMode->get())) {
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_IMGI_D1, frames.in.dipImgi[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_RECI_D1, reci[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_IMG3O, dipImg3o[0]->get() });
+
+		if (still1Output) {
+			InfoFrame still1Frame = getFrameInfoFromRequest(request, still1Output);
+			namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, still1Frame });
+		}
+
+		if (still2Output) {
+			InfoFrame still2Frame = getFrameInfoFromRequest(request, still2Output);
+			namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_WDMAO, still2Frame });
+		}
+
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_META_P2, frames.in.dipTunPq->get() });
+	}
+
 	tune(request->sequence(), namedFrames, true);
 }
 
