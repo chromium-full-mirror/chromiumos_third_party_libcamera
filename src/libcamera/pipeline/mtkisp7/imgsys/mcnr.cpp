@@ -56,17 +56,10 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 	assert(dest);
 	assert(mailBox->valid());
 
-	libcamera::DmaHeap::sync(
-		info.buffer()->planes()[0].fd.get(),
-		libcamera::DmaHeap::Start,
-		libcamera::DmaHeap::SyncReadWrite);
-
-	memset(dest, 0, length);
-
-	libcamera::DmaHeap::sync(
-		info.buffer()->planes()[0].fd.get(),
-		libcamera::DmaHeap::End,
-		libcamera::DmaHeap::SyncReadWrite);
+	{
+		DmaSyncer syncer(info.buffer()->planes()[0].fd.get());
+		memset(dest, 0, length);
+	}
 }
 
 } // namespace

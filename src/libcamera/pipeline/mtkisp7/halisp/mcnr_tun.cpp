@@ -108,17 +108,10 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 	assert(dest);
 	assert(mailBox->valid());
 
-	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::Start,
-			libcamera::DmaHeap::SyncReadWrite);
-
-	memset(dest, 0, length);
-
-	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::End,
-			libcamera::DmaHeap::SyncReadWrite);
+	{
+		DmaSyncer syncer(info.buffer()->planes()[0].fd.get());
+		memset(dest, 0, length);
+	}
 }
 
 static TuningBuffers tuningBuffers;
@@ -138,17 +131,10 @@ static TuningBuffers tuningBuffers;
 	assert(dest);
 	assert(mailBox->valid());
 
-	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::Start,
-			libcamera::DmaHeap::SyncReadWrite);
-
-	memcpy(dest, tuning, length);
-
-	libcamera::DmaHeap::sync(
-			info.buffer()->planes()[0].fd.get(),
-			libcamera::DmaHeap::End,
-			libcamera::DmaHeap::SyncReadWrite);
+	{
+		DmaSyncer syncer(info.buffer()->planes()[0].fd.get());
+		memcpy(dest, tuning, length);
+	}
 }
 
 McnrTunManager::McnrTunManager(
@@ -306,7 +292,10 @@ void McnrMeATask::run()
 		.reserved = {}
 	};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	manager_->meTun_.fetch(meATun);
 	manager_->fwmeFst_.fetch(fwMeFst);
@@ -330,7 +319,10 @@ void McnrMeATask::run()
 	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD1] = prevPrevMeBFst->get();
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	notifyDone();
 }
@@ -393,10 +385,15 @@ void McnrMeBTask::run()
 	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MIL] = meMil->get();
 	request.reserved[mtk::isphal::kISPExtBif_IN_GYRO_MV] = fwMmGryo->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
-	manager_->onDeviceTuner_->tuneMeMM(request_, meBTun);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		DmaSyncer syncerMil(meMil->get().buffer()->planes()[0].fd.get());
 
-	request = ImgMetaRequest{
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->onDeviceTuner_->tuneMeMM(request_, meBTun);
+	}
+
+	request = ImgMetaRequest {
 		.isCapture = false,
 		.stage = EStage_ME_3PASS_MODE1,
 		.tuningBuffer = meBTun->get(),
@@ -414,7 +411,10 @@ void McnrMeBTask::run()
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWMM_MMG_RST] = fwMmRst->get();
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	notifyDone();
 }
@@ -454,7 +454,10 @@ void McnrTrTask::run()
 		.reserved = {}
 	};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	manager_->trawTun_.fetch(trTunF4);
 
@@ -471,7 +474,10 @@ void McnrTrTask::run()
 		.reserved = {}
 	};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	notifyDone();
 }
@@ -518,7 +524,10 @@ void McnrDipTask::run()
 		.reserved = {}
 	};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	manager_->trawTun_.fetch(ltrTunF4);
 
@@ -535,7 +544,10 @@ void McnrDipTask::run()
 		.reserved = {}
 	};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	manager_->trawTun_.fetch(ltrTunVbi);
 
@@ -552,7 +564,10 @@ void McnrDipTask::run()
 		.reserved = {}
 	};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	manager_->trawTun_.fetch(wpeTun);
 
@@ -569,7 +584,10 @@ void McnrDipTask::run()
 		.reserved = {}
 	};
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	for (size_t i = 0; i < dipTun.size(); i++) {
 		manager_->dipTun_.fetch(dipTun[i]);
@@ -590,7 +608,10 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	request = ImgMetaRequest{
 		.isCapture = false,
@@ -607,7 +628,10 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	request = ImgMetaRequest{
 		.isCapture = false,
@@ -624,7 +648,10 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	request = ImgMetaRequest{
 		.isCapture = false,
@@ -641,7 +668,10 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	request = ImgMetaRequest{
 		.isCapture = false,
@@ -658,7 +688,10 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	request = ImgMetaRequest{
 		.isCapture = false,
@@ -675,7 +708,10 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	request = ImgMetaRequest{
 		.isCapture = false,
@@ -692,7 +728,10 @@ void McnrDipTask::run()
 
 	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
 
-	manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	{
+		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+	}
 
 	notifyDone();
 }

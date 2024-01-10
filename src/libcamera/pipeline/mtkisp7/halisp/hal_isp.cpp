@@ -769,6 +769,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		imgsys_info.sr_para = cam_info.sr_para;
 
 	}
+
 	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
 	onDeviceTuner_->tuneExif(
 		request, tuning_param_p2.exif_3a,
