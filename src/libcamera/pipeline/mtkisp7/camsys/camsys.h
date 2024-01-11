@@ -54,7 +54,6 @@ public:
 	int claimCompletedRequest(Request *request);
 	int queueRequest(Request *request);
 
-	int setFrameInterval(uint32_t numerator, uint32_t denominator);
 	int setTestPattern(controls::draft::TestPatternModeEnum mode);
 	int setExposureGain(uint32_t exposure, uint32_t gain);
 

@@ -324,18 +324,6 @@ int CamSysDevice::setTestPattern(controls::draft::TestPatternModeEnum mode)
 	return sensor_->device()->setControls(&ctrl);
 }
 
-int CamSysDevice::setFrameInterval(uint32_t numerator, uint32_t denominator)
-{
-	int ret = sensor_->device()->setFrameInterval(PAD_SENSOR_OUT, numerator,
-						      denominator);
-	if (ret)
-		LOG(MtkISP7, Error) << "Fail to set frame interval "
-				    << " numerator " << numerator
-				    << " denominator " << denominator;
-
-	return ret;
-}
-
 int CamSysDevice::setupResource()
 {
 	V4L2SubdeviceFormat format = {};
@@ -489,11 +477,6 @@ int CamSysDevice::configureSensor()
 	if (seninf_->setFormat(PAD_SENINF_OUT, &format)) {
 		LOG(MtkISP7, Error) << "Fail to set format to seninf out: "
 				    << seninf_->entity()->name();
-		return -EINVAL;
-	}
-
-	if (setFrameInterval(1, 30)) {
-		LOG(MtkISP7, Error) << "Fail to set initial frame interval";
 		return -EINVAL;
 	}
 
