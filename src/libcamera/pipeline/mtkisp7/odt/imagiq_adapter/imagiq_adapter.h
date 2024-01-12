@@ -71,7 +71,7 @@ public:
 		const mtk::isphal::v1_0::ExifInfo3A &exif3a,
 		const mtk::isphal::v1_0::ExifInfoP2 &exifIsp);
 
-	static const SensorIdMap kSensorIdMap;
+	static SensorIdMap sensorIdMap;
 
 private:
 	static std::string createImportConfigId(const Dump &dump);

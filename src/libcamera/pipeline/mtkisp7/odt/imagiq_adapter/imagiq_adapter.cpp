@@ -35,13 +35,6 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 
 namespace {
 
-const ImagiqAdapter::SensorIdMap kGeraltSensorMap{
-	{ "/base/soc/i2c@11ec1000/sensor0@20",
-	  NSCam::TuningUtils::eSensorId::kMAIN },
-	{ "/base/soc/i2c@11ec0000/sensor1@31",
-	  NSCam::TuningUtils::eSensorId::kSUB }
-};
-
 const std::filesystem::path kDumpConfigPath = "dump.cfg";
 const std::filesystem::path kImportConfigPath = "dump_import.cfg";
 
@@ -50,7 +43,7 @@ const std::filesystem::path kImportConfigPath = "dump_import.cfg";
 std::unique_ptr<NSCam::TuningUtils::NddInitializer>
 	ImagiqAdapter::mtkTuningInitializer_;
 
-const ImagiqAdapter::SensorIdMap ImagiqAdapter::kSensorIdMap(kGeraltSensorMap);
+ImagiqAdapter::SensorIdMap ImagiqAdapter::sensorIdMap;
 
 const std::array<std::string, 2> ImagiqAdapter::kYcPlaneNames{
 	"-yplane", "-cplane"
@@ -743,14 +736,14 @@ void ImagiqAdapter::notifyImportRequest(int count)
 
 void ImagiqAdapter::notifyNewSession(std::string sensorId, int dumpTimestamp)
 {
-	for (const auto &[_, mtkSensorId] : kSensorIdMap) {
+	for (const auto &[_, mtkSensorId] : sensorIdMap) {
 		int sensorIdInt = static_cast<int>(mtkSensorId);
 		NSCam::TuningUtils::INdd::getInstance()->stream_off(
 			{ sensorIdInt });
 		NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->stream_off();
 	}
 	int sensorIdInt =
-		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
+		static_cast<int>(static_cast<int>(sensorIdMap.at(sensorId)));
 	NSCam::TuningUtils::INdd::getInstance()->stream_on(
 		{ sensorIdInt }, dumpTimestamp);
 	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->stream_on();
@@ -760,7 +753,7 @@ void ImagiqAdapter::notifyRequestBegin(
 	std::string sensorId, int requestNumber)
 {
 	int sensorIdInt =
-		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
+		static_cast<int>(static_cast<int>(sensorIdMap.at(sensorId)));
 	NSCam::TuningUtils::INdd::getInstance()->frame_begin(
 		sensorIdInt, requestNumber);
 	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->frame_begin(requestNumber);
@@ -773,7 +766,7 @@ void ImagiqAdapter::notifyRequestEnd(
 	std::filesystem::path sessionWorkPath)
 {
 	int sensorIdInt =
-		static_cast<int>(static_cast<int>(kSensorIdMap.at(sensorId)));
+		static_cast<int>(static_cast<int>(sensorIdMap.at(sensorId)));
 	NSCam::TuningUtils::INdd::getInstance()->frame_end(
 		sensorIdInt, requestNumber);
 	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->frame_end(requestNumber);
@@ -789,7 +782,7 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	ndd.requestNo = dump.requestNumber;
 	ndd.frameNo = dump.requestNumber;
 	ndd.timestamp = dump.timestamp;
-	ndd.sensorId = kSensorIdMap.at(dump.sensorId);
+	ndd.sensorId = sensorIdMap.at(dump.sensorId);
 
 	ndd.feature = static_cast<int>(dump.metadata.featureId);
 	ndd.stage = static_cast<int>(dump.metadata.stage);

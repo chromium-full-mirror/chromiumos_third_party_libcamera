@@ -240,7 +240,7 @@ bool OnDeviceTuner::parseHalIspNdd(
 	ndd.ndd_data.platform = 8188;
 	ndd.ndd_data.timestamp = sessionTimestamp_;
 	ndd.ndd_data.sensorId =
-		ImagiqAdapter::kSensorIdMap.at(sensorId_);
+		ImagiqAdapter::sensorIdMap.at(sensorId_);
 	ndd.ndd_data.dualCamId = NSCam::TuningUtils::eDualCamId::kINVALID;
 	ndd.ndd_data.pixelHeight = -1;
 	ndd.ndd_data.pixelWidth = -1;
@@ -445,7 +445,7 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 	}
 	tuningParam.cam_info.rNdd_info.ndd_data.stage = stage;
 	tuningParam.cam_info.sr_para.decision_param.staticInfo.sensorId =
-		static_cast<int32_t>(ImagiqAdapter::kSensorIdMap.at(sensorId_));
+		static_cast<int32_t>(ImagiqAdapter::sensorIdMap.at(sensorId_));
 	tuningParam.cam_info.rNdd_info.ndd_data.action =
 		static_cast<int>(Action::Preview);
 	tuningParam.is_need_exif = 1;
@@ -625,7 +625,7 @@ void OnDeviceTuner::tuneMeA(Request *request, MeFrames &frames)
 					      * Because it will be overwriten by ME_3PASS_MODE1, it should be dumped right
 					      * after ME_3PASS_MODE0. */
 					     { Dump::Id::ME_3PASS_MODE1_MV_L0_M0, frames.out.meAMv0->get() }, // confirmed
-					     { Dump::Id::ME_3PASS_MODE1_FMB_L1_M0,  frames.out.meAFmb1->get()}, // ?
+					     { Dump::Id::ME_3PASS_MODE1_FMB_L1_M0, frames.out.meAFmb1->get() }, // ?
 				     });
 }
 

@@ -614,6 +614,10 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			Camera::create(std::move(data), camSysDev_[i].cameraId(), streams);
 		registerCamera(std::move(camera));
 
+		ImagiqAdapter::sensorIdMap.emplace(
+			camSysDev_[i].cameraId(),
+			NSCam::TuningUtils::eSensorId(i));
+
 		LOG(MtkISP7, Info) << "Registered Camera[" << camSysDev_[i].cameraId() << "]";
 	}
 	SensorInfo::add_sensor(camSysDev_, 2);
