@@ -15,6 +15,14 @@
 
 namespace libcamera {
 
+class BfbldBaseTask;
+class BfbldRefTask;
+class BfmeTask;
+class CalMeTask;
+class DsTask;
+class VbTask;
+class MsblendingTask;
+
 struct MFNRPrevOutput {
 	/* For the first frame, there is no previous outputs. valid = false
 	 * indicates that contents are empty. */
@@ -32,9 +40,120 @@ struct MFNRPrevOutput {
 	std::vector<SharedMailBox<InfoFrame>> prevDipTnrwo;
 };
 
+struct BfbldFrames {
+	struct {
+		SharedMailBox<InfoFrame>  timgi;
+		SharedMailBox<InfoFrame>  tunbufi;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame>  p2stto;
+		SharedMailBox<InfoFrame>  img2o;
+		SharedMailBox<InfoFrame>  img3o;
+	} out;
+};
 
-struct MfnrFrames {
 
+struct DsFrames {
+	struct {
+		SharedMailBox<InfoFrame>  ltimgi;
+		SharedMailBox<InfoFrame>  tunbufi;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame>  ltyuv2o;
+		SharedMailBox<InfoFrame>  ltyuv3o;
+		SharedMailBox<InfoFrame>  ltyuv4o;
+	} out;
+};
+
+struct BfmeFrames {
+	struct {
+		SharedMailBox<InfoFrame>  imgi;
+		SharedMailBox<InfoFrame>  tunbufi;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame>  img2o;
+	} out;
+};
+
+struct McdsF1Frames {
+	struct {
+		SharedMailBox<InfoFrame>  wpe_wpei;
+		SharedMailBox<InfoFrame>  wpe_veci;
+		SharedMailBox<InfoFrame>  tunbufi;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame>  wpe_wpeo;
+		SharedMailBox<InfoFrame>  ltyuv2o;
+		SharedMailBox<InfoFrame>  ltyuv3o;
+		SharedMailBox<InfoFrame>  ltyuv4o;
+		SharedMailBox<InfoFrame>  ltyuv5o;
+	} out;
+};
+
+
+struct DsVbiFrames {
+	struct {
+		SharedMailBox<InfoFrame>  timgi;
+		SharedMailBox<InfoFrame>  tunbufi;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame>  tyuv2o;
+		SharedMailBox<InfoFrame>  tyuv3o;
+		SharedMailBox<InfoFrame>  tyuv4o;
+	} out;
+};
+
+
+struct MsbldFrames {
+	struct {
+		SharedMailBox<InfoFrame>  vipi;
+		SharedMailBox<InfoFrame>  imgi;
+		SharedMailBox<InfoFrame>  tnrsi;
+		SharedMailBox<InfoFrame>  rec_dsi;
+		SharedMailBox<InfoFrame>  tnrci;
+		SharedMailBox<InfoFrame>  tnrwi;
+		SharedMailBox<InfoFrame>  tnrvbi;
+		SharedMailBox<InfoFrame>  tnrlfdi;
+		SharedMailBox<InfoFrame>  tnrmi;
+		SharedMailBox<InfoFrame>  tunbufi;
+
+	} in;
+	struct {
+		SharedMailBox<InfoFrame>  img4o;
+		SharedMailBox<InfoFrame>  tnrwo;
+		SharedMailBox<InfoFrame>  tnrmo;
+		SharedMailBox<InfoFrame>  tnrso;
+	} out;
+};
+
+struct AfbldFrames {
+	struct {
+		SharedMailBox<InfoFrame>  vipi;
+		SharedMailBox<InfoFrame>  imgi;
+		SharedMailBox<InfoFrame>  tnrsi;
+		SharedMailBox<InfoFrame>  rec_dsi;
+		SharedMailBox<InfoFrame>  tnrci;
+		SharedMailBox<InfoFrame>  tnrwi;
+		SharedMailBox<InfoFrame>  tnrvbi;
+		SharedMailBox<InfoFrame>  tnrlfdi;
+		SharedMailBox<InfoFrame>  tnrmi;
+		SharedMailBox<InfoFrame>  tunbufi;
+
+	} in;
+	struct {
+		SharedMailBox<InfoFrame>  imgao;
+		SharedMailBox<InfoFrame>  img3o;
+		SharedMailBox<InfoFrame>  img4o;
+		SharedMailBox<InfoFrame>  tnrwo;
+		SharedMailBox<InfoFrame>  tnrmo;
+		SharedMailBox<InfoFrame>  tnrso;
+	} out;
+};
+
+
+struct MFNRFrames {
+
+	BfbldFrames BfbldFrames;
 	FrameBuffer *videoOut1 = nullptr;
 	FrameBuffer *videoOut2 = nullptr;
 };
@@ -53,7 +172,7 @@ public:
 
 	int releaseBuffers();
 
-	void makeMfnrFrames(MfnrFrames &mfnr,
+	void makeMfnrFrames(MFNRFrames &mfnr,
 			    MFNRPrevOutput &prev,
 			    SharedMailBox<InfoFrame> &meL0,
 			    SharedMailBox<InfoFrame> &p1F0,
@@ -61,7 +180,10 @@ public:
 			    FrameBuffer *videoOut1,
 			    FrameBuffer *videoOut2);
 
-private:
+	std::tuple<BfbldBaseTask *,BfbldRefTask *, BfmeTask *, CalMeTask *, DsTask *, VbTask *, MsblendingTask *>
+	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
+		      const std::string &id, Request *request,
+		      ImgSysDevice *imgSys);
 
 private:
 	int configureBuffers();
@@ -75,6 +197,133 @@ private:
 	OnDeviceTuner *onDeviceTuner_;
 
 	std::vector<InfoFramePool *> allBufferPools_;
+
+	int captureNum_;
+	int blendNum_;
+};
+
+class BfbldBaseTask : public Task
+{
+public:
+	BfbldBaseTask(Scheduler *scheduler, const std::string &id, Request *request,
+		    ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+
+private:
+	void allocateOutputBuffers();
+	BfbldFrames frames_;
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	[[maybe_unused]] ImgSysDevice *imgSys_;
+	MfnrTasksManager *manager_;
+
+};
+
+class BfbldRefTask : public Task
+{
+public:
+	BfbldRefTask(Scheduler *scheduler, const std::string &id, Request *request,
+		    ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+
+private:
+	void allocateOutputBuffers();
+	MFNRFrames frames_;
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	[[maybe_unused]] ImgSysDevice *imgSys_;
+	MfnrTasksManager *manager_;
+};
+
+class BfmeTask : public Task
+{
+public:
+	BfmeTask(Scheduler *scheduler, const std::string &id, Request *request,
+		 ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+
+private:
+	void allocateOutputBuffers();
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	[[maybe_unused]] ImgSysDevice *imgSys_;
+	MfnrTasksManager *manager_;
+};
+
+class CalMeTask : public Task
+{
+public:
+	CalMeTask(Scheduler *scheduler, const std::string &id, Request *request,
+		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+
+private:
+	void allocateOutputBuffers();
+
+	uint32_t syncLtrMeA_;
+
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	MfnrTasksManager *manager_;
+	ImgSysDevice *imgSys_;
+};
+
+class DsTask : public Task
+{
+public:
+	DsTask(Scheduler *scheduler, const std::string &id, Request *request,
+	       ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+
+private:
+	void allocateOutputBuffers();
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	[[maybe_unused]] ImgSysDevice *imgSys_;
+	MfnrTasksManager *manager_;
+};
+
+class VbTask : public Task
+{
+public:
+	VbTask(Scheduler *scheduler, const std::string &id, Request *request,
+	       ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+	MfnrTasksManager *manager_;
+
+private:
+	void allocateOutputBuffers();
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	[[maybe_unused]] ImgSysDevice *imgSys_;
+};
+
+class MsblendingTask : public Task
+{
+public:
+	MsblendingTask(Scheduler *scheduler, const std::string &id, Request *request,
+		       ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+
+	void run() override;
+	void notifyDone() override;
+
+private:
+	void allocateOutputBuffers();
+	ImgSysRequestHelper requestHelper_;
+	Request *request_;
+	[[maybe_unused]] ImgSysDevice *imgSys_;
 };
 
 } /* namespace libcamera */
