@@ -299,35 +299,25 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	r_3a_request.stt_buf.buf = reinterpret_cast<const mtk_cam_uapi_meta_raw_stats_0 *>(
 		mappedFrameBuffer.planes()[0].data());
 
-	libcamera::DmaHeap::sync(
-		statistics0->planes()[0].fd.get(),
-		libcamera::DmaHeap::Start,
-		libcamera::DmaHeap::SyncReadWrite);
-	m_hal3a_->DoCalculation(r_3a_request);
-	libcamera::DmaHeap::sync(
-		statistics0->planes()[0].fd.get(),
-		libcamera::DmaHeap::End,
-		libcamera::DmaHeap::SyncReadWrite);
+	{
+		DmaSyncer syncer(statistics0->planes()[0].fd.get());
+		m_hal3a_->DoCalculation(r_3a_request);
+	}
 
 	auto *rawMeta =
 		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(rawMetaBuffer);
 	m_hal3a_->GetResult(r3AResult_);
 
-	libcamera::DmaHeap::sync(
-		rawMetaFd,
-		libcamera::DmaHeap::Start,
-		libcamera::DmaHeap::SyncReadWrite);
-	*rawMeta = r3AResult_.raw_meta;
+	{
+		DmaSyncer syncer(rawMetaFd);
 
-	aaaIspExchange->aaaResult = r3AResult_;
-	halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
-				     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
-				     kRawMetaSize, faceMetadata,
-				     aaaIspExchange, request);
-	libcamera::DmaHeap::sync(
-		rawMetaFd,
-		libcamera::DmaHeap::End,
-		libcamera::DmaHeap::SyncReadWrite);
+		*rawMeta = r3AResult_.raw_meta;
+		aaaIspExchange->aaaResult = r3AResult_;
+		halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
+					     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
+					     kRawMetaSize, faceMetadata,
+					     aaaIspExchange, request);
+	}
 
 	getExposureAndGain(exposureAndGain);
 }
@@ -359,15 +349,10 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 	r_af_request.afo_buf.buf = reinterpret_cast<const mtk_cam_uapi_meta_raw_stats_1 *>(
 		mappedFrameBuffer.planes()[0].data());
 
-	libcamera::DmaHeap::sync(
-		statistics1->planes()[0].fd.get(),
-		libcamera::DmaHeap::Start,
-		libcamera::DmaHeap::SyncReadWrite);
-	m_hal3a_->DoCalculationAF(r_af_request);
-	libcamera::DmaHeap::sync(
-		statistics1->planes()[0].fd.get(),
-		libcamera::DmaHeap::End,
-		libcamera::DmaHeap::SyncReadWrite);
+	{
+		DmaSyncer syncer(statistics1->planes()[0].fd.get());
+		m_hal3a_->DoCalculationAF(r_af_request);
+	}
 
 	mtk::hal3a::v1_0::mtk_lens_result lensResult = {};
 	m_hal3a_->GetResultAF(lensResult);
