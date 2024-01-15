@@ -43,4 +43,22 @@ private:
 	UniqueFD dmaHeapCmaHandle_;
 };
 
+class DmaSyncer final
+{
+public:
+	explicit DmaSyncer(int fd)
+		: fd_(fd)
+	{
+		DmaHeap::sync(fd_, DmaHeap::Start, DmaHeap::SyncReadWrite);
+	}
+
+	~DmaSyncer()
+	{
+		DmaHeap::sync(fd_, DmaHeap::End, DmaHeap::SyncReadWrite);
+	}
+
+private:
+	int fd_;
+};
+
 } /* namespace libcamera */
