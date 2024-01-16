@@ -173,11 +173,11 @@ void McnrTunManager::allocateBuffers()
 	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{132, 1}, 8);
 	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
 	fwmmMil_.createBuffers(dmaHeap_, formats::Y8_MTISP, kMeL1Size, 8);
-	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 56);
-	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 8);
-	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
-	trawTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 56);
-	wpeTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
+	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 56, DmaHeap::CMA);
+	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 8, DmaHeap::CMA);
+	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6, DmaHeap::CMA);
+	trawTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 56, DmaHeap::CMA);
+	wpeTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6, DmaHeap::CMA);
 	swHist_.createBuffers(dmaHeap_, formats::Y8_MTISP, kHistSize, 12);
 
 	for (auto &pool : poolsWritenByCpu_)

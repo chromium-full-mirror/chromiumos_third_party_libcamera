@@ -83,8 +83,7 @@ Rectangle ImgSysDevice::getCrop(Size inSize, Size outSize)
 	return { 0, y, inSize.width, height };
 }
 
-ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt)
-	: onDeviceTuner_(odt), backEndLibrary_(nullptr)
+ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt) : onDeviceTuner_(odt)
 {
 }
 
@@ -138,7 +137,7 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 			configureVideo(videoDev.get(), formats::MTSR_MTISP, { 640, 480 });
 		} else if (entity == ctrlMeta) {
 			ctrlMeta_ = videoDev.get();
-			configureVideo(videoDev.get(), formats::MTFP_MTISP, { 24704, 1 });
+			configureVideo(videoDev.get(), formats::MTFP_MTISP, { 32768, 1 });
 		} else if (entity == tuningMeta)
 			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 38408, 1 });
 		else
@@ -161,11 +160,6 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 
 	// todo: Do streamOn/streamOff in start/stop when the backend library
 	// is moved to scp in driver
-	if (startImgSysBackend()) {
-		LOG(MtkISP7, Error) << "Fail to start ImgSys backend";
-		return -EBUSY;
-	}
-
 	for (auto &[portIdx, videoDev] : allVideoDevices_) {
 		videoDev->requestBufferReady.connect(this, &ImgSysDevice::bufferReady);
 
@@ -400,8 +394,8 @@ int ImgSysDevice::configure()
 	handleKva(Delete, descPool_);
 	handleIova(Delete, ctrlMetaPool_);
 
-	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 238544, 1 }, 32);
-	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 24704, 1 }, 32);
+	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 266960, 1 }, 32, DmaHeap::CMA);
+	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 32768, 1 }, 32, DmaHeap::CMA);
 
 	handleKva(Add, descPool_);
 	handleIova(Add, ctrlMetaPool_);
@@ -466,28 +460,6 @@ int ImgSysDevice::handleIova(FdCtrl fdHandle, InfoFramePool &pool)
 	}
 
 	return 0;
-}
-
-/* The function should be removed once the backend library is moved to scp */
-int ImgSysDevice::startImgSysBackend()
-{
-	if (!backEndLibrary_) {
-		backEndLibrary_ = dlopen("libimgsys_daemon.so", RTLD_NOW);
-		if (!backEndLibrary_) {
-			LOG(MtkISP7, Error) << "Fail to load backend library: "
-					    << dlerror();
-			return -EINVAL;
-		}
-	}
-
-	auto startRED = reinterpret_cast<int (*)()>(dlsym(backEndLibrary_, "startRED"));
-	if (!startRED) {
-		LOG(MtkISP7, Error) << "Fail to load backend symbol startRED: "
-				    << dlerror();
-		return -EINVAL;
-	}
-
-	return (*startRED)();
 }
 
 void ImgSysRequestHelper::queueRequest(SingleDeviceRequest &sdRequest)

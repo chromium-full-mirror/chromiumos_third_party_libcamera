@@ -214,7 +214,7 @@ int McnrTasksManager::configureBuffers()
 	img4oF0_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 4);
 	img4oF1_.createFlatBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 4);
 
-	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4);
+	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4, DmaHeap::CMA);
 
 	wt_[0].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[0], 12, DmaHeap::System, 192, 192);
 	wt_[1].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[1], 12, DmaHeap::System, 192, 192);

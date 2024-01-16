@@ -72,7 +72,6 @@ public:
 private:
 	friend class ImgSysRequestHelper;
 
-	int startImgSysBackend();
 	void bufferReady(std::pair<FrameBuffer *, int> pair);
 
 	V4L2VideoDevice *sigdevNorm_;
@@ -103,8 +102,6 @@ private:
 	MediaDevice *media_;
 	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
-
-	void *backEndLibrary_;
 };
 
 class ImgSysRequestHelper

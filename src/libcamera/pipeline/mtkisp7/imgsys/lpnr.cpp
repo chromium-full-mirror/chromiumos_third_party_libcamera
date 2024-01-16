@@ -47,7 +47,7 @@ int LpnrTasksManager::configure(const Size &bayerInputSize,
 	}
 
 	/* Allocate buffer pools */
-	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4);
+	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4, DmaHeap::CMA);
 
 	/* Level 0 uses NV12_10P_MTISP */
 	lpnr_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, lpnrSizes[0], 4);

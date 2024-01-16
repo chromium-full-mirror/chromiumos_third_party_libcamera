@@ -104,6 +104,8 @@ struct ctrl_meta_t {
   struct pqdip_ctrl pqdip_mdata;
   struct me_ctrl me_meta;
   struct adl_ctrl adl_meta;
+  YUFO_META_INFO wpe_ufo_meta;
+  YUFO_META_INFO dip_ufo_meta;
 };
 
 #endif  // HW_IMGSTREAM_INC_DRV_COMMON_7_1_CTRL_META_H_

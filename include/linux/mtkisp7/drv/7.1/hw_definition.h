@@ -26,6 +26,7 @@
 #include "traw_meta.h"
 #include "wpe_meta.h"
 #include "adl_meta.h"
+#include "ufbc_meta.h"
 
 /**
  * enum ModuleID

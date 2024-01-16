@@ -50,6 +50,7 @@ struct v4l2_ext_plane {
     struct {
       __s32 fd;
       __u32 offset;
+      __u64 phyaddr;
     } dma_buf;
   } m;
 #ifndef COMPACT_USE

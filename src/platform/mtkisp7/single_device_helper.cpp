@@ -2174,6 +2174,32 @@ bool HandleCtrlMeta(RequestInfo *pReqInfo,
 		}
 	}
 
+	// Handle UFO
+	for (auto const& in : pFrmParam.mvIn) {
+		PortIdx = (IMG_PORT)in.mPortIdx;
+		switch (PortIdx) {
+		case NSCam::NSImgStream::IMG_PORT_IMGI:
+			if ((in.mBuffer->getImgFormat() == eImgFmt_UFBC_YUV_P010) ||
+			    (in.mBuffer->getImgFormat() == eImgFmt_UFBC_NV12) ||
+			    (in.mBuffer->getImgFormat() == eImgFmt_UFBC_YUV_P012)) {
+			unsigned char *ufo_buf = reinterpret_cast<unsigned char*>(in.mBuffer->getBufVA(0));
+			memcpy(&pCtrlMeta->dip_ufo_meta, ufo_buf, sizeof(YUFO_META_INFO));
+		}
+			break;
+		case NSCam::NSImgStream::IMG_PORT_WPE_WPEI:
+		case NSCam::NSImgStream::IMG_PORT_WPE_TNR_WPEI:
+			if ((in.mBuffer->getImgFormat() == eImgFmt_UFBC_YUV_P010) ||
+			(in.mBuffer->getImgFormat() == eImgFmt_UFBC_NV12) ||
+			(in.mBuffer->getImgFormat() == eImgFmt_UFBC_YUV_P012)) {
+			unsigned char *ufo_buf = reinterpret_cast<unsigned char*>(in.mBuffer->getBufVA(0));
+			memcpy(&pCtrlMeta->wpe_ufo_meta, ufo_buf, sizeof(YUFO_META_INFO));
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
 	if (DeviceTuningEn > 0) {
 		LOG_DBG(
 			"pReqInfo->mpCMBuf->mOffset(%d), CtrlMetaOffset(%d), RequestFd(%d), "

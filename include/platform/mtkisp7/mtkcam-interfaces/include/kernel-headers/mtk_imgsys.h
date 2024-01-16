@@ -30,6 +30,7 @@ struct fd_info {
 	uint8_t fd_num;
 	unsigned int fds[FD_MAX];
 	unsigned int fds_size[FD_MAX];
+	unsigned long long fds_phys_addr[FD_MAX];
 } __attribute__ ((__packed__));
 
 
