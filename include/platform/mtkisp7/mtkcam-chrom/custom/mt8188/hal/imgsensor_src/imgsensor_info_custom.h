@@ -24,8 +24,23 @@
 /* 30, 85, 120, 14 */
 #define SETTLE_DELAY 180
 
-#define SCENARIO_ID_MAX      16
 #define GAIN_TBL_IDX_MAX     16
+
+//===================================================================
+struct PLATFORM_IMGSENSOR_CFG gimgsensor_cfg_list[MAX_PLATFORM_NUM][MAX_SENSOR_IN_PLATFORM] =
+{
+    { // google proto device:
+        {SENSOR_DRVNAME_HI1339_MIPI_RAW, "sensor0"}, //gimgsensor_cfg_list[0][0]
+        {SENSOR_DRVNAME_GC08A3_MIPI_RAW, "sensor1"}  //gimgsensor_cfg_list[0][1]
+    },
+    { // Lenovo proto device:
+        {SENSOR_DRVNAME_GC08A3_MIPI_RAW, "sensor0"}, //gimgsensor_cfg_list[1][0]
+        {SENSOR_DRVNAME_GC05A2_MIPI_RAW, "sensor1"}  //gimgsensor_cfg_list[1][1]
+    },
+
+        // TODO:  ADD more other sensor info
+        /*  ADD sensor driver before this line */
+};
 
 struct IMGSENSOR_SENSOR_LIST gimgsensor_sensor_list[MAX_NUM_OF_SUPPORT_SENSOR] =
 {
@@ -39,8 +54,8 @@ struct IMGSENSOR_SENSOR_LIST gimgsensor_sensor_list[MAX_NUM_OF_SUPPORT_SENSOR] =
 };
 
 // sensor order of win size info  must match with gImgsensor_info
-static SENSOR_WINSIZE_INFO_STRUCT gImgsensor_winsize_info[][SCENARIO_ID_MAX] = {
-  {
+static SENSOR_WINSIZE_INFO_STRUCT gImgsensor_winsize_info[][SENSOR_SCENARIO_ID_MAX] = {
+    {
 	// gc08a3
 	{3264, 2448, 0, 0, 3264, 2448, 3264, 2448,
 	 0000, 0000, 3264, 2448, 0, 0, 3264, 2448},  /* Preview */
@@ -311,7 +326,7 @@ struct imgsensor_info_struct gImgsensor_info[] = {
     .custom1_delay_frame = 0,
     .custom2_delay_frame = 0,
     .custom3_delay_frame = 0,
-    .margin = 4,        /* sensor framelength & shutter margin */
+    .margin = 16,        /* sensor framelength & shutter margin */
     .min_shutter = 4,   /* min shutter */
     .max_frame_length = 0x7FFF, /* max framelength by sensor register's limitation */
     .min_gain = 1024,
@@ -320,7 +335,7 @@ struct imgsensor_info_struct gImgsensor_info[] = {
     .max_ana_gain = 1024*16,
     .min_gain_iso = 100,
     .gain_step = 1,
-    .exp_step = 4,
+    .exp_step = 2,
     .gain_type = 3,
 
     .sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_R, /* sensor output first pixel color */
@@ -532,7 +547,7 @@ struct imgsensor_info_struct gImgsensor_info[] = {
     .custom1_delay_frame = 0,
     .custom2_delay_frame = 0,
     .custom3_delay_frame = 0,
-    .margin = 4,        /* sensor framelength & shutter margin */
+    .margin = 16,        /* sensor framelength & shutter margin */
     .min_shutter = 4,   /* min shutter */
     .max_frame_length = 0x7FFF, /* max framelength by sensor register's limitation */
     .min_gain = 1024,
@@ -541,7 +556,7 @@ struct imgsensor_info_struct gImgsensor_info[] = {
     .max_ana_gain = 1024*16,
     .min_gain_iso = 100,
     .gain_step = 1,
-    .exp_step = 4,
+    .exp_step = 2,
     .gain_type = 3,
 
     .sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_Gb, /* sensor output first pixel color */
@@ -753,7 +768,7 @@ struct imgsensor_info_struct gImgsensor_info[] = {
     .custom1_delay_frame = 0,
     .custom2_delay_frame = 0,
     .custom3_delay_frame = 0,
-    .margin = 4,        /* sensor framelength & shutter margin */
+    .margin = 16,        /* sensor framelength & shutter margin */
     .min_shutter = 4,   /* min shutter */
     .max_frame_length = 0x7FFF, /* max framelength by sensor register's limitation */
     .min_gain = 1024,
@@ -762,7 +777,7 @@ struct imgsensor_info_struct gImgsensor_info[] = {
     .max_ana_gain = 1024*16,
     .min_gain_iso = 100,
     .gain_step = 1,
-    .exp_step = 4,
+    .exp_step = 2,
     .gain_type = 3,
 
     .sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_Gr, /* sensor output first pixel color */

@@ -113,69 +113,105 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 	/* camcal flow for custom data */
 	int CamcamFID = 0;
 
-	if (pCamCalData->sensorID == HI1339_SENSOR_ID) {
-		LOG_INF("Read Sensor ID %d Data", pCamCalData->sensorID);
-		std::string eepromDev = "/sys/bus/i2c/devices/6-0058/eeprom";
-		CamcamFID = open(eepromDev.c_str(), O_RDONLY);
-		if (CamcamFID < 0) {
-			LOG_ERR("SensorID (%d) eeprom device open failed", pCamCalData->sensorID);
-			result = CamCalReturnErr[lsCommand];
-			// ShowCmdErrorLog(lsCommand);
-			pthread_mutex_unlock(&mEEPROM_Mutex);
-			return result;
-		}
+	std::string eepromDev = "";
+	int platformIdx = -1;
 
-		pCamCalData->DataVer =
-			(CAM_CAL_DATA_VER_ENUM)CalLayoutTbl[rfLayoutType].DataVer;
+	// 0: google platform (geralt), 1: lenovo platform (ciri)
+	platformIdx = 1;
+	if (platformIdx == 0)
+		LOG_INF("----google platform----\n");
+	else if (platformIdx == 1)
+		LOG_INF("----lenovo platform----\n");
+	else
+		LOG_INF("----check platform!!!----\n");
 
-		if ((CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].Include != 0) &&
-		    (CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].GetCalDataProcess !=
-		     NULL)) {
-			result =
-				CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].GetCalDataProcess(
+	if (platformIdx == 0) {
+		if (pCamCalData->sensorID == HI1339_SENSOR_ID) {
+			LOG_INF("Read Sensor ID 0x%x Data", pCamCalData->sensorID);
+
+			eepromDev = "/sys/bus/i2c/devices/6-0058/eeprom";
+			CamcamFID = open(eepromDev.c_str(), O_RDONLY);
+			if (CamcamFID < 0) {
+				LOG_ERR("SensorID 0x%x eeprom device open failed", pCamCalData->sensorID);
+				result = CamCalReturnErr[lsCommand];
+				//ShowCmdErrorLog(lsCommand);
+				pthread_mutex_unlock(&mEEPROM_Mutex);
+				return result;
+			}
+
+			pCamCalData->DataVer = (CAM_CAL_DATA_VER_ENUM)CalLayoutTbl[rfLayoutType].DataVer;
+
+			if ((CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].Include != 0) && (CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].GetCalDataProcess != NULL)) {
+				result = CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].GetCalDataProcess(
 					CamcamFID,
 					CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].StartAddr,
 					CalLayoutTbl[rfLayoutType].CalItemTbl[lsCommand].BlockSize,
 					reinterpret_cast<uint32_t *>(pCamCalData));
-		} else {
-			result = CamCalReturnErr[lsCommand];
-			LOG_ERR("lsCommand: %d", lsCommand);
-			// ShowCmdErrorLog(lsCommand);
-		}
-		close(CamcamFID);
-	} else if (pCamCalData->sensorID == GC08A3_SENSOR_ID) {
-		LOG_INF("Read Sensor ID %d Data", pCamCalData->sensorID);
+			} else {
+				result = CamCalReturnErr[lsCommand];
+				//ShowCmdErrorLog(lsCommand);
+			}
 
-		std::string eepromDev = "/sys/bus/i2c/devices/5-0051/eeprom";
-		CamcamFID = open(eepromDev.c_str(), O_RDONLY);
-		if (CamcamFID < 0) {
-			LOG_ERR("SensorID (%d) eeprom device open failed", pCamCalData->sensorID);
-			result = CamCalReturnErr[lsCommand];
-			// ShowCmdErrorLog(lsCommand);
-			pthread_mutex_unlock(&mEEPROM_Mutex);
-			return result;
-		}
+			close(CamcamFID);
+		} else if (pCamCalData->sensorID == GC08A3_SENSOR_ID) {
+			LOG_INF("Read Sensor ID 0x%x Data", pCamCalData->sensorID);
 
-		pCamCalData->DataVer =
-			(CAM_CAL_DATA_VER_ENUM)CalLayoutTbl[ffLayoutType].DataVer;
+			eepromDev = "/sys/bus/i2c/devices/5-0051/eeprom";
+			CamcamFID = open(eepromDev.c_str(), O_RDONLY);
+			if (CamcamFID < 0) {
+				LOG_ERR("SensorID 0x%x eeprom device open failed", pCamCalData->sensorID);
+				result = CamCalReturnErr[lsCommand];
+				//ShowCmdErrorLog(lsCommand);
+				pthread_mutex_unlock(&mEEPROM_Mutex);
+				return result;
+			}
 
-		if ((CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].Include != 0) &&
-		    (CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].GetCalDataProcess !=
-		     NULL)) {
-			result =
-				CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].GetCalDataProcess(
+			pCamCalData->DataVer = (CAM_CAL_DATA_VER_ENUM)CalLayoutTbl[ffLayoutType].DataVer;
+
+			if ((CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].Include != 0) && (CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].GetCalDataProcess != NULL)) {
+				result = CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].GetCalDataProcess(
 					CamcamFID,
 					CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].StartAddr,
 					CalLayoutTbl[ffLayoutType].CalItemTbl[lsCommand].BlockSize,
 					reinterpret_cast<uint32_t *>(pCamCalData));
-		} else {
+			} else {
+				result = CamCalReturnErr[lsCommand];
+				//ShowCmdErrorLog(lsCommand);
+			}
+
+			close(CamcamFID);
+		}
+	} else {
+		LayoutType = CALIBRATION_LAYOUT_EXT_OP;
+		if (pCamCalData->sensorID == GC08A3_SENSOR_ID) {
+			eepromDev = "/sys/bus/i2c/devices/6-0058/eeprom";
+		} else if (pCamCalData->sensorID == GC05A2_SENSOR_ID) {
+			eepromDev = "/sys/bus/i2c/devices/5-0050/eeprom";
+		}
+		LOG_INF("Read Sensor ID 0x%x Data. Open eeprom device %s", pCamCalData->sensorID, eepromDev.c_str());
+
+		CamcamFID = open(eepromDev.c_str(), O_RDONLY);
+		if (CamcamFID < 0) {
+			LOG_ERR("SensorID 0x%x eeprom device open failed", pCamCalData->sensorID);
 			result = CamCalReturnErr[lsCommand];
-			// ShowCmdErrorLog(lsCommand);
+			//ShowCmdErrorLog(lsCommand);
+			pthread_mutex_unlock(&mEEPROM_Mutex);
+			return result;
 		}
 
+		pCamCalData->DataVer = (CAM_CAL_DATA_VER_ENUM)CalLayoutTbl[LayoutType].DataVer;
+
+		if ((CalLayoutTbl[LayoutType].CalItemTbl[lsCommand].Include != 0) && (CalLayoutTbl[LayoutType].CalItemTbl[lsCommand].GetCalDataProcess != NULL)) {
+			result = CalLayoutTbl[LayoutType].CalItemTbl[lsCommand].GetCalDataProcess(
+				CamcamFID,
+				CalLayoutTbl[LayoutType].CalItemTbl[lsCommand].StartAddr,
+				CalLayoutTbl[LayoutType].CalItemTbl[lsCommand].BlockSize,
+				reinterpret_cast<uint32_t *>(pCamCalData));
+		} else {
+			result = CamCalReturnErr[lsCommand];
+			//ShowCmdErrorLog(lsCommand);
+		}
 		close(CamcamFID);
-	} else if (pCamCalData->sensorID == GC08A3_SENSOR_ID) {
-		LOG_ERR("Can not find cal data for SensorID (%d) ", pCamCalData->sensorID);
 	}
 
 	pthread_mutex_unlock(&mEEPROM_Mutex);

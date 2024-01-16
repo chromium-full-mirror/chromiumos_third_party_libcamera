@@ -439,6 +439,244 @@ UINT32 DoCamCal2AGainCus8A3(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize
 	return err;
 }
 
+UINT32 DoCamCal2AGainCus(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize, UINT32* pGetSensorCalData)
+{
+    PCAM_CAL_DATA_STRUCT pCamCalData = (PCAM_CAL_DATA_STRUCT)pGetSensorCalData;
+    INT32 ioctlerr;
+    UINT32 err = CamCalReturnErr[pCamCalData->Command];
+
+    UINT32 CalGain, FacGain;
+    INT8 AWBAFConfig;
+
+    u16 AFInf, AFMacro;
+    int tempMax = 0;
+    int CalR=1, CalGr=1, CalGb=1, CalG=1, CalB=1, FacR=1, FacGr=1, FacGb=1, FacG=1, FacB=1;
+
+    LOG_ERR("DoCamCal2AGainCus is enter..BlockSize=%d SensorID=%x\n", BlockSize, pCamCalData->sensorID);
+
+    //To set init value
+    memset((void*)&pCamCalData->Single2A, 0, sizeof(CAM_CAL_SINGLE_2A_STRUCT));
+
+    if(pCamCalData->DataVer >= CAM_CAL_TYPE_NUM)
+    {
+        err = CAM_CAL_ERR_NO_DEVICE;
+        LOG_ERR("ioctl err\n");
+        ShowCmdErrorLog(pCamCalData->Command);
+    }
+    else if(pCamCalData->DataVer < CAM_CAL_TYPE_NUM)
+    {
+        if(BlockSize!=14)
+        {
+            LOG_ERR("BlockSize(%d) is not correct (%d)\n",BlockSize,14);
+            ShowCmdErrorLog(pCamCalData->Command);
+        }
+        else
+        {
+            // Check the config. for AWB & AF
+            lseek(CamcamFID, start_addr+1, SEEK_SET);
+            ioctlerr = read(CamcamFID, (u8 *)&AWBAFConfig, 1);
+            if(ioctlerr>0)
+            {
+                err = CAM_CAL_ERR_NO_ERR;
+            }
+            else
+            {
+                pCamCalData->Single2A.S2aBitEn = CAM_CAL_NONE_BITEN;
+                LOG_ERR("ioctl err\n");
+                ShowCmdErrorLog(pCamCalData->Command);
+            }
+
+            pCamCalData->Single2A.S2aVer = 0x01;
+            pCamCalData->Single2A.S2aBitEn = (0x03 & AWBAFConfig);
+            //LOG_INF_IF(dumpEnable,"S2aBitEn=0x%x", pCamCalData->Single2A.S2aBitEn);
+            pCamCalData->Single2A.S2aAfBitflagEn = (0x0C & AWBAFConfig);// //Bit: step 0(inf.), 1(marco), 2, 3, 4,5,6,7
+            //memset(pCamCalData->Single2A.S2aAf,0x0,sizeof(pCamCalData->Single2A.S2aAf));
+
+            if(0x1&AWBAFConfig){
+                ////AWB////
+                LOG_INF("AWB offset=%d\n", start_addr + 2);
+                lseek(CamcamFID, start_addr + 2, SEEK_SET);
+                ioctlerr = read(CamcamFID, (u8 *)&CalGain, 4);
+                LOG_INF("Read CalGain OK %x\n", ioctlerr);
+
+                if(ioctlerr>0)
+                {
+                    // Get min gain
+                    CalR  = CalGain&0xFF;
+                    CalGr = (CalGain>>8)&0xFF;
+                    CalGb = (CalGain>>16)&0xFF;
+                    CalG = ((CalGr + CalGb) + 1) >> 1;
+                    CalB  = (CalGain>>24)&0xFF;
+
+                    if(CalR > CalG) {
+                        /* R > G */
+                        if(CalR > CalB)
+                            tempMax = CalR;
+                        else
+                            tempMax = CalB;
+                    }
+                    else {
+                        /* G > R */
+                        if(CalG > CalB)
+                            tempMax = CalG;
+                        else
+                            tempMax = CalB;
+                    }
+                    LOG_INF("UnitR:%d, UnitG:%d, UnitB:%d, New Unit Max=%d", CalR, CalG, CalB, tempMax);
+
+                    err = CAM_CAL_ERR_NO_ERR;
+
+                }
+                else
+                {
+                    pCamCalData->Single2A.S2aBitEn = CAM_CAL_NONE_BITEN;
+                    LOG_ERR("ioctl err\n");
+                    ShowCmdErrorLog(pCamCalData->Command);
+                }
+
+                if (CalGain!=0 &&
+                    CalGain!=0xFFFFFFFF &&
+                    CalR!=0 &&
+                    CalG!=0 &&
+                    CalB!=0 )
+                {
+                    pCamCalData->Single2A.S2aAwb.rGainSetNum = 1;
+                    pCamCalData->Single2A.S2aAwb.rUnitGainu4R = (u32)((tempMax*512 + (CalR >> 1))/CalR);
+                    pCamCalData->Single2A.S2aAwb.rUnitGainu4G = (u32)((tempMax*512 + (CalG >> 1))/CalG);
+                    pCamCalData->Single2A.S2aAwb.rUnitGainu4B  = (u32)((tempMax*512 + (CalB >> 1))/CalB);
+                }
+                else
+                {
+                    LOG_INF("There are something wrong on EEPROM, plz contact module vendor R=%d G=%d B=%d!!\n", CalR, CalG, CalB);
+                }
+                lseek(CamcamFID, start_addr + 6, SEEK_SET);
+                ioctlerr = read(CamcamFID, (u8 *)&FacGain, 4);
+                LOG_INF("Read FacGain OK\n");
+                if(ioctlerr>0)
+                {
+                    // Get min gain
+                    FacR  = FacGain&0xFF;
+                    FacGr = (FacGain>>8)&0xFF;
+                    FacGb = (FacGain>>16)&0xFF;
+                    FacG = ((FacGr + FacGb) + 1) >> 1;
+                    FacB  = (FacGain>>24)&0xFF;
+
+                    LOG_INF("Extract CalGain OK\n");
+
+                    if(FacR > FacG) {
+                        /* R > G */
+                        if(FacR > FacB)
+                            tempMax = FacR;
+                        else
+                            tempMax = FacB;
+                    }
+                    else {
+                        /* G > R */
+                        if(FacG > FacB)
+                            tempMax = FacG;
+                        else
+                            tempMax = FacB;
+                    }
+
+                    LOG_INF("GoldenR:%d, GoldenG:%d, GoldenB:%d, New Golden Max=%d", FacR, FacG, FacB, tempMax);
+
+                    err = CAM_CAL_ERR_NO_ERR;
+                }
+                else
+                {
+                    pCamCalData->Single2A.S2aBitEn = CAM_CAL_NONE_BITEN;
+                    LOG_ERR("ioctl err\n");
+                    ShowCmdErrorLog(pCamCalData->Command);
+                }
+                LOG_INF("Start assign value\n");
+
+               if (FacGain!=0 &&
+                    FacGain!=0xFFFFFFFF &&
+                    FacR!=0 &&
+                    FacG!=0 &&
+                    FacB!=0 )
+                {
+                    pCamCalData->Single2A.S2aAwb.rGoldGainu4R = (u32)((tempMax * 512 + (FacR >> 1)) /FacR);
+                    pCamCalData->Single2A.S2aAwb.rGoldGainu4G = (u32)((tempMax * 512 + (FacG >> 1)) /FacG);
+                    pCamCalData->Single2A.S2aAwb.rGoldGainu4B  = (u32)((tempMax * 512 + (FacB >> 1)) /FacB);
+                }
+                else
+                {
+                    LOG_INF("There are something wrong on EEPROM, plz contact module vendor!! Golden R=%d G=%d B=%d\n", FacR, FacG, FacB);
+                }
+                //Set original data to 3A Layer
+                pCamCalData->Single2A.S2aAwb.rValueR = CalR;
+                pCamCalData->Single2A.S2aAwb.rValueGr = CalGr;
+                pCamCalData->Single2A.S2aAwb.rValueGb = CalGb;
+                pCamCalData->Single2A.S2aAwb.rValueB = CalB;
+                pCamCalData->Single2A.S2aAwb.rGoldenR = FacR;
+                pCamCalData->Single2A.S2aAwb.rGoldenGr = FacGr;
+                pCamCalData->Single2A.S2aAwb.rGoldenGb = FacGb;
+                pCamCalData->Single2A.S2aAwb.rGoldenB = FacB;
+                ////Only AWB Gain Gathering <////
+                #ifdef DEBUG_CALIBRATION_LOAD
+                LOG_INF("======================AWB CAM_CAL==================\n");
+                LOG_INF("[CalGain] = 0x%x\n", CalGain);
+                LOG_INF("[FacGain] = 0x%x\n", FacGain);
+                LOG_INF("[rCalGain.u4R] = %d\n", pCamCalData->Single2A.S2aAwb.rUnitGainu4R);
+                LOG_INF("[rCalGain.u4G] = %d\n", pCamCalData->Single2A.S2aAwb.rUnitGainu4G);
+                LOG_INF("[rCalGain.u4B] = %d\n", pCamCalData->Single2A.S2aAwb.rUnitGainu4B);
+                LOG_INF("[rFacGain.u4R] = %d\n", pCamCalData->Single2A.S2aAwb.rGoldGainu4R);
+                LOG_INF("[rFacGain.u4G] = %d\n", pCamCalData->Single2A.S2aAwb.rGoldGainu4G);
+                LOG_INF("[rFacGain.u4B] = %d\n", pCamCalData->Single2A.S2aAwb.rGoldGainu4B);
+                LOG_INF("======================AWB CAM_CAL==================\n");
+                #endif
+            }
+            if(0x2&AWBAFConfig){
+                ////AF////
+                LOG_INF("AF Infinity offset=%d\n", start_addr + 10);
+                lseek(CamcamFID, start_addr + 10, SEEK_SET);
+                ioctlerr = read(CamcamFID, (u8 *)&AFInf, 2);
+                if(ioctlerr>0)
+                {
+                    err = CAM_CAL_ERR_NO_ERR;
+                    LOG_INF("Read AFInf OK %x\n", ioctlerr);
+                }
+                else
+                {
+                    pCamCalData->Single2A.S2aBitEn = CAM_CAL_NONE_BITEN;
+                    LOG_ERR("ioctl err\n");
+                    ShowCmdErrorLog(pCamCalData->Command);
+                }
+
+                LOG_INF("AF Macro offset=%d\n", start_addr + 12);
+                lseek(CamcamFID, start_addr + 12, SEEK_SET);
+                ioctlerr = read(CamcamFID, (u8 *)&AFMacro, 2);
+                if(ioctlerr>0)
+                {
+                    err = CAM_CAL_ERR_NO_ERR;
+                    LOG_INF("Read AFMacro OK %x\n",ioctlerr);
+                }
+                else
+                {
+                    pCamCalData->Single2A.S2aBitEn = CAM_CAL_NONE_BITEN;
+                    LOG_ERR("ioctl err\n");
+                    ShowCmdErrorLog(pCamCalData->Command);
+                }
+
+                pCamCalData->Single2A.S2aAf[0] = (((AFInf>>8)&0xFF) | ((AFInf&0xFF)<<8));
+                pCamCalData->Single2A.S2aAf[1] = (((AFMacro>>8)&0xFF) | ((AFMacro&0xFF)<<8));
+
+                ////Only AF Gathering <////
+                #ifdef DEBUG_CALIBRATION_LOAD
+                LOG_INF("======================AF CAM_CAL==================\n");
+                LOG_INF("[AFInf] = 0x%x\n", AFInf);
+                LOG_INF("[AFMacro] = 0x%x\n", AFMacro);
+                LOG_INF("[S2aAf 0] = %d\n", pCamCalData->Single2A.S2aAf[0]);
+                LOG_INF("[S2aAf 1] = %d\n", pCamCalData->Single2A.S2aAf[1]);
+                LOG_INF("======================AF CAM_CAL==================\n");
+                #endif
+            }
+        }
+    }
+    return err;
+}
+
 UINT32 DoCamCal2AGain(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize, UINT32 *pGetSensorCalData)
 {
 	PCAM_CAL_DATA_STRUCT pCamCalData = (PCAM_CAL_DATA_STRUCT)pGetSensorCalData;

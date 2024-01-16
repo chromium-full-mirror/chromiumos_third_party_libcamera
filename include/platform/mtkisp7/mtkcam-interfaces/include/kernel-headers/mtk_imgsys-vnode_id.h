@@ -20,8 +20,6 @@
 #ifndef _MTK_IMGSYS_VNODE_ID_H_
 #define _MTK_IMGSYS_VNODE_ID_H_
 
-#define IMGSYS_VER_ISP71
-
 /*
  * TODO: register module pipeline desc in module order
  */

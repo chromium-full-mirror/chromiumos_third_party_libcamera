@@ -45,6 +45,7 @@ UINT32 DoCamCalSingleLscCus(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize
 UINT32 DoCamCalPDAFCus(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize, UINT32 *pGetSensorCalData);
 UINT32 DoCamCal2AGainCus1339(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize, UINT32 *pGetSensorCalData);
 UINT32 DoCamCal2AGainCus8A3(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize, UINT32 *pGetSensorCalData);
+UINT32 DoCamCal2AGainCus(INT32 CamcamFID, UINT32 start_addr, UINT32 BlockSize, UINT32 *pGetSensorCalData);
 
 unsigned int ReadDefault(unsigned int *pGetSensorCalData);
 
@@ -56,6 +57,7 @@ enum {
 	CALIBRATION_LAYOUT_FOUR_CELL,
 	CALIBRATION_LAYOUT_EXT_OP_1339,
 	CALIBRATION_LAYOUT_EXT_OP_8A3,
+	CALIBRATION_LAYOUT_EXT_OP,
 	MAX_CALIBRATION_LAYOUT_NUM
 };
 
@@ -84,6 +86,7 @@ typedef struct {
 /*
 //Const variable
 */
+static UINT16 LayoutType = (MAX_CALIBRATION_LAYOUT_NUM + 1);
 static uint16_t rfLayoutType = CALIBRATION_LAYOUT_EXT_OP_1339;
 static uint16_t ffLayoutType = CALIBRATION_LAYOUT_EXT_OP_8A3;
 
@@ -179,4 +182,24 @@ const CALIBRATION_LAYOUT_STRUCT CalLayoutTbl[MAX_CALIBRATION_LAYOUT_NUM] = {
 	      DoCamCalStereoData }, // CAMERA_CAM_CAL_DATA_STEREO_DATA
 	    { 0x00000000, 0x00000000, 0x00002488, DoCamCal_Dump_All },
 	    { 0x00000000, 0x00000008, 0x00000002, DoCamCalLensId } } },
+	{ //OP format
+	  0x00001017,
+	  0x010b00ff,
+	  CAM_CAL_SINGLE_EEPROM_DATA,
+	  { { 0x00000000, 0x00000000, 0x00000000,
+	      DoCamCalModuleVersion }, //CAMERA_CAM_CAL_DATA_MODULE_VERSION
+	    { 0x00000000, 0x00000005, 0x00000002,
+	      DoCamCalPartNumber }, //CAMERA_CAM_CAL_DATA_PART_NUMBER
+	    { 0x00000001, 0x00000017, 0x0000074C,
+	      DoCamCalSingleLscCus }, //CAMERA_CAM_CAL_DATA_SHADING_TABLE
+	    { 0x00000001, 0x00000007, 0x0000000E,
+	      DoCamCal2AGainCus }, //CAMERA_CAM_CAL_DATA_3A_GAIN
+	    { 0x00000000, 0x000007A1, 0x000005DC,
+	      DoCamCalPDAF },
+	    { 0x00000000, 0x00000FAE, 0x00000550,
+	      DoCamCalStereoData }, //CAMERA_CAM_CAL_DATA_STEREO_DATA
+	    { 0x00000000, 0x00000000, 0x00002488,
+	      DoCamCal_Dump_All },
+	    { 0x00000000, 0x00000008, 0x00000002,
+	      DoCamCalLensId } } },
 };

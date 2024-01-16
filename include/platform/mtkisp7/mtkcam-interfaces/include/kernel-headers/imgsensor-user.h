@@ -329,6 +329,13 @@ struct mtk_sensor_static_param {
 	__u32 cust_pixelrate;
 };
 
+struct mtk_sensor_grabwindow_param {
+	__u32 scenario_id;
+	__u32 startx;
+	__u32 starty;
+	__u32 grabwindow_width;
+	__u32 grabwindow_height;
+};
 //================================================
 struct mtk_mbus_frame_desc_entry_csi2 {
 	__u8 channel;

@@ -41,7 +41,20 @@ void SensorInfo::init(int sensor_dev, int sensor_id, int module_id)
 	m_sensor_id = sensor_id;
 	m_module_id = module_id;
 }
+
+/*
+map senidx to sensnorId
+0 -> GC08A3_SENSOR_ID
+1 -> HI1339_SENSOR_ID
+2 -> GC05A2_SENSOR_ID
+*/
+
+#ifdef MODULE_GERALT
 std::map<int, int> sensorId_idx_map = { { 0, 1 }, { 1, 0 } };
+#else
+std::map<int, int> sensorId_idx_map = { { 0, 0 }, { 1, 2 } };
+#endif
+
 
 std::shared_ptr<SensorInfo> SensorInfo::getInstance(int sensor_idx)
 {

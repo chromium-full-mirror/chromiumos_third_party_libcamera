@@ -1129,4 +1129,13 @@ enum IMGSENSOR_VC_DATA_TYPE {
   IMGSENSOR_VC_YUV422_10b = 0x1f,
 };
 
+//============================================
+#define MAX_PLATFORM_NUM       5
+#define MAX_SENSOR_IN_PLATFORM 4
+struct PLATFORM_IMGSENSOR_CFG {
+  MUINT8 sensor_name[32];
+  MUINT8 sensor_pos_name[20];
+};
+//============================================
+
 #endif
