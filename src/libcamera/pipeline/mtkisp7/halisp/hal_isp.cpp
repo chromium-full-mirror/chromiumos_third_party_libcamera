@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fstream>
+#include <string>
 #include <sys/mman.h>
 
 #include <libcamera/base/log.h>
@@ -17,10 +19,11 @@
 
 #include "debug_exif/aaa/dbg_aaa_param.h"
 #include "libcamera/request.h"
-#include "platform/mtkisp7/mtkcam-core/aaa/include/nvbuf_util.h"
 #include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "platform/mtkisp7/mtkcam-core/aaa/include/nvbuf_util.h"
+#include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
 
 namespace libcamera {
 
@@ -39,20 +42,72 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 	memset(&m_P1CamInfo, 0, sizeof(m_P1CamInfo));
 
 	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
-	if (sensorIdx_ == 0) {
-		_sensorIdxInfo.sensorDev = 1;
-		_sensorIdxInfo.sensorId = 4921;
-		_sensorIdxInfo.facing = 0;
-		_sensorIdxInfo.moduleId = 0;
-		_sensorIdxInfo.sensorName = "HI1339_MIPI_RAW";
+
+	// TODO, config platformIdx from config file dynamically
+	// 0: google platform (geralt), 1: lenovo platform (ciri)
+	std::string model_name_path = "/run/chromeos-config/v1/name";
+	std::fstream model_name_file;
+	model_name_file.open(model_name_path,std::ios::in) ;   
+	std::string model;
+	if (model_name_file.is_open()) {
+		getline(model_name_file, model);
+		model_name_file.close();
 	} else {
-		_sensorIdxInfo.sensorDev = 2;
-		_sensorIdxInfo.sensorId = 2211;
-		_sensorIdxInfo.facing = 1;
-		_sensorIdxInfo.moduleId = 0;
-		_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
+		LOG(MtkISP7, Error) << "Unable to open file " << model_name_path;
 	}
 
+	int platformIdx = 1;
+	if (!model.compare("geralt")) {
+		platformIdx = 0;
+	} else if (!model.compare("ciri")) {
+		platformIdx = 1;
+	} else {
+		LOG(MtkISP7, Error) << "Undefined model name: " << model;
+	}
+	if (platformIdx == 0)
+		LOG(MtkISP7, Info) << "----google platform----";
+	else if (platformIdx == 1)
+		LOG(MtkISP7, Info) << "----lenovo platform----";
+	else
+		LOG(MtkISP7, Info) << "----check platform!!----";
+
+	if (platformIdx == 0) {
+		// TODO(chenghaoyang): Abstract sensors' information to support different sensor modules.
+		if (sensorIdx_ == 0) { // back camera
+			_sensorIdxInfo.sensorDev = 1;
+			_sensorIdxInfo.sensorId = 4921;
+			_sensorIdxInfo.facing = 0;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "HI1339_MIPI_RAW";
+			sensorId_ = HI1339_SENSOR_ID;
+
+		} else { // front camera
+			_sensorIdxInfo.sensorDev = 2;
+			_sensorIdxInfo.sensorId = 2211;
+			_sensorIdxInfo.facing = 1;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
+			sensorId_ = GC08A3_SENSOR_ID;
+		}
+	} else if (platformIdx == 1) {
+		if (sensorIdx_ == 0) { // back camera
+			_sensorIdxInfo.sensorDev = 1;
+			_sensorIdxInfo.sensorId = 2211;
+			_sensorIdxInfo.facing = 0;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
+			sensorId_ = GC08A3_SENSOR_ID;
+		} else { // front camera
+			_sensorIdxInfo.sensorDev = 2;
+			_sensorIdxInfo.sensorId = 1442;
+			_sensorIdxInfo.facing = 1;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "GC05A2_MIPI_RAW";
+			sensorId_ = GC05A2_SENSOR_ID;
+		}
+	} else {
+		LOG(MtkISP7, Error) << "Invalid platformIdx: " << platformIdx;
+	}
 	m_P1CamInfo.i4_sensor_id = _sensorIdxInfo.sensorId;
 	m_P1CamInfo.app_iso_value = 100;
 	m_P1CamInfo.i4ZoomRatio_x100 = 100;
@@ -92,12 +147,25 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 
 	m_P1CamInfo.rMapping_Info.eSensorMode = ESensorMode_Preview;
 
-	if (sensorIdx_ == 1) {
-		m_P1CamInfo.rCropRzInfo.sTGout = mtk::isphal::Size{ 3264, 2448 };
-		activeArray_ = Rectangle{ 0, 0, 3264, 2448 };
-	} else { // sensor_idx_ == 0
+	//TODO, seperate the config for differnt module (geralt, ciri)
+	switch (sensorId_) {
+	case HI1339_SENSOR_ID:
 		m_P1CamInfo.rCropRzInfo.sTGout = mtk::isphal::Size{ 4208, 3120 };
 		activeArray_ = Rectangle{ 0, 0, 4208, 3120 };
+		break;
+	case GC08A3_SENSOR_ID:
+		m_P1CamInfo.rCropRzInfo.sTGout = mtk::isphal::Size{ 3264, 2448 };
+		activeArray_ = Rectangle{ 0, 0, 3264, 2448 };
+		break;
+	case GC05A2_SENSOR_ID:
+		m_P1CamInfo.rCropRzInfo.sTGout = mtk::isphal::Size{ 2592, 1944 };
+		activeArray_ = Rectangle{ 0, 0, 2592, 1944 };
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensorId_;
+		m_P1CamInfo.rCropRzInfo.sTGout = mtk::isphal::Size{ 2592, 1944 };
+		activeArray_ = Rectangle{ 0, 0, 2592, 1944 };
+		break;
 	}
 
 	m_P1CamInfo.rMapping_Info.eFeature = NSIspTuning::EFeature_Preview;
@@ -112,8 +180,8 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 	m_P1CamInfo.hwhdr_info.i4fus_num = 0;
 	m_P1CamInfo.hwhdr_info.hdr_type = mtk::isphal::v1_0::EISP_HWHDRType_None;
 
-        m_P1CamInfo.yuvo_ds_mode_info.yuvo_r2_ds = 2;
-        m_P1CamInfo.yuvo_ds_mode_info.yuvo_r4_ds = 0;
+	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r2_ds = 2;
+	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r4_ds = 0;
 
 	provider_ = mtk::isphal::v1_0::TuningDataProvider::createInstance(
 		sensorIdx_, sensorDev_, 0);
@@ -748,15 +816,15 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		// copy caminfo
 		imgsys_info.rMapping_Info = cam_info.rMapping_Info;
 		imgsys_info.rMapping_Info_with_sys_info =
-		    cam_info.rMapping_Info_with_sys_info;
+			cam_info.rMapping_Info_with_sys_info;
 
 		imgsys_info.rFdInfo_afterWarp = cam_info.rFdInfo;
 
 		// replace with correct stage
 		imgsys_info.rMapping_Info.eStage =
-		    static_cast<NSIspTuning::EStage_T>(imgsys_info.stage);
+			static_cast<NSIspTuning::EStage_T>(imgsys_info.stage);
 		imgsys_info.rMapping_Info.eAction =
-		    static_cast<NSIspTuning::EAction_T>(imgsys_info.action);
+			static_cast<NSIspTuning::EAction_T>(imgsys_info.action);
 
 		if (request != nullptr) {
 			// Not dummy frame

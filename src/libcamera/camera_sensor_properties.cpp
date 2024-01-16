@@ -256,6 +256,13 @@ const CameraSensorProperties *CameraSensorProperties::get(const std::string &sen
 				{ controls::draft::TestPatternModeColorBars, 2 },
 			},
 		} },
+		{ "gc05a2", {
+			.unitCellSize = { 1120, 1120 },
+			.testPatternModes = {
+				{ controls::draft::TestPatternModeOff, 0 },
+				{ controls::draft::TestPatternModeColorBars, 2 },
+			},
+		} },
 	};
 
 	const auto it = sensorProps.find(sensor);

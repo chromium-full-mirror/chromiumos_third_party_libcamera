@@ -8,16 +8,17 @@
 #include <cstdint>
 #include <memory>
 #include <regex>
+#include <fstream>
 #include <string>
 
 #include <libcamera/base/log.h>
 
+#include "platform/mtkisp7/cam_cal_helper.h"
+#include "platform/mtkisp7/halsensor_helper.h"
+#include "platform/mtkisp7/imgsensor_info_helper.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/imgsensor_src/imgsensor_info_custom.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/camera_custom_imgsensor_cfg.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/imgsensor_info.h"
-#include "platform/mtkisp7/halsensor_helper.h"
-#include "platform/mtkisp7/imgsensor_info_helper.h"
-#include "platform/mtkisp7/cam_cal_helper.h"
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -29,6 +30,16 @@ std::map<int, CamSysDevice *> SensorInfo::idx_camsys_map;
 std::vector<std::shared_ptr<NSCam::SensorStaticInfo>>
 	SensorInfo::nscam_sensor_static_info_;
 std::vector<CamSysDevice *> SensorInfo::camSysDevices_;
+
+/*
+map senidx to sensnorId
+0 -> GC08A3_SENSOR_ID
+1 -> HI1339_SENSOR_ID
+2 -> GC05A2_SENSOR_ID
+*/
+
+std::map<int, int> sensorId_idx_map_geralt = { { 0, 1 }, { 1, 0 } };
+std::map<int, int> sensorId_idx_map_ciri = { { 0, 0 }, { 1, 2 } };
 SensorInfo::SensorInfo(int sensor_idx)
 	: m_sensor_index(sensor_idx),
 	  m_sensor_dev(0),
@@ -41,20 +52,6 @@ void SensorInfo::init(int sensor_dev, int sensor_id, int module_id)
 	m_sensor_id = sensor_id;
 	m_module_id = module_id;
 }
-
-/*
-map senidx to sensnorId
-0 -> GC08A3_SENSOR_ID
-1 -> HI1339_SENSOR_ID
-2 -> GC05A2_SENSOR_ID
-*/
-
-#ifdef MODULE_GERALT
-std::map<int, int> sensorId_idx_map = { { 0, 1 }, { 1, 0 } };
-#else
-std::map<int, int> sensorId_idx_map = { { 0, 0 }, { 1, 2 } };
-#endif
-
 
 std::shared_ptr<SensorInfo> SensorInfo::getInstance(int sensor_idx)
 {
@@ -149,23 +146,42 @@ void SensorInfo::get_sensor_perframe_dynamic_info(
 }
 
 int SensorInfo::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
-                             void* a_pCamCalData) {
-  return CamCalHelper::getInstance()->get_cal_data(cal_enum, m_sensor_id,m_sensor_dev,a_pCamCalData);
+			     void *a_pCamCalData)
+{
+	return CamCalHelper::getInstance()->get_cal_data(cal_enum, m_sensor_id, m_sensor_dev, a_pCamCalData);
 }
 
 bool SensorInfo::is_af_support()
 {
-  if (idx_camsys_map.find(m_sensor_index) != idx_camsys_map.end()) {
-    bool hasAF = idx_camsys_map[m_sensor_index]->getCameraLens();
-    return hasAF;
-  }
-  return false;
+	if (idx_camsys_map.find(m_sensor_index) != idx_camsys_map.end()) {
+		bool hasAF = idx_camsys_map[m_sensor_index]->getCameraLens();
+		return hasAF;
+	}
+	return false;
 }
 
 void SensorInfo::construct_sensor_static_info(
 	int index, std::shared_ptr<NSCam::SensorStaticInfo> pSensorStaticInfo)
 {
-	int sensorId_idx = sensorId_idx_map[index];
+	int sensorId_idx;
+	std::string model_name_path = "/run/chromeos-config/v1/name";
+	std::fstream model_name_file;
+	model_name_file.open(model_name_path,std::ios::in) ; 
+	std::string model;
+	if (model_name_file.is_open()) {
+		getline(model_name_file, model);
+		model_name_file.close();
+	} else {
+		LOG(MtkISP7, Error) << "Unable to open file " << model_name_path;
+	}
+
+	if (!model.compare("geralt")) {
+		sensorId_idx = sensorId_idx_map_geralt[index];
+	} else if (!model.compare("ciri")) {
+		sensorId_idx = sensorId_idx_map_ciri[index];
+	} else {
+		sensorId_idx = sensorId_idx_map_ciri[index];
+	}
 	IMGSENSOR_SENSOR_IDX sensorIdx = (IMGSENSOR_SENSOR_IDX)index;
 	struct imgsensor_info_struct *imgsensor_info;
 	if (index >

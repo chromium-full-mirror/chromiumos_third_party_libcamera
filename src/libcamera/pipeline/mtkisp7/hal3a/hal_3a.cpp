@@ -15,6 +15,7 @@
 #include "libcamera/internal/mapped_framebuffer.h"
 
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
+#include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
 
 namespace libcamera {
 
@@ -41,20 +42,72 @@ void Hal3A::init()
 	pHalSensorList->searchSensors();
 
 	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
-	// TODO(chenghaoyang): Abstract sensors' information to support different sensor modules.
-	if (sensor_idx_ == 0) { // back camera
-		_sensorIdxInfo.sensorDev = 1;
-		_sensorIdxInfo.sensorId = 4921;
-		_sensorIdxInfo.facing = 0;
-		_sensorIdxInfo.moduleId = 0;
-		_sensorIdxInfo.sensorName = "HI1339_MIPI_RAW";
-	} else { // front camera
-		_sensorIdxInfo.sensorDev = 2;
-		_sensorIdxInfo.sensorId = 2211;
-		_sensorIdxInfo.facing = 1;
-		_sensorIdxInfo.moduleId = 0;
-		_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
+
+	int platformIdx = 1;
+	std::string model_name_path = "/run/chromeos-config/v1/name";
+	std::fstream model_name_file;
+	model_name_file.open(model_name_path, std::ios::in);
+	std::string model;
+	if (model_name_file.is_open()) {
+		getline(model_name_file, model);
+		model_name_file.close();
+	} else {
+		LOG(MtkISP7, Error) << "Unable to open file " << model_name_path;
 	}
+
+	if (!model.compare("geralt")) {
+		platformIdx = 0;
+	} else if (!model.compare("ciri")) {
+		platformIdx = 1;
+	} else {
+		LOG(MtkISP7, Error) << "Undefined model name: " << model;
+	}
+
+	if (platformIdx == 0)
+		LOG(MtkISP7, Info) << "----google platform----";
+	else if (platformIdx == 1)
+		LOG(MtkISP7, Info) << "----lenovo platform----";
+	else
+		LOG(MtkISP7, Info) << "----check platform!!----";
+
+	if (platformIdx == 0) {
+		// TODO(chenghaoyang): Abstract sensors' information to support different sensor modules.
+		if (sensor_idx_ == 0) { // back camera
+			_sensorIdxInfo.sensorDev = 1;
+			_sensorIdxInfo.sensorId = 4921;
+			_sensorIdxInfo.facing = 0;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "HI1339_MIPI_RAW";
+			sensor_id_ = HI1339_SENSOR_ID;
+
+		} else { // front camera
+			_sensorIdxInfo.sensorDev = 2;
+			_sensorIdxInfo.sensorId = 2211;
+			_sensorIdxInfo.facing = 1;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
+			sensor_id_ = GC08A3_SENSOR_ID;
+		}
+	} else if (platformIdx == 1) {
+		if (sensor_idx_ == 0) { // back camera
+			_sensorIdxInfo.sensorDev = 1;
+			_sensorIdxInfo.sensorId = 2211;
+			_sensorIdxInfo.facing = 0;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
+			sensor_id_ = GC08A3_SENSOR_ID;
+		} else { // front camera
+			_sensorIdxInfo.sensorDev = 2;
+			_sensorIdxInfo.sensorId = 1442;
+			_sensorIdxInfo.facing = 1;
+			_sensorIdxInfo.moduleId = 0;
+			_sensorIdxInfo.sensorName = "GC05A2_MIPI_RAW";
+			sensor_id_ = GC05A2_SENSOR_ID;
+		}
+	} else {
+		LOG(MtkISP7, Error) << "Invalid platformIdx: " << platformIdx;
+	}
+
 	NvBufUtil::initSensorInfo(sensor_idx_, _sensorIdxInfo);
 
 	m_hal3a_ = mtk::hal3a::IHal3A::GetInstance(sensor_idx_);
@@ -131,24 +184,38 @@ void Hal3A::getInitialInfo()
 		return;
 	}
 	config.control_config.sensor_dev = pHalSensorList->querySensorDevIdx(sensor_idx_);
-	if (sensor_idx_ == 0) { // back camera
+	//TODO, seperate the config for differnt module (geralt, ciri)
+	config.orientation.sensor_orientation = (sensor_idx_ == 0) ? 0 : 270;
+	config.orientation.facing = (sensor_idx_ == 0) ? 1 : 0;
+	LOG(MtkISP7, Error) << "sensor_id: " << sensor_id_;
+	switch (sensor_id_) {
+	case HI1339_SENSOR_ID:
 		config.control_config.sensor_tg_width = 4208;
 		config.control_config.sensor_tg_height = 3120;
-
-		config.orientation.sensor_orientation = 0;
-		config.orientation.facing = 1;
 		config.tg_width = 4208;
 		config.tg_height = 3120;
-	} else { // front camera
+		break;
+	case GC08A3_SENSOR_ID:
+
 		config.control_config.sensor_tg_width = 3264;
 		config.control_config.sensor_tg_height = 2448;
-
-		config.orientation.sensor_orientation = 270;
-		config.orientation.facing = 0;
 		config.tg_width = 3264;
 		config.tg_height = 2448;
+		break;
+	case GC05A2_SENSOR_ID:
+		config.control_config.sensor_tg_width = 2592;
+		config.control_config.sensor_tg_height = 1944;
+		config.tg_width = 2592;
+		config.tg_height = 1944;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		config.control_config.sensor_tg_width = 2592;
+		config.control_config.sensor_tg_height = 1944;
+		config.tg_width = 2592;
+		config.tg_height = 1944;
+		break;
 	}
-
 	m_hal3a_->GetHwInitialSetting(config, initialSetting_);
 	m_hal3a_->GetResultForceUpdate(r3AResult_);
 	m_hal3a_->Set2aDataToLastPool();
@@ -205,35 +272,67 @@ void Hal3A::config()
 	}
 
 	config.control_config.sensor_dev = pHalSensorList->querySensorDevIdx(sensor_idx_);
-	if (sensor_idx_ == 0) { // back camera
+	//TODO, seperate the config for differnt module (geralt, ciri)
+
+	switch (sensor_id_) {
+	case HI1339_SENSOR_ID:
 		config.control_config.sensor_tg_width = 4208;
 		config.control_config.sensor_tg_height = 3120;
-	} else { // front camera
+		break;
+	case GC08A3_SENSOR_ID:
 		config.control_config.sensor_tg_width = 3264;
 		config.control_config.sensor_tg_height = 2448;
+		break;
+	case GC05A2_SENSOR_ID:
+		config.control_config.sensor_tg_width = 2592;
+		config.control_config.sensor_tg_height = 1944;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		config.control_config.sensor_tg_width = 2592;
+		config.control_config.sensor_tg_height = 1944;
+		break;
 	}
 
 	config.sensor_idx = sensor_idx_;
-	if (sensor_idx_ == 0) { // back camera
-		config.sub_flash_enable = 0;
-		config.orientation.sensor_orientation = 0;
-		config.orientation.facing = 1;
+
+	config.sub_flash_enable = (sensor_idx_ == 0) ? 0 : 1;
+	config.orientation.facing = (sensor_idx_ == 0) ? 1 : 0;
+	config.orientation.sensor_orientation = (sensor_idx_ == 0) ? 0 : 0;
+	switch (sensor_id_) {
+	case HI1339_SENSOR_ID:
 		config.tg_width = 4208;
 		config.tg_height = 3120;
 		config.fno = 1.790000;
 		config.focal_length = 4.710000;
 		config.feature_mode = 0;
 		config.sensor_mode = 0;
-	} else { // front camera
-		config.sub_flash_enable = 1;
-		config.orientation.sensor_orientation = 270;
-		config.orientation.facing = 0;
+		break;
+	case GC08A3_SENSOR_ID:
 		config.tg_width = 3264;
 		config.tg_height = 2448;
 		config.fno = 1.790000;
 		config.focal_length = 4.710000;
 		config.feature_mode = 0;
 		config.sensor_mode = 0;
+		break;
+	case GC05A2_SENSOR_ID:
+		config.tg_width = 2592;
+		config.tg_height = 1944;
+		config.fno = 1.790000;
+		config.focal_length = 4.710000;
+		config.feature_mode = 0;
+		config.sensor_mode = 0;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		config.tg_width = 2592;
+		config.tg_height = 1944;
+		config.fno = 1.790000;
+		config.focal_length = 4.710000;
+		config.feature_mode = 0;
+		config.sensor_mode = 0;
+		break;
 	}
 
 	m_hal3a_->Config(config);
@@ -263,6 +362,25 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	} else { // front camera
 		camSysInfo.size_after_frz.width = 3264;
 		camSysInfo.size_after_frz.height = 2448;
+	}
+	switch (sensor_id_) {
+	case HI1339_SENSOR_ID:
+		camSysInfo.size_after_frz.width = 4208;
+		camSysInfo.size_after_frz.height = 3120;
+		break;
+	case GC08A3_SENSOR_ID:
+		camSysInfo.size_after_frz.width = 3264;
+		camSysInfo.size_after_frz.height = 2448;
+		break;
+	case GC05A2_SENSOR_ID:
+		camSysInfo.size_after_frz.width = 2592;
+		camSysInfo.size_after_frz.height = 1944;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		camSysInfo.size_after_frz.width = 2592;
+		camSysInfo.size_after_frz.height = 1944;
+		break;
 	}
 	camSysInfo.pixel_mode = 1;
 
@@ -416,6 +534,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		}
 	}
 	r_3a_param.awb_default_pregain1 = 0;
+	//TODO, seperate the config for differnt module (geralt, ciri)
 	if (sensor_idx_ == 0) { // back camera
 		r_3a_param.af_mode = 4;
 	} else { // front camera
@@ -480,19 +599,41 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.target_size_h = camsysYuvSize_.height;
 	// r_3a_param.prv_crop_region = { left = 0, top = 0, right = 3264, bottom = 2448, weight = 0 };
 	// r_3a_param.prv_crop_normalize_region = { left = 0, top = 0, right = 3264, bottom = 2448, weight = 0 };
-	if (sensor_idx_ == 0) { // back camera
+
+	//TODO, seperate the config for differnt module (geralt, ciri)
+
+	switch (sensor_id_) {
+	case HI1339_SENSOR_ID:
 		r_3a_param.prv_crop_region.right = 4208;
 		r_3a_param.prv_crop_region.bottom = 3120;
 
 		r_3a_param.prv_crop_normalize_region.right = 4208;
 		r_3a_param.prv_crop_normalize_region.bottom = 3120;
-	} else { // front camera
+		break;
+	case GC08A3_SENSOR_ID:
 		r_3a_param.prv_crop_region.right = 3264;
 		r_3a_param.prv_crop_region.bottom = 2448;
 
 		r_3a_param.prv_crop_normalize_region.right = 3264;
 		r_3a_param.prv_crop_normalize_region.bottom = 2448;
+		break;
+	case GC05A2_SENSOR_ID:
+		r_3a_param.prv_crop_region.right = 2592;
+		r_3a_param.prv_crop_region.bottom = 1944;
+
+		r_3a_param.prv_crop_normalize_region.right = 2592;
+		r_3a_param.prv_crop_normalize_region.bottom = 1944;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		r_3a_param.prv_crop_region.right = 2592;
+		r_3a_param.prv_crop_region.bottom = 1944;
+
+		r_3a_param.prv_crop_normalize_region.right = 2592;
+		r_3a_param.prv_crop_normalize_region.bottom = 1944;
+		break;
 	}
+
 	r_3a_param.low_fps = 0;
 	r_3a_param.remosaic_enable = 0;
 	// ae tag
@@ -555,19 +696,40 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.fast_switch_param.sensor_mode = 0;
 	// r_3a_param.fast_switch_param.tg_size = { w = 3264, h = 2448 };
 	// r_3a_param.fast_switch_param.full_tg_size = { w = 3264, h = 2448 };
-	if (sensor_idx_ == 0) { // back camera
+
+	//TODO, seperate the config for differnt module (geralt, ciri)
+	switch (sensor_id_) {
+	case HI1339_SENSOR_ID:
 		r_3a_param.fast_switch_param.tg_size.w = 4208;
 		r_3a_param.fast_switch_param.tg_size.h = 3120;
 
 		r_3a_param.fast_switch_param.full_tg_size.w = 4208;
 		r_3a_param.fast_switch_param.full_tg_size.h = 3120;
-	} else { // front camera
+		break;
+	case GC08A3_SENSOR_ID:
 		r_3a_param.fast_switch_param.tg_size.w = 3264;
 		r_3a_param.fast_switch_param.tg_size.h = 2448;
 
 		r_3a_param.fast_switch_param.full_tg_size.w = 3264;
 		r_3a_param.fast_switch_param.full_tg_size.h = 2448;
+		break;
+	case GC05A2_SENSOR_ID:
+		r_3a_param.fast_switch_param.tg_size.w = 2592;
+		r_3a_param.fast_switch_param.tg_size.h = 1944;
+
+		r_3a_param.fast_switch_param.full_tg_size.w = 2592;
+		r_3a_param.fast_switch_param.full_tg_size.h = 1944;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		r_3a_param.fast_switch_param.tg_size.w = 2592;
+		r_3a_param.fast_switch_param.tg_size.h = 1944;
+
+		r_3a_param.fast_switch_param.full_tg_size.w = 2592;
+		r_3a_param.fast_switch_param.full_tg_size.h = 1944;
+		break;
 	}
+
 	r_3a_param.fast_switch_param.ae_target_mode_next = 0;
 	r_3a_param.fast_switch_param.ae_valid_exp_next = 1;
 	r_3a_param.fast_switch_param.ae_sensor_mode_next = 0;
@@ -596,6 +758,8 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.custom_feature_cap = 0;
 	r_3a_param.custom_00 = 0;
 	r_3a_param.sync2a_mode = 0;
+
+	//TODO, seperate the config for differnt module (geralt, ciri)
 	if (sensor_idx_ == 0) { // back camera
 		r_3a_param.master_idx = 0;
 		r_3a_param.awb_master_idx = 0;

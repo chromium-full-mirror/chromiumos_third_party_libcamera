@@ -68,6 +68,7 @@ private:
 
 	int32_t sensorIdx_;
 	int32_t sensorDev_;
+	int32_t sensorId_;
 
 	Rectangle activeArray_;
 

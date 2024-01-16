@@ -56,6 +56,7 @@ private:
 	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain);
 
 	const uint32_t sensor_idx_;
+	int sensor_id_;
 	Size camsysYuvSize_;
 
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;
