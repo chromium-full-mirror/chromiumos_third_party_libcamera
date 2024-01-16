@@ -349,6 +349,7 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 {
 	static const std::vector<Size> resolutions = {
 		{ 320, 240 },
+		{ 640, 360 },
 		{ 640, 480 },
 		{ 1280, 720 },
 		{ 1280, 960 },
