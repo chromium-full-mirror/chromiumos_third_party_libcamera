@@ -543,8 +543,6 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	if (imgSysMedia_->disableLinks())
 		return false;
 
-	imgSysDev_.init(imgSysMedia_, dmaHeap_.get());
-
 	DeviceMatch aieDM("mtk-aie-5.3");
 	aieMedia_ = acquireMediaDevice(enumerator, aieDM);
 	if (!aieMedia_) {
@@ -561,6 +559,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	halIsp_[0].init(0, 1);
 	halIsp_[1].init(1, 2);
 
+	uint32_t sensorCnt = 0;
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i))
 			continue;
@@ -619,9 +618,19 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			camSysDev_[i].cameraId(),
 			NSCam::TuningUtils::eSensorId(i));
 
+		sensorCnt++;
 		LOG(MtkISP7, Info) << "Registered Camera[" << camSysDev_[i].cameraId() << "]";
 	}
+
+	if (sensorCnt < 2)
+		return false;
+
+	// TODO: Only init imgsys when there is sensor detected.
+	// A temporary hack for factory testing. Find a more proper way to
+	// handle this case.
+	imgSysDev_.init(imgSysMedia_, dmaHeap_.get());
 	SensorInfo::add_sensor(camSysDev_, 2);
+
 	return true;
 }
 
