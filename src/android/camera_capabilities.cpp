@@ -42,6 +42,7 @@ namespace {
  */
 const std::vector<Size> camera3Resolutions = {
 	{ 320, 240 },
+	{ 640, 360 },
 	{ 640, 480 },
 	{ 1280, 720 },
 	{ 1280, 960 },
