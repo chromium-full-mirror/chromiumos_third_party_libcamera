@@ -26,7 +26,6 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 std::shared_ptr<SensorInfo> SensorInfo::sensor_info_[MAX_SENSOR_INFO_COUNT] = {
 	nullptr
 };
-std::map<int, CamSysDevice *> SensorInfo::idx_camsys_map;
 std::vector<std::shared_ptr<NSCam::SensorStaticInfo>>
 	SensorInfo::nscam_sensor_static_info_;
 std::vector<CamSysDevice *> SensorInfo::camSysDevices_;
@@ -64,6 +63,7 @@ std::shared_ptr<SensorInfo> SensorInfo::getInstance(int sensor_idx)
 void SensorInfo::add_sensor(CamSysDevice *camSysDevice, int size)
 {
 	if (camSysDevices_.size()) {
+		LOG(MtkISP7, Error) << "camSysDevices_ is not empty";
 		return;
 	}
 	for (int i = 0; i < size; i++) {
@@ -73,27 +73,6 @@ void SensorInfo::add_sensor(CamSysDevice *camSysDevice, int size)
 		nscam_sensor_static_info_.push_back(s);
 	}
 
-	auto getId = [](CamSysDevice *A) {
-		std::string reg_str(R"(.*sensor([\d])@[\d])");
-		std::regex reg(reg_str);
-		// Example:
-		//  /base/soc/i2c@11ec0000/sensor1@1 -> id = 1
-		//  /base/soc/i2c@11ec1000/sensor0@1 -> id = 0
-		std::smatch m;
-		LOG(MtkISP7, Info) << "Camera ID = " << A->cameraId();
-		if (std::regex_match(A->cameraId(), m, reg)) {
-			LOG(MtkISP7, Info) << "Match regex: " << reg_str << "id = " << m[1].str();
-			return std::stoi(m[1].str());
-		}
-		return 0;
-	};
-	std::sort(camSysDevices_.begin(), camSysDevices_.end(),
-		  [getId](CamSysDevice *A, CamSysDevice *B) {
-			  return getId(A) < getId(B);
-		  });
-	for (int i = 0; i < (int)camSysDevices_.size(); ++i) {
-		idx_camsys_map[getId(camSysDevices_[i])] = camSysDevices_[i];
-	}
 	for (int i = 0; i < (int)nscam_sensor_static_info_.size(); ++i) {
 		std::shared_ptr<NSCam::SensorStaticInfo> s = nscam_sensor_static_info_[i];
 		construct_sensor_static_info(i, s);
@@ -153,11 +132,13 @@ int SensorInfo::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
 
 bool SensorInfo::is_af_support()
 {
-	if (idx_camsys_map.find(m_sensor_index) != idx_camsys_map.end()) {
-		bool hasAF = idx_camsys_map[m_sensor_index]->getCameraLens();
+	if (m_sensor_index > camSysDevices_.size()) {
+		LOG(MtkISP7, Error) << "Invalid m_sensor_idx => " << m_sensor_index;
+		return false;
+	} else {
+		bool hasAF = camSysDevices_[m_sensor_index]->getCameraLens();
 		return hasAF;
 	}
-	return false;
 }
 
 void SensorInfo::construct_sensor_static_info(

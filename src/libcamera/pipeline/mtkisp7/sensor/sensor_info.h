@@ -40,7 +40,6 @@ private:
 	uint32_t m_sensor_id;
 	uint32_t m_module_id;
 	static std::shared_ptr<SensorInfo> sensor_info_[MAX_SENSOR_INFO_COUNT];
-	static std::map<int, CamSysDevice *> idx_camsys_map;
 	static std::vector<std::shared_ptr<NSCam::SensorStaticInfo>>
 		nscam_sensor_static_info_;
 	static std::vector<CamSysDevice *> camSysDevices_;
