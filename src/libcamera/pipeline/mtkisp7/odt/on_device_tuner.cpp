@@ -738,8 +738,14 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
 					frames.out.dipImgi[level]->get() });
 		namedFrames.push_back({ Dump::kDip1VipiDumpIds[i],
 					frames.out.dipVipi[level]->get() });
-		namedFrames.push_back({ Dump::kDip1TnrsiDumpIds[i],
-					frames.out.dipTnrso->get() });
+		// P2_IDI_TNRSI uses previous frame's tnrso
+		if (level == 6)
+			namedFrames.push_back({ Dump::kDip1TnrsiDumpIds[i],
+						frames.in.preDipTnrso->get() });
+		else
+			namedFrames.push_back({ Dump::kDip1TnrsiDumpIds[i],
+						frames.out.dipTnrso->get() });
+
 		namedFrames.push_back({ Dump::kDip1TnrsoDumpIds[i],
 					frames.out.dipTnrso->get() });
 		if (Dump::kDip1Img3oDumpIds[i] == Dump::Id::P2_IDI_IMG3O)
