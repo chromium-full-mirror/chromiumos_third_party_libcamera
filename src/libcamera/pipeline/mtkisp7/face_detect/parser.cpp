@@ -231,6 +231,12 @@ int AieParseTask::parseAll()
 		parser_->parserBufferStatus_[AIE_ATTR_TYPE_POSE],
 		parser_->rawFaceToneResult_, -1);
 	MtkCameraFaceMetadata detectionResult;
+	detectionResult.tcy_index = gammaControl[0];
+	for (int i = 0; i < 32; i++) {
+		detectionResult.tcy_y_curve[i] = gammaControl[i + 1];
+	}
+	detectionResult.tcy_uv_gain = gammaControl[33];
+
 	detectionResult.number_of_faces = 0;
 	auto inputSize = mailBoxInputImage_->get().size();
 	parser_->algoInterface->FDVTGetICSResult(
