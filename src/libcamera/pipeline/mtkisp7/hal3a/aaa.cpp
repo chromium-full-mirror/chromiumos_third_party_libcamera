@@ -141,6 +141,8 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	if (request)
 		sequence = std::to_string(request->sequence());
 
+	// Update the dummyTuning and the related camSysMetaRequestId
+	dummyMetaRequestId_ = camSysMetaRequestId;
 	dummyTuning_ = captureFrames.tuning;
 
 	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
@@ -162,10 +164,12 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	return std::make_tuple(aaTask, afTask);
 }
 
-SharedMailBox<InfoFrame> Hal3AManager::getDummyTuning()
+std::pair<uint32_t, SharedMailBox<InfoFrame>> Hal3AManager::getDummyTuning()
 {
 	if (dummyTuning_)
-		return dummyTuning_;
+		return std::make_pair(dummyMetaRequestId_, dummyTuning_);
+
+	dummyMetaRequestId_ = 0;
 
 	dummyTuning_ = makeMailBox<InfoFrame>();
 	fetchTuningBuffer(dummyTuning_);
@@ -180,7 +184,8 @@ SharedMailBox<InfoFrame> Hal3AManager::getDummyTuning()
 	memcpy(mappedBuffer.planes()[0].data(),
 	       &hal3A_->r3AResult_.raw_meta, Hal3A::kRawMetaSize);
 
-	return dummyTuning_;
+	return std::make_pair(dummyMetaRequestId_, dummyTuning_);
+
 }
 
 void AATask::run()

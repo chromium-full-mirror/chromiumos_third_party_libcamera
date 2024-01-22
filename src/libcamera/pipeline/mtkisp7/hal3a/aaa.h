@@ -65,7 +65,7 @@ public:
 		tuningPool_.fetch(mailBox);
 	}
 
-	SharedMailBox<InfoFrame> getDummyTuning();
+	std::pair<uint32_t, SharedMailBox<InfoFrame>> getDummyTuning();
 
 private:
 	bool hasAF() const;
@@ -83,6 +83,7 @@ private:
 	Thread thread3A_;
 	Thread threadAF_;
 
+	uint32_t dummyMetaRequestId_;
 	SharedMailBox<InfoFrame> dummyTuning_;
 };
 

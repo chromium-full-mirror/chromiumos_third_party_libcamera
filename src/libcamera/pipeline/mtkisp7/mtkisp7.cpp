@@ -668,8 +668,6 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	captureManager.makeCaptureFrames(captureFrames);
 
-	uint32_t camSysMetaRequestId = 0;
-
 	std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
 
 	if (capture3ATasks.size() >= CaptureTasksManager::kExposureAndGainDelay) {
@@ -682,6 +680,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 		captureFrames.exposureAndGain->put(std::make_pair(0, 0), []([[maybe_unused]] std::pair<uint32_t, uint32_t> &ex_and_gain) {});
 	}
 
+	uint32_t camSysMetaRequestId = 0;
 	if (capture3ATasks.size() >= CaptureTasksManager::kRawMetaDelay) {
 		camSysMetaRequestId = internalRequestId - CaptureTasksManager::kRawMetaDelay;
 		auto iter = capture3ATasks.rbegin();
@@ -694,7 +693,9 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 		prevAATask->setPerFrameControl(perFrameControl);
 	} else {
-		captureFrames.tuning = hal3AManager_.getDummyTuning();
+		auto [dummyId, dummyTuning] = hal3AManager_.getDummyTuning();
+		camSysMetaRequestId = dummyId;
+		captureFrames.tuning = dummyTuning;
 	}
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
