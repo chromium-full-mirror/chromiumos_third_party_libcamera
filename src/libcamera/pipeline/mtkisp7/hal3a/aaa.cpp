@@ -156,8 +156,7 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	if (hasAF()) {
 		afTask = new AFTask(scheduler, "AF " + sequence, captureFrames,
 				    hal3A_, internalRequestId,
-				    camSysMetaRequestId, &focusController_,
-				    faceDetector);
+				    &focusController_, faceDetector);
 		afTask->moveToThread(&threadAF_);
 	}
 
@@ -250,7 +249,7 @@ void AFTask::run()
 	hal3A_->doCalculationAF(captureFrames_.statistics1->get().buffer(),
 				captureFrames_.timestamp->get(),
 				internalRequestId_,
-				camSysMetaRequestId_,
+				internalRequestId_ - kLensDelay,
 				focusController_->getFocusInfo(),
 				faces, &position);
 
