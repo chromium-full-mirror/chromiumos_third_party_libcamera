@@ -44,7 +44,7 @@ namespace libcamera {
 LOG_DEFINE_CATEGORY(MtkISP7)
 
 static const ControlInfoMap::Map MtkISP7Controls = {
-	{ &controls::draft::PipelineDepth, ControlInfo(8, 8, 8) },
+	{ &controls::draft::PipelineDepth, ControlInfo(10, 10, 10) },
 };
 
 static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
