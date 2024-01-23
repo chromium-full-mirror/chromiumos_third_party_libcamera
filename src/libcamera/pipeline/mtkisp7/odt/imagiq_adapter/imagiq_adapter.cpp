@@ -139,6 +139,7 @@ ImagiqAdapter::ExportResult ImagiqAdapter::exportArrayDump(
 ImagiqAdapter::ExportResult ImagiqAdapter::exportFrameDump(
 	const Dump &dump, const NSCam::TuningUtils::NddData &ndd)
 {
+	DmaSyncer syncer(dump.frame->buffer()->planes()[0].fd.get());
 	const MappedFrameBuffer mappedBuffer(
 		dump.frame->buffer(), MappedFrameBuffer::MapFlag::Read);
 
@@ -370,6 +371,9 @@ int ImagiqAdapter::importDump(const Dump &dump)
 		// illegal state, somehow
 		return -EINVAL;
 	}
+
+	DmaSyncer syncer(dump.frame->buffer()->planes()[0].fd.get());
+
 	MappedFrameBuffer mappedBuffer(
 		dump.frame->buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
 	PixelFormatInfo formatInfo = PixelFormatInfo::info(dump.frame->format());
