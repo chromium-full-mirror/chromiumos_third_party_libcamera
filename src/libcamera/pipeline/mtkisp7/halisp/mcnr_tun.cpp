@@ -321,6 +321,9 @@ void McnrMeATask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		DmaSyncer syncerMeAFst(prevPrevMeAFst->get().buffer()->planes()[0].fd.get());
+		DmaSyncer syncerMeBFst(prevPrevMeBFst->get().buffer()->planes()[0].fd.get());
+
 		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 	}
 
@@ -388,6 +391,8 @@ void McnrMeBTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		DmaSyncer syncerMil(meMil->get().buffer()->planes()[0].fd.get());
+		DmaSyncer syncerMeAFst(meAFst->get().buffer()->planes()[0].fd.get());
+		DmaSyncer syncerMeAFmb0(meAFmb0->get().buffer()->planes()[0].fd.get());
 
 		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 		manager_->onDeviceTuner_->tuneMeMM(request_, meBTun);
@@ -413,6 +418,8 @@ void McnrMeBTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+		DmaSyncer syncerMeAFst(meAFst->get().buffer()->planes()[0].fd.get());
+
 		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 	}
 
@@ -588,6 +595,9 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 	}
+
+	// Sync here since all the following DIP stages will access it
+	DmaSyncer syncerStt(trawStt->get().buffer()->planes()[0].fd.get());
 
 	for (size_t i = 0; i < dipTun.size(); i++) {
 		manager_->dipTun_.fetch(dipTun[i]);

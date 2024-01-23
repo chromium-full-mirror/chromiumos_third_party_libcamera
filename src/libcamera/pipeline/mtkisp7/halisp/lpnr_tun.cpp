@@ -325,6 +325,8 @@ void LpnrTunDipTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+			DmaSyncer syncerStt(xtrStt_->get().buffer()->planes()[0].fd.get());
+
 			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 		}
 	} else {
@@ -345,6 +347,7 @@ void LpnrTunDipTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+			DmaSyncer syncerStt(xtrStt_->get().buffer()->planes()[0].fd.get());
 			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
 		}
 	}
