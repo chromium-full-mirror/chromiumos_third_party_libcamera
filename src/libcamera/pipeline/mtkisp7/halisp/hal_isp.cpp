@@ -565,8 +565,9 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 	case EStage_P2_MS_F0_PQ_DIP:
 	case EStage_WPE_P2_PQDIP_MS_F0:
 	case EStage_P2_IDI:
-		imgsys_info.rCropRzInfo.rBefore_Warp_Size = mtk::isphal::Size {
-			inputSize.width, inputSize.height };
+		imgsys_info.rCropRzInfo.rBefore_Warp_Size = mtk::isphal::Size{
+			fullDipSize.width, fullDipSize.height
+		};
 		break;
 	case EStage_P2_MS_F_SMALL:
 	case EStage_P2_MS_F4:
