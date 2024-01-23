@@ -56,7 +56,7 @@ public:
 		SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
 		FaceDetector *faceDetector,
 		const FdDrv_input_struct &defaultFaceToneConfig,
-		const Size &currentSensorSize);
+		const Size &currentSensorSize, int internalRequestId);
 
 	void run() override;
 
@@ -86,6 +86,8 @@ private:
 	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig_;
 	FaceDetector *faceDetector_;
 	const Size currentSensorSize_;
+	int internalRequestId_;
+
 	std::unique_ptr<MappedFrameBuffer> currentMappedImageBuffer_;
 	fd_cal_struct *algoCalibration_;
 	const FdDrv_input_struct defaultFaceToneDriverConfig_;

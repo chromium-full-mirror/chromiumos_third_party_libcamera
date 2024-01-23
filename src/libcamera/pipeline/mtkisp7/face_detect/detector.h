@@ -40,7 +40,7 @@ public:
 
 	FaceDetectionTasks makeFaceDetectionTask(
 		Scheduler *scheduler, Request *request,
-		SharedMailBox<InfoFrame> detectorInput);
+		SharedMailBox<InfoFrame> detectorInput, int internalRequestId);
 	int start();
 	int stop();
 

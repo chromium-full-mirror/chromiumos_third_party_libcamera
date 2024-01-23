@@ -93,7 +93,7 @@ void FaceDetector::getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest)
 FaceDetector::FaceDetectionTasks
 FaceDetector::makeFaceDetectionTask(
 	Scheduler *scheduler, Request *request,
-	SharedMailBox<InfoFrame> detectorInput)
+	SharedMailBox<InfoFrame> detectorInput, int internalRequestId)
 {
 	auto requestNum = std::to_string(request->sequence());
 	const std::string fdTaskId = "AieFaceDetectionTask#" + requestNum;
@@ -125,7 +125,7 @@ FaceDetector::makeFaceDetectionTask(
 				 faceToneConfig_,
 				 this,
 				 aieDev_->createFaceToneClassificationDriverConfig(),
-				 currentSensorSize_);
+				 currentSensorSize_, internalRequestId);
 	return std::make_tuple(fdTask, faceToneTask, parseTask);
 }
 
