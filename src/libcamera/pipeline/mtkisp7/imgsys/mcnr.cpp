@@ -39,7 +39,6 @@ constexpr Size kFmbSize{ 36, 27 };
 constexpr Size kFstSize{ 1, 112 };
 constexpr Size kTnrsoSize{ 40, 1 };
 
-constexpr Size kTunSize{ 219348, 1 };
 constexpr Size kTrawSttSize{ 738624, 1 };
 
 constexpr Size kFwMeFstSize{ 400, 1 };
@@ -99,12 +98,6 @@ McnrTasksManager::McnrTasksManager(
 
 	allBufferPools_.emplace_back(&trawStt_);
 
-	allBufferPools_.emplace_back(&dipTun_);
-	allBufferPools_.emplace_back(&pqdipTun_);
-	allBufferPools_.emplace_back(&meTun_);
-	allBufferPools_.emplace_back(&trawTun_);
-	allBufferPools_.emplace_back(&wpeTun_);
-
 	allBufferPools_.emplace_back(&idi_);
 	allBufferPools_.emplace_back(&tnrSo_);
 
@@ -123,11 +116,6 @@ McnrTasksManager::McnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&fwmmRst_);
 	poolsWritenByCpu_.emplace_back(&fwmmMil_);
 	poolsWritenByCpu_.emplace_back(&fwmmGyro_);
-	poolsWritenByCpu_.emplace_back(&meTun_);
-	poolsWritenByCpu_.emplace_back(&wpeTun_);
-	poolsWritenByCpu_.emplace_back(&dipTun_);
-	poolsWritenByCpu_.emplace_back(&trawTun_);
-	poolsWritenByCpu_.emplace_back(&pqdipTun_);
 
 	// Read/Written by the FWMVP
 	poolsWritenByCpu_.emplace_back(&meMmap0_);
@@ -200,11 +188,6 @@ int McnrTasksManager::configureBuffers()
 	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMmRstSize, 8);
 	fwmmMil_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8, DmaHeap::System, 64);
 	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
-	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21);
-	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 3);
-	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
-	trawTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 30);
-	wpeTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6);
 
 	meFst_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFstSize, 8);
 	meFmb0_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);

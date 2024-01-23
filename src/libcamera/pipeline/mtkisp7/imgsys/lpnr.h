@@ -84,7 +84,6 @@ private:
 	std::vector<Size> lpnrSizes;
 
 	InfoFramePool lpnrStt_;
-	InfoFramePool lpnrTun_;
 	std::array<InfoFramePool, 4> lpnr_;
 
 	/* Weak ptr for above pools for easier control */

@@ -23,7 +23,6 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 
 namespace {
 
-static constexpr Size kTunSize{ 219348, 1 };
 static constexpr Size kTrawSttSize{ 738624, 1 };
 
 } //namespace
@@ -48,7 +47,6 @@ int LpnrTasksManager::configure(const Size &bayerInputSize,
 	}
 
 	/* Allocate buffer pools */
-	lpnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 12);
 	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4);
 
 	/* Level 0 uses NV12_10P_MTISP */
@@ -96,13 +94,11 @@ LpnrTasksManager::LpnrTasksManager(
 	dmaHeap_ = dmaHeap;
 	onDeviceTuner_ = odt;
 
-	allBufferPools_.emplace_back(&lpnrTun_);
 	allBufferPools_.emplace_back(&lpnrStt_);
 
 	for (unsigned int i = 0; i < lpnr_.size(); i++)
 		allBufferPools_.emplace_back(&lpnr_[i]);
 
-	poolsWritenByCpu_.emplace_back(&lpnrTun_);
 	poolsWritenByCpu_.emplace_back(&lpnrStt_);
 }
 

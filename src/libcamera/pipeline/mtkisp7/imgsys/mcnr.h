@@ -246,11 +246,6 @@ private:
 	InfoFramePool meConf4_;
 	InfoFramePool meConf5_;
 	InfoFramePool trawStt_;
-	InfoFramePool meTun_;
-	InfoFramePool wpeTun_;
-	InfoFramePool dipTun_;
-	InfoFramePool trawTun_;
-	InfoFramePool pqdipTun_;
 	InfoFramePool idi_;
 	InfoFramePool tnrSo_;
 	InfoFramePool img4oF0_;
