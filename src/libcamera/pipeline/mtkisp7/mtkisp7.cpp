@@ -6,6 +6,7 @@
  */
 
 #include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -74,6 +75,20 @@ enum MtkISP7TaskGroup {
 	AieFaceDetectionGroup,
 	AieFaceToneClassificationGroup,
 	AieParseGroup,
+	BfbldTaskGroup,
+	McdsF1Group,
+	BfmeGroup,
+	DsGroup,
+	DsVbiGroup,
+	MsbldGroup,
+	AfbldGroup,
+	BfbldTunTaskGroup,
+	McdsF1TunGroup,
+	BfmeTunGroup,
+	DsTunGroup,
+	DsVbiTunGroup,
+	MsbldTunGroup,
+	AfbldTunGroup,
 	CompleteGroup,
 };
 
@@ -97,7 +112,20 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ LpnrTunDipTaskGroup, "LpnrTunDipTaskGroup" },
 	{ AieFaceDetectionGroup, "AieFaceDetectionGroup" },
 	{ AieFaceToneClassificationGroup, "AieFaceToneClassificationGroup" },
-	{ AieParseGroup, "AieParseGroup" },
+	{ BfbldTaskGroup, "BfbldTaskGroup" },
+	{ McdsF1Group, "McdsF1Group" },
+	{ BfmeGroup, "BfmeGroup" },
+	{ DsGroup, "DsGroup" },
+	{ DsVbiGroup, "DsVbiGroup" },
+	{ MsbldGroup, "MsbldGroup" },
+	{ AfbldGroup, "AfbldGroup" },
+	{ BfbldTunTaskGroup, "BfbldTunTaskGroup" },
+	{ McdsF1TunGroup, "McdsF1TunGroup" },
+	{ BfmeTunGroup, "BfmeTunGroup" },
+	{ DsTunGroup, "DsTunGroup" },
+	{ DsVbiTunGroup, "DsVbiTunGroup" },
+	{ MsbldTunGroup, "MsbldTunGroup" },
+	{ AfbldTunGroup, "AfbldTunGroup" },
 	{ CompleteGroup, "CompleteGroup" },
 };
 
@@ -904,7 +932,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still1, still2);
-	mfnrManager.configure(camsysYuvSize, video1, video2);
+	mfnrManager.configure(sensorFullSize_, still1, still2);
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
 
