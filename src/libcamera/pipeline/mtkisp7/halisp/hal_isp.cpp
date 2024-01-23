@@ -354,6 +354,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_param_p1.aaa_magic_num = aaaFrmId;
 	tuning_param_p1.subsample_count = 1;
 
+	tuning_param_p1.cam_info->rNdd_info = {};
 	bool shouldDump = false;
 	if (request != nullptr) {
 		// Not dummy frame
@@ -827,6 +828,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		imgsys_info.rMapping_Info.eAction =
 			static_cast<NSIspTuning::EAction_T>(imgsys_info.action);
 
+		tuning_param_p2.cam_info.rNdd_info = {};
 		if (request != nullptr) {
 			// Not dummy frame
 			onDeviceTuner_->tuneImgsysHalIsp(
@@ -834,6 +836,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 				aaaIspExchange->aaaResult,
 				imgsys_info.rMapping_Info.eStage);
 		}
+
 		imgsys_info.rNdd_info = cam_info.rNdd_info;
 		imgsys_info.sr_para = cam_info.sr_para;
 
