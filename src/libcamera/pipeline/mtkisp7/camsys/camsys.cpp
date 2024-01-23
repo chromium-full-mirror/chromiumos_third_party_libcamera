@@ -143,14 +143,7 @@ int CamSysDevice::init(MediaDevice *media, unsigned int index)
 
 int CamSysDevice::start()
 {
-	/* Initial settings before start */
-	int ret = setExposureGain(1540, 1024);
-	if (ret) {
-		LOG(MtkISP7, Warning) << "Fail to set initila exposure";
-		return ret;
-	}
-
-	ret = setTestPattern(controls::draft::TestPatternModeOff);
+	int ret = setTestPattern(controls::draft::TestPatternModeOff);
 	if (ret)
 		LOG(MtkISP7, Warning) << "Fail to reset test pattern";
 
