@@ -151,7 +151,7 @@ void SofTask::trigger()
 			auto [exposure, gain] = data_->frames.exposureAndGain->get();
 			if (exposure != 0) // Assuming it couldn't be zero.
 				camSys_->setExposureGain(exposure, gain);
-			LOG(MtkISP7, Info) << "exposure: " << exposure << ", gain: " << gain;
+			LOG(MtkISP7, Debug) << "exposure: " << exposure << ", gain: " << gain;
 		}
 	} else {
 		LOG(MtkISP7, Error) << "SharedMailBox exposureAndGain not "

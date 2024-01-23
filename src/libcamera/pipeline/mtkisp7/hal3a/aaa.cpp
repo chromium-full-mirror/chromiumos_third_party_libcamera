@@ -50,10 +50,10 @@ VcmFocusInformation FocusController::getFocusInfo()
 	info.previous_focus_position = previousFocusPosition_;
 	info.moving_timestamp = movingTimestamp_;
 	info.previous_moving_timestamp = previousMovingTimestamp_;
-	LOG(MtkISP7, Info) << "getFocusInfo. focus position: " << focusPosition_
-			   << ", previous focus position: " << previousFocusPosition_
-			   << ", moving timestamp: " << movingTimestamp_
-			   << ", previous moving timestamp: " << previousMovingTimestamp_;
+	LOG(MtkISP7, Debug) << "getFocusInfo. focus position: " << focusPosition_
+			    << ", previous focus position: " << previousFocusPosition_
+			    << ", moving timestamp: " << movingTimestamp_
+			    << ", previous moving timestamp: " << previousMovingTimestamp_;
 
 	return info;
 }
