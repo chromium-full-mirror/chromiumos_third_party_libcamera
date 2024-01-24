@@ -14,6 +14,7 @@
 #include <set>
 #include <string>
 
+#include <libcamera/controls.h>
 #include <libcamera/request.h>
 
 #include "libcamera/internal/info_frame.h"
@@ -37,6 +38,7 @@ struct Dip1Frames;
 struct Dip2Frames;
 struct XtrFrames;
 struct LpnrDipFrames;
+struct AaaIspExchange;
 
 class OnDeviceTuner
 {
@@ -95,6 +97,11 @@ public:
 			 FrameBuffer *still1Output,
 			 FrameBuffer *still2Output);
 	bool isLowIsoLpnrEnforced();
+
+	// Metadata for upper layer: HAL Adapter / Application
+	void writeStillCaptureDebugMetadata(Request *request,
+					    ControlList &out,
+					    AaaIspExchange &aaaIspExchange);
 
 private:
 	struct NamedFrame {

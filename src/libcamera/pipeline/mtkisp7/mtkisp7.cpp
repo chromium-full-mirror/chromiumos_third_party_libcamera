@@ -5,6 +5,7 @@
  * mtkisp7.cpp - Pipeline handler for Mediatek MtkISP7
  */
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -104,7 +105,8 @@ public:
 	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
 			    Request *request, PipelineHandler *pipe,
 			    OnDeviceTuner *odt,
-			    FaceDetector *faceDetector);
+			    FaceDetector *faceDetector,
+			    SharedMailBox<AaaIspExchange> aaaIspExchange);
 
 	virtual void run() override final;
 
@@ -115,6 +117,7 @@ private:
 	Request *request_;
 	FaceDetector *faceDetector_;
 	OnDeviceTuner *onDeviceTuner_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 };
 
 CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
@@ -122,9 +125,11 @@ CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
 					 Request *request,
 					 PipelineHandler *pipe,
 					 OnDeviceTuner *odt,
-					 FaceDetector *faceDetector)
+					 FaceDetector *faceDetector,
+					 SharedMailBox<AaaIspExchange> aaaIspExchange)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
-	  faceDetector_(faceDetector), onDeviceTuner_(odt)
+	  faceDetector_(faceDetector), onDeviceTuner_(odt),
+	  aaaIspExchange_(aaaIspExchange)
 {
 }
 
@@ -326,6 +331,13 @@ void CompleteRequestTask::run()
 
 	// todo(yerlandinata, before CTS): check if face metadata is requested
 	convertFaceMetadata(metadata);
+
+	if (aaaIspExchange_->valid()) {
+		AaaIspExchange aaaIspExchange = aaaIspExchange_->get();
+		onDeviceTuner_->writeStillCaptureDebugMetadata(request_,
+							       metadata,
+							       aaaIspExchange);
+	}
 
 	pipe_->completeMetadata(request_, metadata);
 
@@ -931,10 +943,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		scheduler->queueTask(parseTask, AieParseGroup);
 	}
 
-	CompleteRequestTask *completeTask = new CompleteRequestTask(
-		scheduler, "Complete " + sequence, request, pipeline,
-		onDeviceTuner_, faceDetector_);
-
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
 	bool hasVideo = video1Buffer || video2Buffer;
@@ -950,6 +958,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	AATask *calculatingAATask = static_cast<AATask *>(*iter);
 	SharedMailBox<AaaIspExchange> aaaIspExchange = calculatingAATask->captureFrames_.aaaIspExchange;
+
+	CompleteRequestTask *completeTask = new CompleteRequestTask(
+		scheduler, "Complete " + sequence, request, pipeline,
+		onDeviceTuner_, faceDetector_, aaaIspExchange);
 
 	if (hasVideo) {
 		MCNRFrames mcnr;

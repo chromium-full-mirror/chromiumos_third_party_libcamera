@@ -12,9 +12,12 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <vector>
 
 #include <libcamera/base/log.h>
 
+#include <libcamera/control_ids.h>
+#include <libcamera/request.h>
 #include <libcamera/stream.h>
 
 #include "debug_exif/aaa/dbg_aaa_param.h"
@@ -883,6 +886,42 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
 	}
 
 	tune(request->sequence(), namedFrames, true);
+}
+
+void OnDeviceTuner::writeStillCaptureDebugMetadata(Request *request,
+						   ControlList &out,
+						   AaaIspExchange &aaaIspExchange)
+{
+	if (!enabled_ ||
+	    stillCaptureRequestIds_.count(request->sequence()) != 1) {
+		return;
+	}
+
+	const unsigned int idx3ADebug = 6;
+	const unsigned int idxIspDebug = 7;
+
+	std::vector<uint16_t> jpegAppSegmentLength(16, 0);
+	jpegAppSegmentLength[idx3ADebug] = sizeof(AAA_DEBUG_INFO1_T);
+	jpegAppSegmentLength[idxIspDebug] = sizeof(AAA_DEBUG_INFO2_T);
+	out.set(controls::JpegApplicationSegmentLength,
+		Span<const uint16_t, 16>(jpegAppSegmentLength));
+
+	size_t totalSize = sizeof(AAA_DEBUG_INFO1_T) +
+			   sizeof(AAA_DEBUG_INFO2_T);
+	std::vector<uint8_t> jpegAppSegmentContent(totalSize);
+
+	uint8_t *app6Src = reinterpret_cast<uint8_t *>(
+		&aaaIspExchange.aaaResult.debug_3a_info);
+	std::memcpy(jpegAppSegmentContent.data(), app6Src,
+		    jpegAppSegmentLength[idx3ADebug]);
+
+	uint8_t *app7Src = reinterpret_cast<uint8_t *>(
+		&aaaIspExchange.aaaResult.debug_isp_info);
+	uint8_t *app7Dest = jpegAppSegmentContent.data() +
+			    jpegAppSegmentLength[idx3ADebug];
+	std::memcpy(app7Dest, app7Src, jpegAppSegmentLength[idxIspDebug]);
+
+	out.set(controls::JpegApplicationSegmentContent, jpegAppSegmentContent);
 }
 
 } // namespace libcamera
