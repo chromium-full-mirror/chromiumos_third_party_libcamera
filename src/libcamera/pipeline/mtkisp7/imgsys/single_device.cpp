@@ -195,14 +195,14 @@ void StageEx::setWpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id, Size crop, N
 	};
 }
 
-void StageEx::setMvFrame(Size f0, Size me)
+void StageEx::setMvFrame(Size f0, Size me, uint32_t scaleRatio)
 {
 	extra_.emplace_back();
 	auto &param = extra_.back();
 
 	param.mID = IMG_EXTRA_PARAM_ID_MVFRAME_INFO;
 	param.mData.mMVFrameInfo = MVFrameInfo{
-		.mF0Width = f0.width, .mF0Height = f0.height, .mME0Width = me.width, .mME0Height = me.height, .mConfScaleRatio = 4
+		.mF0Width = f0.width, .mF0Height = f0.height, .mME0Width = me.width, .mME0Height = me.height, .mConfScaleRatio = scaleRatio
 	};
 }
 

@@ -90,7 +90,7 @@ public:
 			Size crop, NSCam::NSImgStream::WPE_MODE mode,
 			unsigned int featureIndex);
 
-	void setMvFrame(Size f0, Size me);
+	void setMvFrame(Size f0, Size me, uint32_t scaleRatio = 4);
 	void setMeInfo(NSCam::NSImgStream::ME_MODE mode);
 	void setAplInfo();
 	void setMultiScale(NSCam::NSImgStream::IMG_MULTI_SCALE_RATIO ratio,

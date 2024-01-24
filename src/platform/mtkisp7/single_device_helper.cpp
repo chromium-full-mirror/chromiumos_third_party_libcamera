@@ -584,6 +584,49 @@ inline const char *stageName(PEU_Stage stage)
 	case P2_MS_F0_PQ_DIP:
 		return "P2_MS_F0_PQ_DIP";
 
+	/* MFNR stages*/
+	case BFBLD_BASE:
+		return "BFBLD_BASE";
+	case BFBLD_REF:
+		return "BFBLD_REF";
+	case BFME:
+		return "BFME";
+	case MCDS_F1:
+		return "MCDS_F1";
+	case DS:
+		return "DS";
+	case DS_VBI_V2:
+		return "DS_VBI_V2";
+	case DS_VBI_V5:
+		return "DS_VBI_V5";
+	case MSBLD_F0:
+		return "MSBLD_F0";
+	case MSBLD_F1:
+		return "MSBLD_F1";
+	case MSBLD_F2:
+		return "MSBLD_F2";
+	case MSBLD_F3:
+		return "MSBLD_F3";
+	case MSBLD_F4:
+		return "MSBLD_F4";
+	case MSBLD_F5:
+		return "MSBLD_F5";
+	case MSBLD_F6:
+		return "MSBLD_F6";
+	case AFBLD_F0:
+		return "AFBLD_F0";
+	case AFBLD_F1:
+		return "AFBLD_F1";
+	case AFBLD_F2:
+		return "AFBLD_F2";
+	case AFBLD_F3:
+		return "AFBLD_F3";
+	case AFBLD_F4:
+		return "AFBLD_F4";
+	case AFBLD_F5:
+		return "AFBLD_F5";
+	case AFBLD_F6:
+		return "AFBLD_F6";
 	default:
 		return "NA";
 	}

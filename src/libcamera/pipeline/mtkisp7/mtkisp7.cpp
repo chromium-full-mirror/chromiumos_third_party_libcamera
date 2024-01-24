@@ -5,8 +5,8 @@
  * mtkisp7.cpp - Pipeline handler for Mediatek MtkISP7
  */
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -238,6 +238,8 @@ public:
 	History<CaptureResult> captureResult_;
 
 	uint32_t requestCount_ = 0;
+
+	bool forceMFNR = false;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -1111,55 +1113,94 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		onDeviceTuner_->notifyVideoOnly(internalRequestId);
 	} else {
 		onDeviceTuner_->notifyStillCapture(internalRequestId);
-		LPNRFrames lpnr;
-		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
+		if (forceMFNR) {
+			MFNRFrames mfnr;
+			mfnrManager.makeMFNRFrames(mfnr, captureFrames.raw, still1Buffer, still2Buffer);
 
-		auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
-			lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
+			auto [mfnrBfbldTask, mfnrBfmeTask, mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask, mfnrAfbldTask] =
+				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request, imgSysDev_);
 
-		auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
-			lpnr, scheduler, "Lpnr " + sequence, request,
-			internalRequestId, imgSysDev_);
+			scheduler->succeedPrevTaskByStep(BfbldTaskGroup, 0, mfnrBfbldTask);
+			scheduler->queueTask(mfnrBfbldTask, BfbldTaskGroup);
 
-		if (hasVideo) {
-			Scheduler::precede(taskTr, taskXtr);
-			Scheduler::precede(taskDip2, taskLpnrDip);
+			Scheduler::precede(mfnrBfbldTask, mfnrBfmeTask);
+			scheduler->succeedPrevTaskByStep(BfmeGroup, 0, mfnrBfmeTask);
+			scheduler->queueTask(mfnrBfmeTask, BfmeGroup);
+
+			Scheduler::precede(mfnrBfbldTask, mfnrMcdsF1Task);
+			scheduler->succeedPrevTaskByStep(McdsF1Group, 0, mfnrMcdsF1Task);
+			scheduler->queueTask(mfnrMcdsF1Task, McdsF1Group);
+
+			Scheduler::precede(mfnrMcdsF1Task, mfnrDsTask);
+			scheduler->succeedPrevTaskByStep(DsGroup, 0, mfnrDsTask);
+			scheduler->queueTask(mfnrDsTask, DsGroup);
+
+			Scheduler::precede(mfnrMcdsF1Task, mfnrDsVbiTask);
+			scheduler->succeedPrevTaskByStep(DsVbiGroup, 0, mfnrDsVbiTask);
+			scheduler->queueTask(mfnrDsVbiTask, DsVbiGroup);
+
+			Scheduler::precede(mfnrDsVbiTask, mfnrMsbldTask);
+			scheduler->succeedPrevTaskByStep(MsbldGroup, 0, mfnrMsbldTask);
+			scheduler->queueTask(mfnrMsbldTask, MsbldGroup);
+
+			Scheduler::precede(mfnrMsbldTask, mfnrAfbldTask);
+			scheduler->succeedPrevTaskByStep(AfbldGroup, 0, mfnrAfbldTask);
+			scheduler->queueTask(mfnrAfbldTask, AfbldGroup);
+
+			Scheduler::precede(mfnrAfbldTask, completeTask);
 		}
 
-		// Limit the interval from a producer task of tuning buffers
-		// to its corresponding consumer task as 2.
-		scheduler->succeedPrevTaskByStep(XtrGroup, 2, lpnrTunXtrTask);
-		scheduler->succeedPrevTaskByStep(LpnrDipGroup, 2, lpnrTunDipTask);
+		else {
+			onDeviceTuner_->notifyStillCapture(internalRequestId);
+			LPNRFrames lpnr;
+			lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 
-		scheduler->succeedPrevTaskByStep(
-			AAGroup, CaptureTasksManager::kRawMetaDelay,
-			lpnrTunXtrTask);
+			auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
+				lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
 
-		Scheduler::precede(lpnrTunXtrTask, taskXtr);
-		scheduler->succeedPrevTaskByStep(LpnrTunXtrTaskGroup, 0, lpnrTunXtrTask);
-		scheduler->queueTask(lpnrTunXtrTask, LpnrTunXtrTaskGroup);
+			auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
+				lpnr, scheduler, "Lpnr " + sequence, request,
+				internalRequestId, imgSysDev_);
 
-		Scheduler::precede(taskXtr, lpnrTunDipTask);
-		Scheduler::precede(lpnrTunDipTask, taskLpnrDip);
-		scheduler->succeedPrevTaskByStep(LpnrTunDipTaskGroup, 0, lpnrTunDipTask);
-		scheduler->queueTask(lpnrTunDipTask, LpnrTunDipTaskGroup);
+			if (hasVideo) {
+				Scheduler::precede(taskTr, taskXtr);
+				Scheduler::precede(taskDip2, taskLpnrDip);
+			}
 
-		Scheduler::precede(taskDQBuf, taskXtr);
-		scheduler->succeedPrevTaskByStep(XtrGroup, 0, taskXtr);
-		scheduler->queueTask(taskXtr, XtrGroup);
+			// Limit the interval from a producer task of tuning buffers
+			// to its corresponding consumer task as 2.
+			scheduler->succeedPrevTaskByStep(XtrGroup, 2, lpnrTunXtrTask);
+			scheduler->succeedPrevTaskByStep(LpnrDipGroup, 2, lpnrTunDipTask);
 
-		Scheduler::precede(taskXtr, taskLpnrDip);
-		scheduler->succeedPrevTaskByStep(LpnrDipGroup, 0, taskLpnrDip);
-		scheduler->queueTask(taskLpnrDip, LpnrDipGroup);
+			scheduler->succeedPrevTaskByStep(
+				AAGroup, CaptureTasksManager::kRawMetaDelay,
+				lpnrTunXtrTask);
 
-		Scheduler::precede(taskLpnrDip, completeTask);
+			Scheduler::precede(lpnrTunXtrTask, taskXtr);
+			scheduler->succeedPrevTaskByStep(LpnrTunXtrTaskGroup, 0, lpnrTunXtrTask);
+			scheduler->queueTask(lpnrTunXtrTask, LpnrTunXtrTaskGroup);
+
+			Scheduler::precede(taskXtr, lpnrTunDipTask);
+			Scheduler::precede(lpnrTunDipTask, taskLpnrDip);
+			scheduler->succeedPrevTaskByStep(LpnrTunDipTaskGroup, 0, lpnrTunDipTask);
+			scheduler->queueTask(lpnrTunDipTask, LpnrTunDipTaskGroup);
+
+			Scheduler::precede(taskDQBuf, taskXtr);
+			scheduler->succeedPrevTaskByStep(XtrGroup, 0, taskXtr);
+			scheduler->queueTask(taskXtr, XtrGroup);
+
+			Scheduler::precede(taskXtr, taskLpnrDip);
+			scheduler->succeedPrevTaskByStep(LpnrDipGroup, 0, taskLpnrDip);
+			scheduler->queueTask(taskLpnrDip, LpnrDipGroup);
+
+			Scheduler::precede(taskLpnrDip, completeTask);
+		}
 	}
 
 	scheduler->succeedPrevTaskByStep(CompleteGroup, 0, completeTask);
 	scheduler->queueTask(completeTask, CompleteGroup);
 
 	scheduler->schedule();
-
 	return 0;
 }
 
