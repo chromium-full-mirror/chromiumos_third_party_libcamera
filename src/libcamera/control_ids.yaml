@@ -816,6 +816,35 @@ controls:
 
       size: [n]
 
+  - JpegApplicationSegmentLength:
+      type: uint16_t
+      description: |
+        The length of each segment of JPEG application segment data.
+        This array must be exactly comprised of 16 unsigned 16-bit integers,
+        representing the length of APP0 .. APP15. The content of the segments
+        must be put in the JpegApplicationSegmentContent control.
+        Libcamera reserves APP1 for exif, if pipeline handler tries to write
+        something to APP1, the whole app segment will be deemed invalid.
+        APP0 is also reserved for simpler internal implementation.
+        This control will be ignored if the application does not request a
+        JPEG output.
+
+      size: [16]
+
+  - JpegApplicationSegmentContent:
+      type: uint8_t
+      description: |
+        The content of APPn starts from index
+        JpegApplicationSegmentLength[0] + ... + JpegApplicationSegmentLength[n-1],
+        except for APP0 which always starts from index 0.
+        For example, if given JpegApplicationSegmentLength = {0, 0, 4, 0, 5, ...},
+        then the first 4 numbers in this control array belong to APP2, and the
+        next 5 numbers belong to APP4.
+        This control will be ignored if the application does not request a
+        JPEG output.
+
+      size: [n]
+
   # ----------------------------------------------------------------------------
   # Draft controls section
 
