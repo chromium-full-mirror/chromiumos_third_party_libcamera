@@ -533,6 +533,9 @@ ControlType V4L2Device::v4l2CtrlType(uint32_t ctrlType)
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		return ControlTypeBool;
 
+	case V4L2_CTRL_TYPE_U16:
+		return ControlTypeUnsigned16;
+
 	case V4L2_CTRL_TYPE_U32:
 		return ControlTypeUnsigned32;
 
