@@ -111,7 +111,7 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 				      const std::string &id,
 				      Request *request,
 				      CaptureFrames &captureFrames,
-				      uint32_t camSysMetaRequestId)
+				      uint32_t internalRequestId)
 {
 	(void)id;
 
@@ -119,15 +119,21 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 	if (request)
 		sequence = std::to_string(request->sequence());
 
-	onDeviceTuner_->notifyRequestBegin(camSysMetaRequestId);
+	onDeviceTuner_->notifyRequestBegin(internalRequestId);
 
 	// Create CaptureData after CaptureFrames SharedMailBoxes are set.
 	auto data = std::make_shared<CaptureData>(captureFrames);
 
-	SofTask *sofTask = new SofTask(scheduler, "Sof " + sequence, request, data, camSys_);
+	SofTask *sofTask = new SofTask(
+			scheduler, "Sof " + sequence, request,
+			internalRequestId, data, camSys_);
 
-	QueueTask *qTask = new QueueTask(this, scheduler, "Queue " + sequence, request, data);
-	DequeueTask *dqTask = new DequeueTask(this, scheduler, "Dequeue " + sequence, request, data);
+	QueueTask *qTask = new QueueTask(
+			this, scheduler, "Queue " + sequence, request,
+			internalRequestId, data);
+	DequeueTask *dqTask = new DequeueTask(
+			this, scheduler, "Dequeue " + sequence, request,
+			internalRequestId, data);
 
 	return std::make_tuple(qTask, dqTask, sofTask);
 }
@@ -247,7 +253,7 @@ void DequeueTask::done()
 		metadata.set(controls::SensorTimestamp, timestamp);
 
 		manager_->pipe_->completeMetadata(request_, metadata);
-		manager_->onDeviceTuner_->tuneCamsys(request_, data_->frames);
+		manager_->onDeviceTuner_->tuneCamsys(internalRequestId_, data_->frames);
 	}
 
 	notifyDone();

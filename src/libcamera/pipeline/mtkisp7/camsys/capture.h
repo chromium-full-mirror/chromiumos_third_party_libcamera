@@ -82,7 +82,7 @@ public:
 	std::tuple<QueueTask *, DequeueTask *, SofTask *>
 	makeCaptureTasks(Scheduler *scheduler, const std::string &id,
 			 Request *request, CaptureFrames &captureFrames,
-			 uint32_t camSysMetaRequestId);
+			 uint32_t internalRequestId);
 
 private:
 	friend QueueTask;
@@ -110,15 +110,18 @@ private:
 class SofTask : public Task
 {
 public:
-	SofTask(Scheduler *scheduler, const std::string &id, Request *request,
+	SofTask(Scheduler *scheduler, const std::string &id,
+		Request *request, uint32_t internalRequestId,
 		std::shared_ptr<CaptureData> &data, CamSysDevice *camSys)
-		: Task(scheduler, id), request_(request), data_(data),
-		  camSys_(camSys) {}
+		: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId),
+		  data_(data), camSys_(camSys) {}
 
 	virtual void run() override final;
 	void trigger();
 
 	Request *request_;
+	uint32_t internalRequestId_;
+
 	std::shared_ptr<CaptureData> data_;
 
 	CamSysDevice *camSys_;
@@ -131,14 +134,17 @@ class QueueTask : public Task
 {
 public:
 	QueueTask(CaptureTasksManager *manager,
-		  Scheduler *scheduler, const std::string &id, Request *request,
+		  Scheduler *scheduler, const std::string &id,
+		  Request *request, uint32_t internalRequestId,
 		  std::shared_ptr<CaptureData> &data)
-		: Task(scheduler, id), request_(request), manager_(manager),
-		  data_(data) {}
+		: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId),
+		  manager_(manager), data_(data) {}
 
 	void run() override final;
 
 	Request *request_;
+	uint32_t internalRequestId_;
+
 	CaptureTasksManager *manager_;
 	std::shared_ptr<CaptureData> data_;
 };
@@ -147,16 +153,19 @@ class DequeueTask : public Task
 {
 public:
 	DequeueTask(CaptureTasksManager *manager,
-		    Scheduler *scheduler, const std::string &id, Request *request,
+		    Scheduler *scheduler, const std::string &id,
+		    Request *request, uint32_t internalRequestId,
 		    std::shared_ptr<CaptureData> &data)
-		: Task(scheduler, id), request_(request), manager_(manager),
-		  data_(data) {}
+		: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId),
+		  manager_(manager), data_(data) {}
 
 	void run() override final;
 	void done();
 	void requestReady(CamSysDevice::Request *request);
 
 	Request *request_;
+	uint32_t internalRequestId_;
+
 	CaptureTasksManager *manager_;
 
 	std::shared_ptr<CaptureData> data_;

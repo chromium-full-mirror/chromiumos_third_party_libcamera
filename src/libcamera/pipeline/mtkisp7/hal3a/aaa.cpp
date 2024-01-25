@@ -213,15 +213,16 @@ void AATask::run()
 			      faces,
 			      &exposureAndGain,
 			      &captureFrames_.aaaIspExchange->get(),
-			      request_);
+			      internalRequestIdApplied_);
 	captureFrames_.exposureAndGainOutput->put(
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>
 			   &exposureAndGain) {});
 
-	if (request_) {
+	if (internalRequestIdApplied_) {
 		onDeviceTuner_->tune3AState(
-				request_, captureFrames_, &hal3A_->r3AResult_);
+				internalRequestIdApplied_.value(),
+				captureFrames_, &hal3A_->r3AResult_);
 	}
 
 	notifyDone();
@@ -238,7 +239,7 @@ void AATask::setRequest(Request *request)
 	request_ = request;
 }
 
-void AATask::setInternalReqeustIdApplied(uint32_t internalRequestIdApplied)
+void AATask::setInternalRequestIdApplied(uint32_t internalRequestIdApplied)
 {
 	ASSERT(!internalRequestIdApplied_);
 	internalRequestIdApplied_ = internalRequestIdApplied;

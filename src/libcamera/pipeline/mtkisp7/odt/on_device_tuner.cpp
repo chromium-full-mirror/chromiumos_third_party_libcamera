@@ -218,10 +218,10 @@ void OnDeviceTuner::notifyStillCapture(int requestNumber)
 }
 
 bool OnDeviceTuner::parseHalIspNdd(
-	Request *request,
+	uint32_t internalRequestId,
 	mtk::isphal::v1_0::NddInfo &ndd)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return false;
@@ -238,8 +238,8 @@ bool OnDeviceTuner::parseHalIspNdd(
 		ndd.ndd_data.feature =
 			static_cast<int>(Feature::Preview);
 	}
-	ndd.ndd_data.requestNo = request->sequence();
-	ndd.ndd_data.frameNo = request->sequence();
+	ndd.ndd_data.requestNo = internalRequestId;
+	ndd.ndd_data.frameNo = internalRequestId;
 	ndd.ndd_data.platform = 8188;
 	ndd.ndd_data.timestamp = sessionTimestamp_;
 	ndd.ndd_data.sensorId =
@@ -347,15 +347,15 @@ void OnDeviceTuner::tune(
 	// }
 }
 
-void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
+void OnDeviceTuner::tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
 			  !shouldImportDumpNow(requestNumber))) {
 		return;
 	}
 	tune(
-		request->sequence(), { { Dump::Id::P1_IMGO, frames.raw->get() },
+		internalRequestId, { { Dump::Id::P1_IMGO, frames.raw->get() },
 				       { Dump::Id::P1_YUVO_R1, frames.yuvo1->get() },
 				       { Dump::Id::P1_YUVO_R2, frames.yuvo2->get() },
 				       { Dump::Id::P1_DRZS4NO_R3, frames.me->get() },
@@ -384,7 +384,8 @@ void OnDeviceTuner::tuneCamsys(Request *request, CaptureFrames &frames)
 }
 
 bool OnDeviceTuner::tuneCamsysHalIsp(
-	Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam,
+	uint32_t internalRequestId,
+	mtk::isphal::v1_0::TuningParamP1 &tuningParam,
 	mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
 	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult)
 {
@@ -397,16 +398,16 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	tuningParam.is_need_exif = 1;
 	tuningResult.exif.valid = true;
 	std::memcpy(tuningResult.exif.data, reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info), sizeof(AAA_DEBUG_INFO2_T));
-	return parseHalIspNdd(request, tuningParam.cam_info->rNdd_info);
+	return parseHalIspNdd(internalRequestId, tuningParam.cam_info->rNdd_info);
 }
 
 void OnDeviceTuner::tuneExif(
-	Request *request,
+	uint32_t internalRequestId,
 	const mtk::isphal::v1_0::ExifInfo3A &exif3a,
 	const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
 	EStage_T stage)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
@@ -438,7 +439,8 @@ void OnDeviceTuner::tuneExif(
 }
 
 void OnDeviceTuner::tuneImgsysHalIsp(
-	Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+	uint32_t internalRequestId,
+	mtk::isphal::v1_0::TuningParamDip &tuningParam,
 	mtk::isphal::v1_0::ReturnParamDip &tuningResult,
 	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
 	EStage_T stage)
@@ -460,7 +462,7 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 	tuningResult.exif.size = sizeof(AAA_DEBUG_INFO2_T);
 	tuningResult.exif.data =
 		reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info);
-	parseHalIspNdd(request, tuningParam.cam_info.rNdd_info);
+	parseHalIspNdd(internalRequestId, tuningParam.cam_info.rNdd_info);
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(
@@ -510,16 +512,16 @@ void OnDeviceTuner::tuneImgsysMetadata(
 }
 
 void OnDeviceTuner::tune3ARequest(
-	Request *request, mtk::hal3a::v1_0::mtk_3a_request &aaaRequest)
+	uint32_t internalRequestId, mtk::hal3a::v1_0::mtk_3a_request &aaaRequest)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
 	}
 	aaaRequest.ndd_data.timestamp = sessionTimestamp_;
-	aaaRequest.ndd_data.requestNo = request->sequence();
-	aaaRequest.ndd_data.frameNo = request->sequence();
+	aaaRequest.ndd_data.requestNo = internalRequestId;
+	aaaRequest.ndd_data.frameNo = internalRequestId;
 	aaaRequest.ndd_data.platform = 8188;
 	if (isStillCapture) {
 		aaaRequest.ndd_data.feature = static_cast<int>(Feature::Capture_lpnr);
@@ -530,10 +532,11 @@ void OnDeviceTuner::tune3ARequest(
 	}
 }
 
-void OnDeviceTuner::tune3AState(Request *request, CaptureFrames &frames,
+void OnDeviceTuner::tune3AState(uint32_t internalRequestId,
+				CaptureFrames &frames,
 				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
@@ -598,15 +601,15 @@ void OnDeviceTuner::tune3AState(Request *request, CaptureFrames &frames,
 	tune(requestNumber, namedPointers, isStillCapture);
 }
 
-void OnDeviceTuner::tuneMeA(Request *request, MeFrames &frames)
+void OnDeviceTuner::tuneMeA(uint32_t internalRequestId, MeFrames &frames)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
 			  !shouldImportDumpNow(requestNumber))) {
 		return;
 	}
 	tune(
-		request->sequence(), {
+		internalRequestId, {
 					     { Dump::Id::LTR_ME_L1_IMGI_T1, frames.in.meL0->get() },
 					     { Dump::Id::LTR_ME_L1_YUVO_T2, frames.out.meL1->get() },
 					     { Dump::Id::LTR_ME_L1_META_P2, frames.in.trMeTun->get() },
@@ -632,15 +635,15 @@ void OnDeviceTuner::tuneMeA(Request *request, MeFrames &frames)
 				     });
 }
 
-void OnDeviceTuner::tuneMeB(Request *request, MeFrames &frames)
+void OnDeviceTuner::tuneMeB(uint32_t internalRequestId, MeFrames &frames)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
 			  !shouldImportDumpNow(requestNumber))) {
 		return;
 	}
 	tune(
-		request->sequence(), {
+		internalRequestId, {
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0, frames.in.meL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L0_P, frames.in.prevMeL0->get() },
 					     { Dump::Id::ME_3PASS_MODE1_MEI_L1_P, frames.in.prevMeL1->get() },
@@ -655,28 +658,29 @@ void OnDeviceTuner::tuneMeB(Request *request, MeFrames &frames)
 				     });
 }
 
-void OnDeviceTuner::tuneMeMM(Request *request, SharedMailBox<InfoFrame> tuning)
+void OnDeviceTuner::tuneMeMM(uint32_t internalRequestId,
+			     SharedMailBox<InfoFrame> tuning)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
 			  !shouldImportDumpNow(requestNumber))) {
 		return;
 	}
 	tune(
-		request->sequence(), {
+		internalRequestId, {
 					     { Dump::Id::ME_3PASS_MM_META_P2, tuning->get() },
 				     });
 }
 
-void OnDeviceTuner::tuneTr(Request *request, TrFrames &frames)
+void OnDeviceTuner::tuneTr(uint32_t internalRequestId, TrFrames &frames)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
 			  !shouldImportDumpNow(requestNumber))) {
 		return;
 	}
 	tune(
-		request->sequence(), { { Dump::Id::TR_DSMAP_MMAP, frames.in.meMmap[0]->get() },
+		internalRequestId, { { Dump::Id::TR_DSMAP_MMAP, frames.in.meMmap[0]->get() },
 				       { Dump::Id::TR_DSMAP_MMAP_DS0, frames.in.meMmap[1]->get() },
 				       { Dump::Id::TR_DSMAP_MMAP_DS1, frames.in.meMmap[2]->get() },
 				       { Dump::Id::TR_DSMAP_MMAP_DS2, frames.in.meMmap[3]->get() },
@@ -694,9 +698,9 @@ void OnDeviceTuner::tuneTr(Request *request, TrFrames &frames)
 				       { Dump::Id::TR_Y2Y_Conf_F5_YUVO_T5, frames.out.meConf5->get() } });
 }
 
-void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
+void OnDeviceTuner::tuneDip1(uint32_t internalRequestId, Dip1Frames &frames)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
 			  !shouldImportDumpNow(requestNumber))) {
 		return;
@@ -786,14 +790,14 @@ void OnDeviceTuner::tuneDip1(Request *request, Dip1Frames &frames)
 		namedFrames.push_back({ Dump::kDip1TnrmiDumpIds[i],
 					frames.out.dipTnrmi[level]->get() });
 	}
-	tune(request->sequence(), namedFrames);
+	tune(internalRequestId, namedFrames);
 }
 
 void OnDeviceTuner::tuneDip2(
-	Request *request, Dip2Frames &frames,
+	Request *request, uint32_t internalRequestId, Dip2Frames &frames,
 	FrameBuffer *videoOut1, FrameBuffer *videoOut2)
 {
-	uint32_t requestNumber = request->sequence();
+	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&
 			  !shouldImportDumpNow(requestNumber))) {
 		return;
@@ -823,10 +827,10 @@ void OnDeviceTuner::tuneDip2(
 		InfoFrame video2 = getFrameInfoFromRequest(request, videoOut2);
 		namedFrames.push_back({ Dump::Id::WPE_P2_PQDIP_MS_F0_WDMAO, video2 });
 	}
-	tune(request->sequence(), namedFrames);
+	tune(internalRequestId, namedFrames);
 }
 
-void OnDeviceTuner::tuneXtr(Request *request, XtrFrames &frames)
+void OnDeviceTuner::tuneXtr(uint32_t internalRequestId, XtrFrames &frames)
 {
 	if (!enabled_) {
 		return;
@@ -840,10 +844,11 @@ void OnDeviceTuner::tuneXtr(Request *request, XtrFrames &frames)
 		{ Dump::Id::TR_R2Y_YUVO_T4, frames.out.dipImgi[3]->get() },
 		{ Dump::Id::TR_R2Y_META_P2, frames.in.xtrTun->get() },
 	};
-	tune(request->sequence(), namedFrames, true);
+	tune(internalRequestId, namedFrames, true);
 }
 
-void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
+void OnDeviceTuner::tuneLpnrDip(Request *request, uint32_t internalRequestId,
+				LpnrDipFrames &frames,
 				std::vector<SharedMailBox<InfoFrame>> reci,
 				std::vector<SharedMailBox<InfoFrame>> dipImg3o,
 				FrameBuffer *still1Output,
@@ -885,7 +890,7 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, LpnrDipFrames &frames,
 		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_META_P2, frames.in.dipTunPq->get() });
 	}
 
-	tune(request->sequence(), namedFrames, true);
+	tune(internalRequestId, namedFrames, true);
 }
 
 void OnDeviceTuner::writeStillCaptureDebugMetadata(Request *request,

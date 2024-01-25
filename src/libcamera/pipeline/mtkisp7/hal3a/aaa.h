@@ -113,7 +113,7 @@ public:
 	void run() override final;
 
 	void setRequest(Request *request);
-	void setInternalReqeustIdApplied(uint32_t internalRequestIdApplied);
+	void setInternalRequestIdApplied(uint32_t internalRequestIdApplied);
 
 	Request *request_;
 	std::optional<uint32_t> internalRequestIdApplied_;

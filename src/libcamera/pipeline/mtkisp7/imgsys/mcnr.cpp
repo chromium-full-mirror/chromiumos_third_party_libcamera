@@ -569,36 +569,36 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 std::tuple<MeATask *, MeBTask *, TrTask *, Dip1Task *, Dip2Task *>
 McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler  *scheduler,
 				const std::string &id, Request *request,
-				uint32_t internalId, ImgSysDevice* imgSys)
+				uint32_t internalRequestId, ImgSysDevice* imgSys)
 {
 	(void)id;
 	std::string sequence = std::to_string(request->sequence());
 
 	MeATask *meATask = new MeATask(
 			scheduler, "MeA " + sequence, request,
-			internalId, imgSys, mcnr, this);
+			internalRequestId, imgSys, mcnr, this);
 	MeBTask *meBTask = new MeBTask(
 			scheduler, "MeB " + sequence, request,
-			internalId, imgSys, mcnr, this);
+			internalRequestId, imgSys, mcnr, this);
 	TrTask *trTask = new TrTask(
 			scheduler, "Tr " + sequence, request,
-			internalId, imgSys, mcnr, this);
+			internalRequestId, imgSys, mcnr, this);
 	Dip1Task *dip1Task = new Dip1Task(
 			scheduler, "Dip 1 " + sequence, request,
-			internalId, imgSys, mcnr, this);
+			internalRequestId, imgSys, mcnr, this);
 
 	Dip2Task *dip2Task = new Dip2Task(
 			scheduler, "Dip 2 " + sequence, request,
-			internalId, imgSys, mcnr, this);
+			internalRequestId, imgSys, mcnr, this);
 
 	return std::make_tuple(meATask, meBTask, trTask, dip1Task, dip2Task);
 }
 
 MeATask::MeATask(Scheduler *scheduler, const std::string &id,
-		 Request *request, uint32_t internalId,
+		 Request *request, uint32_t internalRequestId,
 		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager), imgSys_(imgSys)
 {
 	/* Collect MailBoxes used for the task */
 	frames_ = mcnr.meFrames;
@@ -635,7 +635,7 @@ void MeATask::notifyDone()
 	if (syncLtrMeA_)
 		imgSys_->syncPool().put(syncLtrMeA_);
 
-	manager_->onDeviceTuner_->tuneMeA(request_, frames_);
+	manager_->onDeviceTuner_->tuneMeA(internalRequestId_, frames_);
 	Task::notifyDone();
 }
 
@@ -646,7 +646,7 @@ void MeATask::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "MeATask");
+	sdRequest.init(internalRequestId_, timestampMili, "MeATask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -690,10 +690,10 @@ void MeATask::run()
 }
 
 MeBTask::MeBTask(Scheduler *scheduler, const std::string &id,
-		 Request *request, uint32_t internalId,
+		 Request *request, uint32_t internalRequestId,
 		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager), imgSys_(imgSys)
 {
 	/* Collect MailBoxes used for the task */
 	frames_ = mcnr.meFrames;
@@ -706,7 +706,7 @@ void MeBTask::allocateOutputBuffers()
 
 void MeBTask::notifyDone()
 {
-	manager_->onDeviceTuner_->tuneMeB(request_, frames_);
+	manager_->onDeviceTuner_->tuneMeB(internalRequestId_, frames_);
 	Task::notifyDone();
 }
 
@@ -717,7 +717,7 @@ void MeBTask::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "MeBTask");
+	sdRequest.init(internalRequestId_, timestampMili, "MeBTask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -750,10 +750,10 @@ void MeBTask::run()
 }
 
 TrTask::TrTask(Scheduler *scheduler, const std::string &id,
-	       Request *request, uint32_t internalId,
+	       Request *request, uint32_t internalRequestId,
 	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager), imgSys_(imgSys)
 {
 	(void)imgSys_;
 	frames_ = mcnr.trFrames;
@@ -779,7 +779,7 @@ void TrTask::allocateOutputBuffers()
 
 void TrTask::notifyDone()
 {
-	manager_->onDeviceTuner_->tuneTr(request_, frames_);
+	manager_->onDeviceTuner_->tuneTr(internalRequestId_, frames_);
 	Task::notifyDone();
 }
 
@@ -792,7 +792,7 @@ void TrTask::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "TRTask");
+	sdRequest.init(internalRequestId_, timestampMili, "TRTask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -846,10 +846,10 @@ void TrTask::run()
 }
 
 Dip1Task::Dip1Task(Scheduler *scheduler, const std::string &id,
-		   Request *request, uint32_t internalId,
+		   Request *request, uint32_t internalRequestId,
 		   ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager), imgSys_(imgSys)
 {
 	frames_ = mcnr.dip1Frames;
 
@@ -902,7 +902,7 @@ void Dip1Task::notifyDone()
 	if (syncWpeDip_)
 		imgSys_->syncPool().put(syncWpeDip_);
 
-	manager_->onDeviceTuner_->tuneDip1(request_, frames_);
+	manager_->onDeviceTuner_->tuneDip1(internalRequestId_, frames_);
 
 	Task::notifyDone();
 }
@@ -916,7 +916,7 @@ void Dip1Task::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "DIPTask");
+	sdRequest.init(internalRequestId_, timestampMili, "DIPTask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -1094,10 +1094,10 @@ void Dip1Task::setDipParams(StageEx &stage, unsigned int level)
 }
 
 Dip2Task::Dip2Task(Scheduler *scheduler, const std::string &id,
-		   Request *request, uint32_t internalId,
+		   Request *request, uint32_t internalRequestId,
 		   ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager), imgSys_(imgSys)
 {
 	frames_ = mcnr.dip2Frames;
 	videoOut1 = mcnr.videoOut1;
@@ -1111,7 +1111,8 @@ void Dip2Task::allocateOutputBuffers()
 
 void Dip2Task::notifyDone()
 {
-	manager_->onDeviceTuner_->tuneDip2(request_, frames_, videoOut1, videoOut2);
+	manager_->onDeviceTuner_->tuneDip2(request_, internalRequestId_, frames_,
+					   videoOut1, videoOut2);
 	Task::notifyDone();
 }
 
@@ -1124,7 +1125,7 @@ void Dip2Task::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "DIPTask");
+	sdRequest.init(internalRequestId_, timestampMili, "DIPTask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;

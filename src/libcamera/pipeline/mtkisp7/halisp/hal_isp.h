@@ -54,11 +54,11 @@ public:
 				int fd, intptr_t va, size_t offset,
 				size_t bufSize, MtkCameraFaceMetadata *faces,
 				AaaIspExchange *aaaIspExchange,
-				Request *request);
+				std::optional<uint32_t> internalRequestIdApplied);
 
 	int getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 				ImgMetaRequest &imgMetaRequest,
-				Request *request);
+				uint32_t internalRequestId);
 
 	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
 

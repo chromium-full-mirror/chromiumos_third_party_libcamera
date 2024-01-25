@@ -47,7 +47,7 @@ public:
 			SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			Scheduler *scheduler,
 			const std::string &id, Request *request,
-			uint32_t internalId);
+			uint32_t internalRequestId);
 
 private:
 	friend McnrMeATask;
@@ -91,7 +91,7 @@ public:
 		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, McnrTunManager *manager,
-		    uint32_t internalId);
+		    uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -109,7 +109,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request* request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };
@@ -121,7 +121,7 @@ public:
 		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, McnrTunManager *manager,
-		    uint32_t internalId);
+		    uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -142,7 +142,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request* request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };
@@ -154,7 +154,7 @@ public:
 		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, McnrTunManager *manager,
-		    uint32_t internalId);
+		    uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -166,7 +166,7 @@ public:
 	SharedMailBox<InfoFrame> swHist;
 
 	Request* request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };
@@ -178,7 +178,7 @@ public:
 		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, McnrTunManager *manager,
-		    uint32_t internalId);
+		    uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -196,7 +196,7 @@ public:
 	SharedMailBox<InfoFrame> swHist;
 
 	Request* request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };

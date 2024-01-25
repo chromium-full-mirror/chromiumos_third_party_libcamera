@@ -33,7 +33,8 @@ public:
 			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			   MtkCameraFaceMetadata *metadata,
 			   std::pair<uint32_t, uint32_t> *exposureAndGain,
-			   AaaIspExchange *aaaIspExchange, Request *request);
+			   AaaIspExchange *aaaIspExchange,
+			   std::optional<uint32_t> internalRequestIdApplied);
 
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,

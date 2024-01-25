@@ -145,13 +145,13 @@ LpnrTunTasksManager::makeLpnrTunTasks(LPNRFrames &lpnr,
 				      SharedMailBox<AaaIspExchange> &aaaIspExchange,
 				      Scheduler *scheduler,
 				      const std::string &id, Request *request,
-				      uint32_t internalId)
+				      uint32_t internalRequestId)
 {
 	LpnrTunXtrTask *lpnrTunXtrTask =  new LpnrTunXtrTask(
-			lpnr, aaaIspExchange, scheduler, id, request, this, internalId);
+			lpnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
 	LpnrTunDipTask *lpnrTunDipTask =  new LpnrTunDipTask(
-			lpnr, aaaIspExchange, scheduler, id, request, this, internalId);
+			lpnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
 	return std::make_tuple(lpnrTunXtrTask, lpnrTunDipTask);
 }
@@ -160,8 +160,8 @@ LpnrTunXtrTask::LpnrTunXtrTask(LPNRFrames &lpnr,
 			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			 Scheduler *scheduler,
 			 const std::string &id, Request *request, LpnrTunTasksManager *manager,
-			 uint32_t internalId)
-	:Task(scheduler, id), request_(request), internalId_(internalId), manager_(manager)
+			 uint32_t internalRequestId)
+	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	xtrTun_ = lpnr.xtrFrames.in.xtrTun;
 	aaaIspExchange_ = aaaIspExchange;
@@ -189,7 +189,7 @@ void LpnrTunXtrTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	notifyDone();
@@ -199,8 +199,8 @@ LpnrTunDipTask::LpnrTunDipTask(LPNRFrames &lpnr,
 			   SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			   Scheduler *scheduler,
 			   const std::string &id, Request *request, LpnrTunTasksManager *manager,
-			 uint32_t internalId)
-	:Task(scheduler, id), request_(request), internalId_(internalId), manager_(manager)
+			 uint32_t internalRequestId)
+	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	highIsoMode_ = lpnr.lpnrDipFrames.in.highIsoMode;
 	xtrStt_ = lpnr.xtrFrames.out.xtrStt;
@@ -244,7 +244,7 @@ void LpnrTunDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	manager_->lpnrTun_.fetch(dipTun_[2]);
@@ -264,7 +264,7 @@ void LpnrTunDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	manager_->lpnrTun_.fetch(dipTun_[1]);
@@ -284,7 +284,7 @@ void LpnrTunDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	if (highIsoMode) {
@@ -305,7 +305,7 @@ void LpnrTunDipTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 		}
 
 		manager_->lpnrTun_.fetch(dipTunY2YPq_);
@@ -327,7 +327,7 @@ void LpnrTunDipTask::run()
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			DmaSyncer syncerStt(xtrStt_->get().buffer()->planes()[0].fd.get());
 
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 		}
 	} else {
 		manager_->lpnrTun_.fetch(dipTunPq_);
@@ -348,7 +348,7 @@ void LpnrTunDipTask::run()
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			DmaSyncer syncerStt(xtrStt_->get().buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 		}
 	}
 

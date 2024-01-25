@@ -45,7 +45,7 @@ public:
 			SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			Scheduler *scheduler,
 			const std::string &id, Request *request,
-			uint32_t internalId);
+			uint32_t internalRequestId);
 
 private:
 	friend LpnrTunXtrTask;
@@ -73,7 +73,7 @@ public:
 		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, LpnrTunTasksManager *manager,
-		    uint32_t internalId);
+		    uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -81,7 +81,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request* request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	LpnrTunTasksManager *manager_;
 };
@@ -93,7 +93,7 @@ public:
 		       SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		       Scheduler *scheduler, const std::string &id,
 		       Request *request, LpnrTunTasksManager *manager,
-		       uint32_t internalId);
+		       uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -106,7 +106,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request* request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	LpnrTunTasksManager *manager_;
 };

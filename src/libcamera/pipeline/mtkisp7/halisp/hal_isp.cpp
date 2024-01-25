@@ -284,7 +284,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
 				size_t bufSize, MtkCameraFaceMetadata *faces,
 				AaaIspExchange *aaaIspExchange,
-				Request *request)
+				std::optional<uint32_t> internalRequestIdApplied)
 {
 	ASSERT(aaaIspExchange);
 
@@ -356,10 +356,11 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 
 	tuning_param_p1.cam_info->rNdd_info = {};
 	bool shouldDump = false;
-	if (request != nullptr) {
+	if (internalRequestIdApplied) {
 		// Not dummy frame
 		shouldDump = onDeviceTuner_->tuneCamsysHalIsp(
-			request, tuning_param_p1, result_p1, aaaIspExchange->aaaResult);
+			internalRequestIdApplied.value(),
+			tuning_param_p1, result_p1, aaaIspExchange->aaaResult);
 	}
 
 	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
@@ -630,7 +631,7 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 
 int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 				ImgMetaRequest &imgMetaRequest,
-				Request *request)
+				uint32_t internalRequestId)
 {
 	bool is_capture = imgMetaRequest.isCapture;
 	Size inputSize = imgMetaRequest.inputSize;
@@ -705,8 +706,6 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 
 	imgsys_info.mock_imgsys = tuning_control.mock;
 
-	int camsysFrmId = 0;
-
 	/* parsePipelineMetadata */
 	{
 		mtk::isphal::v1_0::IspPerframeControl *pCaminfoBuf = NULL;
@@ -728,10 +727,8 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		tuning_param_p2.cam_info.drzs8t_crop_info.dst_size =
 			NSCam::MSize(fullDipSize.width, fullDipSize.height);
 
-		// Update u8Id to pipe frame no to align NDD, internalId?
-		camsysFrmId = tuning_param_p2.cam_info.u8Id;
-		tuning_param_p2.cam_info.ISP_3A_result_id = camsysFrmId;
-		//tuning_param_p2.cam_info.u8Id = camsysFrmId - 4;
+		tuning_param_p2.cam_info.ISP_3A_result_id = tuning_param_p2.cam_info.u8Id;
+		tuning_param_p2.cam_info.u8Id = internalRequestId;
 
 		auto &shading = aaaIspExchange->aaaResult.shading_result;
 		int32_t lsc_data_size = shading.lsc_data.size();
@@ -778,7 +775,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 	{
 		fillIndex(imgMetaRequest.stage, is_capture, imgsys_info);
 
-		imgsys_info.sequence_num = camsysFrmId;
+		imgsys_info.sequence_num = internalRequestId;
 		imgsys_info.is_need_dump_exif = 1;
 
 		mtk::isphal::Size mel0Out(576, 432);
@@ -829,13 +826,10 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 			static_cast<NSIspTuning::EAction_T>(imgsys_info.action);
 
 		tuning_param_p2.cam_info.rNdd_info = {};
-		if (request != nullptr) {
-			// Not dummy frame
-			onDeviceTuner_->tuneImgsysHalIsp(
-				request, tuning_param_p2, result_p2,
-				aaaIspExchange->aaaResult,
-				imgsys_info.rMapping_Info.eStage);
-		}
+		onDeviceTuner_->tuneImgsysHalIsp(
+			internalRequestId, tuning_param_p2, result_p2,
+			aaaIspExchange->aaaResult,
+			imgsys_info.rMapping_Info.eStage);
 
 		imgsys_info.rNdd_info = cam_info.rNdd_info;
 		imgsys_info.sr_para = cam_info.sr_para;
@@ -844,7 +838,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 
 	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
 	onDeviceTuner_->tuneExif(
-		request, tuning_param_p2.exif_3a,
+		internalRequestId, tuning_param_p2.exif_3a,
 		result_p2.exif, imgsys_info.rMapping_Info.eStage);
 
 	return 0;

@@ -223,19 +223,19 @@ McnrTunManager::makeMcnrTunTasks(
 		SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		Scheduler *scheduler,
 		const std::string &id, Request *request,
-		uint32_t internalId)
+		uint32_t internalRequestId)
 {
 	McnrMeATask *meATunTask =  new McnrMeATask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalId);
+			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
 	McnrMeBTask *meBTunTask =  new McnrMeBTask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalId);
+			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
 	McnrTrTask *trTunTask =  new McnrTrTask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalId);
+			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
 	McnrDipTask *dipTunTask =  new McnrDipTask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalId);
+			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
 	meATunTask->moveToThread(&threadHalIsp_);
 	meBTunTask->moveToThread(&threadHalIsp_);
@@ -249,8 +249,8 @@ McnrMeATask::McnrMeATask(MCNRFrames &mcnr,
 			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			 Scheduler *scheduler,
 			 const std::string &id, Request *request, McnrTunManager *manager,
-			 uint32_t internalId)
-	:Task(scheduler, id), request_(request), internalId_(internalId), manager_(manager)
+			 uint32_t internalRequestId)
+	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	(void) mcnr;
 
@@ -294,7 +294,7 @@ void McnrMeATask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	manager_->meTun_.fetch(meATun);
@@ -324,7 +324,7 @@ void McnrMeATask::run()
 		DmaSyncer syncerMeAFst(prevPrevMeAFst->get().buffer()->planes()[0].fd.get());
 		DmaSyncer syncerMeBFst(prevPrevMeBFst->get().buffer()->planes()[0].fd.get());
 
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	notifyDone();
@@ -334,8 +334,8 @@ McnrMeBTask::McnrMeBTask(MCNRFrames &mcnr,
 			   SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			   Scheduler *scheduler,
 			   const std::string &id, Request *request, McnrTunManager *manager,
-			 uint32_t internalId)
-	:Task(scheduler, id), request_(request), internalId_(internalId), manager_(manager)
+			 uint32_t internalRequestId)
+	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	meBTun = mcnr.meFrames.in.meBTun;
 	meMil = mcnr.meFrames.in.meMil;
@@ -394,8 +394,8 @@ void McnrMeBTask::run()
 		DmaSyncer syncerMeAFst(meAFst->get().buffer()->planes()[0].fd.get());
 		DmaSyncer syncerMeAFmb0(meAFmb0->get().buffer()->planes()[0].fd.get());
 
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
-		manager_->onDeviceTuner_->tuneMeMM(request_, meBTun);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+		manager_->onDeviceTuner_->tuneMeMM(internalRequestId_, meBTun);
 	}
 
 	request = ImgMetaRequest {
@@ -420,7 +420,7 @@ void McnrMeBTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		DmaSyncer syncerMeAFst(meAFst->get().buffer()->planes()[0].fd.get());
 
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	notifyDone();
@@ -430,8 +430,8 @@ McnrTrTask::McnrTrTask(MCNRFrames &mcnr,
 			   SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			   Scheduler *scheduler,
 			   const std::string &id, Request *request, McnrTunManager *manager,
-			 uint32_t internalId)
-	:Task(scheduler, id), request_(request), internalId_(internalId), manager_(manager)
+			 uint32_t internalRequestId)
+	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	trTunF1 = mcnr.trFrames.in.trTunF1;
 	trTunF4 = mcnr.trFrames.in.trTunF4;
@@ -463,7 +463,7 @@ void McnrTrTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	manager_->trawTun_.fetch(trTunF4);
@@ -483,7 +483,7 @@ void McnrTrTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	notifyDone();
@@ -493,8 +493,8 @@ McnrDipTask::McnrDipTask(MCNRFrames &mcnr,
 			   SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			   Scheduler *scheduler,
 			   const std::string &id, Request *request, McnrTunManager *manager,
-			 uint32_t internalId)
-	:Task(scheduler, id), request_(request), internalId_(internalId), manager_(manager)
+			 uint32_t internalRequestId)
+	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 
 	fwMeFst = mcnr.meFrames.in.fwMeFst;
@@ -533,7 +533,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	manager_->trawTun_.fetch(ltrTunF4);
@@ -553,7 +553,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	manager_->trawTun_.fetch(ltrTunVbi);
@@ -573,7 +573,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	manager_->trawTun_.fetch(wpeTun);
@@ -593,7 +593,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	// Sync here since all the following DIP stages will access it
@@ -620,7 +620,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	request = ImgMetaRequest{
@@ -640,7 +640,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	request = ImgMetaRequest{
@@ -660,7 +660,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	request = ImgMetaRequest{
@@ -680,7 +680,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	request = ImgMetaRequest{
@@ -700,7 +700,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	request = ImgMetaRequest{
@@ -720,7 +720,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	request = ImgMetaRequest{
@@ -740,7 +740,7 @@ void McnrDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, request_);
+		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
 	}
 
 	notifyDone();

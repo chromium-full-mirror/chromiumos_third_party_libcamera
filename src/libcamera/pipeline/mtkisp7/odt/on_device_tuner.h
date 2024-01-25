@@ -51,27 +51,31 @@ public:
 	void notifyStillCapture(int requestNumber);
 
 	// P1 Camsys
-	void tuneCamsys(Request *request, CaptureFrames &frames);
+	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
 
 	// HAL ISP
 	bool tuneCamsysHalIsp(
-		Request *request, mtk::isphal::v1_0::TuningParamP1 &tuningParam,
+		uint32_t internalRequestId,
+		mtk::isphal::v1_0::TuningParamP1 &tuningParam,
 		mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
 		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult);
 	void tuneImgsysHalIsp(
-		Request *request, mtk::isphal::v1_0::TuningParamDip &tuningParam,
+		uint32_t internalRequestId,
+		mtk::isphal::v1_0::TuningParamDip &tuningParam,
 		mtk::isphal::v1_0::ReturnParamDip &tuningResult,
 		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
 		EStage_T stage);
-	void tuneExif(Request *request,
+	void tuneExif(uint32_t internalRequestId,
 		      const mtk::isphal::v1_0::ExifInfo3A &exif3a,
 		      const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
 		      EStage_T stage);
 
 	// 3A
 	void tune3ARequest(
-		Request *request, mtk::hal3a::v1_0::mtk_3a_request &r3aRequest);
-	void tune3AState(Request *request, CaptureFrames &frames,
+		uint32_t internalRequestId,
+		mtk::hal3a::v1_0::mtk_3a_request &r3aRequest);
+	void tune3AState(uint32_t internalRequestId,
+			 CaptureFrames &frames,
 			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult);
 
 	// P2 Imgsys driver
@@ -80,18 +84,18 @@ public:
 		InfoFrame &metaFrame);
 
 	// MCNR
-	void tuneMeA(Request *request, MeFrames &frames);
-	void tuneMeMM(Request *request, SharedMailBox<InfoFrame> tuning);
-	void tuneMeB(Request *request, MeFrames &frames);
-	void tuneTr(Request *request, TrFrames &frames);
-	void tuneDip1(Request *request, Dip1Frames &frames);
+	void tuneMeA(uint32_t internalRequestId, MeFrames &frames);
+	void tuneMeMM(uint32_t internalRequestId, SharedMailBox<InfoFrame> tuning);
+	void tuneMeB(uint32_t internalRequestId, MeFrames &frames);
+	void tuneTr(uint32_t internalRequestId, TrFrames &frames);
+	void tuneDip1(uint32_t internalRequestId, Dip1Frames &frames);
 	void tuneDip2(
-		Request *request, Dip2Frames &frames,
+		Request *request, uint32_t internalRequestId, Dip2Frames &frames,
 		FrameBuffer *videoOut1, FrameBuffer *videoOut2);
 
 	// LPNR
-	void tuneXtr(Request *request, XtrFrames &frames);
-	void tuneLpnrDip(Request *request, LpnrDipFrames &frames,
+	void tuneXtr(uint32_t internalRequestId, XtrFrames &frames);
+	void tuneLpnrDip(Request *request, uint32_t internalRequestId, LpnrDipFrames &frames,
 			 std::vector<SharedMailBox<InfoFrame>> reci,
 			 std::vector<SharedMailBox<InfoFrame>> dipImg3o,
 			 FrameBuffer *still1Output,
@@ -124,7 +128,7 @@ private:
 	bool isImgsysCaptureStage(PEU_Stage stage);
 	void loadTuneRequest(int requestNumber);
 	bool parseHalIspNdd(
-		Request *request,
+		uint32_t internalRequestId,
 		mtk::isphal::v1_0::NddInfo &ndd);
 	int prepareNewExportDirectory();
 	bool shouldExportDumpNow(uint32_t requestNumber);

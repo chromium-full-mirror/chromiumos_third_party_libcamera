@@ -141,22 +141,22 @@ void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
 std::tuple<XTRTask *, LpnrDipTask *>
 LpnrTasksManager::makeLpnrTasks(LPNRFrames &lpnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
-				uint32_t internalId, ImgSysDevice *imgSys)
+				uint32_t internalRequestId, ImgSysDevice *imgSys)
 {
 	XTRTask *xtrTask = new XTRTask(
-			scheduler, id, request, internalId, imgSys, lpnr, this);
+			scheduler, id, request, internalRequestId, imgSys, lpnr, this);
 	LpnrDipTask *dipTask = new LpnrDipTask(
-			scheduler, id, request, internalId, imgSys, lpnr, this);
+			scheduler, id, request, internalRequestId, imgSys, lpnr, this);
 	return std::make_tuple(xtrTask, dipTask);
 }
 
 using namespace NSCam::NSImgStream;
 
 XTRTask::XTRTask(Scheduler *scheduler, const std::string &id,
-		 Request *request, uint32_t internalId,
+		 Request *request, uint32_t internalRequestId,
 		 ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalId_(internalId), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = lpnr.xtrFrames;
 }
@@ -175,7 +175,7 @@ void XTRTask::allocateOutputBuffers()
 
 void XTRTask::notifyDone()
 {
-	manager_->onDeviceTuner_->tuneXtr(request_, frames_);
+	manager_->onDeviceTuner_->tuneXtr(internalRequestId_, frames_);
 	Task::notifyDone();
 }
 
@@ -188,7 +188,7 @@ void XTRTask::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "XTRTask");
+	sdRequest.init(internalRequestId_, timestampMili, "XTRTask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -209,10 +209,10 @@ void XTRTask::run()
 }
 
 LpnrDipTask::LpnrDipTask(Scheduler *scheduler, const std::string &id,
-			 Request *request, uint32_t internalId,
+			 Request *request, uint32_t internalRequestId,
 			 ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalId_(internalId), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = lpnr.lpnrDipFrames;
 
@@ -241,7 +241,7 @@ void LpnrDipTask::allocateOutputBuffers()
 void LpnrDipTask::notifyDone()
 {
 	manager_->onDeviceTuner_->tuneLpnrDip(
-		request_, frames_, reci, dipImg3o, stillOutput1_, stillOutput2_);
+		request_, internalRequestId_, frames_, reci, dipImg3o, stillOutput1_, stillOutput2_);
 	Task::notifyDone();
 }
 
@@ -253,7 +253,7 @@ void LpnrDipTask::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 
 	SingleDeviceRequest sdRequest;
-	sdRequest.init(request_->sequence(), timestampMili, "LPNRTask");
+	sdRequest.init(internalRequestId_, timestampMili, "LPNRTask");
 
 	auto &in = frames_.in;
 

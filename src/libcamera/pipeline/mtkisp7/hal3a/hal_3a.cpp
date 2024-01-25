@@ -353,7 +353,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			  MtkCameraFaceMetadata *faceMetadata,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain,
-			  AaaIspExchange *aaaIspExchange, Request *request)
+			  AaaIspExchange *aaaIspExchange,
+			  std::optional<uint32_t> internalRequestIdApplied)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
 	if (sensor_idx_ == 0) { // back camera
@@ -407,8 +408,9 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 
 	r_3a_request.buf_info.request_id = camSysMetaRequestId;
 	r_3a_request.buf_info.sof_timestamp = timestamp;
-	if (request) {
-		onDeviceTuner_->tune3ARequest(request, r_3a_request);
+	if (internalRequestIdApplied) {
+		onDeviceTuner_->tune3ARequest(internalRequestIdApplied.value(),
+					      r_3a_request);
 	}
 
 	r_3a_request.stt_buf.fd = statistics0->planes()[0].fd.get();
@@ -434,7 +436,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
 					     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
 					     kRawMetaSize, faceMetadata,
-					     aaaIspExchange, request);
+					     aaaIspExchange, internalRequestIdApplied);
 	}
 
 	getExposureAndGain(exposureAndGain);

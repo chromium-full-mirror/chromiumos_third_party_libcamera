@@ -103,7 +103,7 @@ class CompleteRequestTask : public Task
 {
 public:
 	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
-			    Request *request, uint32_t internalId,
+			    Request *request, uint32_t internalRequestId,
 			    PipelineHandler *pipe, OnDeviceTuner *odt,
 			    FaceDetector *faceDetector,
 			    SharedMailBox<AaaIspExchange> aaaIspExchange);
@@ -115,7 +115,7 @@ private:
 
 	PipelineHandler *pipe_;
 	Request *request_;
-	[[maybe_unused]] uint32_t internalId_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	FaceDetector *faceDetector_;
 	OnDeviceTuner *onDeviceTuner_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
@@ -124,13 +124,13 @@ private:
 CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
 					 const std::string &id,
 					 Request *request,
-					 uint32_t internalId,
+					 uint32_t internalRequestId,
 					 PipelineHandler *pipe,
 					 OnDeviceTuner *odt,
 					 FaceDetector *faceDetector,
 					 SharedMailBox<AaaIspExchange> aaaIspExchange)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
-	  internalId_(internalId), faceDetector_(faceDetector),
+	  internalRequestId_(internalRequestId), faceDetector_(faceDetector),
 	  onDeviceTuner_(odt), aaaIspExchange_(aaaIspExchange)
 {
 }
@@ -354,7 +354,7 @@ void CompleteRequestTask::run()
 		pipe_->completeBuffer(request_, buffer);
 	}
 
-	onDeviceTuner_->notifyRequestEnd(request_->sequence());
+	onDeviceTuner_->notifyRequestEnd(internalRequestId_);
 	pipe_->completeRequest(request_);
 	Task::notifyDone();
 }
@@ -709,6 +709,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 		auto *prevAATask = static_cast<AATask *>(*iter);
 		prevAATask->setRequest(request);
+		prevAATask->setInternalRequestIdApplied(internalRequestId);
 		captureFrames.tuning = prevAATask->captureFrames_.tuningOutput;
 
 		prevAATask->setPerFrameControl(perFrameControl);
@@ -719,7 +720,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	}
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
-		scheduler, id, request, captureFrames, camSysMetaRequestId);
+		scheduler, id, request, captureFrames, internalRequestId);
 
 	auto [aaTask, afTask] = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
@@ -1036,7 +1037,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	}
 
 	if (still1Buffer || still2Buffer) {
-		onDeviceTuner_->notifyStillCapture(request->sequence());
+		onDeviceTuner_->notifyStillCapture(internalRequestId);
 		LPNRFrames lpnr;
 		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 

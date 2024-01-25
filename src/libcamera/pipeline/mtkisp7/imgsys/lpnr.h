@@ -71,7 +71,7 @@ public:
 
 	std::tuple<XTRTask *, LpnrDipTask *>
 	makeLpnrTasks(LPNRFrames &lpnr, Scheduler *scheduler, const std::string &id,
-		      Request *request, uint32_t internalId, ImgSysDevice *imgSys);
+		      Request *request, uint32_t internalRequestId, ImgSysDevice *imgSys);
 
 private:
 	friend class XTRTask;
@@ -99,7 +99,7 @@ class XTRTask : public Task
 {
 public:
 	XTRTask(Scheduler *scheduler, const std::string &id,
-		Request *request, uint32_t internalId,
+		Request *request, uint32_t internalRequestId,
 		ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager);
 
 	void run() override;
@@ -112,7 +112,7 @@ private:
 	ImgSysRequestHelper requestHelper_;
 
 	Request *request_;
-	[[maybe_unused]] uint32_t internalId_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 
 	LpnrTasksManager *manager_;
 };
@@ -121,7 +121,7 @@ class LpnrDipTask : public Task
 {
 public:
 	LpnrDipTask(Scheduler *scheduler, const std::string &id,
-		    Request *request, uint32_t internalId,
+		    Request *request, uint32_t internalRequestId,
 		    ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager);
 
 	void run() override;
@@ -142,7 +142,7 @@ private:
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
-	[[maybe_unused]] uint32_t internalId_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 
 	LpnrTasksManager *manager_;
 };
