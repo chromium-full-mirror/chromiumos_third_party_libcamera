@@ -8,6 +8,7 @@
 #include "camera_device.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <fstream>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -24,6 +25,8 @@
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
 #include <libcamera/property_ids.h>
+
+#include <system/camera_metadata.h>
 
 #include "camera_buffer.h"
 #include "camera_capabilities.h"
@@ -1754,6 +1757,13 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_SENSOR_EXPOSURE_TIME,
 					 *exposureTime * 1000ULL);
 
+	const auto &sensorSensitivity =
+		metadata.get(controls::AnalogueGain);
+	if (sensorSensitivity) {
+		int intIso = static_cast<int32_t>(*sensorSensitivity);
+		resultMetadata->addEntry(ANDROID_SENSOR_SENSITIVITY, intIso);
+	}
+
 	const auto &frameDuration = metadata.get(controls::FrameDuration);
 	if (frameDuration)
 		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION,
@@ -1860,8 +1870,12 @@ void CameraDevice::generateJpegExifMetadata(Camera3RequestDescriptor *request,
 	 * gain from sensor. Digital gain on ISP shouldn't be included.
 	 * Calculate sensitivity accordingly when we can differentiate
 	 * the source of digital gains.
+	 * For now assuming digital gain = 1, therefore
+	 * ISO sensitivity = analog gain.
 	 */
-	jpegExifMetadata->sensorSensitivityISO = 100;
+	int32_t intIso = static_cast<int32_t>(
+		metadata.get(controls::AnalogueGain).value_or(100));
+	jpegExifMetadata->sensorSensitivityISO = intIso;
 }
 
 /*
