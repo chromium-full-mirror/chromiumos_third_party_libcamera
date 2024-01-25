@@ -103,8 +103,8 @@ class CompleteRequestTask : public Task
 {
 public:
 	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
-			    Request *request, PipelineHandler *pipe,
-			    OnDeviceTuner *odt,
+			    Request *request, uint32_t internalId,
+			    PipelineHandler *pipe, OnDeviceTuner *odt,
 			    FaceDetector *faceDetector,
 			    SharedMailBox<AaaIspExchange> aaaIspExchange);
 
@@ -115,6 +115,7 @@ private:
 
 	PipelineHandler *pipe_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalId_;
 	FaceDetector *faceDetector_;
 	OnDeviceTuner *onDeviceTuner_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
@@ -123,13 +124,14 @@ private:
 CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
 					 const std::string &id,
 					 Request *request,
+					 uint32_t internalId,
 					 PipelineHandler *pipe,
 					 OnDeviceTuner *odt,
 					 FaceDetector *faceDetector,
 					 SharedMailBox<AaaIspExchange> aaaIspExchange)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
-	  faceDetector_(faceDetector), onDeviceTuner_(odt),
-	  aaaIspExchange_(aaaIspExchange)
+	  internalId_(internalId), faceDetector_(faceDetector),
+	  onDeviceTuner_(odt), aaaIspExchange_(aaaIspExchange)
 {
 }
 
@@ -966,8 +968,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	SharedMailBox<AaaIspExchange> aaaIspExchange = calculatingAATask->captureFrames_.aaaIspExchange;
 
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
-		scheduler, "Complete " + sequence, request, pipeline,
-		onDeviceTuner_, faceDetector_, aaaIspExchange);
+		scheduler, "Complete " + sequence, request, internalRequestId,
+		pipeline, onDeviceTuner_, faceDetector_, aaaIspExchange);
 
 	if (hasVideo) {
 		MCNRFrames mcnr;
