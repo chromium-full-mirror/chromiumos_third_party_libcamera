@@ -238,6 +238,12 @@ void AATask::setRequest(Request *request)
 	request_ = request;
 }
 
+void AATask::setInternalReqeustIdApplied(uint32_t internalRequestIdApplied)
+{
+	ASSERT(!internalRequestIdApplied_);
+	internalRequestIdApplied_ = internalRequestIdApplied;
+}
+
 void AFTask::run()
 {
 	int32_t position = -1;

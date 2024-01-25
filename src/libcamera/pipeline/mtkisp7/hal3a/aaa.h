@@ -113,8 +113,10 @@ public:
 	void run() override final;
 
 	void setRequest(Request *request);
+	void setInternalReqeustIdApplied(uint32_t internalRequestIdApplied);
 
 	Request *request_;
+	std::optional<uint32_t> internalRequestIdApplied_;
 
 	Hal3AManager *manager_;
 	CaptureFrames captureFrames_;
