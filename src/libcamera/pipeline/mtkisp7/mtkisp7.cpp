@@ -34,6 +34,7 @@
 #include "halisp/hal_isp.h"
 #include "halisp/lpnr_tun.h"
 #include "halisp/mcnr_tun.h"
+#include "halisp/mfnr_tun.h"
 #include "imgsys/imgsys.h"
 #include "imgsys/lpnr.h"
 #include "imgsys/mcnr.h"
@@ -183,6 +184,7 @@ public:
 		  mfnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrTunManager(dmaHeap, halIsp, odt),
 		  mcnrTunManager(dmaHeap, halIsp, odt),
+		  mfnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A),
 		  halIsp_(halIsp), captureResult_(5)
@@ -227,6 +229,7 @@ public:
 
 	LpnrTunTasksManager lpnrTunManager;
 	McnrTunManager mcnrTunManager;
+	MfnrTunManager mfnrTunManager;
 
 	OnDeviceTuner *onDeviceTuner_;
 	FaceDetector *faceDetector_;
@@ -838,6 +841,7 @@ void MtkISP7CameraData::releaseDevice()
 
 	lpnrTunManager.releaseBuffers();
 	mcnrTunManager.releaseBuffers();
+	mfnrTunManager.releaseBuffers();
 }
 
 /*
@@ -937,7 +941,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	mfnrManager.configure(sensorFullSize_, still1, still2);
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
-
+	mfnrTunManager.configure(sensorFullSize_, still1, still2);
 	return 0;
 }
 
@@ -1117,31 +1121,74 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			MFNRFrames mfnr;
 			mfnrManager.makeMFNRFrames(mfnr, captureFrames.raw, still1Buffer, still2Buffer);
 
+			auto [mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask,
+			      mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
+			      mfnrTunMsbldTask, mfnrTunAfbldTask] = mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, scheduler, "MfnrTun " + sequence, request, internalRequestId);
+
 			auto [mfnrBfbldTask, mfnrBfmeTask, mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask, mfnrAfbldTask] =
 				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request, imgSysDev_);
 
+			if (hasVideo) {
+				Scheduler::precede(taskTr, mfnrBfbldTask);
+				Scheduler::precede(taskDip2, mfnrBfbldTask);
+			}
+
+			Scheduler::precede(mfnrTunBfbldBaseTask, mfnrBfbldTask);
+			scheduler->succeedPrevTaskByStep(BfbldTunTaskGroup, 0, mfnrTunBfbldBaseTask);
+			scheduler->queueTask(mfnrTunBfbldBaseTask, BfbldTunTaskGroup);
+
+			Scheduler::precede(mfnrTunBfbldRefTask, mfnrBfbldTask);
+			scheduler->succeedPrevTaskByStep(BfbldTunTaskGroup, 0, mfnrTunBfbldRefTask);
+			scheduler->queueTask(mfnrTunBfbldRefTask, BfbldTunTaskGroup);
+
 			scheduler->succeedPrevTaskByStep(BfbldTaskGroup, 0, mfnrBfbldTask);
 			scheduler->queueTask(mfnrBfbldTask, BfbldTaskGroup);
+
+			Scheduler::precede(mfnrTunBfmeTask, mfnrBfmeTask);
+			scheduler->succeedPrevTaskByStep(BfmeTunGroup, 0, mfnrTunBfmeTask);
+			scheduler->queueTask(mfnrTunBfmeTask, BfmeTunGroup);
 
 			Scheduler::precede(mfnrBfbldTask, mfnrBfmeTask);
 			scheduler->succeedPrevTaskByStep(BfmeGroup, 0, mfnrBfmeTask);
 			scheduler->queueTask(mfnrBfmeTask, BfmeGroup);
 
+			Scheduler::precede(mfnrTunMcdsF1Task, mfnrMcdsF1Task);
+			scheduler->succeedPrevTaskByStep(McdsF1TunGroup, 0, mfnrTunMcdsF1Task);
+			scheduler->queueTask(mfnrTunMcdsF1Task, McdsF1TunGroup);
+
 			Scheduler::precede(mfnrBfbldTask, mfnrMcdsF1Task);
 			scheduler->succeedPrevTaskByStep(McdsF1Group, 0, mfnrMcdsF1Task);
 			scheduler->queueTask(mfnrMcdsF1Task, McdsF1Group);
+
+			Scheduler::precede(mfnrTunDsTask, mfnrDsTask);
+			scheduler->succeedPrevTaskByStep(DsTunGroup, 0, mfnrTunDsTask);
+			scheduler->queueTask(mfnrTunDsTask, DsTunGroup);
 
 			Scheduler::precede(mfnrMcdsF1Task, mfnrDsTask);
 			scheduler->succeedPrevTaskByStep(DsGroup, 0, mfnrDsTask);
 			scheduler->queueTask(mfnrDsTask, DsGroup);
 
+			Scheduler::precede(mfnrTunDsVbiTask, mfnrDsVbiTask);
+			scheduler->succeedPrevTaskByStep(DsVbiTunGroup, 0, mfnrTunDsVbiTask);
+			scheduler->queueTask(mfnrTunDsVbiTask, DsVbiTunGroup);
+
 			Scheduler::precede(mfnrMcdsF1Task, mfnrDsVbiTask);
 			scheduler->succeedPrevTaskByStep(DsVbiGroup, 0, mfnrDsVbiTask);
 			scheduler->queueTask(mfnrDsVbiTask, DsVbiGroup);
 
+			Scheduler::precede(mfnrTunMsbldTask, mfnrMsbldTask);
+			scheduler->succeedPrevTaskByStep(MsbldTunGroup, 0, mfnrTunMsbldTask);
+			scheduler->queueTask(mfnrTunMsbldTask, MsbldTunGroup);
+
 			Scheduler::precede(mfnrDsVbiTask, mfnrMsbldTask);
+			Scheduler::precede(mfnrDsTask, mfnrMsbldTask);
+			Scheduler::precede(mfnrMcdsF1Task, mfnrMsbldTask);
 			scheduler->succeedPrevTaskByStep(MsbldGroup, 0, mfnrMsbldTask);
 			scheduler->queueTask(mfnrMsbldTask, MsbldGroup);
+
+			Scheduler::precede(mfnrTunAfbldTask, mfnrAfbldTask);
+			scheduler->succeedPrevTaskByStep(AfbldTunGroup, 0, mfnrTunAfbldTask);
+			scheduler->queueTask(mfnrTunAfbldTask, AfbldTunGroup);
 
 			Scheduler::precede(mfnrMsbldTask, mfnrAfbldTask);
 			scheduler->succeedPrevTaskByStep(AfbldGroup, 0, mfnrAfbldTask);

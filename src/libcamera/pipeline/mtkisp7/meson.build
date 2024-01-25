@@ -43,6 +43,7 @@ libcamera_sources += files([
     'halisp/hal_isp.cpp',
     'halisp/lpnr_tun.cpp',
     'halisp/mcnr_tun.cpp',
+    'halisp/mfnr_tun.cpp',
     'imgsys/lpnr.cpp',
     'imgsys/imgsys.cpp',
     'imgsys/mcnr.cpp',

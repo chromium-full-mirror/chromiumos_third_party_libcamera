@@ -1,0 +1,258 @@
+/*
+ * Copyright (C) 2024, Google Inc.
+ *
+ * mfnr_tun.h - MTK MtkISP7 MFNR tuning generator
+ */
+
+#pragma once
+
+#include <memory>
+
+#include <libcamera/base/signal.h>
+#include <libcamera/base/thread.h>
+
+#include <libcamera/geometry.h>
+
+#include "libcamera/internal/task_scheduler.h"
+
+#include "pipeline/mtkisp7/imgsys/mfnr.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
+#include "hal_isp.h"
+
+namespace libcamera {
+
+class DmaHeap;
+class PipelineHandler;
+
+class MfnrTunBfbldBaseTask;
+class MfnrTunBfbldRefTask;
+class MfnrTunBfmeTask;
+class MfnrTunDsTask;
+class MfnrTunDsVbiTask;
+class MfnrTunMcdsF1Task;
+class MfnrTunMsbldTask;
+class MfnrTunAfbldTask;
+
+class MfnrTunManager
+{
+friend class MfnrTunBfbldBaseTask;
+friend class MfnrTunBfbldRefTask;
+friend class MfnrTunBfmeTask;
+friend class MfnrTunDsTask;
+friend class MfnrTunDsVbiTask;
+friend class MfnrTunMcdsF1Task;
+friend class MfnrTunMsbldTask;
+friend class MfnrTunAfbldTask;
+
+public:
+	MfnrTunManager(
+		DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
+
+	int configure(const Size &bayerInputSize,
+		      const Size &yuvOutput1Size, const Size &yuvOutput2Size);
+
+	void allocateBuffers();
+	void releaseBuffers();
+
+	std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
+	makeMfnrTunTasks(
+		MFNRFrames &mfnr,
+		SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		Scheduler *scheduler,
+		const std::string &id, Request *request,
+		uint32_t internalId);
+
+private:
+	Size yuvOutput1Size_;
+	Size yuvOutput2Size_;
+
+	Size bayerInputSize_;
+
+	std::vector<Size> mfnrSizes;
+
+	DmaHeap *dmaHeap_;
+	InfoFramePool mfnrTun_;
+
+	HalIsp *halIsp_;
+
+	OnDeviceTuner *onDeviceTuner_;
+};
+
+class MfnrTunBfbldBaseTask : public Task
+{
+public:
+	MfnrTunBfbldBaseTask(MFNRFrames &mfnr,
+			     SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			     Scheduler *scheduler, const std::string &id,
+			     Request *request, MfnrTunManager *manager,
+			     uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> bfbldBaseTun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+class MfnrTunBfbldRefTask : public Task
+{
+public:
+	MfnrTunBfbldRefTask(MFNRFrames &mfnr,
+			    SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			    Scheduler *scheduler, const std::string &id,
+			    Request *request, MfnrTunManager *manager,
+			    uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> bfbldRefTun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+class MfnrTunBfmeTask : public Task
+{
+public:
+	MfnrTunBfmeTask(MFNRFrames &mfnr,
+			SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			Scheduler *scheduler, const std::string &id,
+			Request *request, MfnrTunManager *manager,
+			uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> bfmeTun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+class MfnrTunDsTask : public Task
+{
+public:
+	MfnrTunDsTask(MFNRFrames &mfnr,
+		      SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		      Scheduler *scheduler, const std::string &id,
+		      Request *request, MfnrTunManager *manager,
+		      uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> dsTun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+class MfnrTunDsVbiTask : public Task
+{
+public:
+	MfnrTunDsVbiTask(MFNRFrames &mfnr,
+			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			 Scheduler *scheduler, const std::string &id,
+			 Request *request, MfnrTunManager *manager,
+			 uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> dsVbiV2Tun_;
+	SharedMailBox<InfoFrame> dsVbiV5Tun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+class MfnrTunMcdsF1Task : public Task
+{
+public:
+	MfnrTunMcdsF1Task(MFNRFrames &mfnr,
+			  SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			  Scheduler *scheduler, const std::string &id,
+			  Request *request, MfnrTunManager *manager,
+			  uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> mcdsF1Tun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+class MfnrTunMsbldTask : public Task
+{
+public:
+	MfnrTunMsbldTask(MFNRFrames &mfnr,
+			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			 Scheduler *scheduler, const std::string &id,
+			 Request *request, MfnrTunManager *manager,
+			 uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> msbldF0Tun_;
+	SharedMailBox<InfoFrame> msbldF1Tun_;
+	SharedMailBox<InfoFrame> msbldF2Tun_;
+	SharedMailBox<InfoFrame> msbldF3Tun_;
+	SharedMailBox<InfoFrame> msbldF4Tun_;
+	SharedMailBox<InfoFrame> msbldF5Tun_;
+	SharedMailBox<InfoFrame> msbldF6Tun_;
+
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+class MfnrTunAfbldTask : public Task
+{
+public:
+	MfnrTunAfbldTask(MFNRFrames &mfnr,
+			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			 Scheduler *scheduler, const std::string &id,
+			 Request *request, MfnrTunManager *manager,
+			 uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> afbldF0Tun_;
+	SharedMailBox<InfoFrame> afbldF1Tun_;
+	SharedMailBox<InfoFrame> afbldF2Tun_;
+	SharedMailBox<InfoFrame> afbldF3Tun_;
+	SharedMailBox<InfoFrame> afbldF4Tun_;
+	SharedMailBox<InfoFrame> afbldF5Tun_;
+	SharedMailBox<InfoFrame> afbldF6Tun_;
+
+	SharedMailBox<InfoFrame> xtrTun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+};
+
+} /* namespace libcamera */
