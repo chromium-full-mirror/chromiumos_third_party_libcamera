@@ -337,6 +337,12 @@ void CompleteRequestTask::run()
 		onDeviceTuner_->writeStillCaptureDebugMetadata(request_,
 							       metadata,
 							       aaaIspExchange);
+		// ISO sensitivity = analogue gain multiplied by digital gain.
+		// However, for now libcamera is assuming that ISO sensitivity
+		// is simply equal to analogue gain.
+		float floatIso = static_cast<float>(
+			aaaIspExchange.aaaResult.ae_result.sensor_sensitivity);
+		metadata.set(controls::AnalogueGain, floatIso);
 	}
 
 	pipe_->completeMetadata(request_, metadata);
