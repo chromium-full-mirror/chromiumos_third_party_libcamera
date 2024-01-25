@@ -569,26 +569,36 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 std::tuple<MeATask *, MeBTask *, TrTask *, Dip1Task *, Dip2Task *>
 McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler  *scheduler,
 				const std::string &id, Request *request,
-				ImgSysDevice* imgSys)
+				uint32_t internalId, ImgSysDevice* imgSys)
 {
 	(void)id;
 	std::string sequence = std::to_string(request->sequence());
 
-	MeATask *meATask = new MeATask(scheduler, "MeA " + sequence, request, imgSys, mcnr, this);
-	MeBTask *meBTask = new MeBTask(scheduler, "MeB " + sequence, request, imgSys, mcnr, this);
-	TrTask *trTask = new TrTask(scheduler, "Tr " + sequence, request, imgSys, mcnr, this);
-	Dip1Task *dip1Task = new Dip1Task(scheduler, "Dip 1 " + sequence, request, imgSys, mcnr, this);
+	MeATask *meATask = new MeATask(
+			scheduler, "MeA " + sequence, request,
+			internalId, imgSys, mcnr, this);
+	MeBTask *meBTask = new MeBTask(
+			scheduler, "MeB " + sequence, request,
+			internalId, imgSys, mcnr, this);
+	TrTask *trTask = new TrTask(
+			scheduler, "Tr " + sequence, request,
+			internalId, imgSys, mcnr, this);
+	Dip1Task *dip1Task = new Dip1Task(
+			scheduler, "Dip 1 " + sequence, request,
+			internalId, imgSys, mcnr, this);
 
-	Dip2Task *dip2Task = new Dip2Task(scheduler, "Dip 2 " + sequence,
-					  request, imgSys, mcnr, this);
+	Dip2Task *dip2Task = new Dip2Task(
+			scheduler, "Dip 2 " + sequence, request,
+			internalId, imgSys, mcnr, this);
 
 	return std::make_tuple(meATask, meBTask, trTask, dip1Task, dip2Task);
 }
 
-MeATask::MeATask(Scheduler *scheduler, const std::string &id, Request *request,
-	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
+MeATask::MeATask(Scheduler *scheduler, const std::string &id,
+		 Request *request, uint32_t internalId,
+		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
 {
 	/* Collect MailBoxes used for the task */
 	frames_ = mcnr.meFrames;
@@ -679,10 +689,11 @@ void MeATask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-MeBTask::MeBTask(Scheduler *scheduler, const std::string &id, Request *request,
+MeBTask::MeBTask(Scheduler *scheduler, const std::string &id,
+		 Request *request, uint32_t internalId,
 		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
 {
 	/* Collect MailBoxes used for the task */
 	frames_ = mcnr.meFrames;
@@ -738,10 +749,11 @@ void MeBTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-TrTask::TrTask(Scheduler *scheduler, const std::string &id, Request *request,
+TrTask::TrTask(Scheduler *scheduler, const std::string &id,
+	       Request *request, uint32_t internalId,
 	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
 {
 	(void)imgSys_;
 	frames_ = mcnr.trFrames;
@@ -833,10 +845,11 @@ void TrTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-Dip1Task::Dip1Task(Scheduler *scheduler, const std::string &id, Request *request,
+Dip1Task::Dip1Task(Scheduler *scheduler, const std::string &id,
+		   Request *request, uint32_t internalId,
 		   ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
 {
 	frames_ = mcnr.dip1Frames;
 
@@ -1080,10 +1093,11 @@ void Dip1Task::setDipParams(StageEx &stage, unsigned int level)
 	stage.setMvFrame(mcnrSizes[0], kMeL0Size);
 }
 
-Dip2Task::Dip2Task(Scheduler *scheduler, const std::string &id, Request *request,
+Dip2Task::Dip2Task(Scheduler *scheduler, const std::string &id,
+		   Request *request, uint32_t internalId,
 		   ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager), imgSys_(imgSys)
+	  request_(request), internalId_(internalId), manager_(manager), imgSys_(imgSys)
 {
 	frames_ = mcnr.dip2Frames;
 	videoOut1 = mcnr.videoOut1;

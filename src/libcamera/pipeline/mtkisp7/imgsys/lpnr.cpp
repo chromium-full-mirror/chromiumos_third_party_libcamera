@@ -141,19 +141,22 @@ void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,
 std::tuple<XTRTask *, LpnrDipTask *>
 LpnrTasksManager::makeLpnrTasks(LPNRFrames &lpnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
-				ImgSysDevice *imgSys)
+				uint32_t internalId, ImgSysDevice *imgSys)
 {
-	XTRTask *xtrTask = new XTRTask(scheduler, id, request, imgSys, lpnr, this);
-	LpnrDipTask *dipTask = new LpnrDipTask(scheduler, id, request, imgSys, lpnr, this);
+	XTRTask *xtrTask = new XTRTask(
+			scheduler, id, request, internalId, imgSys, lpnr, this);
+	LpnrDipTask *dipTask = new LpnrDipTask(
+			scheduler, id, request, internalId, imgSys, lpnr, this);
 	return std::make_tuple(xtrTask, dipTask);
 }
 
 using namespace NSCam::NSImgStream;
 
-XTRTask::XTRTask(Scheduler *scheduler, const std::string &id, Request *request,
+XTRTask::XTRTask(Scheduler *scheduler, const std::string &id,
+		 Request *request, uint32_t internalId,
 		 ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalId_(internalId), manager_(manager)
 {
 	frames_ = lpnr.xtrFrames;
 }
@@ -205,10 +208,11 @@ void XTRTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-LpnrDipTask::LpnrDipTask(Scheduler *scheduler, const std::string &id, Request *request,
+LpnrDipTask::LpnrDipTask(Scheduler *scheduler, const std::string &id,
+			 Request *request, uint32_t internalId,
 			 ImgSysDevice *imgSys, LPNRFrames &lpnr, LpnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalId_(internalId), manager_(manager)
 {
 	frames_ = lpnr.lpnrDipFrames;
 

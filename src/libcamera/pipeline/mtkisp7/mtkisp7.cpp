@@ -984,7 +984,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 		auto [taskMeA, taskMeB, tempTaskTr, taskDip1, tempTaskDip2] =
 			mcnrManager.makeMcnrTasks(mcnr, scheduler, "MCNR " + sequence,
-						  request, imgSysDev_);
+						  request, internalRequestId, imgSysDev_);
 
 		taskTr = tempTaskTr;
 		taskDip2 = tempTaskDip2;
@@ -1042,7 +1042,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
 
 		auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
-			lpnr, scheduler, "Lpnr " + sequence, request, imgSysDev_);
+			lpnr, scheduler, "Lpnr " + sequence, request,
+			internalRequestId, imgSysDev_);
 
 		if (hasVideo) {
 			Scheduler::precede(taskTr, taskXtr);

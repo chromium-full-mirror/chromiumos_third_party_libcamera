@@ -206,7 +206,7 @@ public:
 	std::tuple<MeATask *, MeBTask *, TrTask *, Dip1Task *, Dip2Task *>
 	makeMcnrTasks(MCNRFrames &mcnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
-		      ImgSysDevice *imgSys);
+		      uint32_t internalId, ImgSysDevice *imgSys);
 
 private:
 	friend class Dip1Task;
@@ -267,7 +267,8 @@ private:
 class MeATask : public Task
 {
 public:
-	MeATask(Scheduler *scheduler, const std::string &id, Request *request,
+	MeATask(Scheduler *scheduler, const std::string &id,
+		Request *request, uint32_t internalId,
 		ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
@@ -282,6 +283,7 @@ private:
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalId_;
 	McnrTasksManager *manager_;
 	ImgSysDevice *imgSys_;
 };
@@ -289,7 +291,8 @@ private:
 class MeBTask : public Task
 {
 public:
-	MeBTask(Scheduler *scheduler, const std::string &id, Request *request,
+	MeBTask(Scheduler *scheduler, const std::string &id,
+	        Request *request, uint32_t internalId,
 	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
@@ -302,6 +305,7 @@ private:
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalId_;
 	McnrTasksManager *manager_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 };
@@ -309,7 +313,8 @@ private:
 class TrTask : public Task
 {
 public:
-	TrTask(Scheduler *scheduler, const std::string &id, Request *request,
+	TrTask(Scheduler *scheduler, const std::string &id,
+	       Request *request, uint32_t internalId,
 	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
@@ -322,6 +327,7 @@ private:
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalId_;
 	McnrTasksManager *manager_;
 	ImgSysDevice *imgSys_;
 };
@@ -329,7 +335,8 @@ private:
 class Dip1Task : public Task
 {
 public:
-	Dip1Task(Scheduler *scheduler, const std::string &id, Request *request,
+	Dip1Task(Scheduler *scheduler, const std::string &id,
+	         Request *request, uint32_t internalId,
 		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
@@ -348,6 +355,7 @@ private:
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalId_;
 	McnrTasksManager *manager_;
 	ImgSysDevice *imgSys_;
 };
@@ -355,7 +363,8 @@ private:
 class Dip2Task : public Task
 {
 public:
-	Dip2Task(Scheduler *scheduler, const std::string &id, Request *request,
+	Dip2Task(Scheduler *scheduler, const std::string &id,
+	         Request *request, uint32_t internalId,
 		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
@@ -371,6 +380,7 @@ private:
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalId_;
 	McnrTasksManager *manager_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 };
