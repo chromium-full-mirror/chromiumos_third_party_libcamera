@@ -244,7 +244,8 @@ int MfnrTasksManager::releaseBuffers()
 }
 
 void MfnrTasksManager::makeMFNRFrames(MFNRFrames &mfnr,
-				      SharedMailBox<InfoFrame> &p1Raw,
+				      std::array<SharedMailBox<InfoFrame>, 8> &captureRawQueue,
+				      int captureRawQueue_idx,
 				      FrameBuffer *output1Frame,
 				      FrameBuffer *output2Frame)
 {
@@ -312,7 +313,11 @@ void MfnrTasksManager::makeMFNRFrames(MFNRFrames &mfnr,
 	/* Frames used by BfbldTask */
 	BfbldFrames &bfbldFrames = mfnr.bfbldFrames;
 	for (auto i = 0; i < kInputRawCount; i++) {
-		bfbldFrames.in.timgi.push_back(p1Raw);
+		int idx = (captureRawQueue_idx - i + 8) % 8;
+		//LOG(MtkISP7, Error) << "idx = " << idx;
+		//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << static_cast<void *>(captureRawQueue[idx]->get().address(0));
+		bfbldFrames.in.timgi.push_back(captureRawQueue[idx]);
+		//LOG(MtkISP7, Error) << "idx(done) = " << idx;
 		//tunbufiPool_.fetch(bfbldTun[i]);
 		if (i == 0) {
 			bfbldFrames.in.tunbufi.push_back(bfbldTun[0]);

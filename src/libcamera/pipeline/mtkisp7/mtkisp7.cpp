@@ -243,6 +243,9 @@ public:
 	uint32_t requestCount_ = 0;
 
 	bool forceMFNR = false;
+
+	std::array<SharedMailBox<InfoFrame>, 8> captureRawQueue;
+	int captureRawQueue_idx = -1;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -1016,6 +1019,11 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		scheduler, "Complete " + sequence, request, internalRequestId,
 		pipeline, onDeviceTuner_, faceDetector_, aaaIspExchange);
 
+	captureRawQueue_idx += 1;
+	captureRawQueue_idx = captureRawQueue_idx % 8;
+	captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
+	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << captureRawQueue_idx;
+	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << static_cast<void *>(captureRawQueue[captureRawQueue_idx]->get().address(0));
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
 		auto [faceDetectionTask, faceToneTask, parseTask] =
 			faceDetector_->makeFaceDetectionTask(
@@ -1119,7 +1127,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		onDeviceTuner_->notifyStillCapture(internalRequestId);
 		if (forceMFNR) {
 			MFNRFrames mfnr;
-			mfnrManager.makeMFNRFrames(mfnr, captureFrames.raw, still1Buffer, still2Buffer);
+			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
 
 			auto [mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask,
 			      mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,

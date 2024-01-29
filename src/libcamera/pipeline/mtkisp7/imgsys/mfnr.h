@@ -189,7 +189,8 @@ public:
 	int stop();
 	int releaseBuffers();
 	void makeMFNRFrames(MFNRFrames &mfnr,
-			    SharedMailBox<InfoFrame> &p1Raw,
+			    std::array<SharedMailBox<InfoFrame>, 8> &captureRawQueue,
+			    int captureRawQueue_idx,
 			    FrameBuffer *output1Frame,
 			    FrameBuffer *output2Frame);
 	std::vector<Size> mfnrSizes_;
