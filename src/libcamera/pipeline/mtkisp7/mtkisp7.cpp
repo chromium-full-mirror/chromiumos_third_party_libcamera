@@ -79,6 +79,7 @@ enum MtkISP7TaskGroup {
 	BfbldTaskGroup,
 	McdsF1Group,
 	BfmeGroup,
+	SwmeGroup,
 	DsGroup,
 	DsVbiGroup,
 	MsbldGroup,
@@ -86,6 +87,7 @@ enum MtkISP7TaskGroup {
 	BfbldTunTaskGroup,
 	McdsF1TunGroup,
 	BfmeTunGroup,
+	SwmeTunGroup,
 	DsTunGroup,
 	DsVbiTunGroup,
 	MsbldTunGroup,
@@ -116,6 +118,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ BfbldTaskGroup, "BfbldTaskGroup" },
 	{ McdsF1Group, "McdsF1Group" },
 	{ BfmeGroup, "BfmeGroup" },
+	{ SwmeGroup, "SwmeGroup" },
 	{ DsGroup, "DsGroup" },
 	{ DsVbiGroup, "DsVbiGroup" },
 	{ MsbldGroup, "MsbldGroup" },
@@ -123,6 +126,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ BfbldTunTaskGroup, "BfbldTunTaskGroup" },
 	{ McdsF1TunGroup, "McdsF1TunGroup" },
 	{ BfmeTunGroup, "BfmeTunGroup" },
+	{ SwmeTunGroup, "SwmeTunGroup" },
 	{ DsTunGroup, "DsTunGroup" },
 	{ DsVbiTunGroup, "DsVbiTunGroup" },
 	{ MsbldTunGroup, "MsbldTunGroup" },
@@ -1130,10 +1134,13 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
 
 			auto [mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask,
-			      mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
-			      mfnrTunMsbldTask, mfnrTunAfbldTask] = mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, scheduler, "MfnrTun " + sequence, request, internalRequestId);
+			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask,
+			      mfnrTunMcdsF1Task, mfnrTunMsbldTask, mfnrTunAfbldTask] =
+				mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, scheduler, "MfnrTun " + sequence, request, internalRequestId);
 
-			auto [mfnrBfbldTask, mfnrBfmeTask, mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask, mfnrAfbldTask] =
+			auto [mfnrBfbldTask, mfnrBfmeTask, mfnrSwmeTask,
+			      mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask,
+			      mfnrMsbldTask, mfnrAfbldTask] =
 				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request, imgSysDev_);
 
 			if (hasVideo) {
@@ -1159,6 +1166,14 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			Scheduler::precede(mfnrBfbldTask, mfnrBfmeTask);
 			scheduler->succeedPrevTaskByStep(BfmeGroup, 0, mfnrBfmeTask);
 			scheduler->queueTask(mfnrBfmeTask, BfmeGroup);
+
+			Scheduler::precede(mfnrTunSwmeTask, mfnrSwmeTask);
+			scheduler->succeedPrevTaskByStep(SwmeTunGroup, 0, mfnrSwmeTask);
+			scheduler->queueTask(mfnrTunSwmeTask, SwmeTunGroup);
+
+			Scheduler::precede(mfnrBfbldTask, mfnrSwmeTask);
+			scheduler->succeedPrevTaskByStep(SwmeGroup, 0, mfnrSwmeTask);
+			scheduler->queueTask(mfnrSwmeTask, SwmeGroup);
 
 			Scheduler::precede(mfnrTunMcdsF1Task, mfnrMcdsF1Task);
 			scheduler->succeedPrevTaskByStep(McdsF1TunGroup, 0, mfnrTunMcdsF1Task);

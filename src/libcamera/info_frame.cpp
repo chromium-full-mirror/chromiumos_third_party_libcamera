@@ -175,6 +175,7 @@ int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
 			plane.fd = fd;
 			plane.offset = offset;
 			plane.length = info.planeSize(size, j, strideAlign, scanAlign);
+			plane.stride = info.stride(size.width, j, strideAlign);
 			planes.emplace_back(plane);
 			offset += plane.length;
 		}

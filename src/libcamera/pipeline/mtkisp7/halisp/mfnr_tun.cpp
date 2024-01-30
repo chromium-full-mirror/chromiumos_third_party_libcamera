@@ -14,6 +14,7 @@
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
 
+#include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
@@ -171,7 +172,7 @@ int MfnrTunManager::configure(const Size &bayerInputSize,
 	return 0;
 }
 
-std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
+std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *, MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 				 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 				 Scheduler *scheduler,
@@ -185,6 +186,9 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 		mfnr, aaaIspExchange, scheduler, id, request, this, internalId);
 
 	MfnrTunBfmeTask *mfnrTunBfmeTask = new MfnrTunBfmeTask(
+		mfnr, aaaIspExchange, scheduler, id, request, this, internalId);
+
+	MfnrTunSwmeTask *mfnrTunSwmeTask = new MfnrTunSwmeTask(
 		mfnr, aaaIspExchange, scheduler, id, request, this, internalId);
 
 	MfnrTunDsTask *mfnrTunDsTask = new MfnrTunDsTask(
@@ -202,7 +206,7 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 	MfnrTunAfbldTask *mfnrTunAfbldTask = new MfnrTunAfbldTask(
 		mfnr, aaaIspExchange, scheduler, id, request, this, internalId);
 
-	return std::make_tuple(mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task, mfnrTunMsbldTask, mfnrTunAfbldTask);
+	return std::make_tuple(mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask, mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task, mfnrTunMsbldTask, mfnrTunAfbldTask);
 }
 
 MfnrTunBfbldBaseTask::MfnrTunBfbldBaseTask(MFNRFrames &mfnr,
@@ -265,6 +269,32 @@ void MfnrTunBfmeTask::run()
 
 	fillTuning(bfmeTun_, tuningBuffers.capture_BFME_tunbufi);
 
+	notifyDone();
+}
+
+MfnrTunSwmeTask::MfnrTunSwmeTask([[maybe_unused]] MFNRFrames &mfnr,
+				 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				 Scheduler *scheduler,
+				 const std::string &id, Request *request, MfnrTunManager *manager,
+				 uint32_t internalId)
+	: Task(scheduler, id), request_(request), internalId_(internalId), manager_(manager)
+{
+	aaaIspExchange_ = aaaIspExchange;
+	LOG(MtkISP7, Error) << "mfnr addr = " << static_cast<void *>(&mfnr);
+	swmeFrames_ = mfnr.swmeFrames;
+}
+
+void MfnrTunSwmeTask::run()
+{
+	LOG(MtkISP7, Error) << "MfnrTunSwmeTask run";
+	auto &out = swmeFrames_.out;
+	for (auto i = 0; i < (int)out.db_param.size(); i++) {
+		LOG(MtkISP7, Error) << "swmeDbParam_ " << i << " " << out.db_param.size();
+		std::shared_ptr<isp_swme_Param> dbParam = manager_->halIsp_->getIspSwmeParam();
+		out.db_param[i]->put(dbParam, nullptr);
+		LOG(MtkISP7, Error) << "mfnr_.dbParam addr = " << static_cast<void *>(dbParam.get());
+	}
+	LOG(MtkISP7, Error) << "MfnrTunSwmeTask run debug2";
 	notifyDone();
 }
 

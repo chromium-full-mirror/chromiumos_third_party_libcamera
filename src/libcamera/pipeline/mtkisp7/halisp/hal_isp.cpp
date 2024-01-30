@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <sys/mman.h>
 
@@ -217,6 +218,52 @@ uint32_t HalIsp::getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_
 	lpnrThredshold_ = static_cast<uint32_t>(param.LPNR_ISO_HIGH_TH);
 
 	return lpnrThredshold_.value();
+}
+
+std::shared_ptr<isp_swme_Param> HalIsp::querySwmeParam(
+	const CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &qry, MBOOL force)
+{
+	std::lock_guard<std::mutex> lk(lk_);
+	auto f = data_.find(EModuleDB_SW_ME);
+	if (f != data_.end() && force == MFALSE) {
+		auto t_data =
+			reinterpret_cast<TData<isp_swme_Param> *>(f->second.get());
+		return t_data->get();
+	}
+	auto size = sizeof(isp_swme_Param);
+	std::shared_ptr<Data> data =
+		std::make_shared<TData<isp_swme_Param>>();
+	auto t_data =
+		reinterpret_cast<TData<isp_swme_Param> *>(data.get());
+	provider_->readDataForFeature(
+		static_cast<void *>(t_data->get().get()),
+		size, EModuleDB_SW_ME, qry);
+	if (f == data_.end()) {
+		LOG(MtkISP7, Info) << "insert module:" << static_cast<MINT32>(EModuleDB_SW_ME)
+				   << " size:" << size;
+		data_.emplace(EModuleDB_SW_ME, data);
+	} else {
+		LOG(MtkISP7, Info) << "replace module:" << static_cast<MINT32>(EModuleDB_SW_ME)
+				   << " size:" << size;
+		f->second = data;
+	}
+	return t_data->get();
+}
+
+std::shared_ptr<isp_swme_Param> HalIsp::getIspSwmeParam()
+{
+	NSIspTuning::EStage_T stage = NSIspTuning::EStage_T::EStage_SWME;
+	CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO qry = m_P1CamInfo.rMapping_Info_with_sys_info;
+
+	qry.mapping_info.eFeature = EFeature_Capture_mfnr;
+	qry.mapping_info.eStage = EStage_SWME;
+	qry.mapping_info.eAction = EAction_Capture;
+	LOG(MtkISP7, Info) << "query tuning with feature: " << qry.mapping_info.eFeature;
+	LOG(MtkISP7, Info) << "query tuning with stage: " << static_cast<MINT64>(stage);
+	LOG(MtkISP7, Info) << "query tuning with flash: " << qry.mapping_info.eFlash;
+	LOG(MtkISP7, Info) << "query tuning with force: " << 0;
+
+	return querySwmeParam(qry, 0);
 }
 
 void HalIsp::fillCamInfoFaceData(MtkCameraFaceMetadata *faces,

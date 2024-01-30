@@ -21,6 +21,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
+#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_swme_Param.h"
 
 #include "stdint.h"
 
@@ -74,6 +75,9 @@ public:
 				uint32_t internalRequestId,
 				bool needCropTNC16x9);
 
+	std::shared_ptr<isp_swme_Param> querySwmeParam(const CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &qry, MBOOL force);
+	std::shared_ptr<isp_swme_Param> getIspSwmeParam();
+
 private:
 	uint32_t getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info);
 
@@ -109,6 +113,31 @@ private:
 	Hal3A *hal3A_;
 
 	History<CamInfo> camInfoHistory_;
+public:
+	class Data
+	{
+	public:
+		Data() {}
+		virtual ~Data() {}
+	};
+	template<typename T>
+	class TData : public Data
+	{
+	public:
+		TData() { data_ = std::make_shared<T>(); }
+		~TData()
+		{
+			//MY_LOGD("~TData, size = %u", sizeof(T));
+		}
+		std::shared_ptr<T> get() { return data_; }
+
+	private:
+		std::shared_ptr<T> data_;
+	};
+
+	std::map<NSIspTuning::EModuleDB_T, std::shared_ptr<Data>> data_;
+
+	std::mutex lk_;
 };
 
 } // namespace libcamera

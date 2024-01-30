@@ -57,6 +57,7 @@ public:
 		SharedFD fd;
 		unsigned int offset = kInvalidOffset;
 		unsigned int length;
+		unsigned int stride;
 	};
 
 	FrameBuffer(const std::vector<Plane> &planes, unsigned int cookie = 0);

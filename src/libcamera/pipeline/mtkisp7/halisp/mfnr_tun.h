@@ -28,6 +28,7 @@ class PipelineHandler;
 class MfnrTunBfbldBaseTask;
 class MfnrTunBfbldRefTask;
 class MfnrTunBfmeTask;
+class MfnrTunSwmeTask;
 class MfnrTunDsTask;
 class MfnrTunDsVbiTask;
 class MfnrTunMcdsF1Task;
@@ -36,14 +37,15 @@ class MfnrTunAfbldTask;
 
 class MfnrTunManager
 {
-friend class MfnrTunBfbldBaseTask;
-friend class MfnrTunBfbldRefTask;
-friend class MfnrTunBfmeTask;
-friend class MfnrTunDsTask;
-friend class MfnrTunDsVbiTask;
-friend class MfnrTunMcdsF1Task;
-friend class MfnrTunMsbldTask;
-friend class MfnrTunAfbldTask;
+	friend class MfnrTunBfbldBaseTask;
+	friend class MfnrTunBfbldRefTask;
+	friend class MfnrTunBfmeTask;
+	friend class MfnrTunSwmeTask;
+	friend class MfnrTunDsTask;
+	friend class MfnrTunDsVbiTask;
+	friend class MfnrTunMcdsF1Task;
+	friend class MfnrTunMsbldTask;
+	friend class MfnrTunAfbldTask;
 
 public:
 	MfnrTunManager(
@@ -55,7 +57,7 @@ public:
 	void allocateBuffers();
 	void releaseBuffers();
 
-	std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
+	std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *, MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 	makeMfnrTunTasks(
 		MFNRFrames &mfnr,
 		SharedMailBox<AaaIspExchange> &aaaIspExchange,
@@ -137,6 +139,27 @@ public:
 	uint32_t internalId_;
 
 	MfnrTunManager *manager_;
+};
+
+class MfnrTunSwmeTask : public Task
+{
+public:
+	MfnrTunSwmeTask(MFNRFrames &mfnr,
+			SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			Scheduler *scheduler, const std::string &id,
+			Request *request, MfnrTunManager *manager,
+			uint32_t internalId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> bfmeTun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalId_;
+
+	MfnrTunManager *manager_;
+	SwmeFrames swmeFrames_;
 };
 
 class MfnrTunDsTask : public Task

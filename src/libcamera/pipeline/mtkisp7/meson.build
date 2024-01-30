@@ -16,6 +16,8 @@ libcam_halisp_tuning_provider = cc.find_library('cam.halisp.TuningDataProvider',
 libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : true)
 libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
 
+libcamalgo_mfnr = cc.find_library('camalgo.mfnr', required : true)
+
 libcamera_deps += [
     libcamalgo_fdft,
     libcam_hal3a,
@@ -30,6 +32,7 @@ libcamera_deps += [
     libcam_halisp_tuning_provider,
     libmtkcam_tuning_utils,
     libmtkcam_stdutils,
+    libcamalgo_mfnr,
 ]
 
 libcamera_sources += files([
@@ -48,6 +51,7 @@ libcamera_sources += files([
     'imgsys/imgsys.cpp',
     'imgsys/mcnr.cpp',
     'imgsys/mfnr.cpp',
+    'imgsys/swme.cpp',
     'imgsys/single_device.cpp',
     'odt/imagiq_adapter/static_metadata/static_strings.cpp',
     'odt/imagiq_adapter/dump.cpp',
