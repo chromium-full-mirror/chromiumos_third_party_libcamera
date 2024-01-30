@@ -107,6 +107,7 @@ class LogOutput
 public:
 	LogOutput(const char *path, bool color);
 	LogOutput(std::ostream *stream, bool color);
+	LogOutput(bool color);
 	LogOutput();
 	~LogOutput();
 
@@ -145,6 +146,16 @@ LogOutput::LogOutput(std::ostream *stream, bool color)
 }
 
 /**
+ * \brief Construct a log output to both std:err and syslog
+ * \param[in] color True to output colored messages
+ */
+LogOutput::LogOutput(bool color)
+	: stream_(&std::cerr), target_(LoggingTargetCros), color_(color)
+{
+	openlog("libcamera", LOG_PID, 0);
+}
+
+/**
  * \brief Construct a log output to syslog
  */
 LogOutput::LogOutput()
@@ -160,6 +171,7 @@ LogOutput::~LogOutput()
 		delete stream_;
 		break;
 	case LoggingTargetSyslog:
+	case LoggingTargetCros:
 		closelog();
 		break;
 	default:
@@ -230,17 +242,26 @@ void LogOutput::write(const LogMessage &msg)
 			severityColor = kColorBrightWhite;
 	}
 
+	bool toStream = false;
+	bool toSyslog = false;
+
 	switch (target_) {
 	case LoggingTargetSyslog:
-		str = std::string(log_severity_name(severity)) + " "
-		    + msg.category().name() + " " + msg.fileInfo() + " ";
-		if (!msg.prefix().empty())
-			str += msg.prefix() + ": ";
-		str += msg.msg();
-		writeSyslog(severity, str);
+		toSyslog = true;
 		break;
 	case LoggingTargetStream:
 	case LoggingTargetFile:
+		toStream = true;
+		break;
+	case LoggingTargetCros:
+		toSyslog = true;
+		toStream = true;
+		break;
+	default:
+		break;
+	}
+
+	if (toStream) {
 		str = "[" + utils::time_point_to_string(msg.timestamp()) + "] ["
 		    + std::to_string(Thread::currentId()) + "] "
 		    + severityColor + log_severity_name(severity) + " "
@@ -250,9 +271,15 @@ void LogOutput::write(const LogMessage &msg)
 			str += prefixColor + msg.prefix() + ": ";
 		str += resetColor + msg.msg();
 		writeStream(str);
-		break;
-	default:
-		break;
+	}
+
+	if (toSyslog) {
+		str = std::string(log_severity_name(severity)) + " "
+		    + msg.category().name() + " " + msg.fileInfo() + " ";
+		if (!msg.prefix().empty())
+			str += msg.prefix() + ": ";
+		str += msg.msg();
+		writeSyslog(severity, str);
 	}
 }
 
@@ -268,6 +295,10 @@ void LogOutput::write(const std::string &str)
 		break;
 	case LoggingTargetStream:
 	case LoggingTargetFile:
+		writeStream(str);
+		break;
+	case LoggingTargetCros:
+		writeSyslog(LogDebug, str);
 		writeStream(str);
 		break;
 	default:
@@ -549,6 +580,8 @@ int Logger::logSetTarget(enum LoggingTarget target)
 	case LoggingTargetNone:
 		std::atomic_store(&output_, std::shared_ptr<LogOutput>());
 		break;
+	case LoggingTargetCros:
+		std::atomic_store(&output_, std::make_shared<LogOutput>(true));
 	default:
 		return -EINVAL;
 	}
@@ -586,6 +619,11 @@ void Logger::logSetLevel(const char *category, const char *level)
  */
 Logger::Logger()
 {
+#if defined(OS_CHROMEOS)
+	logSetTarget(LoggingTargetCros);
+	return;
+#endif
+
 	bool color = !utils::secure_getenv("LIBCAMERA_LOG_NO_COLOR");
 	logSetStream(&std::cerr, color);
 

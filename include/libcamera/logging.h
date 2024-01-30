@@ -14,6 +14,7 @@ enum LoggingTarget {
 	LoggingTargetSyslog,
 	LoggingTargetFile,
 	LoggingTargetStream,
+	LoggingTargetCros,
 };
 
 int logSetFile(const char *path, bool color = false);
