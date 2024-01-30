@@ -174,6 +174,10 @@ if cc.has_argument('-Wno-c99-designator')
     ]
 endif
 
+if get_option('android_platform') == 'cros'
+    common_arguments += ['-DOS_CHROMEOS']
+endif
+
 c_arguments += common_arguments
 cpp_arguments += common_arguments
 
