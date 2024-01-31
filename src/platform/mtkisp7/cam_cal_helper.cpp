@@ -33,6 +33,14 @@
 
 CAM_CAL_DATA_STRUCT CamCalHelper::StCamCalCaldata;
 
+std::shared_ptr<CamCalHelper> CamCalHelper::getInstance()
+{
+	static std::shared_ptr<CamCalHelper> instance =
+		std::make_shared<CamCalHelper>();
+
+	return instance;
+}
+
 int CamCalHelper::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
 			       int sensor_id, int sensor_dev, void *a_pCamCalData)
 {

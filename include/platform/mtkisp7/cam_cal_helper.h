@@ -21,12 +21,8 @@
 class CamCalHelper
 {
 public:
-	static std::shared_ptr<CamCalHelper> getInstance()
-	{
-		static std::shared_ptr<CamCalHelper> instance =
-			std::make_shared<CamCalHelper>();
-		return instance;
-	}
+	static std::shared_ptr<CamCalHelper> getInstance();
+
 	int get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum, int sensor_id,
 			 int sensor_dev, void *a_pCamCalData);
 
