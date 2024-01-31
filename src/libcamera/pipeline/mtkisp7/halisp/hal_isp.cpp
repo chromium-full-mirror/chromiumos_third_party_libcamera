@@ -545,8 +545,22 @@ void fillIndex(NSIspTuning::EStage_T stage, bool isCapture,
 	}
 }
 
+mtk::isphal::Rectangle getTncCrop(uint32_t width, uint32_t height, bool needCropTNC16x9)
+{
+	unsigned int tncHeight = height;
+	int tncY = 0;
+
+	/* 16:9 */
+	if (needCropTNC16x9) {
+		tncHeight = width * 9 / 16;
+		tncY = (height - tncHeight) / 2;
+	}
+
+	return mtk::isphal::Rectangle{0, tncY, width, tncHeight};
+}
+
 void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, Size fullDipSize,
-		 mtk::isphal::v1_0::IspImgSysControl& imgsys_info)
+		 mtk::isphal::v1_0::IspImgSysControl& imgsys_info, bool needCropTNC16x9)
 {
 	(void) stage;
 	(void) outputSize;
@@ -595,8 +609,8 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 	case EStage_TR_Y2Y_F1:
 	case EStage_TR_R2Y:
 		imgsys_info.tncs_info.bValid = 1;
-		imgsys_info.tncs_info.tncs_in_cropinfo = mtk::isphal::Rectangle {
-			0, 0, inputSize.width, inputSize.height };;
+		imgsys_info.tncs_info.tncs_in_cropinfo =
+			getTncCrop(inputSize.width, inputSize.height, needCropTNC16x9);
 		imgsys_info.tncs_info.target_tnc_size = mtk::isphal::Size {
 			fullDipSize.width, fullDipSize.height };
 		break;
@@ -605,8 +619,8 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 	case EStage_P2_IDI:
 	case EStage_WPE_P2_PQDIP_MS_F0:
 		imgsys_info.tnc_roi.bValid = 1;
-		imgsys_info.tnc_roi.tnc_in_cropinfo = mtk::isphal::Rectangle {
-			0, 0, inputSize.width, inputSize.height };
+		imgsys_info.tnc_roi.tnc_in_cropinfo =
+			getTncCrop(fullDipSize.width, fullDipSize.height, needCropTNC16x9);
 		break;
 	case EStage_P2_MS_F_SMALL:
 	case EStage_P2_MS_F4:
@@ -631,7 +645,8 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 
 int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 				ImgMetaRequest &imgMetaRequest,
-				uint32_t internalRequestId)
+				uint32_t internalRequestId,
+				bool needCropTNC16x9)
 {
 	bool is_capture = imgMetaRequest.isCapture;
 	Size inputSize = imgMetaRequest.inputSize;
@@ -783,7 +798,8 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		imgsys_info.rCropRzInfo.sMEL0out = mel0Out;
 		imgsys_info.rCropRzInfo.sGyroMv = gyroOut;
 
-		fillTncInfo(imgMetaRequest.stage, inputSize, outputSize, fullDipSize, imgsys_info);
+		fillTncInfo(imgMetaRequest.stage, inputSize, outputSize,
+			    fullDipSize, imgsys_info, needCropTNC16x9);
 
 		imgsys_info.rWrappingInfo = {};
 		imgsys_info.bypass_nr = 0;

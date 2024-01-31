@@ -51,6 +51,8 @@ private:
 	friend LpnrTunXtrTask;
 	friend LpnrTunDipTask;
 
+	bool needCropTNC16x9_;
+
 	Size yuvOutput1Size_;
 	Size yuvOutput2Size_;
 

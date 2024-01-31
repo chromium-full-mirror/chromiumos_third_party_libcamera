@@ -55,6 +55,8 @@ private:
 	friend McnrTrTask;
 	friend McnrDipTask;
 
+	bool needCropTNC16x9_;
+
 	Size yuvOutputSize1_;
 	Size yuvOutputSize2_;
 	Size yuvInputSize_;

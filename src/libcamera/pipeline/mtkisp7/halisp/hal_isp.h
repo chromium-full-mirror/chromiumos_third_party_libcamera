@@ -58,7 +58,8 @@ public:
 
 	int getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 				ImgMetaRequest &imgMetaRequest,
-				uint32_t internalRequestId);
+				uint32_t internalRequestId,
+				bool needCropTNC16x9);
 
 	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
 

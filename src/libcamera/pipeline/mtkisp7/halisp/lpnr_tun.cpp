@@ -135,6 +135,11 @@ int LpnrTunTasksManager::configure(const Size &bayerInputSize,
 		size.alignUpTo(2, 2);
 	}
 
+	needCropTNC16x9_ = false;
+	if ((yuvOutput1Size_.width * 9 == yuvOutput1Size_.height * 16) &&
+	    (yuvOutput2Size_.width * 9 == yuvOutput2Size_.height * 16))
+		needCropTNC16x9_ = true;
+
 	allocateBuffers();
 
 	return 0;
@@ -189,7 +194,9 @@ void LpnrTunXtrTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+		manager_->halIsp_->getImgSysMetaTuning(
+				aaaIspExchange, request, internalRequestId_,
+				manager_->needCropTNC16x9_);
 	}
 
 	notifyDone();
@@ -244,7 +251,9 @@ void LpnrTunDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+		manager_->halIsp_->getImgSysMetaTuning(
+				aaaIspExchange, request, internalRequestId_,
+				manager_->needCropTNC16x9_);
 	}
 
 	manager_->lpnrTun_.fetch(dipTun_[2]);
@@ -264,7 +273,9 @@ void LpnrTunDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+		manager_->halIsp_->getImgSysMetaTuning(
+				aaaIspExchange, request, internalRequestId_,
+				manager_->needCropTNC16x9_);
 	}
 
 	manager_->lpnrTun_.fetch(dipTun_[1]);
@@ -284,7 +295,9 @@ void LpnrTunDipTask::run()
 
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+		manager_->halIsp_->getImgSysMetaTuning(
+				aaaIspExchange, request, internalRequestId_,
+				manager_->needCropTNC16x9_);
 	}
 
 	if (highIsoMode) {
@@ -305,7 +318,9 @@ void LpnrTunDipTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+			manager_->halIsp_->getImgSysMetaTuning(
+					aaaIspExchange, request, internalRequestId_,
+					manager_->needCropTNC16x9_);
 		}
 
 		manager_->lpnrTun_.fetch(dipTunY2YPq_);
@@ -327,7 +342,9 @@ void LpnrTunDipTask::run()
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			DmaSyncer syncerStt(xtrStt_->get().buffer()->planes()[0].fd.get());
 
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+			manager_->halIsp_->getImgSysMetaTuning(
+					aaaIspExchange, request, internalRequestId_,
+					manager_->needCropTNC16x9_);
 		}
 	} else {
 		manager_->lpnrTun_.fetch(dipTunPq_);
@@ -348,7 +365,10 @@ void LpnrTunDipTask::run()
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			DmaSyncer syncerStt(xtrStt_->get().buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_);
+
+			manager_->halIsp_->getImgSysMetaTuning(
+					aaaIspExchange, request, internalRequestId_,
+					manager_->needCropTNC16x9_);
 		}
 	}
 
