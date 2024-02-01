@@ -176,6 +176,11 @@ int McnrTasksManager::configure(const Size yuvInputSize, const Size videoOut1Siz
 	wtSizes[5] = mcnrSizes[5];
 	wtSizes[6] = mcnrSizes[5];
 
+	needCropTNC16x9_ = false;
+	if ((videoOut1Size_.width * 9 == videoOut1Size_.height * 16) &&
+	    (videoOut2Size_.width * 9 == videoOut2Size_.height * 16))
+		needCropTNC16x9_ = true;
+
 	configureBuffers();
 
 	return 0;
@@ -225,7 +230,12 @@ int McnrTasksManager::configureBuffers()
 	wt_[5].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
 	wt_[6].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
 
-	img3o_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 3);
+	Size tncSize(mcnrSizes[0]);
+	if (needCropTNC16x9_) {
+		tncSize.height = tncSize.width * 9 / 16;
+	}
+
+	img3o_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, tncSize, 3);
 	img3o_[1].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 12, DmaHeap::System, 1, 64);
 	img3o_[2].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[2], 12, DmaHeap::System, 1, 64);
 	img3o_[3].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[3], 12, DmaHeap::System, 1, 64);
@@ -1144,9 +1154,15 @@ void Dip2Task::run()
 	HW_DIP_F0.input(in.tnrlfdi->get(), IMG_PORT_TNRLFDI, 2, Size{ 0, 0 });
 	HW_DIP_F0.input(in.meMmap[0]->get(), IMG_PORT_WPE_TNR_VECI, 0, Size{ 0, 0 });
 
-	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mcnrSizes[0]);
-	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, mcnrSizes[0]);
-	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, mcnrSizes[0]);
+	Rectangle tncCrop(mcnrSizes[0]);
+	if (manager_->needCropTNC16x9_) {
+		tncCrop.height = tncCrop.width * 9 / 16;
+		tncCrop.y = (mcnrSizes[0].height - tncCrop.height) / 2;
+	}
+
+	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, tncCrop);
+	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, tncCrop);
+	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, tncCrop);
 	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	HW_DIP_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
 	HW_DIP_F0.setPqInfo();
@@ -1171,7 +1187,7 @@ void Dip2Task::run()
 			     (unsigned int)NSCam::NSImgStream::EWPE_MVMAP | NSCam::NSImgStream::EWPE_IROI);
 
 	HW_DIP_F0.setCostLevel();
-	HW_DIP_F0.setImg4oCrop(Rectangle{ 0, 0, mcnrSizes[0].width, mcnrSizes[0].height });
+	HW_DIP_F0.setImg4oCrop(tncCrop);
 
 	requestHelper_.queueRequest(sdRequest);
 }

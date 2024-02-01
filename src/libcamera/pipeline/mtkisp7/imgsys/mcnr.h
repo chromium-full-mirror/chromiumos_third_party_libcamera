@@ -217,6 +217,8 @@ private:
 
 	int configureBuffers();
 
+	bool needCropTNC16x9_;
+
 	Size yuvInputSize_;
 	Size videoOut1Size_;
 	Size videoOut2Size_;
