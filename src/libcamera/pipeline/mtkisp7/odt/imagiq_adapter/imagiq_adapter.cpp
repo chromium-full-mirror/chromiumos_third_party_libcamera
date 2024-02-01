@@ -759,7 +759,7 @@ void ImagiqAdapter::notifyRequestBegin(
 	int sensorIdInt =
 		static_cast<int>(static_cast<int>(sensorIdMap.at(sensorId)));
 	NSCam::TuningUtils::INdd::getInstance()->frame_begin(
-		sensorIdInt, requestNumber);
+		sensorIdInt, requestNumber, true);
 	NSCam::TuningUtils::IOdtUtils::getInstance(sensorIdInt)->frame_begin(requestNumber);
 }
 
