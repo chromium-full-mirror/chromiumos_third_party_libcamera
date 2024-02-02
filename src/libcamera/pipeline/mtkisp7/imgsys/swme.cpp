@@ -108,14 +108,11 @@ MRESULT SwmeWrapper::featureCtrl(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *p
 	void *pIn = Parser_ParaIn(FcId, pParaIn);
 	void *pOut = Parser_ParaOut(FcId, pParaOut);
 	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
-	LOG(MtkISP7, Info) << "Pass_MFBLL_FTCTRL_ENUM: " << Pass_MFBLL_FTCTRL_ENUM;
 	IMFBLL_GET_PROC_INFO_STRUCT *debug_out = &m_WorkingBufInfo;
-	LOG(MtkISP7, Info) << "MfbllFeatureCtrl: " << Pass_MFBLL_FTCTRL_ENUM;
 	ErrCode = pMTKMfbll->MfbllFeatureCtrl(Pass_MFBLL_FTCTRL_ENUM, pIn, pOut);
 	Parser_ParaIn_Done(FcId, pIn, pParaIn);
 	Parser_ParaOut_Done(FcId, pOut, pParaOut);
 
-	LOG(MtkISP7, Info) << "MfbllFeatureCtrl done: " << Pass_MFBLL_FTCTRL_ENUM;
 	LOG(MtkISP7, Info) << "Ext_mem_size: " << debug_out->Ext_mem_size;
 	LOG(MtkISP7, Info) << "CofMap_width: " << debug_out->CofMap_width;
 	LOG(MtkISP7, Info) << "CofMap_height: " << debug_out->CofMap_height;
@@ -279,7 +276,6 @@ void *SwmeWrapper::Parser_ParaIn(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn)
 }
 void *SwmeWrapper::Parser_ParaOut(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut)
 {
-	LOG(MtkISP7, Info) << "Parser_ParaOut: " << FcId;
 	switch (FcId) {
 	case IMFBLL_FTCTRL_GET_PROC_INFO: {
 		IMFBLL_GET_PROC_INFO_STRUCT *pMfbllGetProcInfo = (IMFBLL_GET_PROC_INFO_STRUCT *)pParaOut;
@@ -394,7 +390,6 @@ void SwmeWrapper::Parser_ParaIn_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, voi
 }
 void SwmeWrapper::Parser_ParaOut_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut, void *pParaParseOut)
 {
-	LOG(MtkISP7, Info) << "Parser_ParaOut_Done: " << FcId;
 	switch (FcId) {
 	case IMFBLL_FTCTRL_GET_PROC_INFO: {
 		IPass_MFBLL_GET_PROC_INFO_STRUCT *pMfbllGetProc = (IPass_MFBLL_GET_PROC_INFO_STRUCT *)pParaOut;

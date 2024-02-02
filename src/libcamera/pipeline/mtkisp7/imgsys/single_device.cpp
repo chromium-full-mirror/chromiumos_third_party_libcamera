@@ -164,6 +164,37 @@ void StageEx::output(const InfoFrame &info, uint32_t idx, int ratio, const Recta
 	outputs_.back().set(info, idx, ratio, crop);
 }
 
+void StageEx::setMcdsF1WpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id, Size crop, NSCam::NSImgStream::WPE_MODE mode)
+{
+	using WPE_MODE = NSCam::NSImgStream::WPE_MODE;
+	using PSP_TABLE_SEL = NSCam::NSImgStream::PSP_TABLE_SEL;
+	using RGB_MODE = NSCam::NSImgStream::RGB_MODE;
+	using EXTRA_FEATURE_INDEX = NSCam::NSImgStream::EXTRA_FEATURE_INDEX;
+	using WPE_CrpInfo = NSCam::NSImgStream::WPE_CrpInfo;
+	using WPE_CrpOfstInfo = NSCam::NSImgStream::WPE_CrpOfstInfo;
+
+	extra_.emplace_back();
+	auto &param = extra_.back();
+
+	param.mID = id;
+	auto crpInfo = WPE_CrpInfo{ .x_start_point = 0, .x_end_point = crop.width - 1, .y_start_point = 0, .y_end_point = crop.height - 1 };
+
+	auto crpOfstInfo = WPE_CrpOfstInfo{ .x_start = 0, .hr_int_ofst = 0, .hr_sub_ofst = 0, .y_start = 0, .vt_int_ofst = 0, .vt_sub_ofst = 0, .wd = 0, .ht = 0 };
+
+	param.mData.mWPEInfo = WPEInfo{
+		.wpe_mode = (WPE_MODE)mode,
+		.vgen_out = crpInfo,
+		.tbl_sel_v = (PSP_TABLE_SEL)1,
+		.tbl_sel_h = (PSP_TABLE_SEL)1,
+		.extra_feature_index = EXTRA_FEATURE_INDEX(2),
+		.rgb_mode = (RGB_MODE)0,
+		.vgen_in = crpOfstInfo,
+		.psp_border_color_y = 0,
+		.psp_border_color_u = 0,
+		.psp_border_color_v = 0
+	};
+}
+
 void StageEx::setWpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id, Size crop, NSCam::NSImgStream::WPE_MODE mode, unsigned int featureIndex)
 {
 	using WPE_MODE = NSCam::NSImgStream::WPE_MODE;

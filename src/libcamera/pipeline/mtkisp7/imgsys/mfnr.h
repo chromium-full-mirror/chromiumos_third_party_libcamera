@@ -16,6 +16,8 @@
 
 namespace libcamera {
 
+constexpr int kInputRawCount = 4;
+
 class BfbldTask;
 class McdsF1Task;
 class BfmeTask;
@@ -191,7 +193,6 @@ struct MFNRFrames {
 	SharedMailBox<InfoFrame> msbld_tnrso;
 	FrameBuffer *still1Output = nullptr;
 	FrameBuffer *still2Output = nullptr;
-	
 };
 
 class MfnrTasksManager
@@ -216,7 +217,8 @@ public:
 	std::tuple<BfbldTask *, BfmeTask *, SwmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
-		      ImgSysDevice *imgSys);
+		      uint32_t internalRequestId, ImgSysDevice *imgSys);
+
 	Size wrappingMapSize_;
 	Size confMapSize_;
 
@@ -282,7 +284,7 @@ private:
 class BfbldTask : public Task
 {
 public:
-	BfbldTask(Scheduler *scheduler, const std::string &id, Request *request,
+	BfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -293,6 +295,7 @@ private:
 	BfbldFrames frames_;
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	MFNRFrames mfnr_;
@@ -301,7 +304,7 @@ private:
 class McdsF1Task : public Task
 {
 public:
-	McdsF1Task(Scheduler *scheduler, const std::string &id, Request *request,
+	McdsF1Task(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		   ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -312,6 +315,7 @@ private:
 	McdsF1Frames frames_;
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	MFNRFrames mfnr_;
@@ -320,7 +324,7 @@ private:
 class BfmeTask : public Task
 {
 public:
-	BfmeTask(Scheduler *scheduler, const std::string &id, Request *request,
+	BfmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		 ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -330,6 +334,7 @@ private:
 	void allocateOutputBuffers();
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	BfmeFrames frames_;
@@ -339,7 +344,7 @@ private:
 class DsTask : public Task
 {
 public:
-	DsTask(Scheduler *scheduler, const std::string &id, Request *request,
+	DsTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 	       ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -349,6 +354,7 @@ private:
 	void allocateOutputBuffers();
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	DsFrames frames_;
@@ -358,7 +364,7 @@ private:
 class DsVbiTask : public Task
 {
 public:
-	DsVbiTask(Scheduler *scheduler, const std::string &id, Request *request,
+	DsVbiTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -368,6 +374,7 @@ private:
 	void allocateOutputBuffers();
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	DsVbiFrames dsVbiFramesV2_;
@@ -378,7 +385,7 @@ private:
 class MsbldTask : public Task
 {
 public:
-	MsbldTask(Scheduler *scheduler, const std::string &id, Request *request,
+	MsbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -388,6 +395,7 @@ private:
 	void allocateOutputBuffers();
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	MsbldFrames msbldF6_;
@@ -404,7 +412,7 @@ private:
 class AfbldTask : public Task
 {
 public:
-	AfbldTask(Scheduler *scheduler, const std::string &id, Request *request,
+	AfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -414,6 +422,7 @@ private:
 	void allocateOutputBuffers();
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	AfbldFrames afbldF0_;
@@ -432,7 +441,7 @@ private:
 class SwmeTask : public Task
 {
 public:
-	SwmeTask(Scheduler *scheduler, const std::string &id, Request *request,
+	SwmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		 ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
 
 	void run() override;
@@ -443,6 +452,7 @@ private:
 	std::vector<std::shared_ptr<SwmeWrapper>> swmeWrapper_;
 	ImgSysRequestHelper requestHelper_;
 	[[maybe_unused]] Request *request_;
+	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	SwmeFrames frames_;

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include <libcamera/base/signal.h>
 #include <libcamera/base/thread.h>
@@ -57,13 +58,15 @@ public:
 	void allocateBuffers();
 	void releaseBuffers();
 
-	std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *, MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
+	std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *,
+		   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *,
+		   MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 	makeMfnrTunTasks(
 		MFNRFrames &mfnr,
 		SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		Scheduler *scheduler,
 		const std::string &id, Request *request,
-		uint32_t internalId);
+		uint32_t internalRequestId);
 
 private:
 	Size yuvOutput1Size_;
@@ -71,7 +74,9 @@ private:
 
 	Size bayerInputSize_;
 
-	std::vector<Size> mfnrSizes;
+	bool needCropTNC16x9_;
+
+	std::vector<Size> mfnrSizes_;
 
 	DmaHeap *dmaHeap_;
 	InfoFramePool mfnrTun_;
@@ -88,7 +93,7 @@ public:
 			     SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			     Scheduler *scheduler, const std::string &id,
 			     Request *request, MfnrTunManager *manager,
-			     uint32_t internalId);
+			     uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -96,7 +101,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -108,15 +113,15 @@ public:
 			    SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			    Scheduler *scheduler, const std::string &id,
 			    Request *request, MfnrTunManager *manager,
-			    uint32_t internalId);
+			    uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> bfbldRefTun_;
+	std::vector<SharedMailBox<InfoFrame>> bfbldRefTun_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -128,7 +133,7 @@ public:
 			SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			Scheduler *scheduler, const std::string &id,
 			Request *request, MfnrTunManager *manager,
-			uint32_t internalId);
+			uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -136,7 +141,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -148,7 +153,7 @@ public:
 			SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			Scheduler *scheduler, const std::string &id,
 			Request *request, MfnrTunManager *manager,
-			uint32_t internalId);
+			uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -156,7 +161,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 	SwmeFrames swmeFrames_;
@@ -169,15 +174,16 @@ public:
 		      SharedMailBox<AaaIspExchange> &aaaIspExchange,
 		      Scheduler *scheduler, const std::string &id,
 		      Request *request, MfnrTunManager *manager,
-		      uint32_t internalId);
+		      uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> dsTun_;
+	SharedMailBox<InfoFrame> dsTun_0;
+	SharedMailBox<InfoFrame> dsTun_1;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -189,7 +195,7 @@ public:
 			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			 Scheduler *scheduler, const std::string &id,
 			 Request *request, MfnrTunManager *manager,
-			 uint32_t internalId);
+			 uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -198,7 +204,7 @@ public:
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -210,15 +216,15 @@ public:
 			  SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			  Scheduler *scheduler, const std::string &id,
 			  Request *request, MfnrTunManager *manager,
-			  uint32_t internalId);
+			  uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> mcdsF1Tun_;
+	std::vector<SharedMailBox<InfoFrame>> mcdsF1Tun_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -230,22 +236,22 @@ public:
 			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			 Scheduler *scheduler, const std::string &id,
 			 Request *request, MfnrTunManager *manager,
-			 uint32_t internalId);
+			 uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> msbldF0Tun_;
-	SharedMailBox<InfoFrame> msbldF1Tun_;
-	SharedMailBox<InfoFrame> msbldF2Tun_;
-	SharedMailBox<InfoFrame> msbldF3Tun_;
-	SharedMailBox<InfoFrame> msbldF4Tun_;
-	SharedMailBox<InfoFrame> msbldF5Tun_;
-	SharedMailBox<InfoFrame> msbldF6Tun_;
+	std::vector<SharedMailBox<InfoFrame>> msbldF0Tun_;
+	std::vector<SharedMailBox<InfoFrame>> msbldF1Tun_;
+	std::vector<SharedMailBox<InfoFrame>> msbldF2Tun_;
+	std::vector<SharedMailBox<InfoFrame>> msbldF3Tun_;
+	std::vector<SharedMailBox<InfoFrame>> msbldF4Tun_;
+	std::vector<SharedMailBox<InfoFrame>> msbldF5Tun_;
+	std::vector<SharedMailBox<InfoFrame>> msbldF6Tun_;
 
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -257,23 +263,23 @@ public:
 			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			 Scheduler *scheduler, const std::string &id,
 			 Request *request, MfnrTunManager *manager,
-			 uint32_t internalId);
+			 uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> afbldF0Tun_;
-	SharedMailBox<InfoFrame> afbldF1Tun_;
-	SharedMailBox<InfoFrame> afbldF2Tun_;
-	SharedMailBox<InfoFrame> afbldF3Tun_;
-	SharedMailBox<InfoFrame> afbldF4Tun_;
-	SharedMailBox<InfoFrame> afbldF5Tun_;
-	SharedMailBox<InfoFrame> afbldF6Tun_;
+	std::vector<SharedMailBox<InfoFrame>> afbldF0Tun_;
+	std::vector<SharedMailBox<InfoFrame>> afbldF1Tun_;
+	std::vector<SharedMailBox<InfoFrame>> afbldF2Tun_;
+	std::vector<SharedMailBox<InfoFrame>> afbldF3Tun_;
+	std::vector<SharedMailBox<InfoFrame>> afbldF4Tun_;
+	std::vector<SharedMailBox<InfoFrame>> afbldF5Tun_;
+	std::vector<SharedMailBox<InfoFrame>> afbldF6Tun_;
 
 	SharedMailBox<InfoFrame> xtrTun_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;
-	uint32_t internalId_;
+	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };

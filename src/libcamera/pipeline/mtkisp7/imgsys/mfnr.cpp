@@ -39,8 +39,6 @@ namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-constexpr int kInputRawCount = 4;
-
 constexpr Size kP2sttoSize{ 738624, 1 };
 //constexpr Size kWrap2pSize{ 409, 305 };
 constexpr Size kTnrsoSize{ 40, 1 };
@@ -346,11 +344,7 @@ void MfnrTasksManager::makeMFNRFrames(MFNRFrames &mfnr,
 		bfbldFrames.in.timgi.push_back(captureRawQueue[idx]);
 		//LOG(MtkISP7, Error) << "idx(done) = " << idx;
 		//tunbufiPool_.fetch(bfbldTun[i]);
-		if (i == 0) {
-			bfbldFrames.in.tunbufi.push_back(bfbldTun[0]);
-		} else {
-			bfbldFrames.in.tunbufi.push_back(bfbldTun[1]);
-		}
+		bfbldFrames.in.tunbufi.push_back(bfbldTun[i]);
 		bfbldFrames.out.p2stto.push_back(bfbldP2stto[i]);
 		bfbldFrames.out.img2o.push_back(bfbldImg2o[i]);
 		bfbldFrames.out.img3o.push_back(bfbldImg3o[i]);
@@ -381,13 +375,13 @@ void MfnrTasksManager::makeMFNRFrames(MFNRFrames &mfnr,
 	}
 
 	/* Frames used by MCDS_F1 Task */
-	mcdsWpeVeci.resize(3);
+	//mcdsWpeVeci.resize(3);
 	McdsF1Frames &mcdsF1Frames = mfnr.mcdsF1Frames;
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		mcdsF1Frames.in.wpe_wpei.push_back(bfbldFrames.out.img3o[i + 1]);
 		//tunbufiPool_.fetch(mcdsF1Tun[i]);
-		mcdsF1Frames.in.tunbufi.push_back(mcdsF1Tun[0]);
-		mcdsWpeVeci[i] = makeMailBox<InfoFrame>();
+		mcdsF1Frames.in.tunbufi.push_back(mcdsF1Tun[i]);
+		//mcdsWpeVeci[i] = makeMailBox<InfoFrame>();
 		//wrap2pPool_.fetch(mcdsWpeVeci[i]);
 		//testImage(mcdsWpeVeci[i]);
 		mcdsF1Frames.in.wpe_veci.push_back(swmeFrame.out.wrapping_map[i]);
@@ -412,7 +406,7 @@ void MfnrTasksManager::makeMFNRFrames(MFNRFrames &mfnr,
 			dsFrames.in.ltimgi.push_back(mcdsF1Frames.out.ltyuv4o[i - 2]);
 		}
 		//tunbufiPool_.fetch(dsTun[i]);
-		dsFrames.in.tunbufi.push_back(dsTun[0]);
+		dsFrames.in.tunbufi.push_back(dsTun[1]);
 		dsFrames.out.ltyuv2o.push_back(dsYuv2o[i]);
 		dsFrames.out.ltyuv3o.push_back(dsYuv3o[i]);
 		dsFrames.out.ltyuv4o.push_back(dsYuv4o[i]);
@@ -506,13 +500,13 @@ void MfnrTasksManager::makeMFNRFrames(MFNRFrames &mfnr,
 	constructMsbldMailBox(msbldF1, 1, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, mfnr.msbld_tnrso, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0]);
 	constructMsbldMailBox(msbldF0, 0, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, mfnr.msbld_tnrso, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0]);
 
-	constructMsbldMailBox(msbldF6, 6, msbldFx_0Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
-	constructMsbldMailBox(msbldF5, 5, msbldFx_0Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
-	constructMsbldMailBox(msbldF4, 4, msbldFx_0Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
-	constructMsbldMailBox(msbldF3, 3, msbldFx_0Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
-	constructMsbldMailBox(msbldF2, 2, msbldFx_0Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
-	constructMsbldMailBox(msbldF1, 1, msbldFx_0Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
-	constructMsbldMailBox(msbldF0, 0, msbldFx_0Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
+	constructMsbldMailBox(msbldF6, 6, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
+	constructMsbldMailBox(msbldF5, 5, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
+	constructMsbldMailBox(msbldF4, 4, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
+	constructMsbldMailBox(msbldF3, 3, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
+	constructMsbldMailBox(msbldF2, 2, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
+	constructMsbldMailBox(msbldF1, 1, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
+	constructMsbldMailBox(msbldF0, 0, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, mfnr.msbld_tnrso, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1]);
 
 	constructAfbldMailBox(afbldF6, 6, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, mfnr.msbld_tnrso, swmeFrame.out.conf_map[2]);
 	constructAfbldMailBox(afbldF5, 5, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, mfnr.msbld_tnrso, swmeFrame.out.conf_map[2]);
@@ -741,24 +735,24 @@ void MfnrTasksManager::makeMFNRFrames(MFNRFrames &mfnr,
 std::tuple<BfbldTask *, BfmeTask *, SwmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
-				ImgSysDevice *imgSys)
+				uint32_t internalRequestId, ImgSysDevice *imgSys)
 {
-	BfbldTask *bfbldTask = new BfbldTask(scheduler, id, request, imgSys, mfnr, this);
-	BfmeTask *bfmeTask = new BfmeTask(scheduler, id, request, imgSys, mfnr, this);
-	SwmeTask *swmeTask = new SwmeTask(scheduler, id, request, imgSys, mfnr, this);
-	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id, request, imgSys, mfnr, this);
-	DsTask *dsTask = new DsTask(scheduler, id, request, imgSys, mfnr, this);
-	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id, request, imgSys, mfnr, this);
-	MsbldTask *msbldTask = new MsbldTask(scheduler, id, request, imgSys, mfnr, this);
-	AfbldTask *afbldTask = new AfbldTask(scheduler, id, request, imgSys, mfnr, this);
+	BfbldTask *bfbldTask = new BfbldTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	BfmeTask *bfmeTask = new BfmeTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	SwmeTask *swmeTask = new SwmeTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	DsTask *dsTask = new DsTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	MsbldTask *msbldTask = new MsbldTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	AfbldTask *afbldTask = new AfbldTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
 
 	return std::make_tuple(bfbldTask, bfmeTask, swmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask, afbldTask);
 }
 
-BfbldTask::BfbldTask(Scheduler *scheduler, const std::string &id, Request *request,
+BfbldTask::BfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.bfbldFrames;
 	mfnr_ = mfnr;
@@ -812,7 +806,7 @@ void BfbldTask::run()
 	StageEx &BFBLD_REF_1 = sdRequest.emplaceStage(PEU_Stage::BFBLD_REF);
 
 	BFBLD_REF_1.input(in.timgi[2]->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
-	BFBLD_REF_1.input(in.tunbufi[1]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	BFBLD_REF_1.input(in.tunbufi[2]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
 	BFBLD_REF_1.output(out.p2stto[2]->get(), IMG_PORT_IMGSTATO, 0, mfnrSizes_[0]);
 	BFBLD_REF_1.output(out.img2o[2]->get(), IMG_PORT_IMG2O, 0, mfnrSizes_[0]);
@@ -821,7 +815,7 @@ void BfbldTask::run()
 	StageEx &BFBLD_REF_2 = sdRequest.emplaceStage(PEU_Stage::BFBLD_REF);
 
 	BFBLD_REF_2.input(in.timgi[3]->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
-	BFBLD_REF_2.input(in.tunbufi[1]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	BFBLD_REF_2.input(in.tunbufi[3]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 	BFBLD_REF_2.output(out.p2stto[3]->get(), IMG_PORT_IMGSTATO, 0, mfnrSizes_[0]);
 	BFBLD_REF_2.output(out.img2o[3]->get(), IMG_PORT_IMG2O, 0, mfnrSizes_[0]);
 	BFBLD_REF_2.output(out.img3o[3]->get(), IMG_PORT_IMG3O, 0, mfnrSizes_[0]);
@@ -829,10 +823,10 @@ void BfbldTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-McdsF1Task::McdsF1Task(Scheduler *scheduler, const std::string &id, Request *request,
+McdsF1Task::McdsF1Task(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		       ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.mcdsF1Frames;
 	mfnr_ = mfnr;
@@ -868,7 +862,7 @@ void McdsF1Task::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "BfbldTask");
+	sdRequest.init(request_->sequence(), timestampMili, "McdsF1Task");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -877,23 +871,24 @@ void McdsF1Task::run()
 		StageEx &MCDS_F1 = sdRequest.emplaceStage(PEU_Stage::MCDS_F1);
 		MCDS_F1.input(in.wpe_wpei[i]->get(), IMG_PORT_WPE_WPEI, 0, Size{ 0, 0 });
 		MCDS_F1.input(in.wpe_veci[i]->get(), IMG_PORT_WPE_VECI, 0, Size{ 0, 0 });
-		MCDS_F1.input(in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		MCDS_F1.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
 		MCDS_F1.output(out.wpe_wpeo[i]->get(), IMG_PORT_WPE_WPEO, 0, Size{ 0, 0 });
 		MCDS_F1.output(out.ltyuv2o[i]->get(), IMG_PORT_LTYUV2O, 2, Size{ 0, 0 });
 		MCDS_F1.output(out.ltyuv3o[i]->get(), IMG_PORT_LTYUV3O, 2, Size{ 0, 0 });
 		MCDS_F1.output(out.ltyuv4o[i]->get(), IMG_PORT_LTYUV4O, 2, Size{ 0, 0 });
 		MCDS_F1.output(out.ltyuv5o[i]->get(), IMG_PORT_LTYUV5O, 0, Size{ 0, 0 });
-		MCDS_F1.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, mfnrSizes_[0], NSCam::NSImgStream::EWPE_HW_LITE,
-				   (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
+		MCDS_F1.setMcdsF1WpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, mfnrSizes_[0], EWPE_HW_LITE);
+		//MCDS_F1.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, mfnrSizes_[0], NSCam::NSImgStream::EWPE_HW_LITE,
+		//		   (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
 	}
 	requestHelper_.queueRequest(sdRequest);
 }
 
-BfmeTask::BfmeTask(Scheduler *scheduler, const std::string &id, Request *request,
+BfmeTask::BfmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		   ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.bfmeFrames;
 	mfnr_ = mfnr;
@@ -922,7 +917,7 @@ void BfmeTask::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 
-	sdRequest.init(request_->sequence(), timestampMili, "BFME");
+	sdRequest.init(request_->sequence(), timestampMili, "BfmeTask");
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
@@ -930,17 +925,17 @@ void BfmeTask::run()
 	for (auto i = 0; i < kInputRawCount; i++) {
 		StageEx &BFME = sdRequest.emplaceStage(PEU_Stage::BFME);
 		BFME.input(in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		BFME.input(in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		BFME.input(in.tunbufi[1]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		BFME.output(out.img2o[i]->get(), IMG_PORT_IMG2O, 0, mfnrSizes_[2]);
 		BFME.setMultiScale(IMG_MULTI_SCALE_DOWN4, 1, 0);
 	}
 	requestHelper_.queueRequest(sdRequest);
 }
 
-SwmeTask::SwmeTask(Scheduler *scheduler, const std::string &id, Request *request,
+SwmeTask::SwmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		   ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.swmeFrames;
 	swmeWrapper_ = manager->swmeWrapper_;
@@ -984,13 +979,11 @@ void SwmeTask::run()
 		swmewrapper->featureCtrl(IMFBLL_FTCTRL_SET_PROC_INFO, &param, NULL);
 
 		IMFBLL_PROC1_OUT_STRUCT_IPC paramOut;
-		LOG(MtkISP7, Error) << "prepareOutParam " << i;
 		SwmeWrapper::prepareOutParam(
 			paramOut,
 			out.conf_map[i],
 			out.wrapping_map[i],
 			out.mcmv[i]);
-		LOG(MtkISP7, Error) << "prepareOutParam done" << i;
 		swmewrapper->swmeMain(IMFBLL_PROC1, NULL, &paramOut);
 		LOG(MtkISP7, Error) << "SwmeTask::run() done" << i;
 	}
@@ -998,10 +991,10 @@ void SwmeTask::run()
 	Task::notifyDone();
 }
 
-DsTask::DsTask(Scheduler *scheduler, const std::string &id, Request *request,
+DsTask::DsTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 	       ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.dsFrames;
 	mfnr_ = mfnr;
@@ -1042,7 +1035,7 @@ void DsTask::run()
 	for (auto i = 0; i < kInputRawCount + 1; i++) {
 		StageEx &DS = sdRequest.emplaceStage(PEU_Stage::DS);
 		DS.input(in.ltimgi[i]->get(), IMG_PORT_LTIMGI, 0, Size{ 0, 0 });
-		DS.input(in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		DS.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		DS.output(out.ltyuv2o[i]->get(), IMG_PORT_LTYUV2O, 2, Size{ 0, 0 });
 		DS.output(out.ltyuv3o[i]->get(), IMG_PORT_LTYUV3O, 2, Size{ 0, 0 });
 		DS.output(out.ltyuv4o[i]->get(), IMG_PORT_LTYUV4O, 2, Size{ 0, 0 });
@@ -1050,10 +1043,10 @@ void DsTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-DsVbiTask::DsVbiTask(Scheduler *scheduler, const std::string &id, Request *request,
+DsVbiTask::DsVbiTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	dsVbiFramesV2_ = mfnr.dsVbiFramesV2;
 	dsVbiFramesV5_ = mfnr.dsVbiFramesV5;
@@ -1115,10 +1108,10 @@ void DsVbiTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-MsbldTask::MsbldTask(Scheduler *scheduler, const std::string &id, Request *request,
+MsbldTask::MsbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	msbldF6_ = mfnr.msbldF6;
 	msbldF5_ = mfnr.msbldF5;
@@ -1185,7 +1178,7 @@ void MsbldTask::run()
 		MSBLD_F6.input(msbldF6_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
 		MSBLD_F6.input(msbldF6_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
 		MSBLD_F6.input(tnrso_->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F6.input(msbldF6_in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		MSBLD_F6.input(msbldF6_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		MSBLD_F6.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 		MSBLD_F6.output(msbldF6_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[6]);
 		MSBLD_F6.setMultiScale(IMG_MULTI_SCALE_DOWN2, 6, 7);
@@ -1202,7 +1195,7 @@ void MsbldTask::run()
 		MSBLD_F5.input(msbldF5_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[5]);
 		MSBLD_F5.input(msbldF5_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[5]);
 		MSBLD_F5.input(msbldF5_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
-		MSBLD_F5.input(msbldF5_in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		MSBLD_F5.input(msbldF5_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		MSBLD_F5.output(msbldF5_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[5]);
 		MSBLD_F5.output(msbldF5_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[5]);
 		MSBLD_F5.output(msbldF5_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[5]);
@@ -1241,7 +1234,7 @@ void MsbldTask::run()
 		MSBLD_F3.input(msbldF3_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[3]);
 		MSBLD_F3.input(msbldF3_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
 		MSBLD_F3.input(msbldF3_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[4]);
-		MSBLD_F3.input(msbldF3_in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		MSBLD_F3.input(msbldF3_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
 		MSBLD_F3.output(msbldF3_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[3]);
 		MSBLD_F3.output(msbldF3_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[3]);
@@ -1262,7 +1255,7 @@ void MsbldTask::run()
 		MSBLD_F2.input(msbldF2_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[2]);
 		MSBLD_F2.input(msbldF2_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
 		MSBLD_F2.input(msbldF2_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[3]);
-		MSBLD_F2.input(msbldF2_in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		MSBLD_F2.input(msbldF2_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
 		MSBLD_F2.output(msbldF2_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[2]);
 		MSBLD_F2.output(msbldF2_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[2]);
@@ -1283,7 +1276,7 @@ void MsbldTask::run()
 		MSBLD_F1.input(msbldF1_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[1]);
 		MSBLD_F1.input(msbldF1_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
 		MSBLD_F1.input(msbldF1_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[2]);
-		MSBLD_F1.input(msbldF1_in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		MSBLD_F1.input(msbldF1_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		MSBLD_F1.output(msbldF1_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[1]);
 		MSBLD_F1.output(msbldF1_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[1]);
 		MSBLD_F1.output(msbldF1_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[1]);
@@ -1304,7 +1297,7 @@ void MsbldTask::run()
 		MSBLD_F0.input(msbldF0_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[1]);
 		MSBLD_F0.input(msbldF0_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
 		MSBLD_F0.input(msbldF0_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[1]);
-		MSBLD_F0.input(msbldF0_in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		MSBLD_F0.input(msbldF0_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		MSBLD_F0.output(msbldF0_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[0]);
 		MSBLD_F0.output(msbldF0_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[0]);
 		MSBLD_F0.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
@@ -1314,10 +1307,10 @@ void MsbldTask::run()
 	requestHelper_.queueRequest(sdRequest);
 }
 
-AfbldTask::AfbldTask(Scheduler *scheduler, const std::string &id, Request *request,
+AfbldTask::AfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
 		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	afbldF0_ = mfnr.afbldF0;
 	afbldF1_ = mfnr.afbldF1;
@@ -1404,7 +1397,7 @@ void AfbldTask::run()
 	AFBLD_F5.output(afbldF5_out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mfnrSizes_[5]);
 	AFBLD_F5.output(afbldF5_out.tnrwo[0]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[5]);
 	AFBLD_F5.output(afbldF5_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[5]);
-	AFBLD_F5.output(afbldF5_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	AFBLD_F5.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F5.setMultiScale(IMG_MULTI_SCALE_DOWN2, 5, 7);
 	AFBLD_F5.setMvFrame(mfnrSizes_[0], Size{ 816, 608 }, 8);
 
@@ -1424,7 +1417,7 @@ void AfbldTask::run()
 	AFBLD_F4.output(afbldF4_out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mfnrSizes_[4]);
 	AFBLD_F4.output(afbldF4_out.tnrwo[0]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[4]);
 	AFBLD_F4.output(afbldF4_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[4]);
-	AFBLD_F4.output(afbldF4_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	AFBLD_F4.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F4.setMultiScale(IMG_MULTI_SCALE_DOWN2, 4, 7);
 	AFBLD_F4.setMvFrame(mfnrSizes_[0], Size{ 816, 608 }, 8);
 
@@ -1444,7 +1437,7 @@ void AfbldTask::run()
 	AFBLD_F3.output(afbldF3_out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mfnrSizes_[3]);
 	AFBLD_F3.output(afbldF3_out.tnrwo[0]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[3]);
 	AFBLD_F3.output(afbldF3_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[3]);
-	AFBLD_F3.output(afbldF3_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	AFBLD_F3.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F3.setMultiScale(IMG_MULTI_SCALE_DOWN2, 3, 7);
 	AFBLD_F3.setMvFrame(mfnrSizes_[0], Size{ 816, 608 }, 8);
 
@@ -1464,7 +1457,7 @@ void AfbldTask::run()
 	AFBLD_F2.output(afbldF2_out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mfnrSizes_[2]);
 	AFBLD_F2.output(afbldF2_out.tnrwo[0]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[2]);
 	AFBLD_F2.output(afbldF2_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[2]);
-	AFBLD_F2.output(afbldF2_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	AFBLD_F2.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F2.setMultiScale(IMG_MULTI_SCALE_DOWN2, 2, 7);
 	AFBLD_F2.setMvFrame(mfnrSizes_[0], Size{ 816, 608 }, 8);
 
@@ -1484,7 +1477,7 @@ void AfbldTask::run()
 	AFBLD_F1.output(afbldF1_out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mfnrSizes_[1]);
 	AFBLD_F1.output(afbldF1_out.tnrwo[0]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[1]);
 	AFBLD_F1.output(afbldF1_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[1]);
-	AFBLD_F1.output(afbldF1_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	AFBLD_F1.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F1.setMultiScale(IMG_MULTI_SCALE_DOWN2, 1, 7);
 	AFBLD_F1.setMvFrame(mfnrSizes_[0], Size{ 816, 608 }, 8);
 
@@ -1502,7 +1495,7 @@ void AfbldTask::run()
 	AFBLD_F0.input(afbldF0_in.tnrlfdi[0]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
 	AFBLD_F0.input(afbldF0_in.tnrmi[0]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[1]);
 	AFBLD_F0.input(afbldF0_in.tunbufi[0]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
-	AFBLD_F0.output(afbldF0_out.wdmao[0]->get(), IMG_PORT_WDMAO, 0, mfnrSizes_[0]);
+	//AFBLD_F0.output(afbldF0_out.wdmao[0]->get(), IMG_PORT_WDMAO, 0, mfnrSizes_[0]);
 	AFBLD_F0.output(afbldF0_out.tnrwo[0]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[0]);
 	//AFBLD_F0.output(afbldF0_out.wroto[0]->get(), IMG_PORT_WROTO, 0, mfnrSizes_[0]);
 	AFBLD_F0.output(tnrso_->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });

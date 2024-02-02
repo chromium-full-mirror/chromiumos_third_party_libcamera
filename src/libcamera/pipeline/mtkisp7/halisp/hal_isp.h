@@ -37,6 +37,7 @@ struct AaaIspExchange {
 
 struct ImgMetaRequest {
 	bool isCapture;
+	bool isMfnr = false;
 	NSIspTuning::EStage_T stage;
 	InfoFrame tuningBuffer;
 	InfoFrame statisticsBuffer;
@@ -45,6 +46,8 @@ struct ImgMetaRequest {
 	Size outputSize;
 	Size outputSize2;
 	Size fullDipSize;
+	int tnr_frameIndex = 0;
+	int tnr_frameTotal = 1;
 
 	std::unordered_map<mtk::isphal::kISPExtBuf, InfoFrame> reserved;
 };

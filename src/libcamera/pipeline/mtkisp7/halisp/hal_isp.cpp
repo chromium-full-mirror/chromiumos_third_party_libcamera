@@ -27,6 +27,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/mtkcam-core/aaa/include/nvbuf_util.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
+#include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
 
@@ -468,6 +469,38 @@ void fillPqInfo(NSIspTuning::EStage_T stage, Size inputSize,
 	mtk::isphal::WPEInfo wpeInfo = {};
 
 	switch (stage) {
+	case EStage_AFBLD_F0:
+	case EStage_AFBLD_F1:
+	case EStage_AFBLD_F2:
+	case EStage_AFBLD_F3:
+	case EStage_AFBLD_F4:
+	case EStage_AFBLD_F5:
+	case EStage_AFBLD_F6:
+		pqInfo.CropSize = { outputSize.width, outputSize.height };
+		pqInfo.OutSize = { outputSize.width, outputSize.height };
+		pqInfo.serial_id = 1;
+		tuning_data.pq_info.push_back(pqInfo);
+		break;
+	case EStage_BFBLD_BASE:
+	case EStage_BFBLD_REF:
+	case EStage_BFME:
+	case EStage_DS:
+	case EStage_DS_VBI_V2:
+	case EStage_DS_VBI_V5:
+		break;
+	case EStage_MCDS_F1:
+		wpeInfo.buf_id = mtk::isphal::kWPE_LITE;
+		wpeInfo.is_motion = 0;
+		tuning_data.wpe_info.push_back(wpeInfo);
+		break;
+	case EStage_MSBLD_F0:
+	case EStage_MSBLD_F1:
+	case EStage_MSBLD_F2:
+	case EStage_MSBLD_F3:
+	case EStage_MSBLD_F4:
+	case EStage_MSBLD_F5:
+	case EStage_MSBLD_F6:
+		break;
 	case EStage_P2_Y2Y_PQ_DIP:
 	case EStage_P2_MS_F0_PQ_DIP:
 		pqInfo.CropSize = { inputSize.width, inputSize.height };
@@ -531,7 +564,8 @@ void fillPqInfo(NSIspTuning::EStage_T stage, Size inputSize,
 }
 
 void fillIndex(NSIspTuning::EStage_T stage, bool isCapture,
-	       mtk::isphal::v1_0::IspImgSysControl &imgsys_info)
+	       mtk::isphal::v1_0::IspImgSysControl &imgsys_info,
+	       int tnr_frameTotal, int tnr_frameIndex)
 {
 	imgsys_info.tnr_fw_config.frameIndex = 0;
 	imgsys_info.tnr_fw_config.scaleIndex = 0;
@@ -542,6 +576,71 @@ void fillIndex(NSIspTuning::EStage_T stage, bool isCapture,
 	imgsys_info.total_frame_num = 0;
 
 	switch (stage) {
+	case EStage_BFBLD_BASE:
+	case EStage_BFBLD_REF:
+	case EStage_BFME:
+	case EStage_DS:
+	case EStage_DS_VBI_V2:
+	case EStage_DS_VBI_V5:
+	case EStage_MCDS_F1:
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_AFBLD_F0:
+	case EStage_MSBLD_F0:
+		imgsys_info.tnr_fw_config.scaleIndex = 0;
+		imgsys_info.tnr_fw_config.frameTotal = tnr_frameTotal;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.tnr_fw_config.frameIndex = tnr_frameIndex;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_MSBLD_F1:
+	case EStage_AFBLD_F1:
+		imgsys_info.tnr_fw_config.scaleIndex = 1;
+		imgsys_info.tnr_fw_config.frameTotal = tnr_frameTotal;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.tnr_fw_config.frameIndex = tnr_frameIndex;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_MSBLD_F2:
+	case EStage_AFBLD_F2:
+		imgsys_info.tnr_fw_config.scaleIndex = 2;
+		imgsys_info.tnr_fw_config.frameTotal = tnr_frameTotal;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.tnr_fw_config.frameIndex = tnr_frameIndex;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_MSBLD_F3:
+	case EStage_AFBLD_F3:
+		imgsys_info.tnr_fw_config.scaleIndex = 3;
+		imgsys_info.tnr_fw_config.frameTotal = tnr_frameTotal;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.tnr_fw_config.frameIndex = tnr_frameIndex;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_MSBLD_F4:
+	case EStage_AFBLD_F4:
+		imgsys_info.tnr_fw_config.scaleIndex = 4;
+		imgsys_info.tnr_fw_config.frameTotal = tnr_frameTotal;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.tnr_fw_config.frameIndex = tnr_frameIndex;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_MSBLD_F5:
+	case EStage_AFBLD_F5:
+		imgsys_info.tnr_fw_config.scaleIndex = 5;
+		imgsys_info.tnr_fw_config.frameTotal = tnr_frameTotal;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.tnr_fw_config.frameIndex = tnr_frameIndex;
+		imgsys_info.total_frame_num = 1;
+		break;
+	case EStage_MSBLD_F6:
+	case EStage_AFBLD_F6:
+		imgsys_info.tnr_fw_config.scaleIndex = 6;
+		imgsys_info.tnr_fw_config.frameTotal = tnr_frameTotal;
+		imgsys_info.tnr_fw_config.totalScaleNo = 7;
+		imgsys_info.tnr_fw_config.frameIndex = tnr_frameIndex;
+		imgsys_info.total_frame_num = 1;
+		break;
 	case EStage_TR_Y2Y_F1:
 	case EStage_TR_Y2Y_F4:
 	case EStage_LTR_VBI:
@@ -632,7 +731,7 @@ mtk::isphal::Rectangle getTncCrop(uint32_t width, uint32_t height, bool needCrop
 		tncY = (height - tncHeight) / 2;
 	}
 
-	return mtk::isphal::Rectangle{0, tncY, width, tncHeight};
+	return mtk::isphal::Rectangle{ 0, tncY, width, tncHeight };
 }
 
 void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, Size fullDipSize,
@@ -646,6 +745,36 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 	imgsys_info.tnc_roi = {};
 
 	switch (stage) {
+	case EStage_AFBLD_F0:
+	case EStage_AFBLD_F1:
+	case EStage_AFBLD_F2:
+	case EStage_AFBLD_F3:
+	case EStage_AFBLD_F4:
+	case EStage_AFBLD_F5:
+	case EStage_AFBLD_F6:
+		break;
+	case EStage_BFBLD_REF:
+	case EStage_BFBLD_BASE:
+		imgsys_info.rCropRzInfo.rBefore_Warp_Crop =
+			mtk::isphal::Rectangle{ 0, 0, inputSize.width, inputSize.height };
+		imgsys_info.rCropRzInfo.rBefore_Warp_Size = mtk::isphal::Size{
+			inputSize.width, inputSize.height
+		};
+		break;
+
+	case EStage_BFME:
+	case EStage_DS:
+	case EStage_DS_VBI_V2:
+	case EStage_DS_VBI_V5:
+	case EStage_MCDS_F1:
+	case EStage_MSBLD_F0:
+	case EStage_MSBLD_F1:
+	case EStage_MSBLD_F2:
+	case EStage_MSBLD_F3:
+	case EStage_MSBLD_F4:
+	case EStage_MSBLD_F5:
+	case EStage_MSBLD_F6:
+		break;
 	case EStage_TR_Y2Y_F1:
 	case EStage_TR_R2Y:
 		imgsys_info.rCropRzInfo.rBefore_Warp_Crop =
@@ -683,6 +812,48 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 	}
 
 	switch (stage) {
+	case EStage_AFBLD_F0:
+		imgsys_info.tnc_roi.bValid = 1;
+		imgsys_info.tnc_roi.tnc_in_cropinfo = mtk::isphal::Rectangle{
+			0, 0, inputSize.width, inputSize.height
+		};
+		break;
+	case EStage_AFBLD_F1:
+	case EStage_AFBLD_F2:
+	case EStage_AFBLD_F3:
+	case EStage_AFBLD_F4:
+	case EStage_AFBLD_F5:
+	case EStage_AFBLD_F6:
+		break;
+	case EStage_BFBLD_REF:
+	case EStage_BFBLD_BASE:
+		imgsys_info.tncs_info.bValid = 1;
+		imgsys_info.tncs_info.tncs_in_cropinfo = mtk::isphal::Rectangle{
+			0, 0, inputSize.width, inputSize.height
+		};
+		;
+		imgsys_info.tncs_info.target_tnc_size = mtk::isphal::Size{
+			fullDipSize.width, fullDipSize.height
+		};
+		break;
+	case EStage_BFME:
+		imgsys_info.tnc_roi.bValid = 1;
+		imgsys_info.tnc_roi.tnc_in_cropinfo = mtk::isphal::Rectangle{
+			0, 0, inputSize.width, inputSize.height
+		};
+		break;
+	case EStage_DS:
+	case EStage_DS_VBI_V2:
+	case EStage_DS_VBI_V5:
+	case EStage_MCDS_F1:
+	case EStage_MSBLD_F0:
+	case EStage_MSBLD_F1:
+	case EStage_MSBLD_F2:
+	case EStage_MSBLD_F3:
+	case EStage_MSBLD_F4:
+	case EStage_MSBLD_F5:
+	case EStage_MSBLD_F6:
+		break;
 	case EStage_TR_Y2Y_F1:
 	case EStage_TR_R2Y:
 		imgsys_info.tncs_info.bValid = 1;
@@ -727,6 +898,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 				bool needCropTNC16x9)
 {
 	bool is_capture = imgMetaRequest.isCapture;
+	bool is_mfnr = imgMetaRequest.isMfnr;
 	Size inputSize = imgMetaRequest.inputSize;
 	Size outputSize = imgMetaRequest.outputSize;
 	Size outputSize2 = imgMetaRequest.outputSize2;
@@ -841,7 +1013,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		tuning_param_p2.cam_info.user_id = 0;
 
 		if (is_capture)
-			tuning_param_p2.cam_info.rMapping_Info.eFeature = NSIspTuning::EFeature_Capture_lpnr;
+			tuning_param_p2.cam_info.rMapping_Info.eFeature = (is_mfnr) ? NSIspTuning::EFeature_Capture_mfnr : NSIspTuning::EFeature_Capture_lpnr;
 		else
 			tuning_param_p2.cam_info.rMapping_Info.eFeature = NSIspTuning::EFeature_Video;
 
@@ -871,16 +1043,22 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 
 	// parseImgSysMetadata
 	{
-		fillIndex(imgMetaRequest.stage, is_capture, imgsys_info);
-
+		fillIndex(imgMetaRequest.stage, is_capture, imgsys_info,
+			  imgMetaRequest.tnr_frameTotal, imgMetaRequest.tnr_frameIndex);
 		imgsys_info.sequence_num = internalRequestId;
 		imgsys_info.is_need_dump_exif = 1;
+		if (is_mfnr) {
+			mtk::isphal::Size mel0Out(0, 0);
+			mtk::isphal::Size gyroOut(0, 0);
+			imgsys_info.rCropRzInfo.sMEL0out = mel0Out;
+			imgsys_info.rCropRzInfo.sGyroMv = gyroOut;
 
-		mtk::isphal::Size mel0Out(576, 432);
-		mtk::isphal::Size gyroOut(32, 24);
-		imgsys_info.rCropRzInfo.sMEL0out = mel0Out;
-		imgsys_info.rCropRzInfo.sGyroMv = gyroOut;
-
+		} else {
+			mtk::isphal::Size mel0Out(576, 432);
+			mtk::isphal::Size gyroOut(32, 24);
+			imgsys_info.rCropRzInfo.sMEL0out = mel0Out;
+			imgsys_info.rCropRzInfo.sGyroMv = gyroOut;
+		}
 		fillTncInfo(imgMetaRequest.stage, inputSize, outputSize,
 			    fullDipSize, imgsys_info, needCropTNC16x9);
 

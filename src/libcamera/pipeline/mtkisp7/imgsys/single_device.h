@@ -86,6 +86,8 @@ public:
 		output(info, idx, ratio, Rectangle{ size });
 	}
 
+	void setMcdsF1WpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id,
+			Size crop, NSCam::NSImgStream::WPE_MODE mode);
 	void setWpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id,
 			Size crop, NSCam::NSImgStream::WPE_MODE mode,
 			unsigned int featureIndex);
