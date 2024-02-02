@@ -227,6 +227,21 @@ std::vector<U> setMetadata(CameraMetadata *metadata, uint32_t tag,
 	return values;
 }
 
+/**
+ * \brief Calculate FPS like CTS does.
+ * \param[in] frameDurationNsec Frame duration in nano seconds.
+ *
+ * The frame rate is rounded to the previous smaller integer,
+ * unless the value is "very near" the next larger integer.
+ * E.g. 29.8 will be rounded to 29, but 29.96 will be rounded to 30.
+ * See CameraTestUtils.java:getSuitableFpsRangeForDuration(). (CTS)
+ */
+int32_t calculateFps(int64_t frameDurationNsec)
+{
+	return static_cast<int32_t>(
+		std::floor(1e9 / frameDurationNsec + 0.05f));
+}
+
 } /* namespace */
 
 bool CameraCapabilities::validateManualSensorCapability()
@@ -686,8 +701,7 @@ int CameraCapabilities::initializeStreamConfigurations()
 			 * frame duration accordingly: see
 			 * Camera2SurfaceViewTestCase.java:getSuitableFpsRangeForDuration()
 			 */
-			minFrameDuration =
-				1e9 / static_cast<unsigned int>(floor(1e9 / minFrameDuration + 0.05f));
+			minFrameDuration = 1e9 / calculateFps(minFrameDuration);
 
 			streamConfigurations_.push_back({
 				res, androidFormat, minFrameDuration, maxFrameDuration,
@@ -1371,8 +1385,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		 * implementation confirms this but no reference has been found
 		 * in the metadata documentation.
 		 */
-		unsigned int fps =
-			static_cast<unsigned int>(floor(1e9 / entry.minFrameDurationNsec));
+		int fps = calculateFps(entry.minFrameDurationNsec);
 
 		if (entry.androidFormat != HAL_PIXEL_FORMAT_BLOB && fps < 30)
 			continue;
@@ -1415,11 +1428,9 @@ int CameraCapabilities::initializeStaticMetadata()
 	/*
 	 * Register to the camera service {min, max} and {max, max} with
 	 * 'max' being the larger YUV stream maximum frame rate and 'min' being
-	 * the globally minimum frame rate rounded to the next largest integer
-	 * as the camera service expects the camera maximum frame duration to be
-	 * smaller than 10^9 / minFps.
+	 * the globally minimum frame rate.
 	 */
-	int32_t minFps = std::ceil(1e9 / maxFrameDuration_);
+	int32_t minFps = calculateFps(maxFrameDuration_);
 	int32_t availableAeFpsTarget[] = {
 		minFps, maxYUVFps, maxYUVFps, maxYUVFps,
 	};
