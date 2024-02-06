@@ -32,6 +32,8 @@ void Task::depend(Task *task)
 
 void Task::launch()
 {
+	launchTime_ = std::chrono::steady_clock::now();
+
 	this->invokeMethod(&Task::run, ConnectionTypeQueued);
 }
 
@@ -103,6 +105,14 @@ void Scheduler::removeFromGroupTasks(Task *task)
 
 void Scheduler::taskDone(Task *task)
 {
+	/* Sample execution time of the task, from launch to notifyDone */
+	std::chrono::milliseconds milliseconds =
+		std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::steady_clock::now() - task->launchTime_);
+
+	LOG(Task, Debug) << "Task " << task->id() << " executed in "
+			 << milliseconds.count() << "ms";
+
 	taskDone_.emit(task);
 
 	runningTasks_.erase(task);

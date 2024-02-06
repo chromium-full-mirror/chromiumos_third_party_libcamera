@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <list>
 #include <map>
 #include <string>
@@ -44,6 +45,8 @@ private:
 
 	std::list<Task *> precedents_;
 	std::list<Task *> succedents_;
+
+	std::chrono::steady_clock::time_point launchTime_;
 };
 
 class DelayedTask : public Task
