@@ -43,7 +43,7 @@ LOG_DECLARE_CATEGORY(MtkISP7)
  * face detection algorithm library to parse the result of the device.
  */
 FaceDetector::FaceDetector(AieDevice *aieDev)
-	: aieDev_(aieDev), period_(15), parser_(std::make_shared<AieParser>())
+	: aieDev_(aieDev), period_(3), parser_(std::make_shared<AieParser>())
 {
 }
 
