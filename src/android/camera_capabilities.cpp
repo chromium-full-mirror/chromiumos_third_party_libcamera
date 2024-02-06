@@ -697,11 +697,12 @@ int CameraCapabilities::initializeStreamConfigurations()
 			}
 
 			/*
-			 * Calculate FPS as CTS does and adjust the minimum
-			 * frame duration accordingly: see
+			 * Calculate FPS as CTS does and adjust the minimum and
+			 * maximum frame duration accordingly: see
 			 * Camera2SurfaceViewTestCase.java:getSuitableFpsRangeForDuration()
 			 */
 			minFrameDuration = 1e9 / calculateFps(minFrameDuration);
+			maxFrameDuration = 1e9 / calculateFps(maxFrameDuration);
 
 			streamConfigurations_.push_back({
 				res, androidFormat, minFrameDuration, maxFrameDuration,
