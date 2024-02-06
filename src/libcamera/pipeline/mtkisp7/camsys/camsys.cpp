@@ -151,6 +151,15 @@ int CamSysDevice::start()
 		LOG(MtkISP7, Warning) << "Fail to reset test pattern";
 
 	for (V4L2VideoDevice *device : allVideoDevices_) {
+		ret |= device->importBuffers(16);
+	}
+
+	if (ret) {
+		LOG(MtkISP7, Error) << "Fail to import buffers";
+		return ret;
+	}
+
+	for (V4L2VideoDevice *device : allVideoDevices_) {
 		ret = device->streamOn();
 		if (ret) {
 			LOG(MtkISP7, Error) << "Fail to streamOn "
@@ -517,16 +526,6 @@ int CamSysDevice::configureMtkCamRaw()
 
 	if (ret) {
 		LOG(MtkISP7, Error) << "Fail to set selection for video nodes";
-		return ret;
-	}
-
-	ret = 0;
-	for (V4L2VideoDevice *device : allVideoDevices_) {
-		ret |= device->importBuffers(16);
-	}
-
-	if (ret) {
-		LOG(MtkISP7, Error) << "Fail to import buffers";
 		return ret;
 	}
 
