@@ -54,7 +54,7 @@ AieParseTask::AieParseTask(
 	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
 	FaceDetector *faceDetector,
 	const FdDrv_input_struct &defaultFaceToneConfig,
-	const Size &currentSensorSize, int internalRequestId)
+	const Size &currentSensorSize, int camSysMetaRequestId)
 	: Task(scheduler, id),
 	  parser_(std::move(parser)),
 	  mailBoxInputImage_(std::move(mailBoxInputImage)),
@@ -64,7 +64,7 @@ AieParseTask::AieParseTask(
 	  mailBoxFaceToneConfig_(std::move(mailBoxFaceToneConfig)),
 	  faceDetector_(faceDetector),
 	  currentSensorSize_(currentSensorSize),
-	  internalRequestId_(internalRequestId),
+	  camSysMetaRequestId_(camSysMetaRequestId),
 	  defaultFaceToneDriverConfig_(defaultFaceToneConfig)
 {
 }
@@ -238,7 +238,7 @@ int AieParseTask::parseAll()
 	}
 	detectionResult.tcy_uv_gain = gammaControl[33];
 
-	detectionResult.magicNo = internalRequestId_;
+	detectionResult.magicNo = camSysMetaRequestId_;
 
 	detectionResult.number_of_faces = 0;
 	auto inputSize = mailBoxInputImage_->get().size();
