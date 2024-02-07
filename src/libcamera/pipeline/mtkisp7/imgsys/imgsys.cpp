@@ -391,15 +391,19 @@ void ImgSysDevice::bufferReady(std::pair<FrameBuffer *, int> pair)
 int ImgSysDevice::configure()
 {
 	handleKva(Delete, descPool_);
-	handleIova(Delete, ctrlMetaPool_);
+	#if !V4L2_STANDARD_MODE
+		handleIova(Delete, ctrlMetaPool_);
+	#endif
 
 	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 266960, 1 }, 32, DmaHeap::CMA);
 	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 32768, 1 }, 32, DmaHeap::CMA);
 
 	handleKva(Add, descPool_);
-	handleIova(Add, ctrlMetaPool_);
+	#if !V4L2_STANDARD_MODE
+		handleIova(Add, ctrlMetaPool_);
 
 	descPool_.mmap();
+	#endif
 	ctrlMetaPool_.mmap();
 
 	return 0;
