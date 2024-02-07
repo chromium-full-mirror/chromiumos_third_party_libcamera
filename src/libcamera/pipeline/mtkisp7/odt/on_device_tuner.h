@@ -21,6 +21,7 @@
 #include "libcamera/internal/mailbox.h"
 
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/aaa_hal_def.h"
+#include "mtkcam-halif/utils/metadata/1.x/IMetadata.h"
 #include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
@@ -48,7 +49,11 @@ public:
 
 	void notifyRequestBegin(int requestNumber);
 	void notifyRequestEnd(int requestNumber);
+
+	// Tuning tools need to know if there is a still capture in
+	// the request or not.
 	void notifyStillCapture(int requestNumber);
+	void notifyVideoOnly(int requestNumber);
 
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
@@ -123,6 +128,7 @@ private:
 		const std::vector<ImagiqAdapter::ExportResult> &exportResults);
 	InfoFrame getFrameInfoFromRequest(
 		Request *request, FrameBuffer *buffer);
+	NSCam::IMetadata *getMtkMetadata(int requestNumber);
 	bool isImgsysCaptureStage(PEU_Stage stage);
 	void loadTuneRequest(int requestNumber);
 	bool parseHalIspNdd(
@@ -153,6 +159,10 @@ private:
 
 	std::map<Dump::Id, Dump::Config> dumpConfig_;
 	std::set<int> stillCaptureRequestIds_;
+
+	// These metadata must live through the request.
+	std::map<int, std::unique_ptr<NSCam::IMetadata>>
+		mtkMetadata_;
 
 	std::unique_ptr<CamsysDebug> camsysDebug_;
 };

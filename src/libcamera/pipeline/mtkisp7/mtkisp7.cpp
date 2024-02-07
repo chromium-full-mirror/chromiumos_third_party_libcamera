@@ -155,7 +155,7 @@ public:
 		  mcnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A),
-		  captureResult_(5)
+		  halIsp_(halIsp), captureResult_(5)
 	{
 	}
 
@@ -888,6 +888,8 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 	hal3A_->configure(camsysYuvSize);
+	halIsp_->configure(video1 > video2 ? video1 : video2,
+	 		   still1 > still2 ? still1 : still2);
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
 	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_);
@@ -1069,7 +1071,11 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		Scheduler::precede(taskDip2, completeTask);
 	}
 
-	if (still1Buffer || still2Buffer) {
+	bool hasStillCapture = still1Buffer || still2Buffer;
+
+	if (!hasStillCapture) {
+		onDeviceTuner_->notifyVideoOnly(internalRequestId);
+	} else {
 		onDeviceTuner_->notifyStillCapture(internalRequestId);
 		LPNRFrames lpnr;
 		lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);

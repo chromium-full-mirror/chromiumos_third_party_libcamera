@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 
@@ -16,6 +17,7 @@
 
 #include "../utils/history.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
+#include "halisp/utils/Size.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
@@ -58,9 +60,12 @@ public:
 
 	int init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A);
 
+	void configure(const Size &maxVideoSize, const Size &maxStillSize);
+
 	int getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize, MtkCameraFaceMetadata *faces,
+				size_t bufSize, bool isCapture,
+				MtkCameraFaceMetadata *faces,
 				AaaIspExchange *aaaIspExchange,
 				std::optional<uint32_t> internalRequestIdApplied);
 
@@ -74,6 +79,7 @@ private:
 
 	void fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
 				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo);
+	mtk::isphal::Size getTargetSize(bool isCapture);
 
 	void addHistory(uint32_t internalRequestId,
 			mtk::isphal::v1_0::IspPerframeControl &cam_info,
@@ -86,6 +92,9 @@ private:
 	int32_t sensorId_;
 
 	Rectangle activeArray_;
+
+	Size maxVideoStreamSize_;
+	Size maxStillStreamSize_;
 
 	std::shared_ptr<mtk::isphal::v1::IHalIsp> m_pHalisp;
 	mtk::isphal::v1_0::IspPerframeControl m_P1CamInfo;

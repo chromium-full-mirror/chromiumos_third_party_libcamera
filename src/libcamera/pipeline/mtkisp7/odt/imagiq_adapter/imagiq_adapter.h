@@ -9,12 +9,17 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "halisp/IspControls.h"
+#include "mtkcam-halif/utils/metadata/1.x/IMetadata.h"
+#include "mtkcam-interfaces/utils/ScenarioRecorder/IScenarioRecorder.h"
 #include "mtkcam-interfaces/utils/ndd/INdd.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "platform/mtkisp7/halisp/TuningParam.h"
+#include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 #include "mtk_cam_metabuf.h"
 
@@ -29,6 +34,10 @@ public:
 		std::optional<std::vector<std::filesystem::path>> paths = std::nullopt;
 	};
 	using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
+
+	static void configureScenarioRecorder(
+		int requestNumber, int timestamp,
+		bool enforceLowIso, bool isStillCapture);
 
 	static int enableMtkTuningTool(std::filesystem::path workDir);
 
@@ -70,6 +79,14 @@ public:
 		std::vector<uint8_t> &out,
 		const mtk::isphal::v1_0::ExifInfo3A &exif3a,
 		const mtk::isphal::v1_0::ExifInfoP2 &exifIsp);
+
+	static void writeScenarioRecorderSettings(
+		mtk::isphal::v1_0::scenarioRecordParam &outParam,
+		NSCam::IMetadata *metadata,
+		int dumpSessionTimestamp,
+		int requestNumber,
+		EStage_T stage,
+		const std::string &sensorId);
 
 	static SensorIdMap sensorIdMap;
 
@@ -127,6 +144,9 @@ private:
 
 	static std::unique_ptr<NSCam::TuningUtils::NddInitializer>
 		mtkTuningInitializer_;
+
+	static std::unique_ptr<NSCam::TuningUtils::scenariorecorder::ScenarioRecorderInitializer>
+		mtkScenarioRecorderInitializer_;
 
 	static const std::array<std::string, 2> kYcPlaneNames;
 	static const std::array<std::string, 3> kYuvPlaneNames;

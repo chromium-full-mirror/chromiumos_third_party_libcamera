@@ -11,6 +11,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -22,6 +23,8 @@
 
 #include "debug_exif/aaa/dbg_aaa_param.h"
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
+#include "mtkcam-halif/utils/metadata/1.x/IMetadata.h"
+#include "mtkcam-interfaces/utils/metadata/hal/mtk_platform_metadata_tag.h"
 #include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 #include "pipeline/mtkisp7/imgsys/lpnr.h"
@@ -30,7 +33,9 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
 #include "platform/mtkisp7/halisp/IspControls.h"
+#include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
 
@@ -182,6 +187,27 @@ InfoFrame OnDeviceTuner::getFrameInfoFromRequest(
 	return InfoFrame(streamCfg.pixelFormat, streamCfg.size, buffer, 64);
 }
 
+NSCam::IMetadata *OnDeviceTuner::getMtkMetadata(int requestNumber)
+{
+	NSCam::IMetadata *metadata = nullptr;
+	if (mtkMetadata_.count(requestNumber) == 0) {
+		metadata = new NSCam::IMetadata;
+		mtkMetadata_.emplace(
+			requestNumber,
+			std::unique_ptr<NSCam::IMetadata>(metadata));
+
+		// Hack: without this the metadata is invalid.
+		// The IMetadata default constructor does not allocate
+		// any memory for the metadata, but the remove function
+		// actually allocate some memory if there wasn't any.
+		metadata->remove(MTK_NDD_INFORMATION_KEY);
+
+	} else {
+		metadata = mtkMetadata_.at(requestNumber).get();
+	}
+	return metadata;
+}
+
 bool OnDeviceTuner::isImgsysCaptureStage(PEU_Stage stage)
 {
 	return std::find(
@@ -209,12 +235,23 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 	stillCaptureRequestIds_.erase(requestNumber);
 	ImagiqAdapter::notifyRequestEnd(
 		sensorId_, requestNumber, sessionTimestamp_,
-		shouldExportDumpNow(requestNumber), kWorkDir, currentExportPath_);
+		shouldExportDumpNow(requestNumber),
+		kWorkDir, currentExportPath_);
+	mtkMetadata_.erase(requestNumber);
 }
 
 void OnDeviceTuner::notifyStillCapture(int requestNumber)
 {
+	ImagiqAdapter::configureScenarioRecorder(requestNumber, sessionTimestamp_,
+						 enforceLowIsoLpnr_, true);
 	stillCaptureRequestIds_.insert(requestNumber);
+}
+
+void OnDeviceTuner::notifyVideoOnly(int requestNumber)
+{
+	ImagiqAdapter::configureScenarioRecorder(
+		requestNumber, sessionTimestamp_,
+		false, false);
 }
 
 bool OnDeviceTuner::parseHalIspNdd(
@@ -398,6 +435,12 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	tuningParam.is_need_exif = 1;
 	tuningResult.exif.valid = true;
 	std::memcpy(tuningResult.exif.data, reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info), sizeof(AAA_DEBUG_INFO2_T));
+
+	ImagiqAdapter::writeScenarioRecorderSettings(
+		tuningParam.cam_info->sr_para, getMtkMetadata(internalRequestId),
+		sessionTimestamp_, internalRequestId,
+		NSIspTuning::EStage_P1, sensorId_);
+
 	return parseHalIspNdd(internalRequestId, tuningParam.cam_info->rNdd_info);
 }
 
@@ -462,6 +505,11 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 	tuningResult.exif.size = sizeof(AAA_DEBUG_INFO2_T);
 	tuningResult.exif.data =
 		reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info);
+
+	ImagiqAdapter::writeScenarioRecorderSettings(
+		tuningParam.cam_info.sr_para, getMtkMetadata(internalRequestId),
+		sessionTimestamp_, internalRequestId, stage, sensorId_);
+
 	parseHalIspNdd(internalRequestId, tuningParam.cam_info.rNdd_info);
 }
 

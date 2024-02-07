@@ -19,6 +19,7 @@
 
 #include "../hal3a/hal_3a.h"
 #include "debug_exif/aaa/dbg_aaa_param.h"
+#include "halisp/utils/Size.h"
 #include "libcamera/request.h"
 #include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
@@ -193,6 +194,13 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 	return 0;
 }
 
+void HalIsp::configure(const Size &maxVideoSize,
+		       const Size &maxStillSize)
+{
+	maxVideoStreamSize_ = maxVideoSize;
+	maxStillStreamSize_ = maxStillSize;
+}
+
 uint32_t HalIsp::getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info)
 {
 	if (lpnrThredshold_)
@@ -283,9 +291,20 @@ void HalIsp::fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
 	}
 }
 
+mtk::isphal::Size HalIsp::getTargetSize(bool isCapture)
+{
+	if (isCapture) {
+		return mtk::isphal::Size(maxStillStreamSize_.width,
+					 maxStillStreamSize_.height);
+	}
+	return mtk::isphal::Size(maxVideoStreamSize_.width,
+				 maxVideoStreamSize_.height);
+}
+
 int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
-				size_t bufSize, MtkCameraFaceMetadata *faces,
+				size_t bufSize, bool isCapture,
+				MtkCameraFaceMetadata *faces,
 				AaaIspExchange *aaaIspExchange,
 				std::optional<uint32_t> internalRequestIdApplied)
 {
@@ -325,7 +344,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_param_p1.cam_info->i4ZoomRatio_x100 = 100;
 
 	tuning_param_p1.cam_info->rCropRzInfo.targetSize =
-		mtk::isphal::Size{ activeArray_.width, activeArray_.height };
+		getTargetSize(isCapture);
 
 	tuning_param_p1.cam_info->control_mode = mtk::isphal::v1_0::kControlModeOn;
 	tuning_param_p1.capture_mode = mtk::isphal::v1_0::kCaptureModeNone;
@@ -799,8 +818,8 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		else
 			tuning_param_p2.capture_mode = mtk::isphal::v1_0::kCaptureModeNone;
 
-		mtk::isphal::Size tSize(inputSize.width, inputSize.height);
-		tuning_param_p2.cam_info.rCropRzInfo.targetSize = tSize;
+		tuning_param_p2.cam_info.rCropRzInfo.targetSize =
+			getTargetSize(is_capture);
 	}
 
 	// parseImgSysMetadata

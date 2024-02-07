@@ -7,9 +7,12 @@
 
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <sstream>
 
 #include <libcamera/base/log.h>
 
@@ -19,15 +22,25 @@
 #include "libcamera/internal/formats.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "halisp/ScenarioRecorder/ScenarioRecorderDef.h"
+#include "mtkcam-halif/def/BuiltinTypes.h"
+#include "mtkcam-halif/def/TypeManip.h"
+#include "mtkcam-halif/utils/metadata/1.x/IMetadata.h"
+#include "mtkcam-interfaces/utils/ScenarioRecorder/IScenarioRecorder.h"
 #include "mtkcam-interfaces/utils/debug/Properties.h"
+#include "mtkcam-interfaces/utils/metadata/hal/mtk_platform_metadata_tag.h"
 #include "mtkcam-interfaces/utils/ndd/INdd.h"
+#include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
 #include "mtkcam-interfaces/utils/odt/IOnDeviceTuning.h"
 #include "mtkcam-interfaces/utils/std/Time.h"
+#include "mtkcam-interfaces/utils/std/ULogDef.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/mtk_headers/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/static_strings.h"
 #include "platform/mtkisp7/single_device_helper.h"
+#include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
 
@@ -42,6 +55,9 @@ const std::filesystem::path kImportConfigPath = "dump_import.cfg";
 
 std::unique_ptr<NSCam::TuningUtils::NddInitializer>
 	ImagiqAdapter::mtkTuningInitializer_;
+
+std::unique_ptr<NSCam::TuningUtils::scenariorecorder::ScenarioRecorderInitializer>
+	ImagiqAdapter::mtkScenarioRecorderInitializer_;
 
 ImagiqAdapter::SensorIdMap ImagiqAdapter::sensorIdMap;
 
@@ -66,6 +82,58 @@ std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
 	       std::to_string(dump.metadata.action.has_value() ? static_cast<int>(dump.metadata.action.value()) : -1);
 }
 
+void ImagiqAdapter::configureScenarioRecorder(
+	int requestNumber, int timestamp,
+	bool enforceLowIso, bool isStillCapture)
+{
+	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
+	if (!IScenarioRecorder::getInstance()->isScenarioRecorderOn()) {
+		return;
+	}
+	// Notify scenario recorder
+	IScenarioRecorder::getInstance()->recordNddInfo(
+		timestamp, requestNumber, requestNumber, isStillCapture);
+
+	// Add scenario recorder headline entry
+	NSCam::IMetadata metadata;
+	NSCam::TuningUtils::INdd::getInstance()->update_uniquekey(
+		metadata, timestamp, requestNumber, requestNumber);
+	NSCam::TuningUtils::scenariorecorder::ExecResultInput resultParam;
+	resultParam.decisionType =
+		NSCam::TuningUtils::scenariorecorder::DECISION_FEATURE;
+	resultParam.writeToHeadline = true;
+	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
+	std::stringstream ss;
+	ss << "trigger feature:";
+	if (isStillCapture) {
+		// todo(yerlandinata): If MFNR is enabled, adjust the feature ID here.
+		ss << kFeatureStrMap.at(Feature::Capture_lpnr);
+		if (enforceLowIso) {
+			ss << ", mode: low iso";
+		}
+		resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_CAPTURE;
+
+		// In case of still capture, must notify NDD as well to
+		// enable scenario recorder.
+		NSCam::IMetadata::IEntry entry(MTK_TUNING_FEATURE_CAPTURE_HINT);
+		entry.push_back(1, NSCam::Type2Type<MINT64>());
+		metadata.update(entry.tag(), entry);
+		using NSCam::TuningUtils::INdd;
+		eCategory outputCategory;
+		NddData outputNddData;
+
+		// The notification: seems like const function, but not!
+		INdd::getInstance()->query_ndd_info(
+			metadata, outputCategory, outputNddData);
+	} else {
+		ss << kFeatureStrMap.at(Feature::Preview) << ","
+		   << "camera_act:CamActPrv";
+		resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_STREAMING;
+	}
+	IScenarioRecorder::getInstance()->submitExecutionRecord(
+		&metadata, resultParam, ss.str().c_str());
+}
+
 /**
  * @brief Enable tuning tool for MTK HAL3A / HALISP library
  *
@@ -78,7 +146,6 @@ std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
  */
 int ImagiqAdapter::enableMtkTuningTool(std::filesystem::path workDir)
 {
-	mtkTuningInitializer_.reset();
 	int ret = NSCam::Utils::Properties::property_set(
 		"vendor.debug.ndd.thdnum", "1");
 	ret |= NSCam::Utils::Properties::property_set(
@@ -104,7 +171,14 @@ int ImagiqAdapter::enableMtkTuningTool(std::filesystem::path workDir)
 		LOG(MtkISP7, Error) << "Failed to setprop";
 		return ret;
 	}
-	mtkTuningInitializer_.reset(new NSCam::TuningUtils::NddInitializer());
+	if (mtkTuningInitializer_.get() == nullptr) {
+		using NSCam::TuningUtils::NddInitializer;
+		mtkTuningInitializer_.reset(new NddInitializer());
+	}
+	if (mtkScenarioRecorderInitializer_.get() == nullptr) {
+		using NSCam::TuningUtils::scenariorecorder::ScenarioRecorderInitializer;
+		mtkScenarioRecorderInitializer_.reset(new ScenarioRecorderInitializer());
+	}
 	return 0;
 }
 
@@ -929,6 +1003,48 @@ bool ImagiqAdapter::shouldSplitExport(const PixelFormat &pixelFormat)
 	default:
 		return PixelFormatInfo::info(pixelFormat).numPlanes() > 1;
 	}
+}
+
+void ImagiqAdapter::writeScenarioRecorderSettings(
+	mtk::isphal::v1_0::scenarioRecordParam &outParam,
+	NSCam::IMetadata *metadata,
+	int dumpSessionTimestamp,
+	int requestNumber,
+	EStage_T stage,
+	const std::string &sensorId)
+{
+	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
+	if (!IScenarioRecorder::getInstance()->isScenarioRecorderOn()) {
+		return;
+	}
+	int32_t mtkSensorId =
+		static_cast<int32_t>(ImagiqAdapter::sensorIdMap.at(sensorId));
+	outParam.enable = 1;
+
+	NSCam::TuningUtils::INdd::getInstance()->update_uniquekey(
+		*metadata, dumpSessionTimestamp, requestNumber, requestNumber);
+
+	outParam.pHalMeta = metadata;
+	// decision log
+	outParam.decision_param.magicNum =
+		static_cast<uint32_t>(requestNumber);
+	outParam.decision_param.staticInfo.sensorId =
+		mtkSensorId;
+	outParam.decision_param.staticInfo.moduleId =
+		NSCam::Utils::ULog::MOD_ISP_MGR;
+	outParam.decision_param.decisionType =
+		NSCam::TuningUtils::scenariorecorder::DECISION_TOP_CONTROL;
+	// execution log
+	outParam.result_param.magicNum =
+		static_cast<uint32_t>(requestNumber);
+	outParam.result_param.staticInfo.sensorId =
+		mtkSensorId;
+	outParam.result_param.staticInfo.moduleId =
+		NSCam::Utils::ULog::MOD_ISP_MGR;
+	outParam.result_param.decisionType =
+		NSCam::TuningUtils::scenariorecorder::DECISION_TOP_CONTROL;
+	outParam.result_param.stageId =
+		static_cast<int32_t>(stage);
 }
 
 } // namespace libcamera
