@@ -261,7 +261,6 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 
 	{
 		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get());
-		DmaSyncer syncerDesc(infoDesc.buffer()->planes()[0].fd.get());
 
 		request->sdRequest->fillRequestBufferForStage(
 			infoCtrl, infoDesc, mediaRequest, request->stage);
