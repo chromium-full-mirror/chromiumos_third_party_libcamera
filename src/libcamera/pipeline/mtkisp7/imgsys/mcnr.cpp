@@ -202,7 +202,7 @@ int McnrTasksManager::configureBuffers()
 	meMmap2_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[2], 8, DmaHeap::System, 1168, 217);
 	meMmap3_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[3], 8, DmaHeap::System, 1168, 217);
 
-	meConf0_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 12, DmaHeap::System, 144, 108);
+	meConf0_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8, DmaHeap::System, 144, 108);
 	meConf4_.createBuffers(dmaHeap_, formats::GREY,
 			mcnrSizes[4].boundedTo(kMeL1Size), 12, DmaHeap::System, 144, 108);
 	meConf5_.createBuffers(dmaHeap_, formats::GREY,

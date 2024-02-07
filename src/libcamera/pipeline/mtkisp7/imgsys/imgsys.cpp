@@ -172,14 +172,27 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 		 * should match the total number of buffers it needs.
 		 */
 		switch (portIdx) {
-		case IMG_PORT_METAI:
-		case IMG_PORT_WPE_VECI:
-		case IMG_PORT_IMGI:
+#if V4L2_STANDARD_MODE
 		case IMG_PORT_TIMGI:
+		case IMG_PORT_IMGI:
+			ret = device->importBuffers(128);
+			break;
+		case IMG_PORT_METAI:
+			ret = device->importBuffers(256);
+			break;
+#else
+		case IMG_PORT_TIMGI:
+		case IMG_PORT_METAI:
+		case IMG_PORT_IMGI:
+#endif
+		case IMG_PORT_WPE_VECI:
 		case IMG_PORT_VIPI:
 		case IMG_PORT_TYUV2O:
 		case IMG_PORT_TYUV3O:
+		case IMG_PORT_TYUV5O:
+		case IMG_PORT_TNRCI:
 		case IMG_PORT_REC_DSI:
+		case IMG_PORT_IMG3O:
 			videoDev->importBuffers(64);
 			break;
 		case IMG_PORT_DRV_CTRLMETAI:
