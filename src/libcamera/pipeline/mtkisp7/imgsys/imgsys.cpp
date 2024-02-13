@@ -20,6 +20,7 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pools.h"
 
+#include "kernel-headers/mtk_header_desc.h"
 #include "kernel-headers/mtk_imgsys.h"
 #include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -134,14 +135,12 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 		if (entity == sigdevNorm) {
 			// Weak ptr for sigdevNorm for easier queuing requests
 			sigdevNorm_ = videoDev.get();
-			configureVideo(videoDev.get(), formats::MTSR_MTISP, { 640, 480 });
+			configureVideo(videoDev.get(), formats::MTSR_MTISP, { sizeof(struct singlenode_desc_norm), 1 });
 		} else if (entity == ctrlMeta) {
 			ctrlMeta_ = videoDev.get();
 			configureVideo(videoDev.get(), formats::MTFP_MTISP, { 32768, 1 });
 		} else if (entity == tuningMeta)
-			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 38408, 1 });
-		else
-			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 640, 480 });
+			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 219348, 1 });
 
 		// All video devices for easier streamOn/Off
 		allVideoDevices_[IMG_PORT(port.port_index)] = std::move(videoDev);
@@ -158,54 +157,8 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 
 	syncPool_.setData(syncs);
 
-	// todo: Do streamOn/streamOff in start/stop when the backend library
-	// is moved to scp in driver
-	for (auto &[portIdx, videoDev] : allVideoDevices_) {
-		videoDev->requestBufferReady.connect(this, &ImgSysDevice::bufferReady);
-
-		/*
-		 * Some video nodes require more buffers than others to avoid
-		 * cache misses.
-		 *
-		 * TODO: Instead of calling REQBUFS, we should call CREATEBUFS
-		 * with the correct format. The total number of buffers created
-		 * should match the total number of buffers it needs.
-		 */
-		switch (portIdx) {
-#if V4L2_STANDARD_MODE
-		case IMG_PORT_TIMGI:
-		case IMG_PORT_IMGI:
-			ret = device->importBuffers(128);
-			break;
-		case IMG_PORT_METAI:
-			ret = device->importBuffers(256);
-			break;
-#else
-		case IMG_PORT_TIMGI:
-		case IMG_PORT_METAI:
-		case IMG_PORT_IMGI:
-#endif
-		case IMG_PORT_WPE_VECI:
-		case IMG_PORT_VIPI:
-		case IMG_PORT_TYUV2O:
-		case IMG_PORT_TYUV3O:
-		case IMG_PORT_TYUV5O:
-		case IMG_PORT_TNRCI:
-		case IMG_PORT_REC_DSI:
-		case IMG_PORT_IMG3O:
-			videoDev->importBuffers(64);
-			break;
-		case IMG_PORT_DRV_CTRLMETAI:
-		case IMG_PORT_DRV_SIGDEV_NORMI:
-			videoDev->importBuffers(32);
-			break;
-		default:
-			videoDev->importBuffers(24);
-			break;
-		}
-
-		videoDev->streamOn();
-	}
+	for (auto &[portIdx, device] : allVideoDevices_)
+		device->requestBufferReady.connect(this, &ImgSysDevice::bufferReady);
 
 	return 0;
 }
@@ -266,17 +219,13 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	InfoFrame &infoCtrl = ctrlMeta->get();
 
 	SharedMailBox<InfoFrame> singleDevNorm = makeMailBox<InfoFrame>();
-	descPool_.fetch(singleDevNorm);
-	InfoFrame &infoDesc = singleDevNorm->get();
-
-	FrameBuffer *singleDev = infoDesc.buffer();
 	int mediaRequest = mediaRequestPool_.get();
 
 	{
 		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get());
 
 		request->sdRequest->fillRequestBufferForStage(
-			infoCtrl, infoDesc, mediaRequest, request->stage);
+			infoCtrl, mediaRequest, request->stage);
 		onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
 	}
 
@@ -298,8 +247,7 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	}
 
 	ret |= ctrlMeta_->queueBuffer(infoCtrl.buffer(), mediaRequest);
-	ret |= sigdevNorm_->queueBuffer(singleDev, mediaRequest);
-	request->buffers_count += 2;
+	request->buffers_count ++;
 	ret |= media_->queueRequest(mediaRequest);
 
 	if (ret) {
@@ -403,36 +351,115 @@ void ImgSysDevice::bufferReady(std::pair<FrameBuffer *, int> pair)
 
 int ImgSysDevice::configure()
 {
-	handleKva(Delete, descPool_);
 	#if !V4L2_STANDARD_MODE
 		handleIova(Delete, ctrlMetaPool_);
+		descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 266960, 1 }, 32, DmaHeap::CMA);
 	#endif
 
-	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 266960, 1 }, 32, DmaHeap::CMA);
 	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 32768, 1 }, 32, DmaHeap::CMA);
 
-	handleKva(Add, descPool_);
 	#if !V4L2_STANDARD_MODE
+		handleKva(Add, descPool_);
 		handleIova(Add, ctrlMetaPool_);
 
 	descPool_.mmap();
 	#endif
 	ctrlMetaPool_.mmap();
 
+	int ret;
+	for (auto &[portIdx, device] : allVideoDevices_) {
+		/*
+		 * Force kernel to release the previously queued buffers,
+		 * otherwise, CMA will run out of memory.
+		 *
+		 * TODO: The buffers from CMA (and other buffers whose size
+		 * doesn't depend on resolution) can be allocated in init(),
+		 * instead of allocate each time in configure().
+		 * Remove this after buffer allocation is moved into init().
+		 */
+		device->releaseBuffers();
+
+		/*
+		 * Some video nodes require more buffers than others to avoid
+		 * cache misses.
+		 *
+		 * TODO: If a video node will take buffers with different format
+		 * or size during stream, call setFormat and CREATEBUFS with
+		 * the correct formats.
+		 * The number of buffers created should match the total number
+		 * of buffers needed for a video node.
+		 */
+		switch (portIdx) {
+#if V4L2_STANDARD_MODE
+		case IMG_PORT_TIMGI:
+		case IMG_PORT_IMGI:
+			ret = device->importBuffers(128);
+			break;
+		case IMG_PORT_METAI:
+			ret = device->importBuffers(256);
+			break;
+#else
+		case IMG_PORT_TIMGI:
+		case IMG_PORT_METAI:
+		case IMG_PORT_IMGI:
+#endif
+		case IMG_PORT_WPE_VECI:
+		case IMG_PORT_VIPI:
+		case IMG_PORT_TYUV2O:
+		case IMG_PORT_TYUV3O:
+		case IMG_PORT_TYUV5O:
+		case IMG_PORT_TNRCI:
+		case IMG_PORT_REC_DSI:
+		case IMG_PORT_IMG3O:
+			ret = device->importBuffers(64);
+			break;
+		case IMG_PORT_DRV_CTRLMETAI:
+		case IMG_PORT_DRV_SIGDEV_NORMI:
+			ret = device->importBuffers(32);
+			break;
+		default:
+			ret = device->importBuffers(24);
+			break;
+		}
+
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
 int ImgSysDevice::start()
 {
+	for (auto &[portIdx, device] : allVideoDevices_) {
+		int ret = device->streamOn();
+		if (ret) {
+			LOG(MtkISP7, Error) << "Fail to start "
+					    << device->devicePath();
+			return ret;
+		}
+	}
+
 	ASSERT(pendingRequests_.empty());
 	ASSERT(completedRequests_.empty());
+
 	return 0;
 }
 
 int ImgSysDevice::stop()
 {
+	for (auto &[portIdx, device] : allVideoDevices_) {
+		int ret = device->streamOff();
+		if (ret) {
+			LOG(MtkISP7, Error) << "Fail to streamOff "
+					    << device->devicePath();
+			return ret;
+		}
+	}
+
 	ASSERT(pendingRequests_.empty());
 	ASSERT(completedRequests_.empty());
+
 	return 0;
 }
 

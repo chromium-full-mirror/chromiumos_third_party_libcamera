@@ -307,7 +307,6 @@ void SingleDeviceRequest::fillFrameParams(
 }
 
 void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
-						    InfoFrame &infoDesc,
 						    int requestFd, size_t stage)
 {
 	std::vector<FrameParams> mvFrameParams;
@@ -358,11 +357,10 @@ void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
 	 * Pass in a dummy buffer as singlenode_desc_norm here.
 	 */
 	static uint8_t dummy[sizeof(struct singlenode_desc_norm)];
-	NSCam::NSImgStream::IImageBuffer imageDesc(toBufferPropery(infoDesc));
 	VNDescBuf descBuf{
-		.mFd = imageDesc.getPlaneFD(0),
-		.mBufSize = (MINT32)imageDesc.getBufSizeInBytes(0),
-		.mOffset = (MUINT32)imageDesc.getPlaneOffsetInBytes(0),
+		.mFd = 0,
+		.mBufSize = sizeof(struct singlenode_desc_norm),
+		.mOffset = 0,
 		.mpDescBufVa = (MINTPTR)&dummy,
 		.mbUsed = false,
 	};
@@ -382,8 +380,6 @@ void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
 				syncCache(NSCam::NSImgStream::eCACHECTRL_FLUSH,
 					  input.mBuffer->getPlaneFD(0));
 	}
-
-	infoDesc.buffer()->_d()->metadata().planes()[0].bytesused = infoDesc.buffer()->planes()[0].length;
 }
 
 void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
