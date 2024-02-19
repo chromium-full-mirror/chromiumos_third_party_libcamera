@@ -76,6 +76,7 @@ enum MtkISP7TaskGroup {
 	AieFaceDetectionGroup,
 	AieFaceToneClassificationGroup,
 	AieParseGroup,
+	BssTaskGroup,
 	BfbldTaskGroup,
 	McdsF1Group,
 	BfmeGroup,
@@ -84,6 +85,7 @@ enum MtkISP7TaskGroup {
 	DsVbiGroup,
 	MsbldGroup,
 	AfbldGroup,
+	BssTunTaskGroup,
 	BfbldBaseTunTaskGroup,
 	BfbldRefTunTaskGroup,
 	McdsF1TunGroup,
@@ -116,6 +118,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ LpnrTunDipTaskGroup, "LpnrTunDipTaskGroup" },
 	{ AieFaceDetectionGroup, "AieFaceDetectionGroup" },
 	{ AieFaceToneClassificationGroup, "AieFaceToneClassificationGroup" },
+	{ BssTaskGroup, "BssTaskGroup" },
 	{ BfbldTaskGroup, "BfbldTaskGroup" },
 	{ McdsF1Group, "McdsF1Group" },
 	{ BfmeGroup, "BfmeGroup" },
@@ -124,6 +127,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ DsVbiGroup, "DsVbiGroup" },
 	{ MsbldGroup, "MsbldGroup" },
 	{ AfbldGroup, "AfbldGroup" },
+	{ BssTunTaskGroup, "BssTunTaskGroup" },
 	{ BfbldBaseTunTaskGroup, "BfbldBaseTunTaskGroup" },
 	{ BfbldRefTunTaskGroup, "BfbldRefunTaskGroup" },
 	{ McdsF1TunGroup, "McdsF1TunGroup" },
@@ -183,7 +187,8 @@ class MtkISP7CameraData : public Camera::Private
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
 			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt,
-			  FaceDetector *faceDetector, DmaHeap *dmaHeap, Hal3A *hal3A, HalIsp *halIsp)
+			  FaceDetector *faceDetector, DmaHeap *dmaHeap, Hal3A *hal3A, HalIsp *halIsp,
+			  int sensor_idx)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
@@ -193,7 +198,7 @@ public:
 		  mfnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A),
-		  halIsp_(halIsp), captureResult_(5)
+		  halIsp_(halIsp), captureResult_(5),sensor_idx_(sensor_idx)
 	{
 	}
 
@@ -251,7 +256,13 @@ public:
 	bool forceMFNR = false;
 
 	std::array<SharedMailBox<InfoFrame>, 8> captureRawQueue;
+	std::array<SharedMailBox<InfoFrame>, 8> previewQueue;
 	int captureRawQueue_idx = -1;
+
+	int getSensorIdx() { return sensor_idx_; }
+
+private:
+	int sensor_idx_;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -672,7 +683,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			std::make_unique<MtkISP7CameraData>(
 				this, &camSysDev_[i], &imgSysDev_,
 				&onDeviceTuner_, &faceDetector_,
-				dmaHeap_.get(), hal3A_[i].get(), &halIsp_[i]);
+				dmaHeap_.get(), hal3A_[i].get(), &halIsp_[i], i);
 
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
@@ -947,7 +958,11 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still1, still2);
-	mfnrManager.configure(sensorFullSize_, still1, still2);
+	mfnrManager.configure(sensorFullSize_,
+			      still1, still2,
+			      video1, video2,
+			      faceDetector_,
+			      sensor_idx_);
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
 	mfnrTunManager.configure(sensorFullSize_, still1, still2);
@@ -1028,6 +1043,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	captureRawQueue_idx += 1;
 	captureRawQueue_idx = captureRawQueue_idx % 8;
 	captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
+	previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
 	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << captureRawQueue_idx;
 	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << static_cast<void *>(captureRawQueue[captureRawQueue_idx]->get().address(0));
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
@@ -1133,22 +1149,26 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		onDeviceTuner_->notifyStillCapture(internalRequestId);
 		if (forceMFNR) {
 			MFNRFrames mfnr;
-			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
+			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
 
-			auto [mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask,
-			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask,
-			      mfnrTunMcdsF1Task, mfnrTunMsbldTask, mfnrTunAfbldTask] =
+			auto [mfnrTunBssTask, mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask,
+			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
+			      mfnrTunMsbldTask, mfnrTunAfbldTask] =
 				mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, scheduler, "MfnrTun " + sequence, request, internalRequestId);
 
-			auto [mfnrBfbldTask, mfnrBfmeTask, mfnrSwmeTask,
-			      mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask,
-			      mfnrMsbldTask, mfnrAfbldTask] =
-				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request,internalRequestId, imgSysDev_);
+			auto [mfnrBssTask, mfnrBfbldTask, mfnrBfmeTask, mfnrSwmeTask,
+			      mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask,
+			      mfnrAfbldTask] =
+				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request, internalRequestId, imgSysDev_);
 
 			if (hasVideo) {
 				Scheduler::precede(taskTr, mfnrBfbldTask);
 				Scheduler::precede(taskDip2, mfnrBfbldTask);
 			}
+
+			Scheduler::precede(mfnrTunBssTask, mfnrBssTask);
+			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
+			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);
 
 			Scheduler::precede(mfnrTunBfbldBaseTask, mfnrBfbldTask);
 			scheduler->succeedPrevTaskByStep(BfbldBaseTunTaskGroup, 0, mfnrTunBfbldBaseTask);
@@ -1159,6 +1179,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(BfbldRefTunTaskGroup, 0, mfnrTunBfbldRefTask);
 			scheduler->queueTask(mfnrTunBfbldRefTask, BfbldRefTunTaskGroup);
 
+			scheduler->succeedPrevTaskByStep(BssTaskGroup, 0, mfnrBssTask);
+			scheduler->queueTask(mfnrBssTask, BssTaskGroup);
+
+			Scheduler::precede(mfnrBssTask, mfnrBfbldTask);
 			scheduler->succeedPrevTaskByStep(BfbldTaskGroup, 0, mfnrBfbldTask);
 			scheduler->queueTask(mfnrBfbldTask, BfbldTaskGroup);
 

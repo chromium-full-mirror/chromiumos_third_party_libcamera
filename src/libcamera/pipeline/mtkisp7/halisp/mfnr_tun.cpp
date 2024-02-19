@@ -178,13 +178,18 @@ int MfnrTunManager::configure(const Size &bayerInputSize,
 	return 0;
 }
 
-std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *, MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
+std::tuple<MfnrTunBssTask *, MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *,
+	   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *,
+	   MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 				 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 				 Scheduler *scheduler,
 				 const std::string &id, Request *request,
 				 uint32_t internalRequestId)
 {
+	MfnrTunBssTask *mfnrTunBssTask = new MfnrTunBssTask(
+		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+
 	MfnrTunBfbldBaseTask *mfnrTunBfbldBaseTask = new MfnrTunBfbldBaseTask(
 		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
@@ -212,7 +217,31 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 	MfnrTunAfbldTask *mfnrTunAfbldTask = new MfnrTunAfbldTask(
 		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
 
-	return std::make_tuple(mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask, mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task, mfnrTunMsbldTask, mfnrTunAfbldTask);
+	return std::make_tuple(mfnrTunBssTask, mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask,
+			       mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
+			       mfnrTunMsbldTask, mfnrTunAfbldTask);
+}
+
+MfnrTunBssTask::MfnrTunBssTask([[maybe_unused]]MFNRFrames &mfnr,
+					   SharedMailBox<AaaIspExchange> &aaaIspExchange,
+					   Scheduler *scheduler,
+					   const std::string &id, Request *request, MfnrTunManager *manager,
+					   uint32_t internalRequestId)
+	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+{
+	bssFrames_ = mfnr.bssFrames;
+	aaaIspExchange_ = aaaIspExchange;
+}
+
+void MfnrTunBssTask::run()
+{
+	auto &out = bssFrames_.out;
+	for (auto i = 0; i < (int)out.db_param.size(); i++) {
+		std::shared_ptr<isp_bss_Param> dbParam = manager_->halIsp_->getIspBssParam();
+		out.db_param[i]->put(dbParam, nullptr);
+	}
+
+	notifyDone();
 }
 
 MfnrTunBfbldBaseTask::MfnrTunBfbldBaseTask(MFNRFrames &mfnr,

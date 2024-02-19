@@ -251,7 +251,7 @@ typedef enum
 
 
 // Native3D debug info
-enum { N3D_DEBUG_TAG_SIZE = (N3D_AE_DEBUG_TAG_SIZE+N3D_AWB_DEBUG_TAG_SIZE) };
+enum { N3D_DEBUG_TAG_SIZE = ((int)N3D_AE_DEBUG_TAG_SIZE+(int)N3D_AWB_DEBUG_TAG_SIZE) };
 enum { N3D_DEBUG_TAG_VERSION = 4 };
 enum { N3D_DEBUG_TAG_SUBVERSION = 0 };
 #define N3D_DEBUG_TAG_VERSION_DP ((N3D_DEBUG_TAG_SUBVERSION << 16) | N3D_DEBUG_TAG_VERSION)
@@ -277,5 +277,5 @@ typedef struct
 /******************************************************************************
  *
  ******************************************************************************/
-};  //namespace
+}  //namespace
 

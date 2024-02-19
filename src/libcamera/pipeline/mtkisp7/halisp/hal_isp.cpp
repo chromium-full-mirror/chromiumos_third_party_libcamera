@@ -251,6 +251,36 @@ std::shared_ptr<isp_swme_Param> HalIsp::querySwmeParam(
 	return t_data->get();
 }
 
+std::shared_ptr<isp_bss_Param> HalIsp::queryBssParam(
+	const CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &qry, MBOOL force)
+{
+	std::lock_guard<std::mutex> lk(lk_);
+	auto f = data_.find(EModuleDB_BSS);
+	if (f != data_.end() && force == MFALSE) {
+		auto t_data =
+			reinterpret_cast<TData<isp_bss_Param> *>(f->second.get());
+		return t_data->get();
+	}
+	auto size = sizeof(isp_bss_Param);
+	std::shared_ptr<Data> data =
+		std::make_shared<TData<isp_bss_Param>>();
+	auto t_data =
+		reinterpret_cast<TData<isp_bss_Param> *>(data.get());
+	provider_->readDataForFeature(
+		static_cast<void *>(t_data->get().get()),
+		size, EModuleDB_BSS, qry);
+	if (f == data_.end()) {
+		LOG(MtkISP7, Info) << "insert module:" << static_cast<MINT32>(EModuleDB_BSS)
+				   << " size:" << size;
+		data_.emplace(EModuleDB_BSS, data);
+	} else {
+		LOG(MtkISP7, Info) << "replace module:" << static_cast<MINT32>(EModuleDB_BSS)
+				   << " size:" << size;
+		f->second = data;
+	}
+	return t_data->get();
+}
+
 std::shared_ptr<isp_swme_Param> HalIsp::getIspSwmeParam()
 {
 	NSIspTuning::EStage_T stage = NSIspTuning::EStage_T::EStage_SWME;
@@ -265,6 +295,22 @@ std::shared_ptr<isp_swme_Param> HalIsp::getIspSwmeParam()
 	LOG(MtkISP7, Info) << "query tuning with force: " << 0;
 
 	return querySwmeParam(qry, 0);
+}
+
+std::shared_ptr<isp_bss_Param> HalIsp::getIspBssParam()
+{
+	NSIspTuning::EStage_T stage = NSIspTuning::EStage_T::EStage_BSS;
+	CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO qry = m_P1CamInfo.rMapping_Info_with_sys_info;
+
+	qry.mapping_info.eFeature = EFeature_Capture_mfnr_single_nr;
+	qry.mapping_info.eStage = EStage_BSS;
+	qry.mapping_info.eAction = EAction_Capture;
+	LOG(MtkISP7, Info) << "query tuning with feature: " << qry.mapping_info.eFeature;
+	LOG(MtkISP7, Info) << "query tuning with stage: " << static_cast<MINT64>(stage);
+	LOG(MtkISP7, Info) << "query tuning with flash: " << qry.mapping_info.eFlash;
+	LOG(MtkISP7, Info) << "query tuning with force: " << 0;
+
+	return queryBssParam(qry, 0);
 }
 
 void HalIsp::fillCamInfoFaceData(MtkCameraFaceMetadata *faces,

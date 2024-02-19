@@ -66,20 +66,22 @@ typedef MINT32 MRESULT;
 ///////////////////////////////////////////////////////////////////////////
 //! Helper macros to define error code
 ///////////////////////////////////////////////////////////////////////////
+#ifndef ERRCODE
 #define ERRCODE(modid, errid)           \
   ((MINT32)                              \
     ((MUINT32)(0x80000000) |             \
      (MUINT32)((modid & 0x7f) << 24) |   \
      (MUINT32)(errid & 0xffff))          \
   )
-
+#endif
+#ifndef OKCODE
 #define OKCODE(modid, okid)             \
   ((MINT32)                              \
     ((MUINT32)(0x00000000) |             \
      (MUINT32)((modid & 0x7f) << 24) |   \
      (MUINT32)(okid & 0xffff))           \
   )
-
+#endif
 ///////////////////////////////////////////////////////////////////////////
 //! Helper macros to check error code
 ///////////////////////////////////////////////////////////////////////////

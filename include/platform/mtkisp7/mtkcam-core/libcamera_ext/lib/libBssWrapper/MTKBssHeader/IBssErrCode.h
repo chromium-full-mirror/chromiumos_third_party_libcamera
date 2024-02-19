@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-
-
-#ifndef _MTK_MFBLL_ERRCODE_H
-#define _MTK_MFBLL_ERRCODE_H
-
+#ifndef _I_BSS_ERRCODE_H
+#define _I_BSS_ERRCODE_H
 ///////////////////////////////////////////////////////////////////////////////
 //!  Error code formmat is:
 //!
@@ -52,44 +49,38 @@ typedef MINT32 MRESULT;
 //! Helper macros to define error code
 ///////////////////////////////////////////////////////////////////////////
 #ifndef ERRCODE
-#define ERRCODE(modid, errid)           \
-  ((MINT32)                              \
-    ((MUINT32)(0x80000000) |             \
-     (MUINT32)((modid & 0x7f) << 24) |   \
-     (MUINT32)(errid & 0xffff))          \
-  )
+#define ERRCODE(modid, errid)                       \
+	((MINT32)((MUINT32)(0x80000000) |           \
+		  (MUINT32)((modid & 0x7f) << 24) | \
+		  (MUINT32)(errid & 0xffff)))
 #endif
 #ifndef OKCODE
-#define OKCODE(modid, okid)             \
-  ((MINT32)                              \
-    ((MUINT32)(0x00000000) |             \
-     (MUINT32)((modid & 0x7f) << 24) |   \
-     (MUINT32)(okid & 0xffff))           \
-  )
+#define OKCODE(modid, okid)                         \
+	((MINT32)((MUINT32)(0x00000000) |           \
+		  (MUINT32)((modid & 0x7f) << 24) | \
+		  (MUINT32)(okid & 0xffff)))
 #endif
 ///////////////////////////////////////////////////////////////////////////
 //! Helper macros to check error code
 ///////////////////////////////////////////////////////////////////////////
-#define SUCCEEDED(Status)   ((MRESULT)(Status) >= 0)
-#define FAILED(Status)      ((MRESULT)(Status) < 0)
+#define SUCCEEDED(Status) ((MRESULT)(Status) >= 0)
+#define FAILED(Status) ((MRESULT)(Status) < 0)
 
-#define MODULE_MTK_MFBLL (0) // Temp value
+#define MODULE_MTK_BSS (0) // Temp value
 
-#define MTKMFBLL_OKCODE(errid)         OKCODE(MODULE_MTK_MFBLL, errid)
-#define MTKMFBLL_ERRCODE(errid)        ERRCODE(MODULE_MTK_MFBLL, errid)
-
+#define MTKBSS_OKCODE(errid) OKCODE(MODULE_MTK_BSS, errid)
+#define MTKBSS_ERRCODE(errid) ERRCODE(MODULE_MTK_BSS, errid)
 
 // Detection error code
-#define S_MFBLL_OK                  MTKMFBLL_OKCODE(0x0000)
+#define S_BSS_OK MTKBSS_OKCODE(0x0000)
 
-#define E_MFBLL_NEED_OVER_WRITE     MTKMFBLL_ERRCODE(0x0001)
-#define E_MFBLL_NULL_OBJECT         MTKMFBLL_ERRCODE(0x0002)
-#define E_MFBLL_WRONG_STATE         MTKMFBLL_ERRCODE(0x0003)
-#define E_MFBLL_WRONG_CMD_ID        MTKMFBLL_ERRCODE(0x0004)
-#define E_MFBLL_WRONG_CMD_PARAM     MTKMFBLL_ERRCODE(0x0005)
-#define E_MFBLL_NOT_ENOUGH_MEM      MTKMFBLL_ERRCODE(0x0006)
+#define E_BSS_NEED_OVER_WRITE MTKBSS_ERRCODE(0x0001)
+#define E_BSS_NULL_OBJECT MTKBSS_ERRCODE(0x0002)
+#define E_BSS_WRONG_STATE MTKBSS_ERRCODE(0x0003)
+#define E_BSS_WRONG_CMD_ID MTKBSS_ERRCODE(0x0004)
+#define E_BSS_WRONG_CMD_PARAM MTKBSS_ERRCODE(0x0005)
+#define E_BSS_NOT_ENOUGH_MEM MTKBSS_ERRCODE(0x0006)
 
-#define E_MFBLL_ERR                 MTKMFBLL_ERRCODE(0x0100)
+#define E_BSS_ERR MTKBSS_ERRCODE(0x0100)
 
 #endif
-

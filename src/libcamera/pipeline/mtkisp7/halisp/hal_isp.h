@@ -22,6 +22,7 @@
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_swme_Param.h"
+#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_bss_Param.h"
 
 #include "stdint.h"
 
@@ -79,8 +80,9 @@ public:
 				bool needCropTNC16x9);
 
 	std::shared_ptr<isp_swme_Param> querySwmeParam(const CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &qry, MBOOL force);
+	std::shared_ptr<isp_bss_Param> queryBssParam(const CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &qry, MBOOL force);
 	std::shared_ptr<isp_swme_Param> getIspSwmeParam();
-
+	std::shared_ptr<isp_bss_Param> getIspBssParam();
 private:
 	uint32_t getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info);
 

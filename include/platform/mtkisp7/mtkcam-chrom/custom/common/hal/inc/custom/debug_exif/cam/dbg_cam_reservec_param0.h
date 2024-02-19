@@ -38,7 +38,7 @@ typedef enum
 // TEST_C debug info
 enum { RESERVEC_DEBUG_TAG_VERSION = 0 };
 enum { RESERVEC_DEBUG_NON_TAG_VAL_SIZE = 10000 };
-enum { RESERVEC_DEBUG_TAG_SIZE = (RESERVEC_TAG_END+RESERVEC_DEBUG_NON_TAG_VAL_SIZE) };
+enum { RESERVEC_DEBUG_TAG_SIZE = ((int)RESERVEC_TAG_END+(int)RESERVEC_DEBUG_NON_TAG_VAL_SIZE) };
 
 //gmv
 enum { MF_MAX_FRAME = 8 };
@@ -56,7 +56,7 @@ enum {MF_EIS_DEBUG_TAG_MV_X
     , MF_EIS_DEBUG_TAG_TRUST_Y
     , MF_EIS_DEBUG_TAG_ITEM_SIZE
     };
-enum { MF_EIS_DEBUG_TAG_SIZE = (MF_EIS_DEBUG_TAG_WINDOW*MF_EIS_DEBUG_TAG_ITEM_SIZE) };
+enum { MF_EIS_DEBUG_TAG_SIZE = ((int)MF_EIS_DEBUG_TAG_WINDOW*(int)MF_EIS_DEBUG_TAG_ITEM_SIZE) };
 
 struct DEBUG_RESERVEC_INFO_T {
     uint32_t Tag[RESERVEC_DEBUG_TAG_SIZE];
@@ -87,5 +87,5 @@ struct DEBUG_RESERVEC_INFO_S
 /******************************************************************************
  *
  ******************************************************************************/
-};  //namespace
+}  //namespace
 

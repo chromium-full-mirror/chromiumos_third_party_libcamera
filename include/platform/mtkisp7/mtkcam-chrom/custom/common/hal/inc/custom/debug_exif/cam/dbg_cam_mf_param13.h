@@ -686,5 +686,5 @@ typedef struct DEBUG_MF_INFO_S
 } DEBUG_MF_INFO_T;
 
 
-};  //namespace
+}  //namespace
 #endif//_MTK_CUSTOM_DEBUG_EXIF_CAM_DBG_CAM_MF_PARAM13_H_

@@ -26,6 +26,7 @@ namespace libcamera {
 class DmaHeap;
 class PipelineHandler;
 
+class MfnrTunBssTask;
 class MfnrTunBfbldBaseTask;
 class MfnrTunBfbldRefTask;
 class MfnrTunBfmeTask;
@@ -38,6 +39,7 @@ class MfnrTunAfbldTask;
 
 class MfnrTunManager
 {
+	friend class MfnrTunBssTask;
 	friend class MfnrTunBfbldBaseTask;
 	friend class MfnrTunBfbldRefTask;
 	friend class MfnrTunBfmeTask;
@@ -58,7 +60,7 @@ public:
 	void allocateBuffers();
 	void releaseBuffers();
 
-	std::tuple<MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *,
+	std::tuple<MfnrTunBssTask *, MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *,
 		   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *,
 		   MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 	makeMfnrTunTasks(
@@ -84,6 +86,27 @@ private:
 	HalIsp *halIsp_;
 
 	OnDeviceTuner *onDeviceTuner_;
+};
+
+class MfnrTunBssTask : public Task
+{
+public:
+	MfnrTunBssTask(MFNRFrames &mfnr,
+			     SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			     Scheduler *scheduler, const std::string &id,
+			     Request *request, MfnrTunManager *manager,
+			     uint32_t internalRequestId);
+
+	virtual void run() override final;
+
+	SharedMailBox<InfoFrame> bfbldBaseTun_;
+	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+
+	Request *request_;
+	uint32_t internalRequestId_;
+
+	MfnrTunManager *manager_;
+	BssFrames bssFrames_;
 };
 
 class MfnrTunBfbldBaseTask : public Task

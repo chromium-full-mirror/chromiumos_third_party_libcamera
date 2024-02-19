@@ -130,7 +130,8 @@ sDbgExifBufHeader = {
     .u4DbgRESERVEAInfoOffset= offsetof(DEBUG_CAM_INFO_T, rDbgRESERVEAInfo),
     .u4DbgRESERVEBInfoOffset= offsetof(DEBUG_CAM_INFO_T, rDbgRESERVEBInfo),
     .u4DbgRESERVECInfoOffset= offsetof(DEBUG_CAM_INFO_T, rDbgRESERVECInfo),
-    .rCommDebugInfo         = { .rCMN = { .chkSum = CHKSUM_DBG_COMM_PARAM, .ver = CMN_DEBUG_TAG_VERSION_DP }, \
+    .rCommDebugInfo         = { .u4Size = 0, \
+                                .rCMN = { .chkSum = CHKSUM_DBG_COMM_PARAM, .ver = CMN_DEBUG_TAG_VERSION_DP }, \
                                 .rMF = { .chkSum = CHKSUM_DBG_MF_PARAM, .ver = MF_DEBUG_TAG_VERSION_DP }, \
                                 .rN3D = { .chkSum = CHKSUM_DBG_N3D_PARAM, .ver = N3D_DEBUG_TAG_VERSION_DP }, \
                                 .rSENSOR = { .chkSum = CHKSUM_DBG_SENSOR_PARAM, .ver = SENSOR_DEBUG_TAG_VERSION_DP }, \
@@ -167,8 +168,8 @@ sDbgExifBufInfo_cam = {
         #undef  SET_MODULE_INFO
     },
 };
-};  //namespace Custom
-};  //namespace NSCam
+}  //namespace Custom
+}  //namespace NSCam
 
 
 #endif  //_DBG_CAM_PARAM_H

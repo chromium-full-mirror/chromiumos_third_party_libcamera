@@ -17,6 +17,7 @@ libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : tr
 libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
 
 libcamalgo_mfnr = cc.find_library('camalgo.mfnr', required : true)
+libcamalgo_bss = cc.find_library('camalgo.bss', required : true)
 
 libcamera_deps += [
     libcamalgo_fdft,
@@ -33,6 +34,7 @@ libcamera_deps += [
     libmtkcam_tuning_utils,
     libmtkcam_stdutils,
     libcamalgo_mfnr,
+    libcamalgo_bss,
 ]
 
 libcamera_sources += files([
@@ -52,6 +54,7 @@ libcamera_sources += files([
     'imgsys/mcnr.cpp',
     'imgsys/mfnr.cpp',
     'imgsys/swme.cpp',
+    'imgsys/bss.cpp',
     'imgsys/single_device.cpp',
     'odt/imagiq_adapter/static_metadata/static_strings.cpp',
     'odt/imagiq_adapter/dump.cpp',
