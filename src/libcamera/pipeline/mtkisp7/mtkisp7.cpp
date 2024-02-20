@@ -398,6 +398,7 @@ void CompleteRequestTask::run()
 		testPatternMode = *testPatternControl;
 
 	metadata.set(controls::draft::TestPatternMode, testPatternMode);
+	metadata.set(controls::FrameDuration, (int64_t)33'333);
 
 	// todo(yerlandinata, before CTS): check if face metadata is requested
 	convertFaceMetadata(metadata);
