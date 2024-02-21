@@ -34,6 +34,7 @@
 
 #include "camsys/camsys.h"
 #include "camsys/capture.h"
+#include "fake_ipa/fake_ipa.h"
 #include "hal3a/aaa.h"
 #include "hal3a/hal_3a.h"
 #include "halisp/ITuningDataProvider.h"
@@ -47,6 +48,7 @@
 #include "imgsys/mfnr.h"
 #include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
+#include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "sensor/sensor_info.h"
 #include "utils/history.h"
@@ -194,7 +196,7 @@ CompleteRequestTask::CompleteRequestTask(
 
 struct CaptureResult {
 	SharedMailBox<InfoFrame> tuningOutput;
-	SharedMailBox<SensorSetting> exposureAndGainOutput;
+	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGainOutput;
 	SharedMailBox<AaaIspExchange> aaaIspExchange;
 };
 
@@ -203,8 +205,8 @@ class MtkISP7CameraData : public Camera::Private
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
 			  ImgSysDevice *imgSysDev, GyroSensor *gyroSensor, OnDeviceTuner *odt,
-			  FaceDetector *faceDetector, DmaHeap *dmaHeap, Hal3A *hal3A, HalIsp *halIsp,
-			  int sensor_idx)
+			  FaceDetector *faceDetector, DmaHeap *dmaHeap, HalIsp *halIsp,
+			  int32_t sensor_idx)
 		: Camera::Private(pipe), camSysDev_(camSysDev),
 		  imgSysDev_(imgSysDev), gyroSensor_(gyroSensor),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
@@ -214,11 +216,13 @@ public:
 		  mcnrTunManager(dmaHeap, halIsp, odt),
 		  mfnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
-		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A),
+		  faceDetector_(faceDetector), dmaHeap_(dmaHeap),
 		  halIsp_(halIsp), captureResult_(5), sensor_idx_(sensor_idx),
 		  control_cache_(nullptr)
 	{
 	}
+
+	int loadIPA();
 
 	int configure(CameraConfiguration *c);
 	int queueRequest(Request *request);
@@ -238,6 +242,10 @@ public:
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
 				  SofTask *sofTask, AATask *aaTask,
 				  AFTask *afTask);
+
+	void allocateIPABuffers();
+	void registerIPABuffers(InfoFramePool *pool);
+	void freeIPABuffers();
 
 	Stream video1Stream_;
 	Stream video2Stream_;
@@ -268,10 +276,11 @@ public:
 	FaceDetector *faceDetector_;
 	DmaHeap *dmaHeap_;
 
-	Hal3A *hal3A_;
 	HalIsp *halIsp_;
 
 	History<CaptureResult> captureResult_;
+	Thread ipaThread_;
+	std::unique_ptr<IPADelegate> ipa_;
 
 	uint32_t requestCount_ = 0;
 
@@ -284,6 +293,8 @@ public:
 private:
 	int sensor_idx_;
 	std::shared_ptr<ControlList> control_cache_;
+	std::vector<IPABuffer> ipaBuffers_;
+	uint32_t ipaBufferCnt_;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -332,7 +343,6 @@ public:
 	CamSysDevice camSysDev_[2];
 	GyroSensor gyroSensor_;
 
-	std::unique_ptr<Hal3A> hal3A_[2];
 	HalIsp halIsp_[2];
 
 	MediaDevice *imgSysMedia_;
@@ -656,12 +666,9 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
-	hal3A_[0] = std::make_unique<Hal3A>(0, &halIsp_[0], &onDeviceTuner_);
-	hal3A_[1] = std::make_unique<Hal3A>(1, &halIsp_[1], &onDeviceTuner_);
 
-	halIsp_[0].init(0, 1, hal3A_[0].get());
-	halIsp_[1].init(1, 2, hal3A_[1].get());
-
+	// TODO: Remove this when we migrate IHalIsp to IPA as well.
+	std::vector<Hal3A *> hal3As;
 	uint32_t sensorCnt = 0;
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i))
@@ -752,7 +759,13 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 				this, &camSysDev_[i], &imgSysDev_,
 				errGyro ? nullptr : &gyroSensor_,
 				&onDeviceTuner_, &faceDetector_,
-				dmaHeap_.get(), hal3A_[i].get(), &halIsp_[i], i);
+				dmaHeap_.get(), &halIsp_[i], i);
+
+		if (data->loadIPA()) {
+			LOG(MtkISP7, Error) << "Failed to loadIPA, index: " << i;
+			continue;
+		}
+		hal3As.push_back(data->ipa_->getHal3A());
 
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
@@ -778,6 +791,9 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	if (sensorCnt < 2)
 		return false;
 
+	halIsp_[0].init(0, 1, hal3As[0]);
+	halIsp_[1].init(1, 2, hal3As[1]);
+
 	// TODO: Only init imgsys when there is sensor detected.
 	// A temporary hack for factory testing. Find a more proper way to
 	// handle this case.
@@ -787,8 +803,26 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	return true;
 }
 
+int MtkISP7CameraData::loadIPA()
+{
+	ipa_ = std::make_unique<IPADelegate>();
+	ipa_->moveToThread(&ipaThread_);
+
+	if (!ipa_)
+		return -ENOENT;
+
+	ipa_->preInit(halIsp_, onDeviceTuner_);
+	if (ipa_->init(sensor_idx_)) {
+		LOG(MtkISP7, Error) << "IPA init failed";
+	}
+
+	return 0;
+}
+
 int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 {
+	ipaThread_.start();
+
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 	control_cache_.reset();
@@ -796,12 +830,8 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	camSysDev_->frameStart().connect(this, &MtkISP7CameraData::frameStart);
 
 	camSysDev_->start();
-	imgSysDev_->start();
 
-	hal3A_->start();
-	// Needs to be called after |hal3A_->start()|, as it uses AF result.
-	// Needs to be called after |camSysDev_->start()|, as it uses lens.
-	hal3AManager_.start();
+	imgSysDev_->start();
 
 	mcnrManager.start();
 	lpnrManager.start();
@@ -812,6 +842,19 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 
 	if (gyroSensor_)
 		gyroSensor_->startReading(30); // Assume FPS == 30
+
+	// AieDev_ allocate buffers in `start()`;
+	allocateIPABuffers();
+	int ret;
+
+	int32_t lens_position = ipa_->start(
+		hal3AManager_.getDummyTuning().second->get().buffer()->cookie());
+	if (lens_position < 0)
+		return -EINVAL;
+
+	ret = hal3AManager_.start(lens_position);
+	if (ret)
+		return ret;
 
 	scheduler->schedule();
 	return 0;
@@ -832,8 +875,8 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 		CaptureResult *aaCaptureResult = captureResult_.query(aaRequestId);
 		captureFrames.exposureAndGain = aaCaptureResult->exposureAndGainOutput;
 	} else {
-		captureFrames.exposureAndGain = makeMailBox<SensorSetting>();
-		captureFrames.exposureAndGain->put(SensorSetting{}, nullptr);
+		captureFrames.exposureAndGain = makeMailBox<ipa::mtkisp7::SensorSetting>();
+		captureFrames.exposureAndGain->put(ipa::mtkisp7::SensorSetting{}, nullptr);
 	}
 
 	uint32_t camSysMetaRequestId = 0;
@@ -897,12 +940,43 @@ void MtkISP7CameraData::setTasksDependencies(
 	scheduler->queueTask(sofTask, SofGroup);
 	scheduler->queueTask(taskQBuf, CaptureQueueGroup);
 	scheduler->queueTask(taskDQBuf, CaptureDequeueGroup);
-	scheduler->queueTask(aaTask, AAGroup);
+	// aaTask handles afTask's IPC call as well. To avoid afTask is
+	// triggered before it's run, run afTask first.
 	if (afTask) {
 		scheduler->queueTask(afTask, AFGroup);
 	}
+	scheduler->queueTask(aaTask, AAGroup);
 
 	pendingSofTasks_.push_back(sofTask);
+}
+
+void MtkISP7CameraData::allocateIPABuffers()
+{
+	ipaBufferCnt_ = 1;
+
+	registerIPABuffers(&captureManager.statistics0Pool_);
+	registerIPABuffers(&captureManager.statistics1Pool_);
+	registerIPABuffers(&hal3AManager_.tuningPool_);
+
+	ipa_->mapBuffers(ipaBuffers_);
+}
+
+void MtkISP7CameraData::registerIPABuffers(InfoFramePool *pool)
+{
+	for (std::unique_ptr<FrameBuffer> &buffer : pool->content()) {
+		buffer->setCookie(ipaBufferCnt_++);
+		ipaBuffers_.emplace_back(buffer->cookie(), buffer->planes());
+	}
+}
+
+void MtkISP7CameraData::freeIPABuffers()
+{
+	std::vector<unsigned int> ids;
+	for (IPABuffer &ipabuf : ipaBuffers_)
+		ids.push_back(ipabuf.id);
+
+	ipa_->unmapBuffers(ids);
+	ipaBuffers_.clear();
 }
 
 void MtkISP7CameraData::stopDevice()
@@ -930,6 +1004,12 @@ void MtkISP7CameraData::stopDevice()
 	if (gyroSensor_)
 		gyroSensor_->stopReading();
 	frameSequence_ = 0;
+
+	ipa_->stop();
+	freeIPABuffers();
+
+	ipaThread_.exit();
+	ipaThread_.wait();
 }
 
 void MtkISP7CameraData::releaseDevice()
@@ -1051,14 +1131,14 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 
-	hal3A_->configure(camsysYuvSize, isVideo);
+	ipa_->configure(camsysYuvSize, isVideo);
 	halIsp_->configure(video1 > video2 ? video1 : video2,
 			   still1 > still2 ? still1 : still2,
 			   isVideo);
 
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
-	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_, gyroSensor_);
+	hal3AManager_.configure(dmaHeap_, camSysDev_, gyroSensor_, ipa_.get());
 
 	imgSysDev_->configure();
 	mcnrManager.configure(camsysYuvSize, video1, video2);
@@ -1159,10 +1239,11 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
 	SharedMailBox<AaaIspExchange> aaaIspExchange = aaCaptureResult->aaaIspExchange;
 
+	// TODO(chenghaoyang): Remove hal3A workaround when ODT in IPA is supported.
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, internalRequestId,
 		camSysMetaRequestId, pipeline, onDeviceTuner_, faceDetector_,
-		aaaIspExchange, hal3A_, feature);
+		aaaIspExchange, ipa_->ipa_.hal3A_.get(), feature);
 
 	if (afTask)
 		Scheduler::precede(afTask, completeTask);

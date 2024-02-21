@@ -1,0 +1,110 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/*
+ * Copyright (C) 2024, Google Inc.
+ *
+ * ipa_delegate.cpp - IPA Delegate to handle signals and callbacks.
+ */
+
+#include "ipa_delegate.h"
+
+#include "../hal3a/aaa.h"
+
+namespace libcamera {
+
+LOG_DEFINE_CATEGORY(IPADelegateMtkISP7)
+
+// Don't disconnect to avoid issues of BoundMethod.
+IPADelegate::IPADelegate()
+{
+	ipa_.AAResultReady.connect(this, &IPADelegate::AAResultReady);
+	ipa_.AFResultReady.connect(this, &IPADelegate::AFResultReady);
+}
+
+int IPADelegate::init(const int32_t sensorIdx)
+{
+	return ipa_.init(sensorIdx);
+}
+
+int IPADelegate::start(const uint32_t rawMetaBufferId)
+{
+	return ipa_.start(rawMetaBufferId);
+}
+
+void IPADelegate::stop()
+{
+	ipa_.stop();
+}
+
+int IPADelegate::configure(const Size &camsysYuvSize, bool isVideo)
+{
+	return ipa_.configure(camsysYuvSize, isVideo);
+}
+
+void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
+{
+	ipa_.mapBuffers(buffers);
+}
+
+void IPADelegate::unmapBuffers(const std::vector<unsigned int> &ids)
+{
+	ipa_.unmapBuffers(ids);
+}
+
+void IPADelegate::doCalculation3A(
+	AATask *aaTask, AFTask *afTask,
+	const uint32_t frame,
+	const uint32_t stat0BufferId, const uint32_t stat1BufferId,
+	const uint64_t timestamp, const uint32_t camSysMetaRequestId,
+	const uint32_t afCamSysMetaRequestId,
+	const bool isStillCapture, const uint32_t rawMetaBufferId,
+	const ipa::mtkisp7::GyroSampleData &gyroSample,
+	const uint32_t internalRequestIdApplied,
+	std::optional<Feature> featureApplied,
+	const ipa::mtkisp7::VcmFocusInformation &vcmFocusInfo,
+	const ControlList &controls)
+{
+	aaTasks_.emplace(frame, aaTask);
+	if (afTask)
+		afTasks_.emplace(frame, afTask);
+
+	int32_t featureEnum = -1;
+	if (featureApplied.has_value())
+		featureEnum = static_cast<int32_t>(featureApplied.value());
+
+	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::doCalculation3A, ConnectionTypeQueued,
+			  frame, stat0BufferId, stat1BufferId,
+			  timestamp, camSysMetaRequestId,
+			  afCamSysMetaRequestId, isStillCapture,
+			  rawMetaBufferId, gyroSample,
+			  internalRequestIdApplied, featureEnum, vcmFocusInfo,
+			  controls);
+}
+
+void IPADelegate::AAResultReady(uint32_t id,
+				const ipa::mtkisp7::SensorSetting &sensorSetting)
+{
+	auto it = aaTasks_.find(id);
+	if (it == aaTasks_.end()) {
+		LOG(IPADelegateMtkISP7, Fatal)
+			<< "AAResultReady: couldn't find task with id: " << id;
+		return;
+	}
+	it->second->AAResultReady(sensorSetting);
+
+	aaTasks_.erase(it);
+}
+
+void IPADelegate::AFResultReady(uint32_t id, int32_t position)
+{
+	auto it = afTasks_.find(id);
+	if (it == afTasks_.end()) {
+		LOG(IPADelegateMtkISP7, Fatal)
+			<< "AFResultReady: couldn't find task with id: " << id;
+		return;
+	}
+	it->second->AFResultReady(position);
+
+	afTasks_.erase(it);
+}
+
+} // namespace libcamera

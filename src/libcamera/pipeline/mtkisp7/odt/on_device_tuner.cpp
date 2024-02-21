@@ -689,7 +689,7 @@ void OnDeviceTuner::tune3ARequest(
 }
 
 void OnDeviceTuner::tune3AState(uint32_t internalRequestId,
-				CaptureFrames &frames,
+				FrameBuffer *statistics0,
 				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult,
 				Feature feature)
 {
@@ -699,8 +699,7 @@ void OnDeviceTuner::tune3AState(uint32_t internalRequestId,
 		return;
 	}
 	MappedFrameBuffer mapped(
-		frames.statistics0->get().buffer(),
-		MappedFrameBuffer::MapFlag::Read);
+		statistics0, MappedFrameBuffer::MapFlag::Read);
 	mtk_cam_uapi_meta_raw_stats_0 *stats =
 		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_0 *>(
 			mapped.planes()[0].data());

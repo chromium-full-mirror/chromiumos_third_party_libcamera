@@ -9,17 +9,18 @@
 #include <unordered_map>
 #include <vector>
 
-#include "libcamera/framebuffer.h"
-#include "libcamera/geometry.h"
-#include "libcamera/pixel_format.h"
-
 #include "libcamera/internal/dma_heaps.h"
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/pools.h"
 
+#include "libcamera/framebuffer.h"
+#include "libcamera/geometry.h"
+#include "libcamera/pixel_format.h"
+
 namespace libcamera {
 
-class InfoFrame {
+class InfoFrame
+{
 public:
 	struct Plane {
 		uint8_t *address;
@@ -50,7 +51,8 @@ private:
 	unsigned int scanAlign_ = 1;
 };
 
-class InfoFramePool {
+class InfoFramePool
+{
 public:
 	struct MappedBufferInfo {
 		uint8_t *address = nullptr;
@@ -60,7 +62,7 @@ public:
 	InfoFramePool();
 	~InfoFramePool();
 
-	int createBuffers(DmaHeap* dmaHeap, const PixelFormat &format,
+	int createBuffers(DmaHeap *dmaHeap, const PixelFormat &format,
 			  const Size &size, uint32_t count,
 			  DmaHeap::Type type = DmaHeap::System,
 			  unsigned int strideAlign = 1, unsigned scanAlign = 1);
@@ -70,7 +72,7 @@ public:
 	void fetch(SharedMailBox<InfoFrame> &mailBox);
 
 	InfoFrame get();
-	void put(InfoFrame& frameInfo);
+	void put(InfoFrame &frameInfo);
 
 	int mmap();
 	int unmap();
@@ -80,6 +82,10 @@ public:
 	bool mapped() const { return 0 != mappedBuffers_.size(); }
 
 	size_t size() { return pool_.size(); }
+	std::vector<std::unique_ptr<FrameBuffer>> &content()
+	{
+		return pool_.content();
+	}
 
 private:
 	LIBCAMERA_DISABLE_COPY_AND_MOVE(InfoFramePool)

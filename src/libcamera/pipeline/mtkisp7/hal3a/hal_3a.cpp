@@ -18,7 +18,6 @@
 #include "libcamera/internal/mapped_framebuffer.h"
 
 #include "../halisp/hal_isp.h"
-#include "../camsys/capture.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -43,12 +42,14 @@ void Hal3A::configure(Size camsysYuvSize, bool isVideo)
 	isVideo_ = isVideo;
 }
 
-void Hal3A::start()
+void Hal3A::start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer)
 {
 	init();
 	getInitialInfo();
 	config();
 	startInternal();
+
+	*rawMetaBuffer = r3AResult_.raw_meta;
 }
 
 void Hal3A::init()
@@ -128,6 +129,9 @@ void Hal3A::init()
 	m_hal3a_ = mtk::hal3a::IHal3A::GetInstance(sensor_idx_);
 	mtk::hal3a::v1_0::mtk_3a_init init = {};
 
+	// TODO: SensorInfo needs eeprom, which is only available in the
+	// pipeline handler. We need to pass eeprom memory (a few bytes) across
+	// IPC to the IPA sandboxed process.
 	sensor_info_ = SensorInfo::getInstance(sensor_idx_);
 
 	if (sensor_info_) {
@@ -366,7 +370,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			  MtkCameraFaceMetadata *faceMetadata, GyroSensor::SensorSample gyroSample,
-			  SensorSetting *exposureAndGain,
+			  ipa::mtkisp7::SensorSetting *exposureAndGain,
 			  AaaIspExchange *aaaIspExchange,
 			  std::optional<uint32_t> internalRequestIdApplied,
 			  std::optional<Feature> featureApplied,
@@ -849,7 +853,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 }
 
 void Hal3A::getExposureAndGain(
-	SensorSetting *exposureAndGain, uint32_t &exposureTimeMs)
+	ipa::mtkisp7::SensorSetting *exposureAndGain, uint32_t &exposureTimeMs)
 {
 	ae_exposure_setting_table ae_table = r3AResult_.ae_result.ae_exp_table;
 	if (ae_table.cnt == 0)

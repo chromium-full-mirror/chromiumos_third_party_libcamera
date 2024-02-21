@@ -13,6 +13,7 @@
 
 #include "libcamera/request.h"
 #include "libfdft_lib/faces.h"
+#include "peripheraldriver/lens/vcm_drv.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "hal_3a.h"
@@ -24,7 +25,8 @@ namespace {
 static constexpr Size kMetaSize = Size{ Hal3A::kRawMetaSize, 1 };
 
 // Todo: Move the funtion to common utils
-uint64_t getMonotonicTimestamp() {
+uint64_t getMonotonicTimestamp()
+{
 	struct timespec t;
 	t.tv_sec = t.tv_nsec = 0;
 	clock_gettime(CLOCK_MONOTONIC, &t);
@@ -96,45 +98,38 @@ bool FocusController::isFirstRun()
 }
 
 void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
-			     Hal3A *hal3A, OnDeviceTuner *odt,
-			     GyroSensor *gyroSensor)
+			     GyroSensor *gyroSensor,
+			     IPADelegate *ipa)
 {
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
-	hal3A_ = hal3A;
-	onDeviceTuner_ = odt;
 	gyroSensor_ = gyroSensor;
+	ipa_ = ipa;
 
 	focusController_.configure(camSys_->getCameraLens());
+
+	releaseBuffers();
 
 	if (tuningPool_.size() == 0)
 		tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8,
 					  DmaHeap::CMA);
 
-	releaseBuffers();
-	allocateBuffers();
+	dummyMetaRequestId_ = 0;
+
+	dummyTuning_ = makeMailBox<InfoFrame>();
+	fetchTuningBuffer(dummyTuning_);
 }
 
-void Hal3AManager::start()
+int Hal3AManager::start(int32_t lens_position)
 {
-	focusController_.set(hal3A_->r3AResult_.af_result.lens_position, 0);
-}
+	focusController_.set(lens_position, 0);
 
-void Hal3AManager::allocateBuffers()
-{
-	thread3A_.start();
-	threadAF_.start();
+	return 0;
 }
 
 void Hal3AManager::releaseBuffers()
 {
 	dummyTuning_.reset();
-
-	thread3A_.exit();
-	thread3A_.wait();
-
-	threadAF_.exit();
-	threadAF_.wait();
 }
 
 bool Hal3AManager::hasAF() const
@@ -159,43 +154,26 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	dummyMetaRequestId_ = camSysMetaRequestId;
 	dummyTuning_ = captureFrames.tuning;
 
-	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
-				    captureFrames, hal3A_,
-				    onDeviceTuner_, gyroSensor_,
-				    internalRequestId, camSysMetaRequestId,
-				    faceDetector);
-	aaTask->moveToThread(&thread3A_);
-
-	AFTask *afTask;
+	AFTask *afTask = nullptr;
 	if (hasAF()) {
 		afTask = new AFTask(scheduler, "AF " + sequence, captureFrames,
-				    hal3A_, gyroSensor_, internalRequestId,
+				    gyroSensor_, ipa_, internalRequestId,
 				    &focusController_, faceDetector);
-		afTask->moveToThread(&threadAF_);
 	}
+
+	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
+				    captureFrames, gyroSensor_,
+				    ipa_, afTask, &focusController_,
+				    internalRequestId, camSysMetaRequestId,
+				    faceDetector);
 
 	return std::make_tuple(aaTask, afTask);
 }
 
 std::pair<uint32_t, SharedMailBox<InfoFrame>> Hal3AManager::getDummyTuning()
 {
-	if (dummyTuning_)
-		return std::make_pair(dummyMetaRequestId_, dummyTuning_);
-
-	dummyMetaRequestId_ = 0;
-
-	dummyTuning_ = makeMailBox<InfoFrame>();
-	fetchTuningBuffer(dummyTuning_);
-	FrameBuffer *tuningBuffer = dummyTuning_->get().buffer();
-
-	MappedFrameBuffer mappedBuffer(tuningBuffer,
-				       MappedFrameBuffer::MapFlag::ReadWrite);
-	tuningBuffer->_d()->metadata().planes()[0].bytesused = tuningBuffer->planes()[0].length;
-
-	// TODO: replace directly using raw_meta
-	// TODO: Check if we need to call getCamSysMetaTuning
-	memcpy(mappedBuffer.planes()[0].data(),
-	       &hal3A_->r3AResult_.raw_meta, Hal3A::kRawMetaSize);
+	if (!dummyTuning_)
+		LOG(MtkISP7, Fatal) << "Empty dummy tuning buffer";
 
 	return std::make_pair(dummyMetaRequestId_, dummyTuning_);
 }
@@ -212,39 +190,46 @@ void AATask::run()
 
 	std::optional<MtkCameraFaceMetadata> faceMetadata;
 	faceDetector_->getLatestOutput(faceMetadata);
-	MtkCameraFaceMetadata *faces = (faceMetadata) ? &(*faceMetadata) : nullptr;
 
 	captureFrames_.aaaIspExchange->put({}, nullptr);
 
-	GyroSensor::SensorSample gyroSample;
+	ipa_->preDoCalculation3A(faceMetadata, &captureFrames_.aaaIspExchange->get());
+
+	ipa::mtkisp7::GyroSampleData gyroSample;
 	if (gyroSensor_) {
-		gyroSample = gyroSensor_->getLatestSample();
-		if (gyroSample.timestamp == 0)
+		GyroSensor::SensorSample sample = gyroSensor_->getLatestSample();
+		if (sample.timestamp == 0) {
 			LOG(MtkISP7, Error) << "Gyro not found";
+		} else {
+			gyroSample.x_value = sample.x_value;
+			gyroSample.y_value = sample.y_value;
+			gyroSample.z_value = sample.z_value;
+			gyroSample.timestamp = sample.timestamp;
+		}
 	}
 
-	SensorSetting exposureAndGain;
-	hal3A_->doCalculation(captureFrames_.statistics0->get().buffer(),
-			      captureFrames_.timestamp->get(),
-			      internalRequestId_, camSysMetaRequestId_,
-			      perFrameControl_.isStillCapture,
-			      tuningBuffer->planes()[0].fd.get(),
-			      mappedBuffer.planes()[0].data(),
-			      faces, gyroSample,
-			      &exposureAndGain,
-			      &captureFrames_.aaaIspExchange->get(),
-			      internalRequestIdApplied_,
-			      featureApplied_,
-				  perFrameControl_.controls);
-	captureFrames_.exposureAndGainOutput->put(std::move(exposureAndGain), nullptr);
+	ipa::mtkisp7::VcmFocusInformation vcm;
 
-	if (internalRequestIdApplied_) {
-		ASSERT(featureApplied_);
-		onDeviceTuner_->tune3AState(
-			internalRequestIdApplied_.value(),
-			captureFrames_, &hal3A_->r3AResult_,
-			featureApplied_.value());
-	}
+	vcm.focus_position = focusController_->getFocusInfo().focus_position;
+	vcm.previous_focus_position = focusController_->getFocusInfo().previous_focus_position;
+	vcm.moving_timestamp = focusController_->getFocusInfo().moving_timestamp;
+	vcm.previous_moving_timestamp = focusController_->getFocusInfo().previous_moving_timestamp;
+	ipa_->doCalculation3A(
+		this, afTask_, internalRequestId_,
+		captureFrames_.statistics0->get().buffer()->cookie(),
+		afTask_ ? captureFrames_.statistics1->get().buffer()->cookie() : 0,
+		captureFrames_.timestamp->get(), camSysMetaRequestId_,
+		internalRequestId_ - AFTask::kLensDelay,
+		perFrameControl_.isStillCapture,
+		captureFrames_.tuningOutput->get().buffer()->cookie(),
+		gyroSample, internalRequestIdApplied_.value_or(0),
+		featureApplied_, vcm,
+		perFrameControl_.controls);
+}
+
+void AATask::AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain)
+{
+	captureFrames_.exposureAndGainOutput->put(exposureAndGain, nullptr);
 
 	manager_->setMfnrMode(captureFrames_.aaaIspExchange->get().mfnrMode);
 
@@ -274,27 +259,19 @@ void AATask::setFeatureApplied(Feature featureApplied)
 
 void AFTask::run()
 {
-	int32_t position = -1;
+	run_ = true;
+	if (executed_)
+		notifyDone();
+}
 
-	std::optional<MtkCameraFaceMetadata> faceMetadata;
-	faceDetector_->getLatestOutput(faceMetadata);
-	MtkCameraFaceMetadata *faces = (faceMetadata) ? &(*faceMetadata) : nullptr;
-
-	GyroSensor::SensorSample gyroSample;
-	if (gyroSensor_)
-		gyroSample = gyroSensor_->getLatestSample();
-
-	hal3A_->doCalculationAF(captureFrames_.statistics1->get().buffer(),
-				captureFrames_.timestamp->get(),
-				internalRequestId_,
-				internalRequestId_ - kLensDelay,
-				focusController_->getFocusInfo(),
-				faces, gyroSample, &position);
-
+void AFTask::AFResultReady(int32_t position)
+{
 	uint64_t timestamp = getMonotonicTimestamp();
 	focusController_->set(position, timestamp / 1000);
 
-	notifyDone();
+	executed_ = true;
+	if (run_)
+		notifyDone();
 }
 
 } // namespace libcamera

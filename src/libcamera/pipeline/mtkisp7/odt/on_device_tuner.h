@@ -93,7 +93,7 @@ public:
 		mtk::hal3a::v1_0::mtk_3a_request &r3aRequest,
 		Feature feature);
 	void tune3AState(uint32_t internalRequestId,
-			 CaptureFrames &frames,
+			 FrameBuffer *statistics0,
 			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult,
 			 Feature feature);
 
