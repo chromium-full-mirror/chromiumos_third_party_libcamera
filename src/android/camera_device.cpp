@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <vector>
 
+#include <system/camera_metadata.h>
+
 #include <libcamera/base/log.h>
 #include <libcamera/base/span.h>
 #include <libcamera/base/unique_fd.h>
@@ -921,6 +923,22 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::FaceDetectMode, data[0]);
 		if (!controls.get(controls::FaceDetectMode)) {
 			LOG(HAL, Warning) << "Pipeline doesn't support controls::FaceDetectMode";
+		}
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::Mode3A, data[0]);
+		if (!controls.get(controls::Mode3A)) {
+			LOG(HAL, Warning) << "Pipeline doesn't support controls::Mode3A";
+		}
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_SCENE_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::SceneMode, data[0]);
+		if (!controls.get(controls::SceneMode)) {
+			LOG(HAL, Warning) << "Pipeline doesn't support controls::SceneMode";
 		}
 	}
 
@@ -1971,11 +1989,21 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	value = ANDROID_CONTROL_EFFECT_MODE_OFF;
 	resultMetadata->addEntry(ANDROID_CONTROL_EFFECT_MODE, value);
 
-	value = ANDROID_CONTROL_MODE_AUTO;
-	resultMetadata->addEntry(ANDROID_CONTROL_MODE, value);
+	if (settings.getEntry(ANDROID_CONTROL_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_MODE, *entry.data.u8);
+	}
+	else {
+		value = ANDROID_CONTROL_MODE_AUTO;
+		resultMetadata->addEntry(ANDROID_CONTROL_MODE, value);
+	}
 
-	value = ANDROID_CONTROL_SCENE_MODE_DISABLED;
-	resultMetadata->addEntry(ANDROID_CONTROL_SCENE_MODE, value);
+	if (settings.getEntry(ANDROID_CONTROL_SCENE_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_SCENE_MODE, *entry.data.u8);
+	}
+	else {
+		value = ANDROID_CONTROL_SCENE_MODE_DISABLED;
+		resultMetadata->addEntry(ANDROID_CONTROL_SCENE_MODE, value);
+	}
 
 	value = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
 	resultMetadata->addEntry(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, value);

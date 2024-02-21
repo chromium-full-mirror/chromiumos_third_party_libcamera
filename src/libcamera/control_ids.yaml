@@ -844,6 +844,52 @@ controls:
         JPEG output.
 
       size: [n]
+  - Mode3A:
+      type: uint8_t
+      description: |
+        Overall mode of 3A (auto-exposure, auto-white-balance, auto-focus)
+        control routines.
+        Currently identical to ANDROID_CONTROL_MODE.
+
+      enum:
+        - name: Mode3AOff
+          value: 0
+          description: |
+            All 3A control by the camera device is disabled.
+            The application must set the fields for capture parameters itself.
+        - name: Mode3AAuto
+          value: 1
+          description: |
+            Manual control of capture parameters is disabled.
+        - name: Mode3AUseSceneMode
+          value: 2
+          description: |
+            Use a specific scene mode. Enabling this disables
+            AeMode, AwbMode, and AfMode; the camera device should
+            ignore those settings while Mode3AUseSceneMode is active
+            (except for SceneModeFacePriority).
+
+  - SceneMode:
+      type: uint8_t
+      description: |
+        Control for which scene mode is currently active.
+        Currently identical to ANDROID_CONTROL_SCENE_MODE.
+
+      enum:
+        - name: SceneModeDisabled
+          value: 0
+          description: |
+            Indicates that no scene modes are set for a given capture request.
+        - name: SceneModeFacePriority
+          value: 1
+          description: |
+            If face detection support exists, use face detection data for
+            AF, AWB, and AE routines. If face detection statistics are disabled
+            (i.e. FaceDetectMode is set to OFF), this should still operate
+            correctly (but will not return face detection statistics to the
+            framework).
+            Unlike the other scene modes, AeMode, AwbMode, and AfMode should
+            remain active when SceneModeFacePriority is set.
 
   # ----------------------------------------------------------------------------
   # Draft controls section

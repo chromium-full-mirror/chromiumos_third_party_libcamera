@@ -13,8 +13,10 @@
 #include <cstdint>
 #include <map>
 #include <type_traits>
+#include <vector>
 
 #include <hardware/camera3.h>
+#include <system/camera_metadata.h>
 
 #include <libcamera/base/log.h>
 
@@ -934,12 +936,6 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_CONTROL_AVAILABLE_EFFECTS,
 				  availableEffects);
 
-	std::vector<uint8_t> availableSceneModes = {
-		ANDROID_CONTROL_SCENE_MODE_DISABLED,
-	};
-	staticMetadata_->addEntry(ANDROID_CONTROL_AVAILABLE_SCENE_MODES,
-				  availableSceneModes);
-
 	std::vector<uint8_t> availableStabilizationModes = {
 		ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF,
 	};
@@ -962,14 +958,6 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_CONTROL_MAX_REGIONS,
 				  availableMaxRegions);
 
-	std::vector<uint8_t> sceneModesOverride = {
-		ANDROID_CONTROL_AE_MODE_ON,
-		ANDROID_CONTROL_AWB_MODE_AUTO,
-		ANDROID_CONTROL_AF_MODE_OFF,
-	};
-	staticMetadata_->addEntry(ANDROID_CONTROL_SCENE_MODE_OVERRIDES,
-				  sceneModesOverride);
-
 	uint8_t aeLockAvailable = ANDROID_CONTROL_AE_LOCK_AVAILABLE_FALSE;
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_LOCK_AVAILABLE,
 				  aeLockAvailable);
@@ -977,10 +965,6 @@ int CameraCapabilities::initializeStaticMetadata()
 	uint8_t awbLockAvailable = ANDROID_CONTROL_AWB_LOCK_AVAILABLE_FALSE;
 	staticMetadata_->addEntry(ANDROID_CONTROL_AWB_LOCK_AVAILABLE,
 				  awbLockAvailable);
-
-	char availableControlModes = ANDROID_CONTROL_MODE_AUTO;
-	staticMetadata_->addEntry(ANDROID_CONTROL_AVAILABLE_MODES,
-				  availableControlModes);
 
 	/* JPEG static metadata. */
 
@@ -1137,11 +1121,90 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_SENSOR_INFO_MAX_FRAME_DURATION,
 				  maxFrameDuration_);
 
+	auto mode3AIter =
+		camera_->controls().find(controls::Mode3A.id());
+	std::vector<uint8_t> mode3AList{
+		ANDROID_CONTROL_MODE_AUTO,
+	};
+	if (mode3AIter != camera_->controls().end()) {
+		const ControlInfo &mode3ACtrlInfo = mode3AIter->second;
+		for (const auto &value : mode3ACtrlInfo.values()) {
+			auto mode = value.get<uint8_t>();
+			uint8_t androidMode = 0;
+			switch (mode) {
+			case controls::Mode3AOff:
+				androidMode = ANDROID_CONTROL_MODE_OFF;
+				break;
+			case controls::Mode3AAuto:
+				// ANDROID_CONTROL_MODE_AUTO already in list.
+				continue;
+			case controls::Mode3AUseSceneMode:
+				androidMode = ANDROID_CONTROL_MODE_USE_SCENE_MODE;
+				break;
+			default:
+				LOG(HAL, Fatal) << "Invalid 3A control mode: "
+						<< static_cast<int>(mode);
+			}
+			LOG(HAL, Debug) << "Received available 3A mode: "
+					<< static_cast<int32_t>(mode);
+			mode3AList.push_back(androidMode);
+		}
+	}
+	staticMetadata_->addEntry(
+		ANDROID_CONTROL_AVAILABLE_MODES,
+		mode3AList.data(), mode3AList.size());
+
+	bool hasFacePrioritySceneMode = false;
+	std::vector<uint8_t> sceneModeList{
+		ANDROID_CONTROL_SCENE_MODE_DISABLED,
+	};
+	std::vector<uint8_t> sceneModesOverride = {
+		ANDROID_CONTROL_AE_MODE_ON,
+		ANDROID_CONTROL_AWB_MODE_AUTO,
+		ANDROID_CONTROL_AF_MODE_OFF,
+	};
+	auto modeSceneIter =
+		camera_->controls().find(controls::SceneMode.id());
+	if (modeSceneIter != camera_->controls().end()) {
+		const ControlInfo &modeSceneCtrlInfo = modeSceneIter->second;
+		for (const auto &value : modeSceneCtrlInfo.values()) {
+			auto mode = value.get<uint8_t>();
+			uint8_t androidMode = 0;
+			switch (mode) {
+			case controls::SceneModeDisabled:
+				// ANDROID_CONTROL_SCENE_MODE_DISABLED is
+				// already in the list.
+				continue;
+			case controls::SceneModeFacePriority:
+				androidMode = ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY;
+				hasFacePrioritySceneMode = true;
+				// Exception for SCENE_MODE_FACE_PRIORITY:
+				// HAL should read 3A settings from application.
+				sceneModesOverride.push_back(0);
+				sceneModesOverride.push_back(0);
+				sceneModesOverride.push_back(0);
+				break;
+			default:
+				LOG(HAL, Fatal) << "Invalid scene mode: "
+						<< static_cast<int>(mode);
+			}
+			LOG(HAL, Debug) << "Received available scene mode: "
+					<< static_cast<int32_t>(mode);
+			sceneModeList.push_back(androidMode);
+		}
+	}
+	staticMetadata_->addEntry(
+		ANDROID_CONTROL_AVAILABLE_SCENE_MODES,
+		sceneModeList.data(), sceneModeList.size());
+	staticMetadata_->addEntry(ANDROID_CONTROL_SCENE_MODE_OVERRIDES,
+				  sceneModesOverride);
+
 	/* Statistics static metadata. */
 	int32_t maxFaceCount = 0;
-	auto iter = camera_->controls().find(controls::FaceDetectMode.id());
-	if (iter != camera_->controls().end()) {
-		const ControlInfo &faceDetectCtrlInfo = iter->second;
+	auto faceDetectIter =
+		camera_->controls().find(controls::FaceDetectMode.id());
+	if (faceDetectIter != camera_->controls().end()) {
+		const ControlInfo &faceDetectCtrlInfo = faceDetectIter->second;
 		std::vector<uint8_t> faceDetectModes;
 		bool hasFaceDetection = false;
 		for (const auto &value : faceDetectCtrlInfo.values()) {
@@ -1164,6 +1227,12 @@ int CameraCapabilities::initializeStaticMetadata()
 		if (hasFaceDetection) {
 			// todo(yerlandinata): Create new libcamera controls
 			// to query max possible faces detected.
+			if (!hasFacePrioritySceneMode) {
+				// CTS may fail in this case.
+				LOG(HAL, Warning) << "SceneModeFacePriority "
+						  << "should be supported if "
+						  << "face detect is available";
+			}
 			maxFaceCount = 10;
 			staticMetadata_->addEntry(
 				ANDROID_STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES,
