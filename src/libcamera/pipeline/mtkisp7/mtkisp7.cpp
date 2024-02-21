@@ -15,6 +15,7 @@
 
 #include <libcamera/camera.h>
 #include <libcamera/control_ids.h>
+#include <libcamera/controls.h>
 #include <libcamera/formats.h>
 #include <libcamera/property_ids.h>
 #include <libcamera/request.h>
@@ -685,6 +686,22 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			static_cast<uint8_t>(controls::FaceDetectModeSimple)
 		};
 		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
+
+		// For now these two controls are ignored.
+		// However, because MTK 3A algo is configured to prioritize
+		// human face, ignoring any combination of these two controls
+		// does not violate Android Camera API specs.
+		std::vector<ControlValue> supported3AModes{
+			static_cast<uint8_t>(controls::Mode3AAuto),
+			static_cast<uint8_t>(controls::Mode3AUseSceneMode),
+		};
+		controls[&controls::Mode3A] = ControlInfo(supported3AModes);
+
+		std::vector<ControlValue> supportedSceneModes{
+			static_cast<uint8_t>(controls::SceneModeDisabled),
+			static_cast<uint8_t>(controls::SceneModeFacePriority),
+		};
+		controls[&controls::SceneMode] = ControlInfo(supportedSceneModes);
 
 		// Create CameraData
 		std::unique_ptr<MtkISP7CameraData> data =
