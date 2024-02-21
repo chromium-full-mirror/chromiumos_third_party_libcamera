@@ -6,6 +6,7 @@
  */
 
 #include "capture.h"
+
 #include <cstdint>
 
 #include <libcamera/formats.h>
@@ -35,7 +36,8 @@ static constexpr Size kStatSize0 = Size{ 1081344, 1 };
 static constexpr Size kStatSize1 = Size{ 528384, 1 };
 
 // Todo: Move the funtion to common utils
-uint64_t getMonotonicTimestamp() {
+uint64_t getMonotonicTimestamp()
+{
 	struct timespec t;
 	t.tv_sec = t.tv_nsec = 0;
 	clock_gettime(CLOCK_MONOTONIC, &t);
@@ -113,7 +115,8 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 	captureFrames.statistics1 = makeMailBox<InfoFrame>();
 
 	captureFrames.timestamp = makeMailBox<uint64_t>();
-	captureFrames.exposureAndGainOutput = makeMailBox<SensorSetting>();
+	captureFrames.exposureAndGainOutput =
+		makeMailBox<ipa::mtkisp7::SensorSetting>();
 
 	captureFrames.aaaIspExchange = makeMailBox<AaaIspExchange>();
 
@@ -139,15 +142,15 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 	auto data = std::make_shared<CaptureData>(captureFrames);
 
 	SofTask *sofTask = new SofTask(
-			scheduler, "Sof " + sequence, request,
-			internalRequestId, data, camSys_, this);
+		scheduler, "Sof " + sequence, request,
+		internalRequestId, data, camSys_, this);
 
 	QueueTask *qTask = new QueueTask(
-			this, scheduler, "Queue " + sequence, request,
-			internalRequestId, data);
+		this, scheduler, "Queue " + sequence, request,
+		internalRequestId, data);
 	DequeueTask *dqTask = new DequeueTask(
-			this, scheduler, "Dequeue " + sequence, request,
-			internalRequestId, data);
+		this, scheduler, "Dequeue " + sequence, request,
+		internalRequestId, data);
 
 	return std::make_tuple(qTask, dqTask, sofTask);
 }
@@ -171,7 +174,7 @@ void SofTask::trigger()
 			LOG(MtkISP7, Fatal) << "No exposureAndGain despite SofTask being run";
 		} else {
 			auto sensorSetting = data_->frames.exposureAndGain->get();
-			if (sensorSetting.exposure != 0) {  // Assuming it couldn't be zero.
+			if (sensorSetting.exposure != 0) { // Assuming it couldn't be zero.
 				camSys_->setVBlank(sensorSetting.vblank);
 				camSys_->setExposureGain(sensorSetting.exposure, sensorSetting.gain);
 			}
@@ -224,7 +227,6 @@ void QueueTask::run()
 		manager_->onDeviceTuner_->fillCamsysDebugFrame(
 			internalRequestId_, frames.rawInject);
 	}
-
 
 	manager_->statistics0Pool_.fetch(frames.statistics0);
 	camSysRequest.statistics0 = frames.statistics0->get().buffer();

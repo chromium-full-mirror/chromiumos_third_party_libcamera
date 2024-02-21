@@ -1,0 +1,56 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+/*
+ * \todo Document the interface and remove the related EXCLUDE_PATTERNS entry.
+ */
+
+module ipa.mtkisp7;
+
+import "include/libcamera/ipa/core.mojom";
+
+struct SensorSetting {
+	uint32 exposure;
+	uint32 gain;
+	uint32 vblank;
+};
+
+struct GyroSampleData {
+	double x_value;
+	double y_value;
+	double z_value;
+	int64 timestamp;
+};
+
+struct VcmFocusInformation {
+	int32 focus_position;
+	int32 previous_focus_position;
+	int64 moving_timestamp;
+	int64 previous_moving_timestamp;
+};
+
+interface IPAMtkISP7Interface {
+	init(int32 sensorIdx) => (int32 ret);
+	start(uint32 rawMetaBufferId) => (int32 lens_position);
+	stop();
+
+	configure(libcamera.Size camsysYuvSize, bool isVideo) => (int32 ret);
+
+	mapBuffers(array<libcamera.IPABuffer> buffers);
+	unmapBuffers(array<uint32> ids);
+
+	[async] doCalculation3A(uint32 frame,
+                                uint32 stat0BufferId, uint32 stat1BufferId,
+                                uint64 timestamp, uint32 camSysMetaRequestId,
+                                uint32 afCamSysMetaRequestId,
+                                bool isStillCapture, uint32 rawMetaBufferId,
+                                GyroSampleData gyroSample,
+                                uint32 internalRequestIdApplied,
+                                int32 featureEnum,
+                                VcmFocusInformation vcmFocusInfo,
+                                libcamera.ControlList controls);
+};
+
+interface IPAMtkISP7EventInterface {
+        AAResultReady(uint32 frame, SensorSetting sensorSetting);
+        AFResultReady(uint32 frame, int32 position);
+};

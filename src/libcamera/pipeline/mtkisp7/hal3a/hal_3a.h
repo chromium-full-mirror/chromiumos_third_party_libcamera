@@ -8,6 +8,8 @@
 
 #include <cstddef>
 
+#include <libcamera/ipa/mtkisp7_ipa_interface.h>
+
 #include "libcamera/internal/gyro_sensor.h"
 
 #include "../sensor/sensor_info.h"
@@ -27,12 +29,6 @@ namespace libcamera {
 class HalIsp;
 struct AaaIspExchange;
 
-struct SensorSetting {
-	uint32_t exposure;
-	uint32_t gain;
-	uint32_t vblank;
-};
-
 class Hal3A
 {
 public:
@@ -41,14 +37,14 @@ public:
 	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt);
 
 	void configure(Size camsysYuvSize, bool isVideo);
-	void start();
+	void start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer);
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			   uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			   MtkCameraFaceMetadata *metadata,
 			   GyroSensor::SensorSample gyroSample,
-			   SensorSetting *exposureAndGain,
+			   ipa::mtkisp7::SensorSetting *exposureAndGain,
 			   AaaIspExchange *aaaIspExchange,
 			   std::optional<uint32_t> internalRequestIdApplied,
 			   std::optional<Feature> featureApplied,
@@ -76,7 +72,8 @@ private:
 						  bool isStillCapture,
 						  std::optional<ControlList> controls_opt);
 
-	void getExposureAndGain(SensorSetting *exposureAndGain, uint32_t &exposureTimeMs);
+	void getExposureAndGain(ipa::mtkisp7::SensorSetting *exposureAndGain,
+				uint32_t &exposureTimeMs);
 
 	const uint32_t sensor_idx_;
 	int sensor_id_;

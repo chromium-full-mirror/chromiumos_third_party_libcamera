@@ -29,6 +29,7 @@ class DmaHeap;
 class PipelineHandler;
 class QueueTask;
 class SofTask;
+class MtkISP7CameraData;
 
 struct CaptureFrames {
 	SharedMailBox<InfoFrame> raw;
@@ -43,8 +44,8 @@ struct CaptureFrames {
 
 	SharedMailBox<uint64_t> timestamp;
 
-	SharedMailBox<SensorSetting> exposureAndGain; // input
-	SharedMailBox<SensorSetting> exposureAndGainOutput; // output
+	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGain; // input
+	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGainOutput; // output
 
 	SharedMailBox<AaaIspExchange> aaaIspExchange;
 
@@ -90,6 +91,7 @@ private:
 	friend QueueTask;
 	friend DequeueTask;
 	friend SofTask;
+	friend MtkISP7CameraData;
 
 	Size rawFrameSize_;
 	Size yuvFrameSize_;
