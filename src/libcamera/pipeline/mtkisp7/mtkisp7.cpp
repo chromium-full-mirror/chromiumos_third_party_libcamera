@@ -23,6 +23,7 @@
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/device_enumerator.h"
 #include "libcamera/internal/framebuffer.h"
+#include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/task_scheduler.h"
@@ -832,6 +833,10 @@ void MtkISP7CameraData::setTasksDependencies(
 void MtkISP7CameraData::stopDevice()
 {
 	camSysDev_->frameStart().disconnect(this);
+
+	captureRawQueue_idx = -1;
+	captureRawQueue.fill(makeMailBox<InfoFrame>());
+	previewQueue.fill(makeMailBox<InfoFrame>());
 
 	camSysDev_->stop();
 	imgSysDev_->stop();
