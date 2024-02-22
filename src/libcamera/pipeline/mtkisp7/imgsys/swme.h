@@ -230,6 +230,11 @@ public:
 		//updateIsUsingFullMemc();
 	}
 
+	Size getAlgorithmWorkBufferSize()
+	{
+		return Size{ m_WorkingBufInfo.Ext_mem_size, 2 };
+	}
+
 	Size getWrappingMapSize()
 	{
 		return Size{ m_WorkingBufInfo.WpeMap_width, m_WorkingBufInfo.WpeMap_height };

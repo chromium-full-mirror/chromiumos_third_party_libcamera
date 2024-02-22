@@ -33,7 +33,8 @@ BssWrapper::BssWrapper(int sensorIndex, FaceDetector *faceDetector)
 	: sensorIndex_(sensorIndex), faceDetector_(faceDetector)
 {
 	DRVBssObject_s Pass_DRVBssObject_s = DRV_BSS_OBJ_SW;
-	m_pBssDrv = (void *)MTKBss::createInstance((DrvBssObject_e)Pass_DRVBssObject_s);
+	m_pBssDrv =
+		(void *)MTKBss::createInstance((DrvBssObject_e)Pass_DRVBssObject_s);
 	mOdtUtils = NSCam::TuningUtils::IOdtUtils::getInstance(sensorIndex);
 }
 BssWrapper::~BssWrapper()
@@ -53,7 +54,9 @@ MRESULT BssWrapper::bssInit()
 	return ErrCode;
 }
 
-MRESULT BssWrapper::bssFeatureCtrl(IBSS_FTCTRL_ENUM FcId, void *pParaIn, void *pParaOut)
+MRESULT BssWrapper::bssFeatureCtrl(IBSS_FTCTRL_ENUM FcId,
+				   void *pParaIn,
+				   void *pParaOut)
 {
 	LOG(MtkISP7, Info) << "bssFeatureCtrl FcId = " << FcId;
 	MRESULT ErrCode = S_BSS_OK;
@@ -93,7 +96,9 @@ MRESULT BssWrapper::bssFeatureCtrl(IBSS_FTCTRL_ENUM FcId, void *pParaIn, void *p
 	return ErrCode;
 }
 
-MRESULT BssWrapper::bssMain(IBSS_PROC_ENUM ProcId, void *pParaIn, void *pParaOut)
+MRESULT BssWrapper::bssMain(IBSS_PROC_ENUM ProcId,
+			    void *pParaIn,
+			    void *pParaOut)
 {
 	MRESULT ErrCode = S_BSS_OK;
 	BSS_PROC_ENUM Pass_BSS_PROC_ENUM;
@@ -115,9 +120,7 @@ MRESULT BssWrapper::bssMain(IBSS_PROC_ENUM ProcId, void *pParaIn, void *pParaOut
 	void *pBSSOutParse = Parser_BSSOut(pParaOut);
 
 	MTKBss *pMTKBSS = (MTKBss *)m_pBssDrv;
-	LOG(MtkISP7, Info) << "BssMain " << ProcId;
 	ErrCode = pMTKBSS->BssMain(Pass_BSS_PROC_ENUM, pBSSInParse, pBSSOutParse);
-	LOG(MtkISP7, Info) << "BssMain done" << ProcId;
 
 	Parser_BSSIn_Done(pBSSInParse, pParaIn);
 	Parser_BSSOut_Done(pBSSOutParse, pParaOut);
@@ -175,7 +178,8 @@ void *BssWrapper::Parser_ParaIn(IBSS_FTCTRL_ENUM FcId, void *pParaIn)
 		return &m_BSSParaParse;
 	} break;
 	case IBSS_FTCTRL_CONFIG_ZIP: {
-		IBSS_CONFIG_ZIP_IN_STRUCT *pBSSZipIn = (IBSS_CONFIG_ZIP_IN_STRUCT *)pParaIn;
+		IBSS_CONFIG_ZIP_IN_STRUCT *pBSSZipIn =
+			(IBSS_CONFIG_ZIP_IN_STRUCT *)pParaIn;
 
 		m_BSSZipInParse.u4Width = pBSSZipIn->u4Width;
 		m_BSSZipInParse.u4Height = pBSSZipIn->u4Height;
@@ -241,7 +245,8 @@ void *BssWrapper::Parser_ParaOut(IBSS_FTCTRL_ENUM FcId, void *pParaOut)
 	LOG(MtkISP7, Info) << "Parser_ParaOut FcId = " << FcId;
 	switch (FcId) {
 	case IBSS_FTCTRL_CONFIG_ZIP: {
-		IBSS_CONFIG_ZIP_OUT_STRUCT *pBSSZipOut = (IBSS_CONFIG_ZIP_OUT_STRUCT *)pParaOut;
+		IBSS_CONFIG_ZIP_OUT_STRUCT *pBSSZipOut =
+			(IBSS_CONFIG_ZIP_OUT_STRUCT *)pParaOut;
 		m_BSSZipOutParse.u4ZipBufferSize = pBSSZipOut->u4ZipBufferSize;
 		return &m_BSSZipOutParse;
 	}
@@ -255,7 +260,9 @@ void *BssWrapper::Parser_ParaOut(IBSS_FTCTRL_ENUM FcId, void *pParaOut)
 	return pParaOut;
 }
 
-void BssWrapper::Parser_ParaIn_Done(IBSS_FTCTRL_ENUM FcId, void *pParaIn, void *pParaParseIn)
+void BssWrapper::Parser_ParaIn_Done(IBSS_FTCTRL_ENUM FcId,
+				    void *pParaIn,
+				    void *pParaParseIn)
 {
 	switch (FcId) {
 	case IBSS_FTCTRL_GET_WB_SIZE:
@@ -288,8 +295,10 @@ void BssWrapper::Parser_ParaIn_Done(IBSS_FTCTRL_ENUM FcId, void *pParaIn, void *
 		pBSSParaParse->BSS_AEVC_DCNT = pBSSPara->BSS_AEVC_DCNT;
 	} break;
 	case IBSS_FTCTRL_CONFIG_ZIP: {
-		IPass_BSS_CONFIG_ZIP_IN_STRUCT *pBSSZipIn = (IPass_BSS_CONFIG_ZIP_IN_STRUCT *)pParaIn;
-		IBSS_CONFIG_ZIP_IN_STRUCT *pBSSZipInParse = (IBSS_CONFIG_ZIP_IN_STRUCT *)pParaParseIn;
+		IPass_BSS_CONFIG_ZIP_IN_STRUCT *pBSSZipIn =
+			(IPass_BSS_CONFIG_ZIP_IN_STRUCT *)pParaIn;
+		IBSS_CONFIG_ZIP_IN_STRUCT *pBSSZipInParse =
+			(IBSS_CONFIG_ZIP_IN_STRUCT *)pParaParseIn;
 		pBSSZipInParse->u4Width = pBSSZipIn->u4Width;
 		pBSSZipInParse->u4Height = pBSSZipIn->u4Height;
 		pBSSZipInParse->u4ROI_X0 = pBSSZipIn->u4ROI_X0;
@@ -298,8 +307,10 @@ void BssWrapper::Parser_ParaIn_Done(IBSS_FTCTRL_ENUM FcId, void *pParaIn, void *
 		pBSSZipInParse->pBSSNvram = pBSSZipIn->pBSSNvram;
 	} break;
 	case IBSS_FTCTRL_PROC_ZIP: {
-		IPass_BSS_PROC_ZIP_STRUCT *pBSSZipProc = (IPass_BSS_PROC_ZIP_STRUCT *)pParaIn;
-		IBSS_PROC_ZIP_STRUCT *pBSSZipProcParse = (IBSS_PROC_ZIP_STRUCT *)pParaParseIn;
+		IPass_BSS_PROC_ZIP_STRUCT *pBSSZipProc =
+			(IPass_BSS_PROC_ZIP_STRUCT *)pParaIn;
+		IBSS_PROC_ZIP_STRUCT *pBSSZipProcParse =
+			(IBSS_PROC_ZIP_STRUCT *)pParaParseIn;
 
 		pBSSZipProcParse->pu8InImg = pBSSZipProc->pu8InImg;
 		pBSSZipProcParse->u4ImgInStride = pBSSZipProc->u4ImgInStride;
@@ -311,8 +322,10 @@ void BssWrapper::Parser_ParaIn_Done(IBSS_FTCTRL_ENUM FcId, void *pParaIn, void *
 		pBSSZipProcParse->i4GmvY = pBSSZipProc->i4GmvY;
 	} break;
 	case IBSS_FTCTRL_CONVERT_I422_YUY2: {
-		IPass_BSS_CONVERT_STRUCT *pBSSCovertPara = (IPass_BSS_CONVERT_STRUCT *)pParaIn;
-		IBSS_CONVERT_STRUCT *pBSSCovertParaParse = (IBSS_CONVERT_STRUCT *)pParaParseIn;
+		IPass_BSS_CONVERT_STRUCT *pBSSCovertPara =
+			(IPass_BSS_CONVERT_STRUCT *)pParaIn;
+		IBSS_CONVERT_STRUCT *pBSSCovertParaParse =
+			(IBSS_CONVERT_STRUCT *)pParaParseIn;
 
 		pBSSCovertParaParse->pu1Y = pBSSCovertPara->pu1Y;
 		pBSSCovertParaParse->pu1U = pBSSCovertPara->pu1U;
@@ -331,18 +344,23 @@ void BssWrapper::Parser_ParaIn_Done(IBSS_FTCTRL_ENUM FcId, void *pParaIn, void *
 	return;
 }
 
-void BssWrapper::Parser_ParaOut_Done(IBSS_FTCTRL_ENUM FcId, void *pParaOut, void *pParaParseOut)
+void BssWrapper::Parser_ParaOut_Done(IBSS_FTCTRL_ENUM FcId,
+				     void *pParaOut,
+				     void *pParaParseOut)
 {
 	switch (FcId) {
 	case IBSS_FTCTRL_CONFIG_ZIP: {
-		IPass_BSS_CONFIG_ZIP_OUT_STRUCT *pBSSZipOut = (IPass_BSS_CONFIG_ZIP_OUT_STRUCT *)pParaOut;
-		IBSS_CONFIG_ZIP_OUT_STRUCT *pBSSZipOutParse = (IBSS_CONFIG_ZIP_OUT_STRUCT *)pParaParseOut;
+		IPass_BSS_CONFIG_ZIP_OUT_STRUCT *pBSSZipOut =
+			(IPass_BSS_CONFIG_ZIP_OUT_STRUCT *)pParaOut;
+		IBSS_CONFIG_ZIP_OUT_STRUCT *pBSSZipOutParse =
+			(IBSS_CONFIG_ZIP_OUT_STRUCT *)pParaParseOut;
 		pBSSZipOutParse->u4ZipBufferSize = pBSSZipOut->u4ZipBufferSize;
 	} break;
 	case IBSS_FTCTRL_GET_VERSION: {
 	} break;
 	default:
-		LOG(MtkISP7, Error) << "[Parser_ParaOut_Done] Feature Ctrl error: " << FcId;
+		LOG(MtkISP7, Error) << "[Parser_ParaOut_Done] Feature Ctrl error: "
+				    << FcId;
 		break;
 	}
 	return;
@@ -376,7 +394,6 @@ void *BssWrapper::Parser_BSSIn(void *pParaIn)
 	m_BSSInputParse.eType = Pass_BSS_PROC_TYPE;
 	m_BSSInputParse.InputZip = pBSSInput->InputZip;
 
-	LOG(MtkISP7, Error) << "[Parser_BSSIn]Pass_BSS_PROC_TYPE = " << Pass_BSS_PROC_TYPE;
 	for (int i = 0; i < MAX_FRAME_NUM; i++) {
 		m_BSSInputParse.apbyBssInImg[i] = pBSSInput->apbyBssInImg[i];
 		m_BSSInputParse.gmv[i].x = pBSSInput->gmv[i].x;
@@ -393,14 +410,12 @@ void *BssWrapper::Parser_BSSIn(void *pParaIn)
 	m_BSSInputParse.u4GyroNum = pBSSInput->u4GyroNum;
 	m_BSSInputParse.u4GyroIntervalMS = pBSSInput->u4GyroIntervalMS;
 	m_BSSInputParse.bss_iso = pBSSInput->bss_iso;
-	LOG(MtkISP7, Error) << "[Parser_BSSIn] done";
 	return &m_BSSInputParse;
 }
 
 void *BssWrapper::Parser_BSSOut(void *pParaOut)
 {
 	IBSS_OUTPUT_DATA *pBSSOut = (IBSS_OUTPUT_DATA *)pParaOut;
-	LOG(MtkISP7, Error) << "[Parser_BSSOut]";
 
 	for (int i = 0; i < MAX_FRAME_NUM; i++) {
 		m_BSSOutParse.originalOrder[i] = pBSSOut->originalOrder[i];
@@ -418,7 +433,6 @@ void *BssWrapper::Parser_BSSOut(void *pParaOut)
 		m_BSSOutParse.u2Lcso[i] = pBSSOut->u2Lcso[i];
 	}
 	m_BSSOutParse.i4SkipFrmCnt = pBSSOut->i4SkipFrmCnt;
-	LOG(MtkISP7, Error) << "[Parser_BSSOut] done";
 	return &m_BSSOutParse;
 }
 
@@ -426,7 +440,6 @@ void BssWrapper::Parser_BSSIn_Done(void *pParaIn, void *pParaParseIn)
 {
 	IPass_BSS_INPUT_DATA_G *pBSSInput = (IPass_BSS_INPUT_DATA_G *)pParaIn;
 	IBSS_INPUT_DATA_G *pBSSInputParse = (IBSS_INPUT_DATA_G *)pParaParseIn;
-	LOG(MtkISP7, Error) << "[Parser_BSSIn_Done]";
 	pBSSInputParse->Bitnum = pBSSInput->Bitnum;
 	pBSSInputParse->BayerOrder = pBSSInput->BayerOrder;
 	pBSSInputParse->Stride = pBSSInput->Stride;
@@ -450,14 +463,12 @@ void BssWrapper::Parser_BSSIn_Done(void *pParaIn, void *pParaParseIn)
 	pBSSInputParse->u4GyroNum = pBSSInput->u4GyroNum;
 	pBSSInputParse->u4GyroIntervalMS = pBSSInput->u4GyroIntervalMS;
 	pBSSInputParse->bss_iso = pBSSInput->bss_iso;
-	LOG(MtkISP7, Error) << "[Parser_BSSIn_Done] done";
 }
 
 void BssWrapper::Parser_BSSOut_Done(void *pParaOut, void *pParaParseOut)
 {
 	IPass_BSS_OUTPUT_DATA *pBSSOut = (IPass_BSS_OUTPUT_DATA *)pParaOut;
 	IBSS_OUTPUT_DATA *pBSSOutParse = (IBSS_OUTPUT_DATA *)pParaParseOut;
-	LOG(MtkISP7, Error) << "[Parser_BSSOut_Done]";
 	for (int i = 0; i < MAX_FRAME_NUM; i++) {
 		pBSSOutParse->originalOrder[i] = pBSSOut->originalOrder[i];
 		pBSSOutParse->gmv[i].x = pBSSOut->gmv[i].x;
@@ -474,10 +485,12 @@ void BssWrapper::Parser_BSSOut_Done(void *pParaOut, void *pParaParseOut)
 		pBSSOutParse->u2Lcso[i] = pBSSOut->u2Lcso[i];
 	}
 	pBSSOutParse->i4SkipFrmCnt = pBSSOut->i4SkipFrmCnt;
-	LOG(MtkISP7, Error) << "[Parser_BSSOut_Done] done";
 }
 
-void BssWrapper::updateBssProcInfo(IBSS_PARAM_STRUCT &p, MINT32 frameNum, Size srcSize, std::shared_ptr<isp_bss_Param> dbParam)
+void BssWrapper::updateBssProcInfo(IBSS_PARAM_STRUCT &p,
+				   MINT32 frameNum,
+				   Size srcSize,
+				   std::shared_ptr<isp_bss_Param> dbParam)
 {
 	MINT32 roiPercentage = MF_BSS_ROI_PERCENTAGE;
 	MINT32 w = (srcSize.width * roiPercentage + 5) / 100;
@@ -521,16 +534,18 @@ void BssWrapper::updateBssProcInfo(IBSS_PARAM_STRUCT &p, MINT32 frameNum, Size s
 	/* ODT BSS_TUNING */
 	if (mOdtUtils && mOdtUtils->is_enable() && mDbParam != nullptr) {
 		/*
-    loadBinaryFromOdt(reinterpret_cast<void*>(mDbParam.get()),
-                      sizeof(isp_bss_Param), EStage_T::EStage_BSS,
-                      eModule::kBSS_TUNING, "BSS_TUNING");
-	*/
+loadBinaryFromOdt(reinterpret_cast<void*>(mDbParam.get()),
+          sizeof(isp_bss_Param), EStage_T::EStage_BSS,
+          eModule::kBSS_TUNING, "BSS_TUNING");
+*/
 	} else {
-		LOG(MtkISP7, Info) << "OdtUtils is not enable or mDbParam is nullptr " << (mDbParam == nullptr);
+		LOG(MtkISP7, Info) << "OdtUtils is not enable or mDbParam is nullptr "
+				   << (mDbParam == nullptr);
 	}
 
 	p.pBSSNvram = mDbParam.get();
-	LOG(MtkISP7, Info) << "OdtUtils is not enable or mDbParam is nullptr " << (mDbParam == nullptr);
+	LOG(MtkISP7, Info) << "OdtUtils is not enable or mDbParam is nullptr "
+			   << (mDbParam == nullptr);
 
 	LOG(MtkISP7, Info) << "pBSSNvram:" << reinterpret_cast<void *>(p.pBSSNvram);
 	// using BSS_PARAM_STRUCT default value if not set.
@@ -544,35 +559,35 @@ void BssWrapper::updateBssProcInfo(IBSS_PARAM_STRUCT &p, MINT32 frameNum, Size s
 	p.BSS_FRAME_NUM = frameNum;
 
 	/*
-	if (MY_UNLIKELY(getForceBss(reinterpret_cast<void *>(&p),
-				    sizeof(IBSS_PARAM_STRUCT)))) {
-		MY_LOGI("@@@BSS %s: force set BSS param as manual setting", __FUNCTION__);
-	}
-	*/
+  if (MY_UNLIKELY(getForceBss(reinterpret_cast<void *>(&p),
+                              sizeof(IBSS_PARAM_STRUCT)))) {
+          MY_LOGI("@@@BSS %s: force set BSS param as manual setting",
+  __FUNCTION__);
+  }
+  */
 
 	/* ODT IBSS_PARAM_STRUCT */
 	/*
-	if (mOdtUtils && mOdtUtils->is_enable()) {
-		loadBinaryFromOdt(reinterpret_cast<void *>(&p), sizeof(IBSS_PARAM_STRUCT),
-				  EStage_T::EStage_BSS, eModule::kBSS_PARAM, "BSS_PARAM");
-		p.pBSSNvram = mDbParam.get();
-	}
-	*/
+  if (mOdtUtils && mOdtUtils->is_enable()) {
+          loadBinaryFromOdt(reinterpret_cast<void *>(&p),
+  sizeof(IBSS_PARAM_STRUCT), EStage_T::EStage_BSS, eModule::kBSS_PARAM,
+  "BSS_PARAM"); p.pBSSNvram = mDbParam.get();
+  }
+  */
 
 	LOG(MtkISP7, Info) << "======= updateBssProcInfo start ======";
 
-	LOG(MtkISP7, Info) << "ON(" << (MINT32)p.BSS_ON << ") VER("
-			   << ") ROI(" << p.BSS_ROI_X0 << "," << p.BSS_ROI_Y0 << ", "
+	LOG(MtkISP7, Info) << "ON(" << (MINT32)p.BSS_ON << ") VER(" << ") ROI("
+			   << p.BSS_ROI_X0 << "," << p.BSS_ROI_Y0 << ", "
 			   << p.BSS_ROI_WIDTH << "x" << p.BSS_ROI_HEIGHT << ")";
 
 	LOG(MtkISP7, Info) << "FRAME_NUM(" << p.BSS_FRAME_NUM << ")";
-	LOG(MtkISP7, Info) << "GAIN0(" << p.BSS_GAIN_TH0 << ") GAIN1(" << p.BSS_GAIN_TH1
-			   << ") MIN_ISP_GAIN(" << p.BSS_MIN_ISP_GAIN << ") LCSO_SIZE("
-			   << p.BSS_LCSO_SIZE << ")";
-
-	LOG(MtkISP7, Info) << "AEVC: EN("
-			   << (MINT32)p.BSS_AEVC_EN
+	LOG(MtkISP7, Info) << "GAIN0(" << p.BSS_GAIN_TH0 << ") GAIN1("
+			   << p.BSS_GAIN_TH1 << ") MIN_ISP_GAIN("
+			   << p.BSS_MIN_ISP_GAIN << ") LCSO_SIZE(" << p.BSS_LCSO_SIZE
 			   << ")";
+
+	LOG(MtkISP7, Info) << "AEVC: EN(" << (MINT32)p.BSS_AEVC_EN << ")";
 
 	LOG(MtkISP7, Info) << "======= updateBssProcInfo end ======";
 }
@@ -580,13 +595,10 @@ MBOOL BssWrapper::appendBSSInput(
 	std::vector<MappedFrameBuffer> &p1YuvMappedFrameBuffer,
 	IBSS_INPUT_DATA_G_IPC &bss_input)
 {
-	LOG(MtkISP7, Info) << "appendBSSInput";
 	for (auto idx = 0; idx < (int)p1YuvMappedFrameBuffer.size(); idx++) {
-		bss_input.apbyBssInImg[idx] = reinterpret_cast<MUINT8 *>(p1YuvMappedFrameBuffer[idx].planes()[0].data());
-		LOG(MtkISP7, Info) << "bss_input.apbyBssInImg[" << idx
-				   << "] = " << static_cast<void *>(bss_input.apbyBssInImg[idx]);
+		bss_input.apbyBssInImg[idx] = reinterpret_cast<MUINT8 *>(
+			p1YuvMappedFrameBuffer[idx].planes()[0].data());
 	}
-	LOG(MtkISP7, Info) << "appendBSSInput done";
 	return true;
 }
 
@@ -641,15 +653,15 @@ MVOID BssWrapper::updateBssIOInfo(IBSS_INPUT_DATA_G_IPC &bss_input)
 	LOG(MtkISP7, Info) << sstream.str();
 }
 
-MVOID BssWrapper::collectPreBSSExifData(
-	IBSS_PARAM_STRUCT &p)
+MVOID BssWrapper::collectPreBSSExifData(IBSS_PARAM_STRUCT &p)
 {
 #if (MFLL_MF_TAG_VERSION > 0)
 	isp_bss_Param *pBssDB = reinterpret_cast<isp_bss_Param *>(p.pBSSNvram);
 
-#define SET_EXIF_BSS(tag, value)                                                             \
-	do {                                                                                 \
-		mExifData[(MINT32)__namespace_mf(MFLL_MF_TAG_VERSION)::tag] = (MINT32)value; \
+#define SET_EXIF_BSS(tag, value)                                              \
+	do {                                                                  \
+		mExifData[(MINT32)__namespace_mf(MFLL_MF_TAG_VERSION)::tag] = \
+			(MINT32)value;                                        \
 	} while (0)
 
 	SET_EXIF_BSS(MF_TAG_BSS_ON, p.BSS_ON);
@@ -766,28 +778,29 @@ MVOID BssWrapper::collectPreBSSExifData(
 #endif
 }
 
-MVOID BssWrapper::collectPostBSSExifData(
-	std::vector<MINT32> &vNewIndex,
-	IBSS_OUTPUT_DATA &bss_output)
+MVOID BssWrapper::collectPostBSSExifData(std::vector<MINT32> &vNewIndex,
+					 IBSS_OUTPUT_DATA &bss_output)
 {
 	(void)vNewIndex;
 	(void)bss_output;
 
 	/* bss result score */
 	for (size_t i = 0; i < vNewIndex.size(); i++) {
-		LOG(MtkISP7, Info) << "SharpScore[" << i << "]  = " << bss_output.SharpScore[i];
-		LOG(MtkISP7, Info) << "adj1_score[" << i << "]  = " << bss_output.adj1_score[i];
-		LOG(MtkISP7, Info) << "adj2_score[" << i << "]  = " << bss_output.adj2_score[i];
-		LOG(MtkISP7, Info) << "adj3_score[" << i << "]  = " << bss_output.adj3_score[i];
-		LOG(MtkISP7, Info) << "final_score[" << i << "]  = " << bss_output.final_score[i];
+		LOG(MtkISP7, Info) << "SharpScore[" << i
+				   << "]  = " << bss_output.SharpScore[i] << "adj1_score["
+				   << i << "]  = " << bss_output.adj1_score[i]
+				   << "adj2_score[" << i
+				   << "]  = " << bss_output.adj2_score[i] << "adj3_score["
+				   << i << "]  = " << bss_output.adj3_score[i]
+				   << "final_score[" << i
+				   << "]  = " << bss_output.final_score[i];
 	}
 }
 
-void BssWrapper::doBss(
-	int frameNum,
-	std::vector<SharedMailBox<InfoFrame>> p1Yuv,
-	std::shared_ptr<isp_bss_Param> dbParam,
-	std::vector<int> BSSOrder)
+void BssWrapper::doBss(int frameNum,
+		       std::vector<SharedMailBox<InfoFrame>> p1Yuv,
+		       std::shared_ptr<isp_bss_Param> dbParam,
+		       std::vector<int> BSSOrder)
 {
 	LOG(MtkISP7, Info) << "doBss start";
 
@@ -822,14 +835,14 @@ void BssWrapper::doBss(
 
 	LOG(MtkISP7, Info) << "IBSS_FTCTRL_GET_WB_SIZE";
 	auto b = bssFeatureCtrl(IBSS_FTCTRL_GET_WB_SIZE,
-				reinterpret_cast<void *>(&workingBufferInfo),
-				NULL);
+				reinterpret_cast<void *>(&workingBufferInfo), NULL);
 	if (b != S_BSS_OK) {
 		LOG(MtkISP7, Error) << "get working buffer size from MTKBss failed: " << b;
 		return;
 	}
 	if (workingBufferInfo.u4WKSize <= 0) {
-		LOG(MtkISP7, Error) << "unexpected bss working buffer size: " << workingBufferInfo.u4WKSize;
+		LOG(MtkISP7, Error) << "unexpected bss working buffer size: "
+				    << workingBufferInfo.u4WKSize;
 		return;
 	}
 	bss_working_buffer =
@@ -845,8 +858,7 @@ void BssWrapper::doBss(
 
 	LOG(MtkISP7, Info) << "IBSS_FTCTRL_SET_WB_SIZE";
 	b = bssFeatureCtrl(IBSS_FTCTRL_SET_WB_SIZE,
-			   reinterpret_cast<void *>(&workingBufferInfo),
-			   NULL);
+			   reinterpret_cast<void *>(&workingBufferInfo), NULL);
 	if (b != S_BSS_OK) {
 		LOG(MtkISP7, Error) << "set working buffer to MTKBss failed, size = "
 				    << workingBufferInfo.u4WKSize << ", b = " << b;
@@ -854,9 +866,10 @@ void BssWrapper::doBss(
 
 	LOG(MtkISP7, Info) << "updateBssProcInfo";
 	IBSS_PARAM_STRUCT bss_param;
-	updateBssProcInfo(bss_param, frameNum,
-			  Size{ (unsigned int)mZipData.imgWidth, (unsigned int)mZipData.imgHeight },
-			  dbParam);
+	updateBssProcInfo(
+		bss_param, frameNum,
+		Size{ (unsigned int)mZipData.imgWidth, (unsigned int)mZipData.imgHeight },
+		dbParam);
 
 	b = bssFeatureCtrl(IBSS_FTCTRL_SET_PROC_INFO,
 			   reinterpret_cast<void *>(&bss_param), NULL);
@@ -866,7 +879,7 @@ void BssWrapper::doBss(
 
 	IBSS_INPUT_DATA_G_IPC bssInData;
 	IBSS_OUTPUT_DATA bssOutData;
-	//vector<MTKBSSFDInfo> bssFdData;
+	// vector<MTKBSSFDInfo> bssFdData;
 
 	memset(&bssInData, 0, sizeof(bssInData));
 	memset(&bssOutData, 0, sizeof(bssOutData));
@@ -875,7 +888,8 @@ void BssWrapper::doBss(
 
 	std::vector<MappedFrameBuffer> p1YuvMappedFrameBuffers;
 	for (auto idx = 0; idx < (int)p1Yuv.size(); idx++) {
-		p1YuvMappedFrameBuffers.push_back(MappedFrameBuffer(p1Yuv[idx]->get().buffer(), MappedFrameBuffer::MapFlag::Read));
+		p1YuvMappedFrameBuffers.push_back(MappedFrameBuffer(
+			p1Yuv[idx]->get().buffer(), MappedFrameBuffer::MapFlag::Read));
 		DmaSyncer syncer(p1Yuv[idx]->get().buffer()->planes()[0].fd.get());
 	}
 	appendBSSInput(p1YuvMappedFrameBuffers, bssInData);
@@ -887,42 +901,39 @@ void BssWrapper::doBss(
 	} else {
 		bssInData.eType = IBSS_TYPE_PACK_Y10;
 	}
-	LOG(MtkISP7, Info) << "bssInData.eType = " << bssInData.eType;
 	bssInData.InputZip = 0;
-	LOG(MtkISP7, Info) << "bssInData.InputZip = " << bssInData.InputZip;
+	LOG(MtkISP7, Info) << "bssInData.eType = " << bssInData.eType
+					   << ", bssInData.InputZip = " << bssInData.InputZip;
 
 	collectPreBSSExifData(bss_param);
-	LOG(MtkISP7, Info) << "bssMain";
 	b = bssMain(IBSS_PROC3, &bssInData, &bssOutData);
-	LOG(MtkISP7, Info) << "bssMain done";
 
 	// dump bss input info to text file for bss simulation
-	//dumpBssInputData2File(pMainRequest, bss_param, bssInData, bssOutData, doBssRequests, pIBss);
+	// dumpBssInputData2File(pMainRequest, bss_param, bssInData, bssOutData,
+	// doBssRequests, pIBss);
 	if (b != S_BSS_OK) {
-		LOG(MtkISP7, Error) << "@@@BSS MTKBss::Main returns failed " << (int)b;
+		LOG(MtkISP7, Error) << "MTKBss::Main returns failed " << (int)b;
 	}
 
 	std::vector<MINT32> vNewOrdering;
 	MUINT32 order = 0;
 	for (size_t i = 0, bss_idx = 0; i < (unsigned long)frameNum; i++) {
-		MINT32 newOrder = (mEnableBSSOrdering == 0)
-					  ? bss_idx
-					  : bssOutData.originalOrder[bss_idx];
+		MINT32 newOrder =
+			(mEnableBSSOrdering == 0) ? bss_idx : bssOutData.originalOrder[bss_idx];
 		vNewOrdering.push_back(newOrder);
 		order = (mEnableBSSOrdering == 0)
 				? i
 				: doBssIndex[bssOutData.originalOrder[bss_idx]];
 		if (bss_idx == 0) {
-			LOG(MtkISP7, Info) << "set doBssRequests[" << bssOutData.originalOrder[bss_idx] << "] as Golden";
+			LOG(MtkISP7, Info) << "set doBssRequests["
+					   << bssOutData.originalOrder[bss_idx] << "] as Golden";
 		}
 		bss_idx++;
 
 		BSSOrder.push_back(order);
-		LOG(MtkISP7, Info) << "bssOrder " << i << " -> " << bssOutData.originalOrder[bss_idx];
+		LOG(MtkISP7, Info) << "bssOrder " << i << " -> " << order;
 	}
-	LOG(MtkISP7, Info) << "collectPostBSSExifData";
 	collectPostBSSExifData(vNewOrdering, bssOutData);
-	LOG(MtkISP7, Info) << "collectPostBSSExifData done";
 }
 
 } // namespace libcamera

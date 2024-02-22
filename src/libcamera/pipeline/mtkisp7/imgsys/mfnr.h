@@ -233,12 +233,13 @@ public:
 			    FrameBuffer *output1Frame,
 			    FrameBuffer *output2Frame);
 	std::vector<Size> mfnrSizes_;
-
+	std::vector<Size> mfnrSizes_aligned16_;
 	std::tuple<BssTask *, BfbldTask *, BfmeTask *, SwmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
 		      uint32_t internalRequestId, ImgSysDevice *imgSys);
 
+	Size swmeWorkingBufSize_;
 	Size wrappingMapSize_;
 	Size confMapSize_;
 
@@ -278,6 +279,7 @@ private:
 	InfoFramePool tnrciPool_;
 	InfoFramePool yuvp010_1_1_pool_;
 	InfoFramePool yuvp010_1_4_pool_;
+	InfoFramePool yuvp010_1_4_pool_aligned16_;
 	InfoFramePool yuvp012_1_1_pool_;
 	InfoFramePool yuvp012_1_2_pool_;
 	InfoFramePool yuvp012_1_4_pool_;
@@ -288,6 +290,7 @@ private:
 	InfoFramePool y8_1_1_pool_;
 	InfoFramePool y8_1_2_pool_;
 	InfoFramePool y8_1_4_pool_;
+	InfoFramePool y8_1_4_pool_aligned16_;
 	InfoFramePool y8_1_8_pool_;
 	InfoFramePool y8_1_16_pool_;
 	InfoFramePool y8_1_32_pool_;

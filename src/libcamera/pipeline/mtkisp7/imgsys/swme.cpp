@@ -33,10 +33,10 @@ MRESULT SwmeWrapper::init()
 	//TODO, check if Proc1_DSUS_mode is always 0
 	initParam.Proc1_DSUS_mode = 0;
 
-	LOG(MtkISP7, Info) << "Proc1_imgW: " << initParam.Proc1_imgH;
-	LOG(MtkISP7, Info) << "Proc1_imgH: " << initParam.Proc1_imgW;
-	LOG(MtkISP7, Info) << "core_num: " << initParam.core_num;
-	LOG(MtkISP7, Info) << "Proc1_DSUS_mode: " << initParam.Proc1_DSUS_mode;
+	LOG(MtkISP7, Info) << "Proc1_imgW: " << initParam.Proc1_imgH
+					   << ", Proc1_imgH: " << initParam.Proc1_imgW
+					   << ", core_num: " << initParam.core_num
+					   << ", Proc1_DSUS_mode: " << initParam.Proc1_DSUS_mode;
 
 	MRESULT ErrCode = S_MFBLL_OK;
 	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
@@ -506,7 +506,7 @@ void SwmeWrapper::prepareParam(
 
 	LOG(MtkISP7, Info) << "SWME Proc1_ImgFmt: " << param.Proc1_ImgFmt;
 	LOG(MtkISP7, Info) << "SWME Proc_idx: " << param.Proc_idx;
-	LOG(MtkISP7, Error) << "mfnr_.pSWMENvram addr = " << static_cast<void *>(param.pSWMENvram);
+	LOG(MtkISP7, Info) << "mfnr_.pSWMENvram addr = " << static_cast<void *>(param.pSWMENvram);
 }
 
 void SwmeWrapper::prepareOutParam(
