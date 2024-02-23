@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdint.h>
 #include <string>
 #include <string.h>
@@ -855,18 +856,32 @@ int MediaDevice::allocateRequests(unsigned int count, std::vector<UniqueFD> &req
 int MediaDevice::queueRequest(int requestFd) {
 	int ret = ioctl(requestFd, MEDIA_REQUEST_IOC_QUEUE, NULL);
 	if (ret)
-	LOG(MediaDevice, Error) << "QueueRequest fd" << requestFd
-				<< "failed: " << strerror(-ret);
+		LOG(MediaDevice, Error) << "QueueRequest fd " << requestFd
+					<< "failed: " << strerror(-ret);
 	return ret;
 }
 
 int MediaDevice::reInitRequest(int requestFd) {
-	int ret = ::ioctl(requestFd, MEDIA_REQUEST_IOC_REINIT, NULL);
-	if (ret) {
-	LOG(MediaDevice, Error) << "The request" << requestFd
-				<< " is queued but not yet completed: "
-				<< strerror(-ret);
-	}
+
+	struct pollfd pfd;
+
+	pfd.fd = requestFd;
+	pfd.events = POLLPRI;
+
+	int ret = TEMP_FAILURE_RETRY(poll(&pfd, 1, 300));
+	if (ret < 0)
+		LOG(MediaDevice, Error) << "The request " << requestFd
+					<< " polled failed: " << strerror(-ret);
+	else if (ret == 0)
+		LOG(MediaDevice, Error) << "The request " << requestFd
+					<< " polled timeout: " << strerror(-ret);
+
+	ret = ::ioctl(requestFd, MEDIA_REQUEST_IOC_REINIT, NULL);
+	if (ret)
+		LOG(MediaDevice, Error) << "The request " << requestFd
+					<< " is queued but not yet completed: "
+					<< strerror(-ret);
+
 	return ret;
 }
 
