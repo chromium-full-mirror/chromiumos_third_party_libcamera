@@ -204,11 +204,11 @@ class MtkISP7CameraData : public Camera::Private
 {
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
-			  ImgSysDevice *imgSysDev, GyroSensor *gyroSensor, OnDeviceTuner *odt,
+			  ImgSysDevice *imgSysDev, GyroSensor *gyroSensor, AieDevice *aieDev, OnDeviceTuner *odt,
 			  FaceDetector *faceDetector, DmaHeap *dmaHeap, HalIsp *halIsp,
 			  int32_t sensor_idx)
-		: Camera::Private(pipe), camSysDev_(camSysDev),
-		  imgSysDev_(imgSysDev), gyroSensor_(gyroSensor),
+		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
+		  gyroSensor_(gyroSensor), aieDev_(aieDev),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
 		  mfnrManager(imgSysDev, dmaHeap, odt),
@@ -260,6 +260,7 @@ public:
 	ImgSysDevice *imgSysDev_;
 	GyroSensor *gyroSensor_;
 
+	AieDevice *aieDev_;
 	CaptureTasksManager captureManager;
 	Hal3AManager hal3AManager_;
 
@@ -757,7 +758,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		std::unique_ptr<MtkISP7CameraData> data =
 			std::make_unique<MtkISP7CameraData>(
 				this, &camSysDev_[i], &imgSysDev_,
-				errGyro ? nullptr : &gyroSensor_,
+				errGyro ? nullptr : &gyroSensor_, &aieDev_,
 				&onDeviceTuner_, &faceDetector_,
 				dmaHeap_.get(), &halIsp_[i], i);
 
@@ -954,6 +955,9 @@ void MtkISP7CameraData::allocateIPABuffers()
 {
 	ipaBufferCnt_ = 1;
 
+	registerIPABuffers(&captureManager.faceDetectPool_);
+	registerIPABuffers(&faceDetector_->resultMetadataPool_);
+
 	registerIPABuffers(&captureManager.statistics0Pool_);
 	registerIPABuffers(&captureManager.statistics1Pool_);
 	registerIPABuffers(&hal3AManager_.tuningPool_);
@@ -1131,13 +1135,13 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 
-	ipa_->configure(camsysYuvSize, isVideo);
+	ipa_->configure(camsysYuvSize, faceDetector_, isVideo);
 	halIsp_->configure(video1 > video2 ? video1 : video2,
 			   still1 > still2 ? still1 : still2,
 			   isVideo);
 
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
-	faceDetector_->configure(sensorFullSize_);
+	faceDetector_->configure(sensorFullSize_, ipa_.get());
 	hal3AManager_.configure(dmaHeap_, camSysDev_, gyroSensor_, ipa_.get());
 
 	imgSysDev_->configure();

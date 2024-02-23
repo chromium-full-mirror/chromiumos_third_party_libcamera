@@ -188,12 +188,9 @@ void AATask::run()
 	tuningBuffer->_d()->metadata().planes()[0].bytesused =
 		tuningBuffer->planes()[0].length;
 
-	std::optional<MtkCameraFaceMetadata> faceMetadata;
-	faceDetector_->getLatestOutput(faceMetadata);
-
 	captureFrames_.aaaIspExchange->put({}, nullptr);
 
-	ipa_->preDoCalculation3A(faceMetadata, &captureFrames_.aaaIspExchange->get());
+	ipa_->preDoCalculation3A(&captureFrames_.aaaIspExchange->get());
 
 	ipa::mtkisp7::GyroSampleData gyroSample;
 	if (gyroSensor_) {

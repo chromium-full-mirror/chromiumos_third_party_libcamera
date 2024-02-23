@@ -7,7 +7,10 @@
 
 #include "ipa_delegate.h"
 
+#include "../face_detect/detector.h"
 #include "../hal3a/aaa.h"
+
+#include "mtkisp7_ipa_interface.h"
 
 namespace libcamera {
 
@@ -16,6 +19,9 @@ LOG_DEFINE_CATEGORY(IPADelegateMtkISP7)
 // Don't disconnect to avoid issues of BoundMethod.
 IPADelegate::IPADelegate()
 {
+	ipa_.AieParseResultReady.connect(this,
+					 &IPADelegate::AieParseResultReady);
+
 	ipa_.AAResultReady.connect(this, &IPADelegate::AAResultReady);
 	ipa_.AFResultReady.connect(this, &IPADelegate::AFResultReady);
 }
@@ -35,8 +41,10 @@ void IPADelegate::stop()
 	ipa_.stop();
 }
 
-int IPADelegate::configure(const Size &camsysYuvSize, bool isVideo)
+int IPADelegate::configure(const Size &camsysYuvSize, FaceDetector *faceDetector, bool isVideo)
 {
+	faceDetector_ = faceDetector;
+
 	return ipa_.configure(camsysYuvSize, isVideo);
 }
 
@@ -48,6 +56,20 @@ void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
 void IPADelegate::unmapBuffers(const std::vector<unsigned int> &ids)
 {
 	ipa_.unmapBuffers(ids);
+}
+
+void IPADelegate::aieParse(
+	const uint32_t inputImageBufferId,
+	const uint32_t faceDetectionMetadataBufferId,
+	const uint32_t faceToneClassificationMetadataBufferId,
+	const Size &currentSensorSize,
+	const uint32_t camSysMetaRequestId)
+{
+	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::aieParse,
+			  ConnectionTypeQueued,
+			  inputImageBufferId, faceDetectionMetadataBufferId,
+			  faceToneClassificationMetadataBufferId,
+			  currentSensorSize, camSysMetaRequestId);
 }
 
 void IPADelegate::doCalculation3A(
@@ -78,6 +100,14 @@ void IPADelegate::doCalculation3A(
 			  rawMetaBufferId, gyroSample,
 			  internalRequestIdApplied, featureEnum, vcmFocusInfo,
 			  controls);
+}
+
+void IPADelegate::AieParseResultReady(
+	bool success,
+	const ipa::mtkisp7::PrimaryFaceData &primaryFace,
+	const ControlList &faceControls)
+{
+	faceDetector_->AieParseResultReady(success, primaryFace, faceControls);
 }
 
 void IPADelegate::AAResultReady(uint32_t id,

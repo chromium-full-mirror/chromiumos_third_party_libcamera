@@ -25,17 +25,11 @@ namespace libcamera {
 
 class FaceDetector;
 
-struct PrimaryFaceData
-{
-	uint32_t x1;
-	uint32_t y1;
-	uint32_t x2;
-	uint32_t y2;
-	uint32_t padding_left;
-	uint32_t padding_right;
-	uint32_t padding_up;
-	uint32_t padding_down;
-};
+namespace ipa {
+namespace mtkisp7 {
+struct PrimaryFaceData;
+}
+} // namespace ipa
 
 class AieParser
 {
@@ -43,39 +37,31 @@ public:
 	int initialize();
 	void configure();
 
-	int aieParse(FrameBuffer *input,
-		     FrameBuffer *faceResult,
-		     FrameBuffer *toneResult,
-		     Size currentSensorSize,
-		     uint32_t camSysMetaRequestId);
+	int doParse(FrameBuffer *input, FrameBuffer *faceResult,
+		    FrameBuffer *toneResult, Size currentSensorSize,
+		    uint32_t camSysMetaRequestId,
+		    ipa::mtkisp7::PrimaryFaceData &faceToneRoi,
+		    ControlList &out);
 
 	void setLatestOutput(const MtkCameraFaceMetadata &output);
 	void getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest);
 
-	Signal<bool, const PrimaryFaceData &, const ControlList &> AieParseResultReady;
-
 private:
 	void initParse();
 
-	int doParse(FrameBuffer *input, FrameBuffer *faceResult,
-		    FrameBuffer *toneResult, Size currentSensorSize,
-		    uint32_t camSysMetaRequestId,
-		    PrimaryFaceData &faceToneRoi,
-		    ControlList &out);
-
 	int parseAll(FrameBuffer *faceResult, FrameBuffer *toneResult,
 		     uint32_t camSysMetaRequestId,
-		     PrimaryFaceData &faceToneRoi, ControlList &out);
+		     ipa::mtkisp7::PrimaryFaceData &faceToneRoi, ControlList &out);
 
 	int parseFaceDetectionOutput(FrameBuffer *faceResult);
 	void parseFaceLandmark(FDRESULT *resultSet, int calibrationIndex, int resultSetIndex);
 	void parseFaceRoi(FDRESULT *resultSet, int calibrationIndex, int resultSetIndex);
 	int parseFaceToneClassificationOutput(FrameBuffer *toneResult);
 
-	void updateFaceToneDriverConfig(PrimaryFaceData &faceToneRoi);
+	void updateFaceToneDriverConfig(ipa::mtkisp7::PrimaryFaceData &faceToneRoi);
 	void transformDetectionCoordinate(int32_t &x, int32_t &y) const;
 	void transformAllDetectionCoordinates(
-			MtkCameraFaceMetadata &faceMetadata) const;
+		MtkCameraFaceMetadata &faceMetadata) const;
 
 	void convertFaceMetadata(MtkCameraFaceMetadata *faceMetadata, ControlList &out);
 
@@ -98,7 +84,6 @@ private:
 	fd_cal_struct *algoCalibration_;
 	std::unique_ptr<MTKDetection> algoInterface;
 
-	Mutex lock_;
 	std::optional<MtkCameraFaceMetadata> latestOutput_;
 };
 
