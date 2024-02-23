@@ -22,8 +22,11 @@
 #include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/face_detect/aie.h"
 #include "pipeline/mtkisp7/face_detect/parser.h"
+#include "pipeline/mtkisp7/fake_ipa/fake_ipa.h"
 
 namespace libcamera {
+
+class IPADelegate;
 
 class FaceDetector : public Object
 {
@@ -46,7 +49,7 @@ public:
 	virtual ~FaceDetector();
 
 	int init(MediaDevice *media, DmaHeap *dmaHeap);
-	int configure(Size currentSensorSize);
+	int configure(Size currentSensorSize, IPADelegate *ipa);
 
 	int start();
 	int stop();
@@ -60,8 +63,13 @@ public:
 
 	bool shouldRun(uint32_t internalRequestId);
 
-	void getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest);
 	void getLatestFaceControls(ControlList &latest);
+
+	void AieParseResultReady(bool success,
+				 const ipa::mtkisp7::PrimaryFaceData &primaryFace,
+				 const ControlList &faceControls);
+
+	InfoFramePool resultMetadataPool_;
 private:
 	void cancelPendingRequests();
 	void queueHardwareRequest(FrameBuffer *input, FrameBuffer *result,
@@ -74,23 +82,20 @@ private:
 	void triggerParse();
 	void triggerNextRequest();
 
-	void AieParseResultReady(bool, const PrimaryFaceData &, const ControlList &);
-
 	void setLatestFaceControls(const ControlList &latest);
 
 private:
 	DmaHeap *dmaHeap_;
 
+	IPADelegate *ipa_;
+
 	AieDevice *aieDev_;
 	const uint32_t period_;
-
-	std::shared_ptr<AieParser> parser_;
 
 	SharedMailBox<FdDrv_input_struct> faceToneConfig_;
 
 	Size currentSensorSize_;
 
-	InfoFramePool resultMetadataPool_;
 	Pool<int, UniqueFD> requestFDPool_;
 
 	/* Protects access to the isProcessing_ flag. */
@@ -105,7 +110,7 @@ private:
 
 	std::optional<FaceDetectRequest> runningRequest_;
 	std::deque<FaceDetectRequest> pendingRequests_;
-	std::optional<PrimaryFaceData> latestFaceToneROI;
+	std::optional<ipa::mtkisp7::PrimaryFaceData> latestFaceToneROI;
 	ControlList latestFaceControls_;
 
 	Thread threadFaceDetect_;

@@ -28,6 +28,18 @@ struct VcmFocusInformation {
 	int64 previous_moving_timestamp;
 };
 
+struct PrimaryFaceData {
+        uint32 x1;
+        uint32 y1;
+        uint32 x2;
+        uint32 y2;
+
+        uint32 padding_left;
+        uint32 padding_right;
+        uint32 padding_up;
+        uint32 padding_down;
+};
+
 interface IPAMtkISP7Interface {
 	init(int32 sensorIdx) => (int32 ret);
 	start(uint32 rawMetaBufferId) => (int32 lens_position);
@@ -37,6 +49,12 @@ interface IPAMtkISP7Interface {
 
 	mapBuffers(array<libcamera.IPABuffer> buffers);
 	unmapBuffers(array<uint32> ids);
+
+        [async] aieParse(uint32 inputImageBufferId,
+                         uint32 faceDetectionMetadataBufferId,
+                         uint32 faceToneClassificationMetadataBufferId,
+                         libcamera.Size currentSensorSize,
+                         uint32 camSysMetaRequestId);
 
 	[async] doCalculation3A(uint32 frame,
                                 uint32 stat0BufferId, uint32 stat1BufferId,
@@ -51,6 +69,10 @@ interface IPAMtkISP7Interface {
 };
 
 interface IPAMtkISP7EventInterface {
+        AieParseResultReady(bool success,
+                            PrimaryFaceData faceToneConfig,
+                            libcamera.ControlList faceControls);
+
         AAResultReady(uint32 frame, SensorSetting sensorSetting);
         AFResultReady(uint32 frame, int32 position);
 };

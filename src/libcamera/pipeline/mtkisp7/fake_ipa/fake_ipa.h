@@ -11,10 +11,12 @@
 #include "libcamera/internal/mapped_framebuffer.h"
 
 #include "../hal3a/hal_3a.h"
+#include "libfdft_lib/faces.h"
 
 // Workarounds
 #include "../halisp/hal_isp.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
+#include "pipeline/mtkisp7/face_detect/parser.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
@@ -36,10 +38,8 @@ public:
 		halIsp_ = halIsp;
 		onDeviceTuner_ = odt;
 	}
-	void preDoCalculation3A(std::optional<MtkCameraFaceMetadata> metadata,
-				AaaIspExchange *aaaIspExchange)
+	void preDoCalculation3A(AaaIspExchange *aaaIspExchange)
 	{
-		metadata_ = metadata;
 		aaaIspExchange_ = aaaIspExchange;
 	}
 
@@ -52,6 +52,13 @@ public:
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers) override;
 	void unmapBuffers(const std::vector<unsigned int> &ids) override;
+
+	void aieParse(
+		const uint32_t inputImageBufferId,
+		const uint32_t faceDetectionMetadataBufferId,
+		const uint32_t faceToneClassificationMetadataBufferId,
+		const Size &currentSensorSize,
+		const uint32_t camSysMetaRequestId) override;
 
 	void doCalculation3A(
 		const uint32_t frame,
@@ -79,16 +86,20 @@ private:
 
 	IPAMappedBuffer *getMappedBufferIter(unsigned int bufferId);
 
+	ControlList convertFaceMetadata();
+
 	// Workarounds
 	HalIsp *halIsp_ = nullptr;
 	OnDeviceTuner *onDeviceTuner_;
-	std::optional<MtkCameraFaceMetadata> metadata_;
 	AaaIspExchange *aaaIspExchange_;
 
 	std::map<unsigned int, IPAMappedBuffer> buffers_;
 
+	std::optional<MtkCameraFaceMetadata> latestFaceMetadata_;
+
 	// TODO: Check if we create a different instance for each CameraData.
 	std::unique_ptr<Hal3A> hal3A_;
+	std::unique_ptr<AieParser> aieParser_;
 
 	// The sensor being configured.
 	int32_t sensorIdx_;

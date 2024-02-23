@@ -17,6 +17,7 @@
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/mailbox.h"
 
+#include "../ipa/ipa_delegate.h"
 #include "mtkcam-core/hw/aie/3.1/hardware/v4l2/cam_fdvt_v4l2.h"
 
 /**
@@ -69,7 +70,7 @@ void FaceDetectTask::run()
  * face detection algorithm library to parse the result of the device.
  */
 FaceDetector::FaceDetector(AieDevice *aieDev)
-	: aieDev_(aieDev), period_(3), parser_(std::make_shared<AieParser>())
+	: aieDev_(aieDev), period_(3)
 {
 }
 
@@ -81,7 +82,7 @@ FaceDetector::~FaceDetector()
 
 void FaceDetector::sourceVideoReady(std::pair<FrameBuffer *, int> bufferWithRequest)
 {
-	(void) bufferWithRequest;
+	(void)bufferWithRequest;
 
 	ASSERT(runningRequest_.has_value());
 
@@ -91,7 +92,7 @@ void FaceDetector::sourceVideoReady(std::pair<FrameBuffer *, int> bufferWithRequ
 
 void FaceDetector::resultMetaReady(FrameBuffer *bufferWithRequest)
 {
-	(void) bufferWithRequest;
+	(void)bufferWithRequest;
 
 	ASSERT(runningRequest_.has_value());
 
@@ -113,7 +114,7 @@ void FaceDetector::notifyHardwareDone()
 }
 
 void FaceDetector::AieParseResultReady(bool success,
-				       const PrimaryFaceData &faceToneRoi,
+				       const ipa::mtkisp7::PrimaryFaceData &faceToneRoi,
 				       const ControlList &out)
 {
 	if (!success)
@@ -135,16 +136,15 @@ void FaceDetector::AieParseResultReady(bool success,
 
 void FaceDetector::triggerParse()
 {
-	parser_->aieParse(
-			runningRequest_->detectorInput->get().buffer(),
-			runningRequest_->faceResultMeta->get().buffer(),
-			(runningRequest_->toneResultMeta->valid()) ?
-				runningRequest_->toneResultMeta->get().buffer() : nullptr,
-			currentSensorSize_, runningRequest_->camSysMetaRequestId);
+	ipa_->aieParse(
+		runningRequest_->detectorInput->get().buffer()->cookie(),
+		runningRequest_->faceResultMeta->get().buffer()->cookie(),
+		(runningRequest_->toneResultMeta->valid()) ? runningRequest_->toneResultMeta->get().buffer()->cookie() : 0,
+		currentSensorSize_, runningRequest_->camSysMetaRequestId);
 }
 
 void FaceDetector::queueHardwareRequest(FrameBuffer *input, FrameBuffer *result,
-				       int requestFd, FdDrv_input_struct &config)
+					int requestFd, FdDrv_input_struct &config)
 {
 	struct v4l2_ext_control extControl {
 		.id = aieDev_->inferenceParamControlId_,
@@ -211,9 +211,9 @@ void FaceDetector::triggerNextRequest()
 		return;
 
 	if (latestFaceToneROI->x1 == 0 &&
-            latestFaceToneROI->y1 == 0 &&
-            latestFaceToneROI->x2 == 0 &&
-            latestFaceToneROI->y2 == 0)
+	    latestFaceToneROI->y1 == 0 &&
+	    latestFaceToneROI->x2 == 0 &&
+	    latestFaceToneROI->y2 == 0)
 		return;
 
 	runningRequest_->pending += 2;
@@ -259,23 +259,16 @@ bool FaceDetector::shouldRun(uint32_t internalRequestId)
 }
 
 // Called from other thread
-int FaceDetector::configure(Size currentSensorSize)
+int FaceDetector::configure(Size currentSensorSize, IPADelegate *ipa)
 {
 	if (Thread::current() != thread())
 		return this->invokeMethod(&FaceDetector::configure,
 					  ConnectionTypeBlocking,
-					  currentSensorSize);
+					  currentSensorSize, ipa);
 
+	ipa_ = ipa;
 	currentSensorSize_ = currentSensorSize;
 	faceToneConfig_ = makeMailBox<FdDrv_input_struct>();
-	// todo(yerlandinata, IPC sandboxing):
-	// 	Reset AieParser in the sandbox process every time configure(),
-	//	to clear face coordinates cache when switching camera.
-	int ret = parser_->initialize();
-	if (ret != 0) {
-		return ret;
-	}
-	parser_->configure();
 
 	latestFaceToneROI.reset();
 
@@ -301,16 +294,6 @@ int FaceDetector::configure(Size currentSensorSize)
 	return 0;
 }
 
-/**
- * @brief Get the latest face detection result
- *
- * \param[in] latest output of the face detection result from AieParseTask
- */
-void FaceDetector::getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest)
-{
-	parser_->getLatestOutput(latest);
-}
-
 void FaceDetector::getLatestFaceControls(ControlList &latest)
 {
 	MutexLocker locker(faceControlMutex_);
@@ -328,10 +311,10 @@ Task *FaceDetector::makeFaceDetectionTask(
 	SharedMailBox<InfoFrame> detectorInput, uint32_t camSysMetaRequestId)
 {
 	const std::string id = "FaceDetectionTask #" +
-				std::to_string(request->sequence());
+			       std::to_string(request->sequence());
 
 	FaceDetectTask *fdTask = new FaceDetectTask(
-			scheduler, id, camSysMetaRequestId, this, detectorInput);
+		scheduler, id, camSysMetaRequestId, this, detectorInput);
 
 	fdTask->moveToThread(&threadFaceDetect_);
 
@@ -357,7 +340,6 @@ int FaceDetector::init(MediaDevice *media, DmaHeap *dmaHeap)
 
 	threadFaceDetect_.start();
 
-	parser_->AieParseResultReady.connect(this, &FaceDetector::AieParseResultReady);
 	return 0;
 }
 
@@ -377,8 +359,7 @@ int FaceDetector::stop()
 	{
 		MutexLocker locker(isProcessingMutex_);
 		isProcessingCv_.wait(
-			locker, [&]() LIBCAMERA_TSA_REQUIRES(isProcessingMutex_)
-				{ return !isProcessing_; });
+			locker, [&]() LIBCAMERA_TSA_REQUIRES(isProcessingMutex_) { return !isProcessing_; });
 	}
 
 	return aieDev_->invokeMethod(&AieDevice::stop, ConnectionTypeBlocking);

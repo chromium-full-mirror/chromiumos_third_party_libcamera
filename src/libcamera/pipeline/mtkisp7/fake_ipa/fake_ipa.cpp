@@ -24,6 +24,8 @@ int IPAMtkISP7::init(const int32_t sensorIdx)
 {
 	sensorIdx_ = sensorIdx;
 	hal3A_ = std::make_unique<Hal3A>(sensorIdx, halIsp_, onDeviceTuner_);
+	aieParser_ = std::make_unique<AieParser>();
+
 	return 0;
 }
 
@@ -61,7 +63,13 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, bool isVideo)
 {
 	hal3A_->configure(camsysYuvSize, isVideo);
 
-	return 0;
+	int ret = aieParser_->initialize();
+	if (ret != 0) {
+		return ret;
+	}
+	aieParser_->configure();
+
+	return aieParser_->initialize();
 }
 
 /**
@@ -90,6 +98,49 @@ void IPAMtkISP7::unmapBuffers(const std::vector<unsigned int> &ids)
 	}
 }
 
+void IPAMtkISP7::aieParse(
+	const uint32_t inputImageBufferId,
+	const uint32_t faceDetectionMetadataBufferId,
+	const uint32_t faceToneClassificationMetadataBufferId,
+	const Size &currentSensorSize,
+	const uint32_t camSysMetaRequestId)
+{
+	auto itInputImage = buffers_.find(inputImageBufferId);
+	if (itInputImage == buffers_.end()) {
+		LOG(IPAMtkISP7, Error) << "Could not find input image buffer!";
+		return;
+	}
+	FrameBuffer *inputBuffer = &itInputImage->second.buffer;
+
+	auto itFDMetadata = buffers_.find(faceDetectionMetadataBufferId);
+	if (itFDMetadata == buffers_.end()) {
+		LOG(IPAMtkISP7, Error) << "Could not find FD metadata buffer!";
+		return;
+	}
+	FrameBuffer *faceMetatBuffer = &itFDMetadata->second.buffer;
+
+	FrameBuffer *FTCMetadataFrameBuffer = nullptr;
+	if (faceToneClassificationMetadataBufferId != 0) {
+		auto itFTCMetadata = buffers_.find(faceToneClassificationMetadataBufferId);
+		if (itFTCMetadata == buffers_.end()) {
+			LOG(IPAMtkISP7, Error) << "Could not find FTC metadata buffer!";
+			return;
+		}
+
+		FTCMetadataFrameBuffer = &itFTCMetadata->second.buffer;
+	}
+
+	PrimaryFaceData faceData;
+	ControlList faceControls;
+	aieParser_->doParse(inputBuffer, faceMetatBuffer, FTCMetadataFrameBuffer,
+			    currentSensorSize, camSysMetaRequestId,
+			    faceData, faceControls);
+	aieParser_->getLatestOutput(latestFaceMetadata_);
+
+	bool success = true;
+	AieParseResultReady.emit(success, faceData, faceControls);
+}
+
 void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 				 const uint32_t stat0BufferId, const uint32_t stat1BufferId,
 				 const uint64_t timestamp, const uint32_t camSysMetaRequestId,
@@ -113,8 +164,6 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 		return;
 	}
 
-	MtkCameraFaceMetadata *faces = (metadata_) ? &(*metadata_) : nullptr;
-
 	GyroSensor::SensorSample sample;
 	sample.x_value = gyroSample.x_value;
 	sample.y_value = gyroSample.y_value;
@@ -125,6 +174,10 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 	if (internalRequestIdApplied != 0)
 		idApplied = internalRequestIdApplied;
 
+	MtkCameraFaceMetadata *metadata = latestFaceMetadata_.has_value()
+						  ? &latestFaceMetadata_.value()
+						  : nullptr;
+
 	SensorSetting exposureAndGain;
 	std::optional<Feature> featureApplied = std::nullopt;
 	if (featureEnum >= 0)
@@ -134,7 +187,7 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 			      camSysMetaRequestId, isStillCapture,
 			      rawMetaBuffer->buffer.planes()[0].fd.get(),
 			      rawMetaBuffer->mapped->planes()[0].data(),
-			      faces, sample,
+			      metadata, sample,
 			      &exposureAndGain, aaaIspExchange_,
 			      idApplied, featureApplied, controls);
 
@@ -166,7 +219,7 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 
 	hal3A_->doCalculationAF(&itStat1->second.buffer, timestamp, frame,
 				afCamSysMetaRequestId, vcm,
-				faces, sample, &position);
+				metadata, sample, &position);
 	AFResultReady.emit(frame, position);
 }
 

@@ -60,7 +60,6 @@ void AieParser::configure()
  */
 void AieParser::setLatestOutput(const MtkCameraFaceMetadata &output)
 {
-	MutexLocker locker(lock_);
 	latestOutput_.emplace(output);
 }
 
@@ -71,31 +70,13 @@ void AieParser::setLatestOutput(const MtkCameraFaceMetadata &output)
  */
 void AieParser::getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest)
 {
-	MutexLocker locker(lock_);
 	latest = latestOutput_;
-}
-
-int AieParser::aieParse(FrameBuffer *input,
-			FrameBuffer *faceResult,
-			FrameBuffer *toneResult,
-			Size currentSensorSize,
-			uint32_t camSysMetaRequestId)
-{
-	PrimaryFaceData faceData;
-
-	ControlList out;
-	int ret = doParse(input, faceResult, toneResult,
-			  currentSensorSize, camSysMetaRequestId, faceData, out);
-
-	AieParseResultReady.emit((ret == 0), faceData, out);
-
-	return 0;
 }
 
 int AieParser::doParse(FrameBuffer *input, FrameBuffer *faceResult,
 		       FrameBuffer *toneResult, Size currentSensorSize,
 		       uint32_t camSysMetaRequestId,
-		       PrimaryFaceData &faceToneRoi,
+		       ipa::mtkisp7::PrimaryFaceData &faceToneRoi,
 		       ControlList &out)
 {
 	initParse();
@@ -135,7 +116,7 @@ int AieParser::doParse(FrameBuffer *input, FrameBuffer *faceResult,
 
 void AieParser::initParse()
 {
-	auto inputSize = Size{ 640, 480};
+	auto inputSize = Size{ 640, 480 };
 
 	MTKFDFTInitInfo config;
 	config.FDBufWidth = inputSize.width;
@@ -374,7 +355,7 @@ int AieParser::parseFaceToneClassificationOutput(FrameBuffer *toneResult)
 int AieParser::parseAll(FrameBuffer *faceResult,
 			FrameBuffer *toneResult,
 			uint32_t camSysMetaRequestId,
-			PrimaryFaceData &faceToneRoi,
+			ipa::mtkisp7::PrimaryFaceData &faceToneRoi,
 			ControlList &out)
 {
 	int ret = parseFaceDetectionOutput(faceResult);
@@ -384,11 +365,11 @@ int AieParser::parseAll(FrameBuffer *faceResult,
 	int32_t gammaControl[193];
 	algoInterface->FDVTMainFastPhase(gammaControl);
 	algoInterface->FDVTMainCropPhaseV2(
-			parserTaskList_,
-			parserBufferStatus_,
-			parserBufferList_,
-			patchSize_,
-			parserAttributeTask_);
+		parserTaskList_,
+		parserBufferStatus_,
+		parserBufferList_,
+		patchSize_,
+		parserAttributeTask_);
 	algoInterface->FDVTMainPostPhase();
 	if (toneResult) {
 		ret = parseFaceToneClassificationOutput(toneResult);
@@ -414,7 +395,7 @@ int AieParser::parseAll(FrameBuffer *faceResult,
 	detectionResult.magicNo = camSysMetaRequestId;
 
 	detectionResult.number_of_faces = 0;
-	auto inputSize = Size {640, 480};
+	auto inputSize = Size{ 640, 480 };
 	algoInterface->FDVTGetICSResult(
 		reinterpret_cast<MUINT8 *>(&detectionResult),
 		getWorkingBuffer(), inputSize.width,
@@ -427,7 +408,7 @@ int AieParser::parseAll(FrameBuffer *faceResult,
 	return 0;
 }
 
-void AieParser::updateFaceToneDriverConfig(PrimaryFaceData &faceToneRoi)
+void AieParser::updateFaceToneDriverConfig(ipa::mtkisp7::PrimaryFaceData &faceToneRoi)
 {
 	const auto &configSource =
 		parserBuffers_[parserTaskList_[AIE_ATTR_TYPE_GENDER][0]];
@@ -472,7 +453,7 @@ void AieParser::transformDetectionCoordinate(
 }
 
 void AieParser::transformAllDetectionCoordinates(
-		MtkCameraFaceMetadata &faceMetadata) const
+	MtkCameraFaceMetadata &faceMetadata) const
 {
 	for (int i = 0; i < faceMetadata.number_of_faces; i++) {
 		transformDetectionCoordinate(faceMetadata.faces[i].rect[0],

@@ -25,10 +25,17 @@ public:
 	int start(const uint32_t rawMetaBufferId);
 	void stop();
 
-	int configure(const Size &camsysYuvSize, bool isVideo);
+	int configure(const Size &camsysYuvSize, FaceDetector *faceDetector, bool isVideo);
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers);
 	void unmapBuffers(const std::vector<unsigned int> &ids);
+
+	void aieParse(
+		const uint32_t inputImageBufferId,
+		const uint32_t faceDetectionMetadataBufferId,
+		const uint32_t faceToneClassificationMetadataBufferId,
+		const Size &currentSensorSize,
+		const uint32_t camSysMetaRequestId);
 
 	void doCalculation3A(
 		AATask *aaTask, AFTask *afTask,
@@ -49,20 +56,26 @@ public:
 	{
 		ipa_.preInit(halIsp, odt);
 	}
-	void preDoCalculation3A(std::optional<MtkCameraFaceMetadata> metadata,
-				AaaIspExchange *aaaIspExchange)
+	void preDoCalculation3A(AaaIspExchange *aaaIspExchange)
 	{
-		ipa_.preDoCalculation3A(metadata, aaaIspExchange);
+		ipa_.preDoCalculation3A(aaaIspExchange);
 	}
 
 private:
 	friend MtkISP7CameraData;
+
+	void AieParseResultReady(
+		bool success,
+		const ipa::mtkisp7::PrimaryFaceData &primaryFace,
+		const ControlList &faceControls);
 
 	void AAResultReady(uint32_t id,
 			   const ipa::mtkisp7::SensorSetting &sensorSetting);
 	void AFResultReady(uint32_t id, int32_t position);
 
 	ipa::mtkisp7::IPAMtkISP7 ipa_;
+
+	FaceDetector *faceDetector_;
 
 	std::unordered_map<uint32_t, AATask *> aaTasks_;
 	std::unordered_map<uint32_t, AFTask *> afTasks_;
