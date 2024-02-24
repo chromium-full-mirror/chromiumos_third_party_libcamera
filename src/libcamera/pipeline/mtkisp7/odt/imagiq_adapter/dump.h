@@ -357,6 +357,25 @@ struct Dump {
 		P2_MS_F2_ISPINFO_LPNR,
 		P2_MS_F1_ISPINFO_LPNR,
 		P2_MS_F0_PQ_DIP_ISPINFO,
+
+		// MFNR
+		BFBLD_BASE_TIMGI,
+		BFBLD_BASE_TUNBUF,
+		BFBLD_BASE_P2STTO,
+		BFBLD_BASE_IMG2O,
+		BFBLD_BASE_IMG3O,
+		BFBLD_BASE_ISPINFO,
+		BFBLD_REF_TIMGI,
+		BFBLD_REF_TUNBUF,
+		BFBLD_REF_P2STTO,
+		BFBLD_REF_IMG2O,
+		BFBLD_REF_IMG3O,
+		BFBLD_REF_ISPINFO,
+
+		BFBLD_BASE_IMGSYS_DIP_DRVREG_MFNR,
+		BFBLD_REF_IMGSYS_DIP_DRVREG_MFNR,
+		BFBLD_BASE_IMGSYS_TRAW_DRVREG_MFNR,
+		BFBLD_REF_IMGSYS_TRAW_DRVREG_MFNR,
 	};
 
 	const static std::array<Dump::Id, 6> kWpeInputImageDumpIds;
@@ -379,6 +398,7 @@ struct Dump {
 
 	Id id;
 	uint32_t requestNumber;
+	uint32_t frameNumber;
 	std::string sensorId;
 	int timestamp;
 	std::filesystem::path workPath;

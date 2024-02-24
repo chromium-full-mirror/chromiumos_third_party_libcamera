@@ -937,10 +937,18 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 		ASSERT(false);
 	}
 }
+int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
+				ImgMetaRequest &imgMetaRequest,
+				uint32_t internalRequestId,
+				bool needCropTNC16x9)
+{
+	return getImgSysMetaTuning(aaaIspExchange, imgMetaRequest, internalRequestId, internalRequestId, needCropTNC16x9);
+}
 
 int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
+				uint32_t frameNumber,
 				bool needCropTNC16x9)
 {
 	bool is_capture = imgMetaRequest.isCapture;
@@ -1150,7 +1158,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 
 		tuning_param_p2.cam_info.rNdd_info = {};
 		onDeviceTuner_->tuneImgsysHalIsp(
-			internalRequestId, tuning_param_p2, result_p2,
+			internalRequestId, frameNumber, tuning_param_p2, result_p2,
 			*aaaResult,
 			imgsys_info.rMapping_Info.eStage);
 
@@ -1160,7 +1168,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 
 	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
 	onDeviceTuner_->tuneExif(
-		internalRequestId, tuning_param_p2.exif_3a,
+		internalRequestId, frameNumber, tuning_param_p2.exif_3a,
 		result_p2.exif, imgsys_info.rMapping_Info.eStage);
 
 	return 0;

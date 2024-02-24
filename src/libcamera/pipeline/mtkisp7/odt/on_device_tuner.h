@@ -26,6 +26,7 @@
 #include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "platform/mtkisp7/halisp/IspControls.h"
 #include "platform/mtkisp7/halisp/TuningParam.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
@@ -40,6 +41,7 @@ struct Dip2Frames;
 struct XtrFrames;
 struct LpnrDipFrames;
 struct AaaIspExchange;
+struct BfbldFrames;
 
 class OnDeviceTuner
 {
@@ -52,8 +54,8 @@ public:
 
 	// Tuning tools need to know if there is a still capture in
 	// the request or not.
-	void notifyStillCapture(int requestNumber);
 	void notifyVideoOnly(int requestNumber);
+	void notifyStillCapture(int requestNumber, Feature feature);
 
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
@@ -66,11 +68,13 @@ public:
 		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult);
 	void tuneImgsysHalIsp(
 		uint32_t internalRequestId,
+		uint32_t frameNumber,
 		mtk::isphal::v1_0::TuningParamDip &tuningParam,
 		mtk::isphal::v1_0::ReturnParamDip &tuningResult,
 		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
 		EStage_T stage);
 	void tuneExif(uint32_t internalRequestId,
+		      uint32_t frameNumber,
 		      const mtk::isphal::v1_0::ExifInfo3A &exif3a,
 		      const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
 		      EStage_T stage);
@@ -109,6 +113,8 @@ public:
 
 	bool isDumpStillCapture(uint32_t internalRequestId);
 	bool isEnabled() { return enabled_; }
+	void tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, std::vector<int> order);
+
 
 private:
 	struct NamedFrame {
@@ -133,11 +139,16 @@ private:
 	void loadTuneRequest(int requestNumber);
 	bool parseHalIspNdd(
 		uint32_t internalRequestId,
+		uint32_t frameNumber,
 		mtk::isphal::v1_0::NddInfo &ndd);
 	int prepareNewExportDirectory();
 	bool shouldExportDumpNow(uint32_t requestNumber);
 	bool shouldImportDumpNow(uint32_t requestNumber);
 	void tune(uint32_t requestNumber,
+		  std::vector<NamedFrame> namedFrames,
+		  bool forceDump = false);
+	void tune(uint32_t requestNumber,
+		  uint32_t frameNumber,
 		  std::vector<NamedFrame> namedFrames,
 		  bool forceDump = false);
 	void tune(uint32_t requestNumber,
@@ -164,6 +175,7 @@ private:
 	std::map<int, std::unique_ptr<NSCam::IMetadata>>
 		mtkMetadata_;
 
+	std::map<int, Feature> stillCaptureRequestIdFeatureMap_;
 	std::unique_ptr<CamsysDebug> camsysDebug_;
 };
 

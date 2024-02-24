@@ -258,7 +258,7 @@ public:
 	void doBss(int frameNum,
 		   std::vector<SharedMailBox<InfoFrame>> p1Yuv,
 		   std::shared_ptr<isp_bss_Param> dbParam,
-		   std::vector<int> BSSOrder);
+		   std::vector<int> &BSSOrder);
 
 private:
 	void *m_pBssDrv;

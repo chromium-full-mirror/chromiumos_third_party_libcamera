@@ -87,8 +87,7 @@ enum MtkISP7TaskGroup {
 	MsbldGroup,
 	AfbldGroup,
 	BssTunTaskGroup,
-	BfbldBaseTunTaskGroup,
-	BfbldRefTunTaskGroup,
+	BfbldTunTaskGroup,
 	McdsF1TunGroup,
 	BfmeTunGroup,
 	SwmeTunGroup,
@@ -129,8 +128,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ MsbldGroup, "MsbldGroup" },
 	{ AfbldGroup, "AfbldGroup" },
 	{ BssTunTaskGroup, "BssTunTaskGroup" },
-	{ BfbldBaseTunTaskGroup, "BfbldBaseTunTaskGroup" },
-	{ BfbldRefTunTaskGroup, "BfbldRefunTaskGroup" },
+	{ BfbldTunTaskGroup, "BfbldTunTaskGroup" },
 	{ McdsF1TunGroup, "McdsF1TunGroup" },
 	{ BfmeTunGroup, "BfmeTunGroup" },
 	{ SwmeTunGroup, "SwmeTunGroup" },
@@ -199,7 +197,7 @@ public:
 		  mfnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A),
-		  halIsp_(halIsp), captureResult_(5),sensor_idx_(sensor_idx)
+		  halIsp_(halIsp), captureResult_(5), sensor_idx_(sensor_idx)
 	{
 	}
 
@@ -253,8 +251,6 @@ public:
 	History<CaptureResult> captureResult_;
 
 	uint32_t requestCount_ = 0;
-
-	bool forceMFNR = false;
 
 	std::array<SharedMailBox<InfoFrame>, 8> captureRawQueue;
 	std::array<SharedMailBox<InfoFrame>, 8> previewQueue;
@@ -954,7 +950,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 	hal3A_->configure(camsysYuvSize);
 	halIsp_->configure(video1 > video2 ? video1 : video2,
-	 		   still1 > still2 ? still1 : still2);
+			   still1 > still2 ? still1 : still2);
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
 	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_);
@@ -1145,18 +1141,23 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 		Scheduler::precede(taskDip2, completeTask);
 	}
+	bool useMfnr = false;
+	{
+		//TODO implement strategy to choose between mfnr and lpnr
+		useMfnr = MfnrTasksManager::forceMfnr();
+	}
 
 	bool hasStillCapture = still1Buffer || still2Buffer;
 
 	if (!hasStillCapture) {
 		onDeviceTuner_->notifyVideoOnly(internalRequestId);
 	} else {
-		onDeviceTuner_->notifyStillCapture(internalRequestId);
-		if (forceMFNR) {
+		if (useMfnr) {
+			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_mfnr);
 			MFNRFrames mfnr;
 			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
 
-			auto [mfnrTunBssTask, mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask, mfnrTunBfmeTask,
+			auto [mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
 			      mfnrTunMsbldTask, mfnrTunAfbldTask] =
 				mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, scheduler, "MfnrTun " + sequence, request, internalRequestId);
@@ -1175,23 +1176,19 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
 			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);
 
-			Scheduler::precede(mfnrTunBfbldBaseTask, mfnrBfbldTask);
-			scheduler->succeedPrevTaskByStep(BfbldBaseTunTaskGroup, 0, mfnrTunBfbldBaseTask);
-			scheduler->queueTask(mfnrTunBfbldBaseTask, BfbldBaseTunTaskGroup);
-
-			Scheduler::precede(mfnrTunBfbldBaseTask, mfnrTunBfbldRefTask);
-			Scheduler::precede(mfnrTunBfbldRefTask, mfnrBfbldTask);
-			scheduler->succeedPrevTaskByStep(BfbldRefTunTaskGroup, 0, mfnrTunBfbldRefTask);
-			scheduler->queueTask(mfnrTunBfbldRefTask, BfbldRefTunTaskGroup);
-
-			scheduler->succeedPrevTaskByStep(BssTaskGroup, 0, mfnrBssTask);
-			scheduler->queueTask(mfnrBssTask, BssTaskGroup);
-
 			Scheduler::precede(mfnrBssTask, mfnrBfbldTask);
 			scheduler->succeedPrevTaskByStep(BfbldTaskGroup, 0, mfnrBfbldTask);
 			scheduler->queueTask(mfnrBfbldTask, BfbldTaskGroup);
 
-			Scheduler::precede(mfnrTunBfbldRefTask, mfnrTunBfmeTask);
+			Scheduler::precede(mfnrBssTask, mfnrTunBfbldTask);
+			Scheduler::precede(mfnrTunBfbldTask, mfnrBfbldTask);
+			scheduler->succeedPrevTaskByStep(BfbldTunTaskGroup, 0, mfnrTunBfbldTask);
+			scheduler->queueTask(mfnrTunBfbldTask, BfbldTunTaskGroup);
+
+			scheduler->succeedPrevTaskByStep(BssTaskGroup, 0, mfnrBssTask);
+			scheduler->queueTask(mfnrBssTask, BssTaskGroup);
+
+			Scheduler::precede(mfnrTunBfbldTask, mfnrTunBfmeTask);
 			Scheduler::precede(mfnrTunBfmeTask, mfnrBfmeTask);
 			scheduler->succeedPrevTaskByStep(BfmeTunGroup, 0, mfnrTunBfmeTask);
 			scheduler->queueTask(mfnrTunBfmeTask, BfmeTunGroup);
@@ -1257,10 +1254,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->queueTask(mfnrAfbldTask, AfbldGroup);
 
 			Scheduler::precede(mfnrAfbldTask, completeTask);
-		}
-
-		else {
-			onDeviceTuner_->notifyStillCapture(internalRequestId);
+		} else {
+			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_lpnr);
 			LPNRFrames lpnr;
 			lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 

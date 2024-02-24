@@ -27,8 +27,7 @@ class DmaHeap;
 class PipelineHandler;
 
 class MfnrTunBssTask;
-class MfnrTunBfbldBaseTask;
-class MfnrTunBfbldRefTask;
+class MfnrTunBfbldTask;
 class MfnrTunBfmeTask;
 class MfnrTunSwmeTask;
 class MfnrTunDsTask;
@@ -40,8 +39,7 @@ class MfnrTunAfbldTask;
 class MfnrTunManager
 {
 	friend class MfnrTunBssTask;
-	friend class MfnrTunBfbldBaseTask;
-	friend class MfnrTunBfbldRefTask;
+	friend class MfnrTunBfbldTask;
 	friend class MfnrTunBfmeTask;
 	friend class MfnrTunSwmeTask;
 	friend class MfnrTunDsTask;
@@ -60,7 +58,7 @@ public:
 	void allocateBuffers();
 	void releaseBuffers();
 
-	std::tuple<MfnrTunBssTask *, MfnrTunBfbldBaseTask *, MfnrTunBfbldRefTask *, MfnrTunBfmeTask *,
+	std::tuple<MfnrTunBssTask *, MfnrTunBfbldTask *, MfnrTunBfmeTask *,
 		   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *,
 		   MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 	makeMfnrTunTasks(
@@ -92,10 +90,10 @@ class MfnrTunBssTask : public Task
 {
 public:
 	MfnrTunBssTask(MFNRFrames &mfnr,
-			     SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			     Scheduler *scheduler, const std::string &id,
-			     Request *request, MfnrTunManager *manager,
-			     uint32_t internalRequestId);
+		       SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		       Scheduler *scheduler, const std::string &id,
+		       Request *request, MfnrTunManager *manager,
+		       uint32_t internalRequestId);
 
 	virtual void run() override final;
 
@@ -109,39 +107,20 @@ public:
 	BssFrames bssFrames_;
 };
 
-class MfnrTunBfbldBaseTask : public Task
+class MfnrTunBfbldTask : public Task
 {
 public:
-	MfnrTunBfbldBaseTask(MFNRFrames &mfnr,
-			     SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			     Scheduler *scheduler, const std::string &id,
-			     Request *request, MfnrTunManager *manager,
-			     uint32_t internalRequestId);
+	MfnrTunBfbldTask(MFNRFrames &mfnr,
+			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			 Scheduler *scheduler, const std::string &id,
+			 Request *request, MfnrTunManager *manager,
+			 uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> bfbldBaseTun_;
+	std::vector<SharedMailBox<InfoFrame>> bfbldTun_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
-
-	Request *request_;
-	uint32_t internalRequestId_;
-
-	MfnrTunManager *manager_;
-};
-
-class MfnrTunBfbldRefTask : public Task
-{
-public:
-	MfnrTunBfbldRefTask(MFNRFrames &mfnr,
-			    SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			    Scheduler *scheduler, const std::string &id,
-			    Request *request, MfnrTunManager *manager,
-			    uint32_t internalRequestId);
-
-	virtual void run() override final;
-
-	std::vector<SharedMailBox<InfoFrame>> bfbldRefTun_;
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
 	uint32_t internalRequestId_;

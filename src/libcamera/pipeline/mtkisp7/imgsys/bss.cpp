@@ -800,7 +800,7 @@ MVOID BssWrapper::collectPostBSSExifData(std::vector<MINT32> &vNewIndex,
 void BssWrapper::doBss(int frameNum,
 		       std::vector<SharedMailBox<InfoFrame>> p1Yuv,
 		       std::shared_ptr<isp_bss_Param> dbParam,
-		       std::vector<int> BSSOrder)
+		       std::vector<int> &BSSOrder)
 {
 	LOG(MtkISP7, Info) << "doBss start";
 

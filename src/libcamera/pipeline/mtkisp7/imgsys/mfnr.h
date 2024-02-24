@@ -57,10 +57,13 @@ struct BssFrames {
 	} in;
 	struct {
 		std::vector<SharedMailBox<std::shared_ptr<isp_bss_Param>>> db_param;
+		std::vector<SharedMailBox<std::vector<int>>> bss_order;
 	} out;
 };
 
 struct BfbldFrames {
+	std::vector<SharedMailBox<InfoFrame>> capturedRaws;
+	SharedMailBox<std::vector<int>> bss_order;
 	struct {
 		std::vector<SharedMailBox<InfoFrame>> timgi;
 		std::vector<SharedMailBox<InfoFrame>> tunbufi;
@@ -226,6 +229,9 @@ public:
 	int start();
 	int stop();
 	int releaseBuffers();
+
+	static bool forceMfnr();
+
 	void makeMFNRFrames(MFNRFrames &mfnr,
 			    std::array<SharedMailBox<InfoFrame>, 8> &captureRawQueue,
 			    std::array<SharedMailBox<InfoFrame>, 8> &previewQueue,
@@ -306,6 +312,7 @@ private:
 	std::shared_ptr<BssWrapper> bssWrapper_;
 	int captureNum_;
 	int blendNum_;
+	std::vector<int> bssOrder_;
 };
 
 class BssTask : public Task

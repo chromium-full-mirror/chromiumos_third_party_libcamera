@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <stdint.h>
 #include <vector>
 
@@ -87,7 +88,7 @@ public:
 	}
 
 	void setMcdsF1WpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id,
-			Size crop, NSCam::NSImgStream::WPE_MODE mode);
+			      Size crop, NSCam::NSImgStream::WPE_MODE mode);
 	void setWpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id,
 			Size crop, NSCam::NSImgStream::WPE_MODE mode,
 			unsigned int featureIndex);
@@ -132,7 +133,16 @@ private:
 class SingleDeviceRequest
 {
 public:
-	StageEx &emplaceStage(PEU_Stage stageEnum) { return stages_.emplace_back(stageEnum); }
+	StageEx &emplaceStage(PEU_Stage stageEnum)
+	{
+		frameNumber_.emplace_back(sequence_);
+		return stages_.emplace_back(stageEnum);
+	}
+	StageEx &emplaceStage(PEU_Stage stageEnum, int frameNumber)
+	{
+		frameNumber_.emplace_back(frameNumber);
+		return stages_.emplace_back(stageEnum);
+	}
 	std::vector<StageEx> &Stages() { return stages_; }
 
 	void init(uint32_t sequence, uint32_t timestamp, const std::string &id)
@@ -144,6 +154,7 @@ public:
 
 	void setSequence(uint32_t sequence) { sequence_ = sequence; }
 	uint32_t sequence() { return sequence_; }
+	uint32_t frameNumber(int i) { return frameNumber_[i]; }
 
 	void setTimestamp(uint32_t timestamp) { timestamp_ = timestamp; }
 	uint32_t timestamp() { return timestamp_; }
@@ -163,6 +174,7 @@ private:
 	uint32_t sequence_;
 	uint32_t timestamp_;
 	std::string id_;
+	std::vector<int> frameNumber_;
 	std::vector<StageEx> stages_;
 };
 

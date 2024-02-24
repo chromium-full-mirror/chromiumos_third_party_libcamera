@@ -57,14 +57,26 @@ const std::map<PEU_Stage, Dump::Id> kPeuStageDumpIdMap{
 	{ PEU_Stage::P2_Y2Y_PQ_DIP, Dump::Id::P2_Y2Y_PQ_DIP_IMGSYSREG },
 };
 
-const std::array<PEU_Stage, 7> kImgsysCaptureStages{
+const std::map<PEU_Stage, std::vector<Dump::Id>> kPeuStageDumpIdVectorMap{
+	//MFNR
+	{ PEU_Stage::BFBLD_BASE,
+	  { Dump::Id::BFBLD_BASE_IMGSYS_DIP_DRVREG_MFNR,
+	    Dump::Id::BFBLD_BASE_IMGSYS_TRAW_DRVREG_MFNR } },
+	{ PEU_Stage::BFBLD_REF,
+	  { Dump::Id::BFBLD_REF_IMGSYS_DIP_DRVREG_MFNR,
+	    Dump::Id::BFBLD_REF_IMGSYS_TRAW_DRVREG_MFNR } },
+};
+
+const std::array<PEU_Stage, 9> kImgsysCaptureStages{
 	PEU_Stage::TR_R2Y,
 	PEU_Stage::P2_MS_F3,
 	PEU_Stage::P2_MS_F2,
 	PEU_Stage::P2_MS_F1,
 	PEU_Stage::P2_MS_F0_PQ_DIP,
 	PEU_Stage::P2_MS_F0_H,
-	PEU_Stage::P2_Y2Y_PQ_DIP
+	PEU_Stage::P2_Y2Y_PQ_DIP,
+	PEU_Stage::BFBLD_BASE,
+	PEU_Stage::BFBLD_REF
 };
 
 const std::map<NSIspTuning::EStage_T, Dump::Id> kMcnrExifDumpIdMap{
@@ -113,6 +125,13 @@ const std::map<NSIspTuning::EStage_T, Dump::Id> kLpnrExifDumpIdMap{
 	  Dump::Id::P2_MS_F1_ISPINFO_LPNR },
 	{ NSIspTuning::EStage_T::EStage_P2_MS_F0_PQ_DIP,
 	  Dump::Id::P2_MS_F0_PQ_DIP_ISPINFO },
+};
+
+const std::map<NSIspTuning::EStage_T, Dump::Id> kMfnrExifDumpIdMap{
+	{ NSIspTuning::EStage_T::EStage_BFBLD_BASE,
+	  Dump::Id::BFBLD_BASE_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_BFBLD_REF,
+	  Dump::Id::BFBLD_REF_ISPINFO },
 };
 
 const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
@@ -2200,5 +2219,135 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
 	  } },
+	{ Dump::Id::BFBLD_BASE_TIMGI,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_BASE_TUNBUF,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_BASE_P2STTO,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_BASE_IMG2O,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMG2O,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_BASE_IMG3O,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_BASE_ISPINFO,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_REF_TIMGI,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_T1,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::BFBLD_REF_TUNBUF,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_REF_P2STTO,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_REF_IMG2O,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMG2O,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_REF_IMG3O,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_REF_ISPINFO,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	{ Dump::Id::BFBLD_BASE_IMGSYS_DIP_DRVREG_MFNR,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kREG_DIP,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::BFBLD_BASE_IMGSYS_TRAW_DRVREG_MFNR,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_BASE,
+		  .moduleId = NSCam::TuningUtils::eModule::kREG_TRAW,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::BFBLD_REF_IMGSYS_DIP_DRVREG_MFNR,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kREG_DIP,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::BFBLD_REF_IMGSYS_TRAW_DRVREG_MFNR,
+	  {
+		  .featureId = Feature::Capture_mfnr,
+		  .stage = Stage::BFBLD_REF,
+		  .moduleId = NSCam::TuningUtils::eModule::kREG_TRAW,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+
 };
 } // namespace libcamera

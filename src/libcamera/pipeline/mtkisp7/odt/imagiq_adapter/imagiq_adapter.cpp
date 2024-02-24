@@ -858,7 +858,7 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 {
 	NSCam::TuningUtils::NddData ndd;
 	ndd.requestNo = dump.requestNumber;
-	ndd.frameNo = dump.requestNumber;
+	ndd.frameNo = dump.frameNumber;
 	ndd.timestamp = dump.timestamp;
 	ndd.sensorId = sensorIdMap.at(dump.sensorId);
 
@@ -916,7 +916,6 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	default:
 		break;
 	}
-
 	unsigned int stride = pixelFormatInfo.stride(
 		dump.frame->size().width,
 		0,
