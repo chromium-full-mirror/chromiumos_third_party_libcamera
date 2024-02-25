@@ -247,7 +247,7 @@ MfnrTunBfbldTask::MfnrTunBfbldTask(MFNRFrames &mfnr,
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	bfbldTun_ = mfnr.bfbldFrames.in.tunbufi;
-	bssOrder_ = mfnr.bfbldFrames.bss_order;
+	bssOrder_ = mfnr.bss_order;
 	aaaIspExchange_ = aaaIspExchange;
 }
 
@@ -423,6 +423,7 @@ MfnrTunMcdsF1Task::MfnrTunMcdsF1Task(MFNRFrames &mfnr,
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		mcdsF1Tun_[i] = mfnr.mcdsF1Frames.in.tunbufi[i];
 	}
+	bssOrder_ = mfnr.bss_order;
 	aaaIspExchange_ = aaaIspExchange;
 }
 
@@ -432,7 +433,7 @@ void MfnrTunMcdsF1Task::run()
 		manager_->mfnrTun_.fetch(mcdsF1Tun_[i]);
 		//fillTuning(mcdsF1Tun_[i], tuningBuffers.capture_MCDS_F1_tunbufi);
 	}
-
+	auto &bssOrder = bssOrder_->get();
 	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		ImgMetaRequest request = {};
@@ -451,8 +452,9 @@ void MfnrTunMcdsF1Task::run()
 		};
 
 		{
+			int frameNumber = internalRequestId_ + bssOrder[i + 1];
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 	notifyDone();

@@ -1063,6 +1063,27 @@ void OnDeviceTuner::tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, s
 		tune(internalRequestId, internalRequestId + order[i], namedFrames, true);
 	}
 }
+void OnDeviceTuner::tuneMcdsF1(uint32_t internalRequestId, McdsF1Frames &frames, std::vector<int> order)
+{
+	if (!enabled_) {
+		return;
+	}
+	// Capture: always export dumps!
+	for (int i = 1; i < (int)order.size(); i++) {
+		int idx = i - 1;
+		std::vector<NamedFrame> namedFrames;
+		namedFrames.push_back({ Dump::Id::MCDSF1_WPE_WPEI, frames.in.wpe_wpei[idx]->get() });
+		namedFrames.push_back({ Dump::Id::MCDSF1_WPE_VCEI, frames.in.wpe_veci[idx]->get() });
+		namedFrames.push_back({ Dump::Id::MCDSF1_TUNBUF, frames.in.tunbufi[idx]->get() });
+		namedFrames.push_back({ Dump::Id::MCDSF1_WPE_WPEO, frames.out.wpe_wpeo[idx]->get() });
+		namedFrames.push_back({ Dump::Id::MCDSF1_LTYUV2O, frames.out.ltyuv2o[idx]->get() });
+		namedFrames.push_back({ Dump::Id::MCDSF1_LTYUV3O, frames.out.ltyuv3o[idx]->get() });
+		namedFrames.push_back({ Dump::Id::MCDSF1_LTYUV4O, frames.out.ltyuv4o[idx]->get() });
+		namedFrames.push_back({ Dump::Id::MCDSF1_LTYUV5O, frames.out.ltyuv5o[idx]->get() });
+
+		tune(internalRequestId, internalRequestId + order[i], namedFrames, true);
+	}
+}
 
 bool OnDeviceTuner::isDumpStillCapture(uint32_t internalRequestId)
 {

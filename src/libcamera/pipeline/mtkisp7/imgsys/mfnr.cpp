@@ -273,15 +273,15 @@ int MfnrTasksManager::configureBuffers()
 	yuvp010_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[2], 10, DmaHeap::System, 16);
 	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_aligned16_[2], 10, DmaHeap::System, 16);
 
-	yuvp012_1_1_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[0], 12, DmaHeap::System, 64);
-	yuvp012_1_2_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[1], 12, DmaHeap::System, 64);
-	yuvp012_1_4_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[2], 12, DmaHeap::System, 64);
-	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_aligned16_[2], 12, DmaHeap::System, 16);
+	yuvp012_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[0], 12, DmaHeap::System, 16, 16);
+	yuvp012_1_2_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[1], 12, DmaHeap::System, 16, 16);
+	yuvp012_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[2], 12, DmaHeap::System, 16, 16);
+	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_aligned16_[2], 12, DmaHeap::System, 16);
 
-	yuvp012_1_8_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[3], 12, DmaHeap::System, 64);
-	yuvp012_1_16_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[4], 12, DmaHeap::System, 64);
-	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[5], 12, DmaHeap::System, 64);
-	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[6], 12, DmaHeap::System, 64);
+	yuvp012_1_8_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[3], 12, DmaHeap::System, 16, 16);
+	yuvp012_1_16_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[4], 12, DmaHeap::System, 16, 16);
+	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], 12, DmaHeap::System, 16, 16);
+	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], 12, DmaHeap::System, 16, 16);
 
 	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16);
 	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16);
@@ -438,6 +438,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	bssFrames.in.bssFaceInfo.resize(kInputRawCount);
 	bssFrames.in.bssPosInfo.resize(kInputRawCount);
 	bssOrder->put(bssOrder_, NULL);
+	mfnr.bss_order = bssOrder;
 	bssFrames.out.bss_order.push_back(bssOrder);
 	for (auto i = 0; i < kInputRawCount; i++) {
 		int idx = (captureRawQueue_idx - (kInputRawCount - 1 - i) + 8) % 8;
@@ -453,7 +454,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	}
 	/* Frames used by BfbldTask */
 	BfbldFrames &bfbldFrames = mfnr.bfbldFrames;
-	bfbldFrames.bss_order = bssFrames.out.bss_order[0];
+	mfnr.bss_order = bssFrames.out.bss_order[0];
 	bfbldFrames.capturedRaws.resize(kInputRawCount);
 	bfbldFrames.in.timgi.resize(kInputRawCount);
 	for (auto i = 0; i < kInputRawCount; i++) {
@@ -952,8 +953,7 @@ void BfbldTask::allocateOutputBuffers()
 
 void BfbldTask::notifyDone()
 {
-	auto bssOrder = frames_.bss_order->get();
-	//LOG(MtkISP7, Info) << "internalRequestId_" << internalRequestId_;
+	auto bssOrder = mfnr_.bss_order->get();
 	manager_->onDeviceTuner_->tuneBfbld(internalRequestId_, frames_, bssOrder);
 	Task::notifyDone();
 }
@@ -967,7 +967,7 @@ void BfbldTask::run()
 	auto &in = frames_.in;
 	auto &out = frames_.out;
 	auto &capturedRaws = frames_.capturedRaws;
-	auto bssOrder = frames_.bss_order->get();
+	auto bssOrder = mfnr_.bss_order->get();
 	for (auto i = 0; i < (int)bssOrder.size(); i++) {
 		in.timgi[i] = capturedRaws[bssOrder[i]];
 	}
@@ -992,7 +992,6 @@ void BfbldTask::run()
 		}
 	}
 	requestHelper_.queueRequest(sdRequest);
-	LOG(MtkISP7, Info) << "BfbldTask run finish";
 }
 
 McdsF1Task::McdsF1Task(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1018,6 +1017,8 @@ void McdsF1Task::allocateOutputBuffers()
 
 void McdsF1Task::notifyDone()
 {
+	auto bssOrder = mfnr_.bss_order->get();
+	manager_->onDeviceTuner_->tuneMcdsF1(internalRequestId_, frames_, bssOrder);
 	Task::notifyDone();
 }
 

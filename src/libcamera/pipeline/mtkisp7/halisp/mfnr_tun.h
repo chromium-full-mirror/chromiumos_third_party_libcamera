@@ -224,6 +224,7 @@ public:
 
 	std::vector<SharedMailBox<InfoFrame>> mcdsF1Tun_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
 	uint32_t internalRequestId_;

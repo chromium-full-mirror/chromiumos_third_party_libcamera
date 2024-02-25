@@ -53,7 +53,6 @@ struct MFNRPrevOutput {
 
 struct BfbldFrames {
 	std::vector<SharedMailBox<InfoFrame>> capturedRaws;
-	SharedMailBox<std::vector<int>> bss_order;
 	struct {
 		std::vector<SharedMailBox<InfoFrame>> timgi;
 		std::vector<SharedMailBox<InfoFrame>> tunbufi;
@@ -199,6 +198,7 @@ struct MFNRFrames {
 	AfbldFrames afbldF6;
 	SwmeFrames swmeFrames;
 	SharedMailBox<InfoFrame> msbld_tnrso;
+	SharedMailBox<std::vector<int>> bss_order;
 	FrameBuffer *still1Output = nullptr;
 	FrameBuffer *still2Output = nullptr;
 };

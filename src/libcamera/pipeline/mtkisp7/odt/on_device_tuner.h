@@ -42,6 +42,7 @@ struct XtrFrames;
 struct LpnrDipFrames;
 struct AaaIspExchange;
 struct BfbldFrames;
+struct McdsF1Frames;
 struct BssFrames;
 
 class OnDeviceTuner
@@ -117,6 +118,7 @@ public:
 	// MFNR
 	void tuneBss(uint32_t internalRequestId, BssFrames &frames, int frameCount);
 	void tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, std::vector<int> order);
+	void tuneMcdsF1(uint32_t internalRequestId, McdsF1Frames &frames, std::vector<int> order);
 
 
 private:

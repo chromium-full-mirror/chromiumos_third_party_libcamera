@@ -167,7 +167,6 @@ void StageEx::output(const InfoFrame &info, uint32_t idx, int ratio, const Recta
 void StageEx::setMcdsF1WpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id, Size crop, NSCam::NSImgStream::WPE_MODE mode)
 {
 	using WPE_MODE = NSCam::NSImgStream::WPE_MODE;
-	using PSP_TABLE_SEL = NSCam::NSImgStream::PSP_TABLE_SEL;
 	using RGB_MODE = NSCam::NSImgStream::RGB_MODE;
 	using EXTRA_FEATURE_INDEX = NSCam::NSImgStream::EXTRA_FEATURE_INDEX;
 	using WPE_CrpInfo = NSCam::NSImgStream::WPE_CrpInfo;
@@ -184,8 +183,8 @@ void StageEx::setMcdsF1WpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id, Size c
 	param.mData.mWPEInfo = WPEInfo{
 		.wpe_mode = (WPE_MODE)mode,
 		.vgen_out = crpInfo,
-		.tbl_sel_v = (PSP_TABLE_SEL)1,
-		.tbl_sel_h = (PSP_TABLE_SEL)1,
+		.tbl_sel_v = PSP_TABLE_DEFAULT,
+		.tbl_sel_h = PSP_TABLE_DEFAULT,
 		.extra_feature_index = EXTRA_FEATURE_INDEX(2),
 		.rgb_mode = (RGB_MODE)0,
 		.vgen_in = crpOfstInfo,
