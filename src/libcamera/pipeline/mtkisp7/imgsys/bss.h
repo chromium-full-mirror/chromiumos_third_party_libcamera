@@ -8,6 +8,7 @@
 #include <memory>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 #include "libcamera/internal/info_frame.h"
 
@@ -217,6 +218,47 @@ struct IBSS_OUTPUT_DATA {
 	IBSS_OUTPUT_DATA() { ::memset(this, 0x0, sizeof(struct IBSS_OUTPUT_DATA)); }
 };
 
+struct MTKFDContainerInfo {
+  MtkCameraFaceMetadata facedata;
+  MINT32 sensorId = -1;
+  MTKFDContainerInfo() { memset(&facedata, 0, sizeof(MtkCameraFaceMetadata)); }
+  ~MTKFDContainerInfo() {}
+
+  void clone(MTKFDContainerInfo* cloneInfo) {
+    if (cloneInfo)
+      *cloneInfo = *this;
+  }
+};
+#define FD_DATATYPE MTKFDContainerInfo
+
+struct MTKBSSFDInfo {
+  IBssFaceMetadata facedata;
+  IBssFace faces[15];
+  IBssFaceInfo posInfo[15];
+  MTKBSSFDInfo() : facedata{}, faces{}, posInfo{} {}
+  ~MTKBSSFDInfo() {}
+};
+
+struct BssFrames {
+	struct {
+		SharedMailBox<InfoFrame> bssParamInfo;
+		SharedMailBox<InfoFrame> bssDataGInfo;
+		SharedMailBox<InfoFrame> bssVerInfo;
+		SharedMailBox<std::shared_ptr<isp_bss_Param>> db_param;
+		SharedMailBox<InfoFrame> bssTuningInfo;
+
+		std::vector<SharedMailBox<InfoFrame>> bssFdMainInfo;
+		std::vector<SharedMailBox<InfoFrame>> imgi;
+		std::vector<SharedMailBox<InfoFrame>> bssFdInfo;
+		std::vector<SharedMailBox<InfoFrame>> bssFaceInfo;
+		std::vector<SharedMailBox<InfoFrame>> bssPosInfo;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame> bssOutDataInfo;
+		std::vector<SharedMailBox<std::vector<int>>> bss_order;
+	} out;
+};
+
 class BssWrapper
 {
 public:
@@ -243,7 +285,7 @@ public:
 	void Parser_BSSOut_Done(void *pParaOut, void *pParaParseOut);
 
 	MBOOL getForceBss(void *param_addr, size_t param_size);
-	void updateBssProcInfo(IBSS_PARAM_STRUCT &param,
+	void updateBssProcInfo(IBSS_PARAM_STRUCT *bss_param,
 			       MINT32 frameNum,
 			       Size srcSize,
 			       std::shared_ptr<isp_bss_Param> dbParam);
@@ -252,13 +294,10 @@ public:
 			     IBSS_INPUT_DATA_G_IPC &bss_input);
 	MVOID updateBssIOInfo(IBSS_INPUT_DATA_G_IPC &bss_input);
 
-	MVOID collectPreBSSExifData(IBSS_PARAM_STRUCT &p);
+	MVOID collectPreBSSExifData(IBSS_PARAM_STRUCT *param);
 	MVOID collectPostBSSExifData(std::vector<MINT32> &vNewIndex,
 				     IBSS_OUTPUT_DATA &bss_output);
-	void doBss(int frameNum,
-		   std::vector<SharedMailBox<InfoFrame>> p1Yuv,
-		   std::shared_ptr<isp_bss_Param> dbParam,
-		   std::vector<int> &BSSOrder);
+	void doBss(int frameNum, BssFrames &bssFrame);
 
 private:
 	void *m_pBssDrv;

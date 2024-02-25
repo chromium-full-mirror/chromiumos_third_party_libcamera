@@ -42,6 +42,7 @@ struct XtrFrames;
 struct LpnrDipFrames;
 struct AaaIspExchange;
 struct BfbldFrames;
+struct BssFrames;
 
 class OnDeviceTuner
 {
@@ -113,6 +114,8 @@ public:
 
 	bool isDumpStillCapture(uint32_t internalRequestId);
 	bool isEnabled() { return enabled_; }
+	// MFNR
+	void tuneBss(uint32_t internalRequestId, BssFrames &frames, int frameCount);
 	void tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, std::vector<int> order);
 
 

@@ -51,16 +51,6 @@ struct MFNRPrevOutput {
 	std::vector<SharedMailBox<InfoFrame>> prevDipTnrwo;
 };
 
-struct BssFrames {
-	struct {
-		std::vector<SharedMailBox<InfoFrame>> imgi;
-	} in;
-	struct {
-		std::vector<SharedMailBox<std::shared_ptr<isp_bss_Param>>> db_param;
-		std::vector<SharedMailBox<std::vector<int>>> bss_order;
-	} out;
-};
-
 struct BfbldFrames {
 	std::vector<SharedMailBox<InfoFrame>> capturedRaws;
 	SharedMailBox<std::vector<int>> bss_order;
@@ -278,7 +268,17 @@ private:
 	std::vector<InfoFramePool *> allBufferPools_;
 	std::vector<InfoFramePool *> poolsWritenByCpu_;
 
-	/* MCNR intermediate buffers' pools */
+	/* MFNR intermediate buffers' pools */
+	InfoFramePool bssParamPool_;
+	InfoFramePool bssDataGPool_;
+	InfoFramePool bssVerPool_;
+	InfoFramePool bssTuningInfoPool_;
+	InfoFramePool bssFdMainPool_;
+	InfoFramePool bssFdPool_;
+	InfoFramePool bssFacePool_;
+	InfoFramePool bssPosPool_;
+	InfoFramePool bssOutDataPool_;
+
 	InfoFramePool tunbufiPool_;
 	InfoFramePool wrap2pPool_;
 	InfoFramePool p2sttoPool_;

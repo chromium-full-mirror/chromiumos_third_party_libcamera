@@ -11,9 +11,11 @@
 
 #include <libcamera/base/log.h>
 
+#include "libcamera/framebuffer.h"
 #include "mtkcam-halif/def/UITypes.h"
 #include "mtkcam-interfaces/def/ImageFormat.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
+#include "pipeline/mtkisp7/imgsys/mfnr.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/debug_exif/cam/dbg_cam_param.h"
 
 #define MFLL_MF_TAG_VERSION 18
@@ -48,7 +50,7 @@ BssWrapper::~BssWrapper()
 MRESULT BssWrapper::bssInit()
 {
 	MRESULT ErrCode = S_BSS_OK;
-	LOG(MtkISP7, Info) << "bssInit";
+	//LOG(MtkISP7, Info) << "bssInit";
 	MTKBss *pMTKBSS = (MTKBss *)m_pBssDrv;
 	ErrCode = pMTKBSS->BssInit(NULL, NULL);
 	return ErrCode;
@@ -58,7 +60,7 @@ MRESULT BssWrapper::bssFeatureCtrl(IBSS_FTCTRL_ENUM FcId,
 				   void *pParaIn,
 				   void *pParaOut)
 {
-	LOG(MtkISP7, Info) << "bssFeatureCtrl FcId = " << FcId;
+	//LOG(MtkISP7, Info) << "bssFeatureCtrl FcId = " << FcId;
 	MRESULT ErrCode = S_BSS_OK;
 	BSS_FTCTRL_ENUM Pass_BSS_FTCTRL_ENUM;
 	switch (FcId) {
@@ -129,7 +131,7 @@ MRESULT BssWrapper::bssMain(IBSS_PROC_ENUM ProcId,
 
 void *BssWrapper::Parser_ParaIn(IBSS_FTCTRL_ENUM FcId, void *pParaIn)
 {
-	LOG(MtkISP7, Info) << "Parser_ParaIn FcId = " << FcId;
+	//LOG(MtkISP7, Info) << "Parser_ParaIn FcId = " << FcId;
 	switch (FcId) {
 	case IBSS_FTCTRL_GET_WB_SIZE:
 	case IBSS_FTCTRL_SET_WB_SIZE: {
@@ -242,7 +244,7 @@ void *BssWrapper::Parser_ParaIn(IBSS_FTCTRL_ENUM FcId, void *pParaIn)
 
 void *BssWrapper::Parser_ParaOut(IBSS_FTCTRL_ENUM FcId, void *pParaOut)
 {
-	LOG(MtkISP7, Info) << "Parser_ParaOut FcId = " << FcId;
+	//LOG(MtkISP7, Info) << "Parser_ParaOut FcId = " << FcId;
 	switch (FcId) {
 	case IBSS_FTCTRL_CONFIG_ZIP: {
 		IBSS_CONFIG_ZIP_OUT_STRUCT *pBSSZipOut =
@@ -487,7 +489,7 @@ void BssWrapper::Parser_BSSOut_Done(void *pParaOut, void *pParaParseOut)
 	pBSSOutParse->i4SkipFrmCnt = pBSSOut->i4SkipFrmCnt;
 }
 
-void BssWrapper::updateBssProcInfo(IBSS_PARAM_STRUCT &p,
+void BssWrapper::updateBssProcInfo(IBSS_PARAM_STRUCT *bss_param,
 				   MINT32 frameNum,
 				   Size srcSize,
 				   std::shared_ptr<isp_bss_Param> dbParam)
@@ -542,21 +544,20 @@ loadBinaryFromOdt(reinterpret_cast<void*>(mDbParam.get()),
 		LOG(MtkISP7, Info) << "OdtUtils is not enable or mDbParam is nullptr "
 				   << (mDbParam == nullptr);
 	}
-
-	p.pBSSNvram = mDbParam.get();
+	bss_param->pBSSNvram = mDbParam.get();
 	LOG(MtkISP7, Info) << "OdtUtils is not enable or mDbParam is nullptr "
 			   << (mDbParam == nullptr);
 
-	LOG(MtkISP7, Info) << "pBSSNvram:" << reinterpret_cast<void *>(p.pBSSNvram);
+	//LOG(MtkISP7, Info) << "pBSSNvram:" << reinterpret_cast<void *>(bss_param->pBSSNvram);
 	// using BSS_PARAM_STRUCT default value if not set.
 
-	p.BSS_ON = MF_BSS_ON;
-	p.BSS_ROI_WIDTH = w;
-	p.BSS_ROI_HEIGHT = h;
-	p.BSS_ROI_X0 = x;
-	p.BSS_ROI_Y0 = y;
+	bss_param->BSS_ON = MF_BSS_ON;
+	bss_param->BSS_ROI_WIDTH = w;
+	bss_param->BSS_ROI_HEIGHT = h;
+	bss_param->BSS_ROI_X0 = x;
+	bss_param->BSS_ROI_Y0 = y;
 
-	p.BSS_FRAME_NUM = frameNum;
+	bss_param->BSS_FRAME_NUM = frameNum;
 
 	/*
   if (MY_UNLIKELY(getForceBss(reinterpret_cast<void *>(&p),
@@ -571,23 +572,23 @@ loadBinaryFromOdt(reinterpret_cast<void*>(mDbParam.get()),
   if (mOdtUtils && mOdtUtils->is_enable()) {
           loadBinaryFromOdt(reinterpret_cast<void *>(&p),
   sizeof(IBSS_PARAM_STRUCT), EStage_T::EStage_BSS, eModule::kBSS_PARAM,
-  "BSS_PARAM"); p.pBSSNvram = mDbParam.get();
+  "BSS_PARAM"); bss_param->pBSSNvram = mDbParam.get();
   }
   */
 
 	LOG(MtkISP7, Info) << "======= updateBssProcInfo start ======";
 
-	LOG(MtkISP7, Info) << "ON(" << (MINT32)p.BSS_ON << ") VER(" << ") ROI("
-			   << p.BSS_ROI_X0 << "," << p.BSS_ROI_Y0 << ", "
-			   << p.BSS_ROI_WIDTH << "x" << p.BSS_ROI_HEIGHT << ")";
+	LOG(MtkISP7, Info) << "ON(" << (MINT32)bss_param->BSS_ON << ") VER(" << ") ROI("
+			   << bss_param->BSS_ROI_X0 << "," << bss_param->BSS_ROI_Y0 << ", "
+			   << bss_param->BSS_ROI_WIDTH << "x" << bss_param->BSS_ROI_HEIGHT << ")";
 
-	LOG(MtkISP7, Info) << "FRAME_NUM(" << p.BSS_FRAME_NUM << ")";
-	LOG(MtkISP7, Info) << "GAIN0(" << p.BSS_GAIN_TH0 << ") GAIN1("
-			   << p.BSS_GAIN_TH1 << ") MIN_ISP_GAIN("
-			   << p.BSS_MIN_ISP_GAIN << ") LCSO_SIZE(" << p.BSS_LCSO_SIZE
+	LOG(MtkISP7, Info) << "FRAME_NUM(" << bss_param->BSS_FRAME_NUM << ")";
+	LOG(MtkISP7, Info) << "GAIN0(" << bss_param->BSS_GAIN_TH0 << ") GAIN1("
+			   << bss_param->BSS_GAIN_TH1 << ") MIN_ISP_GAIN("
+			   << bss_param->BSS_MIN_ISP_GAIN << ") LCSO_SIZE(" << bss_param->BSS_LCSO_SIZE
 			   << ")";
 
-	LOG(MtkISP7, Info) << "AEVC: EN(" << (MINT32)p.BSS_AEVC_EN << ")";
+	LOG(MtkISP7, Info) << "AEVC: EN(" << (MINT32)bss_param->BSS_AEVC_EN << ")";
 
 	LOG(MtkISP7, Info) << "======= updateBssProcInfo end ======";
 }
@@ -653,22 +654,23 @@ MVOID BssWrapper::updateBssIOInfo(IBSS_INPUT_DATA_G_IPC &bss_input)
 	LOG(MtkISP7, Info) << sstream.str();
 }
 
-MVOID BssWrapper::collectPreBSSExifData(IBSS_PARAM_STRUCT &p)
+MVOID BssWrapper::collectPreBSSExifData(IBSS_PARAM_STRUCT *bss_param)
 {
+	LOG(MtkISP7, Info) << "collectPreBSSExifData";
 #if (MFLL_MF_TAG_VERSION > 0)
-	isp_bss_Param *pBssDB = reinterpret_cast<isp_bss_Param *>(p.pBSSNvram);
-
+	isp_bss_Param *pBssDB = reinterpret_cast<isp_bss_Param *>(bss_param->pBSSNvram);
+	LOG(MtkISP7, Info) << "pBssDB: " << reinterpret_cast<void *>(pBssDB);
 #define SET_EXIF_BSS(tag, value)                                              \
 	do {                                                                  \
 		mExifData[(MINT32)__namespace_mf(MFLL_MF_TAG_VERSION)::tag] = \
 			(MINT32)value;                                        \
 	} while (0)
 
-	SET_EXIF_BSS(MF_TAG_BSS_ON, p.BSS_ON);
-	SET_EXIF_BSS(MF_TAG_BSS_ROI_WIDTH, p.BSS_ROI_WIDTH);
-	SET_EXIF_BSS(MF_TAG_BSS_ROI_HEIGHT, p.BSS_ROI_HEIGHT);
-	SET_EXIF_BSS(MF_TAG_BSS_ROI_X0, p.BSS_ROI_X0);
-	SET_EXIF_BSS(MF_TAG_BSS_ROI_Y0, p.BSS_ROI_Y0);
+	SET_EXIF_BSS(MF_TAG_BSS_ON, bss_param->BSS_ON);
+	SET_EXIF_BSS(MF_TAG_BSS_ROI_WIDTH, bss_param->BSS_ROI_WIDTH);
+	SET_EXIF_BSS(MF_TAG_BSS_ROI_HEIGHT, bss_param->BSS_ROI_HEIGHT);
+	SET_EXIF_BSS(MF_TAG_BSS_ROI_X0, bss_param->BSS_ROI_X0);
+	SET_EXIF_BSS(MF_TAG_BSS_ROI_Y0, bss_param->BSS_ROI_Y0);
 	SET_EXIF_BSS(MF_TAG_BSS_VER, pBssDB->bss_ver);
 	SET_EXIF_BSS(MF_TAG_BSS_SCALE_FACTOR, pBssDB->scale_factor);
 	SET_EXIF_BSS(MF_TAG_BSS_CLIP_TH0, pBssDB->clip_th0);
@@ -764,15 +766,15 @@ MVOID BssWrapper::collectPreBSSExifData(IBSS_PARAM_STRUCT &p)
 	SET_EXIF_BSS(MF_TAG_BSS_AI_SHUTTER_WEIGHT5, pBssDB->SCORE_WEIGHT5);
 	SET_EXIF_BSS(MF_TAG_BSS_AI_SHUTTER_WEIGHT6, pBssDB->SCORE_WEIGHT6);
 	SET_EXIF_BSS(MF_TAG_BSS_AI_SHUTTER_WEIGHT7, pBssDB->SCORE_WEIGHT7);
-	SET_EXIF_BSS(MF_TAG_BSS_FRAME_NUM, p.BSS_FRAME_NUM);
-	SET_EXIF_BSS(MF_TAG_BSS_GAIN_TH0, p.BSS_GAIN_TH0);
-	SET_EXIF_BSS(MF_TAG_BSS_GAIN_TH1, p.BSS_GAIN_TH1);
-	SET_EXIF_BSS(MF_TAG_BSS_MIN_ISP_GAIN, p.BSS_MIN_ISP_GAIN);
-	SET_EXIF_BSS(MF_TAG_BSS_LCSO_SIZE, p.BSS_LCSO_SIZE);
-	SET_EXIF_BSS(MF_TAG_BSS_FD_TH0, p.BSS_FD_TH0);
-	SET_EXIF_BSS(MF_TAG_BSS_FD_TH1, p.BSS_FD_TH1);
-	SET_EXIF_BSS(MF_TAG_BSS_AEVC_EN, p.BSS_AEVC_EN);
-	SET_EXIF_BSS(MF_TAG_BSS_AEVC_DCNT, p.BSS_AEVC_DCNT);
+	SET_EXIF_BSS(MF_TAG_BSS_FRAME_NUM, bss_param->BSS_FRAME_NUM);
+	SET_EXIF_BSS(MF_TAG_BSS_GAIN_TH0, bss_param->BSS_GAIN_TH0);
+	SET_EXIF_BSS(MF_TAG_BSS_GAIN_TH1, bss_param->BSS_GAIN_TH1);
+	SET_EXIF_BSS(MF_TAG_BSS_MIN_ISP_GAIN, bss_param->BSS_MIN_ISP_GAIN);
+	SET_EXIF_BSS(MF_TAG_BSS_LCSO_SIZE, bss_param->BSS_LCSO_SIZE);
+	SET_EXIF_BSS(MF_TAG_BSS_FD_TH0, bss_param->BSS_FD_TH0);
+	SET_EXIF_BSS(MF_TAG_BSS_FD_TH1, bss_param->BSS_FD_TH1);
+	SET_EXIF_BSS(MF_TAG_BSS_AEVC_EN, bss_param->BSS_AEVC_EN);
+	SET_EXIF_BSS(MF_TAG_BSS_AEVC_DCNT, bss_param->BSS_AEVC_DCNT);
 	SET_EXIF_BSS(MF_TAG_PROC_TYPE, BSS_TYPE_PACK_Y10);
 
 #endif
@@ -797,12 +799,15 @@ MVOID BssWrapper::collectPostBSSExifData(std::vector<MINT32> &vNewIndex,
 	}
 }
 
-void BssWrapper::doBss(int frameNum,
-		       std::vector<SharedMailBox<InfoFrame>> p1Yuv,
-		       std::shared_ptr<isp_bss_Param> dbParam,
-		       std::vector<int> &BSSOrder)
+void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 {
-	LOG(MtkISP7, Info) << "doBss start";
+	std::vector<SharedMailBox<InfoFrame>> p1Yuv;
+	std::shared_ptr<isp_bss_Param> dbParam = bssFrame.in.db_param->get();
+	std::vector<int> &BSSOrder = bssFrame.out.bss_order[0]->get();
+
+	for (auto i = 0; i < (int)bssFrame.in.imgi.size(); i++) {
+		p1Yuv.push_back(bssFrame.in.imgi[i]);
+	}
 
 	std::vector<int> doBssIndex;
 	for (auto i = 0; i < frameNum; i++) {
@@ -849,12 +854,12 @@ void BssWrapper::doBss(int frameNum,
 		std::unique_ptr<MUINT8[]>(new MUINT8[workingBufferInfo.u4WKSize]{ 0 });
 	workingBufferInfo.pu1BW =
 		bss_working_buffer.get(); // assign working buffer for bss algo.
-	LOG(MtkISP7, Info) << "rProcId    = " << workingBufferInfo.rProcId;
-	LOG(MtkISP7, Info) << "u4Width    = " << workingBufferInfo.u4Width;
-	LOG(MtkISP7, Info) << "u4Height   = " << workingBufferInfo.u4Height;
-	LOG(MtkISP7, Info) << "u4FrameNum = " << workingBufferInfo.u4FrameNum;
-	LOG(MtkISP7, Info) << "u4WKSize   = " << workingBufferInfo.u4WKSize;
-	LOG(MtkISP7, Info) << "pu1BW      = " << workingBufferInfo.pu1BW;
+	LOG(MtkISP7, Info) << "rProcId    = " << workingBufferInfo.rProcId
+			   << ", u4Width    = " << workingBufferInfo.u4Width
+			   << ", u4Height   = " << workingBufferInfo.u4Height
+			   << ", u4FrameNum = " << workingBufferInfo.u4FrameNum
+			   << ", u4WKSize   = " << workingBufferInfo.u4WKSize
+			   << ", pu1BW      = " << workingBufferInfo.pu1BW;
 
 	LOG(MtkISP7, Info) << "IBSS_FTCTRL_SET_WB_SIZE";
 	b = bssFeatureCtrl(IBSS_FTCTRL_SET_WB_SIZE,
@@ -864,22 +869,23 @@ void BssWrapper::doBss(int frameNum,
 				    << workingBufferInfo.u4WKSize << ", b = " << b;
 	}
 
-	LOG(MtkISP7, Info) << "updateBssProcInfo";
-	IBSS_PARAM_STRUCT bss_param;
+	IBSS_PARAM_STRUCT bssParam;
+	IBSS_PARAM_STRUCT *bss_param = reinterpret_cast<IBSS_PARAM_STRUCT *>(bssFrame.in.bssParamInfo->get().address(0));
+	memcpy(bss_param, &bssParam, sizeof(IBSS_PARAM_STRUCT));
 	updateBssProcInfo(
 		bss_param, frameNum,
 		Size{ (unsigned int)mZipData.imgWidth, (unsigned int)mZipData.imgHeight },
 		dbParam);
 
 	b = bssFeatureCtrl(IBSS_FTCTRL_SET_PROC_INFO,
-			   reinterpret_cast<void *>(&bss_param), NULL);
+			   reinterpret_cast<void *>(bss_param), NULL);
 	if (b != S_BSS_OK) {
 		LOG(MtkISP7, Error) << "Set info to MTKBss failed " << b;
 	}
 
 	IBSS_INPUT_DATA_G_IPC bssInData;
 	IBSS_OUTPUT_DATA bssOutData;
-	// vector<MTKBSSFDInfo> bssFdData;
+	vector<MTKBSSFDInfo> bssFdData;
 
 	memset(&bssInData, 0, sizeof(bssInData));
 	memset(&bssOutData, 0, sizeof(bssOutData));
@@ -903,7 +909,7 @@ void BssWrapper::doBss(int frameNum,
 	}
 	bssInData.InputZip = 0;
 	LOG(MtkISP7, Info) << "bssInData.eType = " << bssInData.eType
-					   << ", bssInData.InputZip = " << bssInData.InputZip;
+			   << ", bssInData.InputZip = " << bssInData.InputZip;
 
 	collectPreBSSExifData(bss_param);
 	b = bssMain(IBSS_PROC3, &bssInData, &bssOutData);
@@ -933,7 +939,63 @@ void BssWrapper::doBss(int frameNum,
 		BSSOrder.push_back(order);
 		LOG(MtkISP7, Info) << "bssOrder " << i << " -> " << order;
 	}
+	IBSS_INPUT_DATA_G *bss_dataG = reinterpret_cast<IBSS_INPUT_DATA_G *>(bssFrame.in.bssDataGInfo->get().address(0));
+	memcpy(bss_dataG, &bssInData, sizeof(IBSS_INPUT_DATA_G));
+
+	IBSS_OUTPUT_DATA *bss_outData = reinterpret_cast<IBSS_OUTPUT_DATA *>(bssFrame.out.bssOutDataInfo->get().address(0));
+	memcpy(bss_outData, &bssOutData, sizeof(IBSS_OUTPUT_DATA));
+
 	collectPostBSSExifData(vNewOrdering, bssOutData);
+
+	IPASS_BSS_VerInfo verInfo;
+	bssFeatureCtrl(IBSS_FTCTRL_GET_VERSION, NULL, &verInfo);
+	char ver[15] = { '.' };
+	size_t offset = 0;
+	memcpy(&ver[offset], verInfo.rMainVer, strlen(verInfo.rMainVer));
+	offset += strlen(verInfo.rMainVer);
+	ver[offset] = ',';
+	offset++;
+	memcpy(&ver[offset], verInfo.rPatchVer, strlen(verInfo.rPatchVer));
+	offset += strlen(verInfo.rPatchVer);
+	ver[offset] = ',';
+	offset++;
+	memcpy(&ver[offset], verInfo.rSubVer, strlen(verInfo.rSubVer));
+	offset += strlen(verInfo.rSubVer);
+	ver[offset] = '\0';
+
+	IPASS_BSS_VerInfo *bss_VerInfo = reinterpret_cast<IPASS_BSS_VerInfo *>(bssFrame.in.bssVerInfo->get().address(0));
+	memcpy(bss_VerInfo, (void *)(&ver), strlen(ver));
+
+	for (int i = 0; i < kInputRawCount; i++) {
+		IBssFaceMetadata *bss_fd = reinterpret_cast<IBssFaceMetadata *>(bssFrame.in.bssFdInfo[i]->get().address(0));
+		IBssFace *bss_face = reinterpret_cast<IBssFace *>(bssFrame.in.bssFaceInfo[i]->get().address(0));
+		IBssFaceInfo *bss_pos = reinterpret_cast<IBssFaceInfo *>(bssFrame.in.bssPosInfo[i]->get().address(0));
+		if (bssInData.Face[i] != nullptr) {
+			memcpy(bss_fd, reinterpret_cast<void *>(bssInData.Face[i]), sizeof(IBssFaceMetadata));
+			if (bssInData.Face[i]->faces != nullptr) {
+				memcpy(bss_face, reinterpret_cast<void *>(bssInData.Face[i]->faces), sizeof(IBssFaceMetadata));
+			} else {
+				LOG(MtkISP7, Info) << "bssInData.Face[" << i << "].faces is null";
+				IBssFace dummy_faces[15];
+				memcpy(bss_pos, reinterpret_cast<void *>(dummy_faces), sizeof(IBssFaceMetadata));
+			}
+			if (bssInData.Face[i]->posInfo != nullptr) {
+				memcpy(bss_pos, reinterpret_cast<void *>(bssInData.Face[i]->posInfo), sizeof(IBssFaceMetadata));
+			} else {
+				LOG(MtkISP7, Info) << "bssInData.Face[" << i << "].posInfo is null";
+				IBssFaceInfo dummy_posInfo[15];
+				memcpy(bss_pos, reinterpret_cast<void *>(dummy_posInfo), sizeof(IBssFaceMetadata));
+			}
+		} else {
+			LOG(MtkISP7, Info) << "bssInData.Face[" << i << "] is null";
+			IBssFaceMetadata dummy_facedata;
+			memcpy(bss_fd, reinterpret_cast<void *>(&dummy_facedata), sizeof(IBssFaceMetadata));
+			IBssFace dummy_faces[15];
+			memcpy(bss_pos, reinterpret_cast<void *>(dummy_faces), sizeof(IBssFaceMetadata));
+			IBssFaceInfo dummy_posInfo[15];
+			memcpy(bss_pos, reinterpret_cast<void *>(dummy_posInfo), sizeof(IBssFaceMetadata));
+		}
+	}
 }
 
 } // namespace libcamera

@@ -571,7 +571,6 @@ void OnDeviceTuner::tuneImgsysMetadata(
 					    << stageEnums[i];
 			continue;
 		}
-		if (stageEnums[i] == 32 || stageEnums[i] == 33)
 		// Capture must always export dump.
 		if (!shouldExportDumpNow(sdRequest->sequence()) &&
 		    !isImgsysCaptureStage(stageEnums[i])) {
@@ -1014,6 +1013,30 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, uint32_t internalRequestId,
 	}
 
 	tune(internalRequestId, namedFrames, true);
+}
+
+void OnDeviceTuner::tuneBss(uint32_t internalRequestId, [[maybe_unused]] BssFrames &frames, int frameCount)
+{
+	if (!enabled_) {
+		return;
+	}
+	std::vector<NamedFrame> namedFramesMain;
+	namedFramesMain.push_back({ Dump::Id::BSS_PARAM, frames.in.bssParamInfo->get() });
+	namedFramesMain.push_back({ Dump::Id::BSS_DATAG, frames.in.bssDataGInfo->get() });
+	namedFramesMain.push_back({ Dump::Id::BSS_TUNING, frames.in.bssTuningInfo->get() });
+	namedFramesMain.push_back({ Dump::Id::BSS_VER, frames.in.bssVerInfo->get() });
+	namedFramesMain.push_back({ Dump::Id::BSS_OUT_DATA, frames.out.bssOutDataInfo->get() });
+	tune(internalRequestId, internalRequestId + frameCount - 1, namedFramesMain, true);
+	for (int i = 0; i < frameCount; i++) {
+		std::vector<NamedFrame> namedFrames;
+		namedFrames.push_back({ Dump::Id::BSS_IMGI, frames.in.imgi[i]->get() });
+		namedFrames.push_back({ Dump::Id::BSS_FDMAIN, frames.in.bssFdMainInfo[i]->get() });
+		namedFrames.push_back({ Dump::Id::BSS_FD, frames.in.bssFdInfo[i]->get() });
+		namedFrames.push_back({ Dump::Id::BSS_FACE, frames.in.bssFaceInfo[i]->get() });
+		namedFrames.push_back({ Dump::Id::BSS_POS, frames.in.bssPosInfo[i]->get() });
+
+		tune(internalRequestId, internalRequestId + i, namedFrames, true);
+	}
 }
 
 void OnDeviceTuner::tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, std::vector<int> order)

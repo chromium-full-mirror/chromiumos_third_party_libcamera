@@ -232,11 +232,9 @@ MfnrTunBssTask::MfnrTunBssTask([[maybe_unused]] MFNRFrames &mfnr,
 
 void MfnrTunBssTask::run()
 {
-	auto &out = bssFrames_.out;
-	for (auto i = 0; i < (int)out.db_param.size(); i++) {
-		std::shared_ptr<isp_bss_Param> dbParam = manager_->halIsp_->getIspBssParam();
-		out.db_param[i]->put(dbParam, nullptr);
-	}
+	auto &in = bssFrames_.in;
+	std::shared_ptr<isp_bss_Param> dbParam = manager_->halIsp_->getIspBssParam();
+	in.db_param->put(dbParam, nullptr);
 
 	notifyDone();
 }
