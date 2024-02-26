@@ -290,26 +290,13 @@ int CamSysDevice::setExposureGain(uint32_t exposure, uint32_t gain)
 	ControlList ctrl(sensor_->controls());
 	ctrl.set(V4L2_CID_EXPOSURE, (int32_t)exposure);
 	ctrl.set(V4L2_CID_ANALOGUE_GAIN, (int32_t)gain);
-	//ctrl.set(V4L2_CID_DIGITAL_GAIN, (int32_t)gain);
 
 	return sensor_->device()->setControls(&ctrl);
 }
 
 int CamSysDevice::setTestPattern(controls::draft::TestPatternModeEnum mode)
 {
-	const CameraSensorProperties *properties =
-		CameraSensorProperties::get(sensor_->model());
-
-	auto iter = properties->testPatternModes.find(mode);
-	if (iter == properties->testPatternModes.end()) {
-		LOG(MtkISP7, Debug) << "Invalid pattern mode: " << mode;
-		return -EINVAL;
-	}
-
-	ControlList ctrl(sensor_->controls());
-	ctrl.set(V4L2_CID_TEST_PATTERN, iter->second);
-
-	return sensor_->device()->setControls(&ctrl);
+	return sensor_->setTestPatternMode(mode);
 }
 
 int CamSysDevice::setupResource()
