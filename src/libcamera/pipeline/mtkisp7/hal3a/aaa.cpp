@@ -92,6 +92,10 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 
 	focusController_.configure(camSys_->getCameraLens());
 
+	if (tuningPool_.size() == 0)
+		tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8,
+				  DmaHeap::CMA);
+
 	releaseBuffers();
 	allocateBuffers();
 }
@@ -103,9 +107,6 @@ void Hal3AManager::start()
 
 void Hal3AManager::allocateBuffers()
 {
-	tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8,
-				  DmaHeap::CMA);
-
 	thread3A_.start();
 	threadAF_.start();
 }
@@ -113,8 +114,6 @@ void Hal3AManager::allocateBuffers()
 void Hal3AManager::releaseBuffers()
 {
 	dummyTuning_.reset();
-
-	tuningPool_.release();
 
 	thread3A_.exit();
 	thread3A_.wait();
