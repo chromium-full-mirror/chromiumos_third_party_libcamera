@@ -46,7 +46,7 @@ namespace libcamera {
 LOG_DEFINE_CATEGORY(MtkISP7)
 
 static const ControlInfoMap::Map MtkISP7Controls = {
-	{ &controls::draft::PipelineDepth, ControlInfo(10, 10, 10) },
+	{ &controls::draft::PipelineDepth, ControlInfo(8, 8, 8) },
 };
 
 static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
@@ -589,6 +589,13 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 		// Fill ControlInfoMap
 		ControlInfoMap::Map controls = MtkISP7Controls;
+
+		// Increase the pipeline depth when ODT is enabled to ensure
+		// the FPS is consistent with CCA, since it needs every
+		// request to preserve enough pending 3A tasks according to
+		// CaptureTasksManager::kRawMetaDelay.
+		if (onDeviceTuner_.isEnabled())
+			controls[&controls::draft::PipelineDepth] = ControlInfo(10, 10, 10);
 
 		// todo: Fix the frame duration to 30fps for now. It should be
 		// updated on stream configuration
