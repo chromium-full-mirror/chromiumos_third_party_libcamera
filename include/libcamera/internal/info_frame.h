@@ -82,6 +82,8 @@ public:
 
 	bool mapped() const { return 0 != mappedBuffers_.size(); }
 
+	size_t size() { return pool_.size(); }
+
 private:
 	LIBCAMERA_DISABLE_COPY_AND_MOVE(InfoFramePool)
 
