@@ -362,57 +362,41 @@ MfnrTunDsTask::MfnrTunDsTask(MFNRFrames &mfnr,
 			     uint32_t internalRequestId)
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
-	// 0 for BFBLD_BASE Task
-	dsTun_0 = mfnr.dsFrames.in.tunbufi[0];
-	dsTun_1 = mfnr.dsFrames.in.tunbufi[1];
+	dsTun = mfnr.dsFrames.in.tunbufi;
 	aaaIspExchange_ = aaaIspExchange;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void MfnrTunDsTask::run()
 {
-	manager_->mfnrTun_.fetch(dsTun_0);
-	manager_->mfnrTun_.fetch(dsTun_1);
-	//fillTuning(dsTun_0, tuningBuffers.capture_DS_tunbufi);
-	//fillTuning(dsTun_1, tuningBuffers.capture_DS_tunbufi);
+	auto &bssOrder = bssOrder_->get();
 
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
-	ImgMetaRequest request = {};
-	request = ImgMetaRequest{
-		.isCapture = true,
-		.isMfnr = true,
-		.stage = NSIspTuning::EStage_DS,
-		.tuningBuffer = dsTun_0->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = {},
-		.inputSize = manager_->mfnrSizes_[0],
-		.outputSize = manager_->yuvOutput1Size_,
-		.outputSize2 = manager_->yuvOutput2Size_,
-		.fullDipSize = manager_->mfnrSizes_[0],
-		.reserved = {}
-	};
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+	for (auto i = 0; i < (int)bssOrder.size() + 1; i++) {
+		manager_->mfnrTun_.fetch(dsTun[i]);
 	}
 
-	request = ImgMetaRequest{
-		.isCapture = true,
-		.isMfnr = true,
-		.stage = NSIspTuning::EStage_DS,
-		.tuningBuffer = dsTun_1->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = {},
-		.inputSize = manager_->mfnrSizes_[3],
-		.outputSize = manager_->yuvOutput1Size_,
-		.outputSize2 = manager_->yuvOutput2Size_,
-		.fullDipSize = manager_->mfnrSizes_[0],
-		.reserved = {}
-	};
+	for (auto i = 0; i < (int)bssOrder.size() + 1; i++) {
+		AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
+		ImgMetaRequest request = {};
+		request = ImgMetaRequest{
+			.isCapture = true,
+			.isMfnr = true,
+			.stage = NSIspTuning::EStage_DS,
+			.tuningBuffer = dsTun[i]->get(),
+			.statisticsBuffer = {},
+			.swHistBuffer = {},
+			.inputSize = manager_->mfnrSizes_[0],
+			.outputSize = manager_->yuvOutput1Size_,
+			.outputSize2 = manager_->yuvOutput2Size_,
+			.fullDipSize = manager_->mfnrSizes_[0],
+			.reserved = {}
+		};
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+		{
+			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+			int frameNumber = (i == 0 || i == 1) ? internalRequestId_ + bssOrder[0] : internalRequestId_ + bssOrder[i - 1];
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber,manager_->needCropTNC16x9_);
+		}
 	}
 
 	notifyDone();

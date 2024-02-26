@@ -604,6 +604,9 @@ void OnDeviceTuner::tuneImgsysMetadata(
 			for (auto Id : kPeuStageDumpIdVectorMap.at(stageEnums[i])) {
 				Dump::Id id = Id;
 				Dump::Metadata dumpMetadata = kDumpMetadata.at(id);
+				if (sdRequest->layer(i) != -1){
+					dumpMetadata.layer = sdRequest->layer(i);
+				}
 				Dump::Config config = dumpConfig_[id];
 				imgSysMetadata[i].common.needDump = true;
 				auto dumpFileName = ImagiqAdapter::getDumpFileName({
@@ -1069,15 +1072,36 @@ void OnDeviceTuner::tuneBfme(uint32_t internalRequestId, BfmeFrames &frames, std
 		return;
 	}
 	// Capture: always export dumps!
-	LOG(MtkISP7,Info) << "tuneBfme";
+	LOG(MtkISP7, Info) << "tuneBfme";
 	for (int i = 0; i < (int)order.size(); i++) {
-		LOG(MtkISP7,Info) << "tuneBfme " << internalRequestId + order[i];
+		LOG(MtkISP7, Info) << "tuneBfme " << internalRequestId + order[i];
 		std::vector<NamedFrame> namedFrames;
 		namedFrames.push_back({ Dump::Id::BFME_IMGI, frames.in.imgi[i]->get() });
 		namedFrames.push_back({ Dump::Id::BFME_TUNBUF, frames.in.tunbufi[i]->get() });
 		namedFrames.push_back({ Dump::Id::BFME_IMG2O, frames.out.img2o[i]->get() });
 
 		tune(internalRequestId, internalRequestId + order[i], namedFrames, true);
+	}
+}
+
+void OnDeviceTuner::tuneDs(uint32_t internalRequestId, DsFrames &frames, std::vector<int> order)
+{
+	if (!enabled_) {
+		return;
+	}
+	// Capture: always export dumps!
+	for (int i = 0; i < (int)order.size() + 1; i++) {
+		std::vector<NamedFrame> namedFrames;
+		namedFrames.push_back({ Dump::Id::DS_IMGI_T1, frames.in.ltimgi[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_TUNBUF, frames.in.tunbufi[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_YUVO_T2, frames.out.ltyuv2o[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_YUVO_T3, frames.out.ltyuv3o[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_YUVO_T4, frames.out.ltyuv4o[i]->get() });
+		if (i == 0 || i == 1) {
+			tune(internalRequestId, internalRequestId + order[0], namedFrames, true);
+		} else {
+			tune(internalRequestId, internalRequestId + order[i-1], namedFrames, true);
+		}
 	}
 }
 

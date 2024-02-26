@@ -521,7 +521,7 @@ void MfnrTasksManager::makeMFNRFrames(
 			dsFrames.in.ltimgi.push_back(mcdsF1Frames.out.ltyuv4o[i - 2]);
 		}
 		//tunbufiPool_.fetch(dsTun[i]);
-		dsFrames.in.tunbufi.push_back(dsTun[1]);
+		dsFrames.in.tunbufi.push_back(dsTun[i]);
 		dsFrames.out.ltyuv2o.push_back(dsYuv2o[i]);
 		dsFrames.out.ltyuv3o.push_back(dsYuv3o[i]);
 		dsFrames.out.ltyuv4o.push_back(dsYuv4o[i]);
@@ -1188,6 +1188,8 @@ void DsTask::allocateOutputBuffers()
 
 void DsTask::notifyDone()
 {
+	auto bssOrder = mfnr_.bss_order->get();
+	manager_->onDeviceTuner_->tuneDs(internalRequestId_, frames_, bssOrder);
 	Task::notifyDone();
 }
 
@@ -1204,14 +1206,25 @@ void DsTask::run()
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
-
+	auto bssOrder = mfnr_.bss_order->get();
 	for (auto i = 0; i < kInputRawCount + 1; i++) {
-		StageEx &DS = sdRequest.emplaceStage(PEU_Stage::DS);
-		DS.input(in.ltimgi[i]->get(), IMG_PORT_LTIMGI, 0, Size{ 0, 0 });
-		DS.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
-		DS.output(out.ltyuv2o[i]->get(), IMG_PORT_LTYUV2O, 2, Size{ 0, 0 });
-		DS.output(out.ltyuv3o[i]->get(), IMG_PORT_LTYUV3O, 2, Size{ 0, 0 });
-		DS.output(out.ltyuv4o[i]->get(), IMG_PORT_LTYUV4O, 2, Size{ 0, 0 });
+		if (i == 0 || i == 1) {
+			int frameNumber = internalRequestId_ + bssOrder[0];
+			StageEx &DS = sdRequest.emplaceStage(PEU_Stage::DS, frameNumber, i);
+			DS.input(in.ltimgi[i]->get(), IMG_PORT_LTIMGI, 0, Size{ 0, 0 });
+			DS.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+			DS.output(out.ltyuv2o[i]->get(), IMG_PORT_LTYUV2O, 2, Size{ 0, 0 });
+			DS.output(out.ltyuv3o[i]->get(), IMG_PORT_LTYUV3O, 2, Size{ 0, 0 });
+			DS.output(out.ltyuv4o[i]->get(), IMG_PORT_LTYUV4O, 2, Size{ 0, 0 });
+		} else {
+			int frameNumber = internalRequestId_ + bssOrder[i - 1];
+			StageEx &DS = sdRequest.emplaceStage(PEU_Stage::DS, frameNumber);
+			DS.input(in.ltimgi[i]->get(), IMG_PORT_LTIMGI, 0, Size{ 0, 0 });
+			DS.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+			DS.output(out.ltyuv2o[i]->get(), IMG_PORT_LTYUV2O, 2, Size{ 0, 0 });
+			DS.output(out.ltyuv3o[i]->get(), IMG_PORT_LTYUV3O, 2, Size{ 0, 0 });
+			DS.output(out.ltyuv4o[i]->get(), IMG_PORT_LTYUV4O, 2, Size{ 0, 0 });
+		}
 	}
 	requestHelper_.queueRequest(sdRequest);
 }

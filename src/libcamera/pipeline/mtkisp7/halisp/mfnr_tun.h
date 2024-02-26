@@ -182,9 +182,9 @@ public:
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> dsTun_0;
-	SharedMailBox<InfoFrame> dsTun_1;
+	std::vector<SharedMailBox<InfoFrame>> dsTun;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
 	uint32_t internalRequestId_;

@@ -133,15 +133,19 @@ private:
 class SingleDeviceRequest
 {
 public:
-	StageEx &emplaceStage(PEU_Stage stageEnum)
+	StageEx &emplaceStage(PEU_Stage stageEnum, int frameNumber, int layer)
 	{
-		frameNumber_.emplace_back(sequence_);
+		layer_.emplace_back(layer);
+		frameNumber_.emplace_back(frameNumber);
 		return stages_.emplace_back(stageEnum);
 	}
 	StageEx &emplaceStage(PEU_Stage stageEnum, int frameNumber)
 	{
-		frameNumber_.emplace_back(frameNumber);
-		return stages_.emplace_back(stageEnum);
+		return emplaceStage(stageEnum, frameNumber, -1);
+	}
+	StageEx &emplaceStage(PEU_Stage stageEnum)
+	{
+		return emplaceStage(stageEnum, sequence(), -1);
 	}
 	std::vector<StageEx> &Stages() { return stages_; }
 
@@ -155,6 +159,7 @@ public:
 	void setSequence(uint32_t sequence) { sequence_ = sequence; }
 	uint32_t sequence() { return sequence_; }
 	uint32_t frameNumber(int i) { return frameNumber_[i]; }
+	int layer(int i) { return layer_[i]; }
 
 	void setTimestamp(uint32_t timestamp) { timestamp_ = timestamp; }
 	uint32_t timestamp() { return timestamp_; }
@@ -174,6 +179,7 @@ private:
 	uint32_t sequence_;
 	uint32_t timestamp_;
 	std::string id_;
+	std::vector<int> layer_;
 	std::vector<int> frameNumber_;
 	std::vector<StageEx> stages_;
 };
