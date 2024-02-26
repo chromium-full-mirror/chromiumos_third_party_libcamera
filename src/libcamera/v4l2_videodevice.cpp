@@ -1690,7 +1690,7 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
 
 		for (const auto &plane : metadata.planes()) {
 			if (!plane.bytesused)
-				LOG(V4L2, Warning) << "byteused == 0 is deprecated";
+				LOG(V4L2, Debug) << "byteused == 0 is deprecated";
 		}
 
 		if (numV4l2Planes != planes.size()) {
