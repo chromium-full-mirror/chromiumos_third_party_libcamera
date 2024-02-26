@@ -293,37 +293,43 @@ MfnrTunBfmeTask::MfnrTunBfmeTask(MFNRFrames &mfnr,
 				 uint32_t internalRequestId)
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
-	bfmeTun_ = mfnr.bfmeFrames.in.tunbufi[0];
+	bfmeTun_ = mfnr.bfmeFrames.in.tunbufi;
 	aaaIspExchange_ = aaaIspExchange;
+	bssOrder_ = mfnr.bss_order;
+	tncso_ = mfnr.bfmeFrames.tncso;
 }
 
 void MfnrTunBfmeTask::run()
 {
-	manager_->mfnrTun_.fetch(bfmeTun_);
-
+	for (auto i = 0; i < kInputRawCount; i++) {
+		manager_->mfnrTun_.fetch(bfmeTun_[i]);
+	}
 	//fillTuning(bfmeTun_, tuningBuffers.capture_BFME_tunbufi);
 
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
-	ImgMetaRequest request = {};
-	request = ImgMetaRequest{
-		.isCapture = true,
-		.isMfnr = true,
-		.stage = NSIspTuning::EStage_BFME,
-		.tuningBuffer = bfmeTun_->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = {},
-		.inputSize = manager_->mfnrSizes_[2],
-		.outputSize = manager_->yuvOutput1Size_,
-		.outputSize2 = manager_->yuvOutput2Size_,
-		.fullDipSize = manager_->mfnrSizes_[0],
-		.reserved = {}
-	};
+	auto &bssOrder = bssOrder_->get();
+	for (auto i = 0; i < kInputRawCount; i++) {
+		ImgMetaRequest request = {};
+		auto frameNumber = internalRequestId_ + bssOrder[i];
+		AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
+		request = ImgMetaRequest{
+			.isCapture = true,
+			.isMfnr = true,
+			.stage = NSIspTuning::EStage_BFME,
+			.tuningBuffer = bfmeTun_[i]->get(),
+			.statisticsBuffer = tncso_->get(),
+			.swHistBuffer = {},
+			.inputSize = manager_->mfnrSizes_[2],
+			.outputSize = manager_->yuvOutput1Size_,
+			.outputSize2 = manager_->yuvOutput2Size_,
+			.fullDipSize = manager_->mfnrSizes_[0],
+			.reserved = {}
+		};
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+		{
+			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+		}
 	}
-
 	notifyDone();
 }
 

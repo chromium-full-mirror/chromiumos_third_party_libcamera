@@ -92,6 +92,7 @@ struct DsFrames {
 };
 
 struct BfmeFrames {
+	SharedMailBox<InfoFrame> tncso;
 	struct {
 		std::vector<SharedMailBox<InfoFrame>> imgi;
 		std::vector<SharedMailBox<InfoFrame>> tunbufi;

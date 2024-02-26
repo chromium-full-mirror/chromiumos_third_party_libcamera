@@ -1176,19 +1176,22 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
 			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);
 
-			Scheduler::precede(mfnrBssTask, mfnrBfbldTask);
-			scheduler->succeedPrevTaskByStep(BfbldTaskGroup, 0, mfnrBfbldTask);
-			scheduler->queueTask(mfnrBfbldTask, BfbldTaskGroup);
+			scheduler->succeedPrevTaskByStep(BssTaskGroup, 0, mfnrBssTask);
+			scheduler->queueTask(mfnrBssTask, BssTaskGroup);
 
 			Scheduler::precede(mfnrBssTask, mfnrTunBfbldTask);
 			Scheduler::precede(mfnrTunBfbldTask, mfnrBfbldTask);
 			scheduler->succeedPrevTaskByStep(BfbldTunTaskGroup, 0, mfnrTunBfbldTask);
 			scheduler->queueTask(mfnrTunBfbldTask, BfbldTunTaskGroup);
 
-			scheduler->succeedPrevTaskByStep(BssTaskGroup, 0, mfnrBssTask);
-			scheduler->queueTask(mfnrBssTask, BssTaskGroup);
+			Scheduler::precede(mfnrBssTask, mfnrBfbldTask);
+			scheduler->succeedPrevTaskByStep(BfbldTaskGroup, 0, mfnrBfbldTask);
+			scheduler->queueTask(mfnrBfbldTask, BfbldTaskGroup);
 
-			Scheduler::precede(mfnrTunBfbldTask, mfnrTunBfmeTask);
+
+
+			Scheduler::precede(mfnrBssTask, mfnrTunBfmeTask);
+			Scheduler::precede(mfnrBfbldTask, mfnrTunBfmeTask);
 			Scheduler::precede(mfnrTunBfmeTask, mfnrBfmeTask);
 			scheduler->succeedPrevTaskByStep(BfmeTunGroup, 0, mfnrTunBfmeTask);
 			scheduler->queueTask(mfnrTunBfmeTask, BfmeTunGroup);

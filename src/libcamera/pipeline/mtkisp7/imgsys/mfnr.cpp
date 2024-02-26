@@ -283,12 +283,12 @@ int MfnrTasksManager::configureBuffers()
 	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], 12, DmaHeap::System, 16, 16);
 	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], 12, DmaHeap::System, 16, 16);
 
-	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16);
-	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16);
-	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 14, DmaHeap::System, 16);
-	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16);
-	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16);
-	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16);
+	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16, 16);
+	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16, 16);
+	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 14, DmaHeap::System, 16, 16);
+	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16, 16);
+	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16, 16);
+	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16, 16);
 	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 10);
 	nv21_1_1_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[0], 7);
 	nv12_1_64_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[6], 9);
@@ -467,10 +467,11 @@ void MfnrTasksManager::makeMFNRFrames(
 	}
 	/* Frames used by BfmeTask */
 	BfmeFrames &bfmeFrames = mfnr.bfmeFrames;
+	bfmeFrames.tncso = bfbldFrames.out.p2stto[0];
 	for (auto i = 0; i < kInputRawCount; i++) {
 		bfmeFrames.in.imgi.push_back(bfbldFrames.out.img2o[i]);
 		//tunbufiPool_.fetch(bfmeTun);
-		bfmeFrames.in.tunbufi.push_back(bfmeTun[0]);
+		bfmeFrames.in.tunbufi.push_back(bfmeTun[i]);
 		bfmeFrames.out.img2o.push_back(bfmeImg2o[i]);
 	}
 
@@ -1078,6 +1079,8 @@ void BfmeTask::allocateOutputBuffers()
 
 void BfmeTask::notifyDone()
 {
+	auto bssOrder = mfnr_.bss_order->get();
+	manager_->onDeviceTuner_->tuneBfme(internalRequestId_, frames_, bssOrder);
 	Task::notifyDone();
 }
 
@@ -1094,9 +1097,9 @@ void BfmeTask::run()
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
-
+	auto bssOrder = mfnr_.bss_order->get();
 	for (auto i = 0; i < kInputRawCount; i++) {
-		StageEx &BFME = sdRequest.emplaceStage(PEU_Stage::BFME);
+		StageEx &BFME = sdRequest.emplaceStage(PEU_Stage::BFME, internalRequestId_ + bssOrder[i]);
 		BFME.input(in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
 		BFME.input(in.tunbufi[1]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		BFME.output(out.img2o[i]->get(), IMG_PORT_IMG2O, 0, mfnrSizes_aligned16[2]);

@@ -1063,6 +1063,24 @@ void OnDeviceTuner::tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, s
 		tune(internalRequestId, internalRequestId + order[i], namedFrames, true);
 	}
 }
+void OnDeviceTuner::tuneBfme(uint32_t internalRequestId, BfmeFrames &frames, std::vector<int> order)
+{
+	if (!enabled_) {
+		return;
+	}
+	// Capture: always export dumps!
+	LOG(MtkISP7,Info) << "tuneBfme";
+	for (int i = 0; i < (int)order.size(); i++) {
+		LOG(MtkISP7,Info) << "tuneBfme " << internalRequestId + order[i];
+		std::vector<NamedFrame> namedFrames;
+		namedFrames.push_back({ Dump::Id::BFME_IMGI, frames.in.imgi[i]->get() });
+		namedFrames.push_back({ Dump::Id::BFME_TUNBUF, frames.in.tunbufi[i]->get() });
+		namedFrames.push_back({ Dump::Id::BFME_IMG2O, frames.out.img2o[i]->get() });
+
+		tune(internalRequestId, internalRequestId + order[i], namedFrames, true);
+	}
+}
+
 void OnDeviceTuner::tuneMcdsF1(uint32_t internalRequestId, McdsF1Frames &frames, std::vector<int> order)
 {
 	if (!enabled_) {
