@@ -24,7 +24,7 @@
 #include "platform/mtkisp7/eightcc.h"
 #include "platform/mtkisp7/single_device_helper.h"
 
-#define V4L2_STANDARD_MODE false
+#define V4L2_STANDARD_MODE true
 
 NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &info);
 
