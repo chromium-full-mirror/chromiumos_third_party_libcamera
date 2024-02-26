@@ -1105,6 +1105,26 @@ void OnDeviceTuner::tuneDs(uint32_t internalRequestId, DsFrames &frames, std::ve
 	}
 }
 
+void OnDeviceTuner::tuneDsVbi(uint32_t internalRequestId, DsVbiFrames &ds_vbi_v2, DsVbiFrames &ds_vbi_v5, std::vector<int> order)
+{
+	if (!enabled_) {
+		return;
+	}
+	// Capture: always export dumps!
+	for (int i = 0; i < (int)order.size()-1; i++) {
+		std::vector<NamedFrame> namedFrames;
+		namedFrames.push_back({ Dump::Id::DS_VBI_V2_IMGI_T1, ds_vbi_v2.in.timgi[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_VBI_V2_TUNBUF, ds_vbi_v2.in.tunbufi[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_VBI_V2_YUVO_T2, ds_vbi_v2.out.tyuv2o[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_VBI_V2_YUVO_T3, ds_vbi_v2.out.tyuv3o[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_VBI_V2_YUVO_T4, ds_vbi_v2.out.tyuv4o[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_VBI_V5_IMGI_T1, ds_vbi_v5.in.timgi[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_VBI_V5_TUNBUF, ds_vbi_v5.in.tunbufi[i]->get() });
+		namedFrames.push_back({ Dump::Id::DS_VBI_V5_YUVO_T2, ds_vbi_v5.out.tyuv2o[i]->get() });
+		tune(internalRequestId, internalRequestId + order[i+1], namedFrames, true);
+	}
+}
+
 void OnDeviceTuner::tuneMcdsF1(uint32_t internalRequestId, McdsF1Frames &frames, std::vector<int> order)
 {
 	if (!enabled_) {

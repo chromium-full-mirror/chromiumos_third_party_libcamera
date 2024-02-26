@@ -283,12 +283,12 @@ int MfnrTasksManager::configureBuffers()
 	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], 12, DmaHeap::System, 16, 16);
 	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], 12, DmaHeap::System, 16, 16);
 
-	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16, 16);
-	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16, 16);
-	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 14, DmaHeap::System, 16, 16);
-	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16, 16);
-	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16, 16);
-	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16, 16);
+	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16);
+	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16);
+	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 14, DmaHeap::System, 16);
+	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16);
+	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16);
+	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16);
 	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 10);
 	nv21_1_1_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[0], 7);
 	nv12_1_64_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[6], 9);
@@ -533,14 +533,14 @@ void MfnrTasksManager::makeMFNRFrames(
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		dsVbiFramesV2.in.timgi.push_back(mcdsF1Frames.out.ltyuv5o[i]);
 		//tunbufiPool_.fetch(dsVbiV2Tun[i]);
-		dsVbiFramesV2.in.tunbufi.push_back(dsVbiV2Tun[0]);
+		dsVbiFramesV2.in.tunbufi.push_back(dsVbiV2Tun[i]);
 		dsVbiFramesV2.out.tyuv2o.push_back(dsVbiV2Tyuv2o[i]);
 		dsVbiFramesV2.out.tyuv3o.push_back(dsVbiV2Tyuv3o[i]);
 		dsVbiFramesV2.out.tyuv4o.push_back(dsVbiV2Tyuv4o[i]);
 
 		dsVbiFramesV5.in.timgi.push_back(dsVbiFramesV2.out.tyuv4o[i]);
 		//tunbufiPool_.fetch(dsVbiV5Tun[i]);
-		dsVbiFramesV5.in.tunbufi.push_back(dsVbiV5Tun[0]);
+		dsVbiFramesV5.in.tunbufi.push_back(dsVbiV5Tun[i]);
 		dsVbiFramesV5.out.tyuv2o.push_back(dsVbiV5Tyuv2o[i]);
 		dsVbiFramesV5.out.tyuv3o.push_back(dsVbiV5Tyuv3o[i]);
 		dsVbiFramesV5.out.tyuv4o.push_back(dsVbiV5Tyuv4o[i]);
@@ -1255,6 +1255,8 @@ void DsVbiTask::allocateOutputBuffers()
 
 void DsVbiTask::notifyDone()
 {
+	auto bssOrder = mfnr_.bss_order->get();
+	manager_->onDeviceTuner_->tuneDsVbi(internalRequestId_, dsVbiFramesV2_, dsVbiFramesV5_, bssOrder);
 	Task::notifyDone();
 }
 
@@ -1271,9 +1273,9 @@ void DsVbiTask::run()
 
 	auto &inV2 = dsVbiFramesV2_.in;
 	auto &outV2 = dsVbiFramesV2_.out;
-
+	auto bssOrder = mfnr_.bss_order->get();
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		StageEx &DS_VBI_V2 = sdRequest.emplaceStage(PEU_Stage::DS_VBI_V2);
+		StageEx &DS_VBI_V2 = sdRequest.emplaceStage(PEU_Stage::DS_VBI_V2, internalRequestId_ + bssOrder[i + 1]);
 		DS_VBI_V2.input(inV2.timgi[i]->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
 		DS_VBI_V2.input(inV2.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
@@ -1284,7 +1286,7 @@ void DsVbiTask::run()
 	auto &inV5 = dsVbiFramesV5_.in;
 	auto &outV5 = dsVbiFramesV5_.out;
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		StageEx &DS_VBI_V5 = sdRequest.emplaceStage(PEU_Stage::DS_VBI_V5);
+		StageEx &DS_VBI_V5 = sdRequest.emplaceStage(PEU_Stage::DS_VBI_V5, internalRequestId_ + bssOrder[i + 1]);
 
 		DS_VBI_V5.input(inV5.timgi[i]->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
 		DS_VBI_V5.input(inV5.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });

@@ -395,7 +395,7 @@ void MfnrTunDsTask::run()
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			int frameNumber = (i == 0 || i == 1) ? internalRequestId_ + bssOrder[0] : internalRequestId_ + bssOrder[i - 1];
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber,manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 
@@ -458,59 +458,64 @@ MfnrTunDsVbiTask::MfnrTunDsVbiTask(MFNRFrames &mfnr,
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	// 0 for BFBLD_BASE Task
-	dsVbiV2Tun_ = mfnr.dsVbiFramesV2.in.tunbufi[0];
-	dsVbiV5Tun_ = mfnr.dsVbiFramesV5.in.tunbufi[0];
+	dsVbiV2Tun_ = mfnr.dsVbiFramesV2.in.tunbufi;
+	dsVbiV5Tun_ = mfnr.dsVbiFramesV5.in.tunbufi;
 	aaaIspExchange_ = aaaIspExchange;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void MfnrTunDsVbiTask::run()
 {
-	manager_->mfnrTun_.fetch(dsVbiV2Tun_);
-	manager_->mfnrTun_.fetch(dsVbiV5Tun_);
-
-	fillTuning(dsVbiV2Tun_, tuningBuffers.capture_DS_VBI_V2_tunbufi);
-	fillTuning(dsVbiV5Tun_, tuningBuffers.capture_DS_VBI_V5_tunbufi);
-
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
-	ImgMetaRequest request = {};
-	request = ImgMetaRequest{
-		.isCapture = true,
-		.isMfnr = true,
-		.stage = NSIspTuning::EStage_DS_VBI_V2,
-		.tuningBuffer = dsVbiV2Tun_->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = {},
-		.inputSize = manager_->mfnrSizes_[1],
-		.outputSize = manager_->yuvOutput1Size_,
-		.outputSize2 = manager_->yuvOutput2Size_,
-		.fullDipSize = manager_->mfnrSizes_[0],
-		.reserved = {}
-	};
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+	auto bssOrder = bssOrder_->get();
+	for (auto i = 0; i < (int)bssOrder.size() - 1; i++) {
+		manager_->mfnrTun_.fetch(dsVbiV2Tun_[i]);
+		manager_->mfnrTun_.fetch(dsVbiV5Tun_[i]);
 	}
 
-	request = ImgMetaRequest{
-		.isCapture = true,
-		.isMfnr = true,
-		.stage = NSIspTuning::EStage_DS_VBI_V5,
-		.tuningBuffer = dsVbiV5Tun_->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = {},
-		.inputSize = manager_->mfnrSizes_[4],
-		.outputSize = manager_->yuvOutput1Size_,
-		.outputSize2 = manager_->yuvOutput2Size_,
-		.fullDipSize = manager_->mfnrSizes_[0],
-		.reserved = {}
-	};
+	//fillTuning(dsVbiV2Tun_, tuningBuffers.capture_DS_VBI_V2_tunbufi);
+	//fillTuning(dsVbiV5Tun_, tuningBuffers.capture_DS_VBI_V5_tunbufi);
+	for (auto i = 0; i < (int)bssOrder.size() - 1; i++) {
+		int frameNumber = internalRequestId_ + bssOrder[i + 1];
+		AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
+		ImgMetaRequest request = {};
+		request = ImgMetaRequest{
+			.isCapture = true,
+			.isMfnr = true,
+			.stage = NSIspTuning::EStage_DS_VBI_V2,
+			.tuningBuffer = dsVbiV2Tun_[i]->get(),
+			.statisticsBuffer = {},
+			.swHistBuffer = {},
+			.inputSize = manager_->mfnrSizes_[1],
+			.outputSize = manager_->yuvOutput1Size_,
+			.outputSize2 = manager_->yuvOutput2Size_,
+			.fullDipSize = manager_->mfnrSizes_[0],
+			.reserved = {}
+		};
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+		{
+			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+		}
+
+		request = ImgMetaRequest{
+			.isCapture = true,
+			.isMfnr = true,
+			.stage = NSIspTuning::EStage_DS_VBI_V5,
+			.tuningBuffer = dsVbiV5Tun_[i]->get(),
+			.statisticsBuffer = {},
+			.swHistBuffer = {},
+			.inputSize = manager_->mfnrSizes_[4],
+			.outputSize = manager_->yuvOutput1Size_,
+			.outputSize2 = manager_->yuvOutput2Size_,
+			.fullDipSize = manager_->mfnrSizes_[0],
+			.reserved = {}
+		};
+
+		{
+			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+		}
 	}
-
 	notifyDone();
 }
 
