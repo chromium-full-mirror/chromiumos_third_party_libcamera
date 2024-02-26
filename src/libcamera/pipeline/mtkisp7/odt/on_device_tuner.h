@@ -102,10 +102,8 @@ public:
 			 FrameBuffer *still2Output);
 	bool isLowIsoLpnrEnforced();
 
-	// Metadata for upper layer: HAL Adapter / Application
-	void writeStillCaptureDebugMetadata(Request *request,
-					    ControlList &out,
-					    AaaIspExchange &aaaIspExchange);
+	bool isDumpStillCapture(uint32_t internalRequestId);
+	bool isEnabled() { return enabled_; }
 
 private:
 	struct NamedFrame {

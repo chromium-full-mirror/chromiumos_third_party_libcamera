@@ -17,6 +17,7 @@
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "../hal3a/hal_3a.h"
 #include "debug_exif/aaa/dbg_aaa_param.h"
 #include "libcamera/request.h"
 #include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
@@ -29,14 +30,17 @@ namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-HalIsp::HalIsp(OnDeviceTuner *odt) : onDeviceTuner_(odt)
+HalIsp::HalIsp(OnDeviceTuner *odt)
+	: onDeviceTuner_(odt)
 {
 }
 
-int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
+int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 {
 	sensorIdx_ = sensorIdx;
 	sensorDev_ = sensorDev;
+
+	hal3A_ = hal3A;
 
 	// TODO: implement a proper init() for m_P1CamInfo to avoid vtable pointer overwritten.
 	memset(&m_P1CamInfo, 0, sizeof(m_P1CamInfo));
@@ -47,7 +51,7 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 	// 0: google platform (geralt), 1: lenovo platform (ciri)
 	std::string model_name_path = "/run/chromeos-config/v1/name";
 	std::fstream model_name_file;
-	model_name_file.open(model_name_path,std::ios::in) ;   
+	model_name_file.open(model_name_path, std::ios::in);
 	std::string model;
 	if (model_name_file.is_open()) {
 		getline(model_name_file, model);
@@ -189,19 +193,18 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev)
 	return 0;
 }
 
-uint32_t HalIsp::getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange)
+uint32_t HalIsp::getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info)
 {
 	if (lpnrThredshold_)
 		return lpnrThredshold_.value();
 
-	mtk::isphal::v1::isp_lpnrthres_Param param;
-	CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO qry =
-		aaaIspExchange->cam_info.rMapping_Info_with_sys_info;
+	CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO qry = cam_info.rMapping_Info_with_sys_info;
 
 	qry.mapping_info.eFeature = EFeature_Capture_lpnr;
 	qry.mapping_info.eStage = EStage_TR_R2Y;
 	qry.mapping_info.eAction = EAction_Capture;
 
+	mtk::isphal::v1::isp_lpnrthres_Param param;
 	provider_->readDataForFeature(&param, sizeof(param), EModuleDB_LPNR_THRES, qry);
 	lpnrThredshold_ = static_cast<uint32_t>(param.LPNR_ISO_HIGH_TH);
 
@@ -212,19 +215,19 @@ void HalIsp::fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
 				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo)
 {
 	static_assert(sizeof(MtkCameraFaceMetadata::YUVsts) <=
-		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::YUVsts),
+			      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::YUVsts),
 		      "face struct YUVsts size error");
 	static_assert(sizeof(MtkCameraFaceMetadata::GenderLabel) <=
-		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_GenderLabel),
+			      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_GenderLabel),
 		      "face struct fld_GenderLabel size error");
 	static_assert(sizeof(MtkCameraFaceMetadata::fld_GenderInfo) <=
-		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_GenderInfo),
+			      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_GenderInfo),
 		      "face struct fld_GenderInfo size error");
 	static_assert(sizeof(MtkCameraFaceMetadata::fld_rop) <=
-		      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_rop),
+			      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::fld_rop),
 		      "face struct fld_rop size error");
 
-	if(!faces) {
+	if (!faces) {
 		m_P1CamInfo.fgFDEnable = false;
 		memset(&fdInfo, 0, sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T));
 		return;
@@ -355,12 +358,15 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_param_p1.subsample_count = 1;
 
 	tuning_param_p1.cam_info->rNdd_info = {};
+
+	mtk::hal3a::v1_0::mtk_3a_result *aaaResult = hal3A_->resultHistory_.query(aaaFrmId);
+
 	bool shouldDump = false;
 	if (internalRequestIdApplied) {
 		// Not dummy frame
 		shouldDump = onDeviceTuner_->tuneCamsysHalIsp(
 			internalRequestIdApplied.value(),
-			tuning_param_p1, result_p1, aaaIspExchange->aaaResult);
+			tuning_param_p1, result_p1, *aaaResult);
 	}
 
 	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
@@ -368,7 +374,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	if (result_p1.exif.valid) {
 		// Exif data may be filled by IHalIsp::getCamSysMetaTuning
 		std::memcpy(
-			reinterpret_cast<uint8_t*>(&aaaIspExchange->aaaResult.debug_isp_info),
+			reinterpret_cast<uint8_t *>(&aaaResult->debug_isp_info),
 			result_p1.exif.data, sizeof(AAA_DEBUG_INFO2_T));
 	}
 
@@ -377,8 +383,12 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 			&tuning_param_p1, &result_p1);
 	}
 
-	aaaIspExchange->cam_info = *tuning_param_p1.cam_info;
-	aaaIspExchange->cam_info_3a = *tuning_param_p1.cam_info_3a;
+	addHistory(frmId, *tuning_param_p1.cam_info, *tuning_param_p1.cam_info_3a);
+
+	int32_t threshold = getLpnrIsoThreshold(*tuning_param_p1.cam_info);
+	int32_t sensorSensitivity = aaaResult->ae_result.sensor_sensitivity;
+
+	aaaIspExchange->highIsoMode = (sensorSensitivity > threshold);
 
 	return 0;
 }
@@ -387,7 +397,7 @@ void fillPqInfo(NSIspTuning::EStage_T stage, Size inputSize,
 		Size outputSize, Size outputSize2,
 		mtk::isphal::IspTuningBufferP2 &tuning_data)
 {
-	(void) inputSize;
+	(void)inputSize;
 	mtk::isphal::PQInfo pqInfo = {};
 	mtk::isphal::WPEInfo wpeInfo = {};
 
@@ -455,7 +465,7 @@ void fillPqInfo(NSIspTuning::EStage_T stage, Size inputSize,
 }
 
 void fillIndex(NSIspTuning::EStage_T stage, bool isCapture,
-	       mtk::isphal::v1_0::IspImgSysControl& imgsys_info)
+	       mtk::isphal::v1_0::IspImgSysControl &imgsys_info)
 {
 	imgsys_info.tnr_fw_config.frameIndex = 0;
 	imgsys_info.tnr_fw_config.scaleIndex = 0;
@@ -560,10 +570,10 @@ mtk::isphal::Rectangle getTncCrop(uint32_t width, uint32_t height, bool needCrop
 }
 
 void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, Size fullDipSize,
-		 mtk::isphal::v1_0::IspImgSysControl& imgsys_info, bool needCropTNC16x9)
+		 mtk::isphal::v1_0::IspImgSysControl &imgsys_info, bool needCropTNC16x9)
 {
-	(void) stage;
-	(void) outputSize;
+	(void)stage;
+	(void)outputSize;
 	imgsys_info.rCropRzInfo.rBefore_Warp_Crop = {};
 	imgsys_info.rCropRzInfo.rBefore_Warp_Size = {};
 	imgsys_info.tncs_info = {};
@@ -573,9 +583,10 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 	case EStage_TR_Y2Y_F1:
 	case EStage_TR_R2Y:
 		imgsys_info.rCropRzInfo.rBefore_Warp_Crop =
-			mtk::isphal::Rectangle { 0, 0, inputSize.width, inputSize.width };
-		imgsys_info.rCropRzInfo.rBefore_Warp_Size = mtk::isphal::Size {
-			inputSize.width, inputSize.height };
+			mtk::isphal::Rectangle{ 0, 0, inputSize.width, inputSize.width };
+		imgsys_info.rCropRzInfo.rBefore_Warp_Size = mtk::isphal::Size{
+			inputSize.width, inputSize.height
+		};
 		break;
 	case EStage_P2_Y2Y_PQ_DIP:
 	case EStage_P2_MS_F0_PQ_DIP:
@@ -611,8 +622,9 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 		imgsys_info.tncs_info.bValid = 1;
 		imgsys_info.tncs_info.tncs_in_cropinfo =
 			getTncCrop(inputSize.width, inputSize.height, needCropTNC16x9);
-		imgsys_info.tncs_info.target_tnc_size = mtk::isphal::Size {
-			fullDipSize.width, fullDipSize.height };
+		imgsys_info.tncs_info.target_tnc_size = mtk::isphal::Size{
+			fullDipSize.width, fullDipSize.height
+		};
 		break;
 	case EStage_P2_Y2Y_PQ_DIP:
 	case EStage_P2_MS_F0_PQ_DIP:
@@ -715,20 +727,25 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 	tuning_param_p2.tuning_stat.push_back(&tuning_statistics);
 
 	tuning_param_p2.imgsys_info.emplace_back();
-	mtk::isphal::v1_0::IspImgSysControl& imgsys_info = tuning_param_p2.imgsys_info.back();
+	mtk::isphal::v1_0::IspImgSysControl &imgsys_info = tuning_param_p2.imgsys_info.back();
 
 	result_p2.tuning_data.push_back(&tuning_data);
 
 	imgsys_info.mock_imgsys = tuning_control.mock;
 
+	mtk::hal3a::v1_0::mtk_3a_result *aaaResult =
+		hal3A_->resultHistory_.query(aaaIspExchange->aaaRequestId);
+
+	CamInfo *camInfo = queryHistory(aaaIspExchange->aaaRequestId);
+
 	/* parsePipelineMetadata */
 	{
 		mtk::isphal::v1_0::IspPerframeControl *pCaminfoBuf = NULL;
 		mtk::isphal::v1_0::IspReadOnlyControl *pCaminfoBuf_3a = NULL;
-		const uint8_t* pModuleBuf = NULL;
+		const uint8_t *pModuleBuf = NULL;
 
-		pCaminfoBuf = &aaaIspExchange->cam_info;
-		pCaminfoBuf_3a = &aaaIspExchange->cam_info_3a;
+		pCaminfoBuf = &camInfo->cam_info;
+		pCaminfoBuf_3a = &camInfo->cam_info_3a;
 
 		tuning_param_p2.is_need_exif = true;
 
@@ -745,7 +762,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		tuning_param_p2.cam_info.ISP_3A_result_id = tuning_param_p2.cam_info.u8Id;
 		tuning_param_p2.cam_info.u8Id = internalRequestId;
 
-		auto &shading = aaaIspExchange->aaaResult.shading_result;
+		auto &shading = aaaResult->shading_result;
 		int32_t lsc_data_size = shading.lsc_data.size();
 
 		if (lsc_data_size > 0) {
@@ -820,7 +837,7 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		imgsys_info.action = tuning_control.action;
 	}
 
-	mtk::isphal::v1_0::IspPerframeControl& cam_info = tuning_param_p2.cam_info;
+	mtk::isphal::v1_0::IspPerframeControl &cam_info = tuning_param_p2.cam_info;
 	{
 		// Check the following values
 		imgsys_info.srcimg_descriptor.p2_in_img_fmg = 0;
@@ -844,12 +861,11 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		tuning_param_p2.cam_info.rNdd_info = {};
 		onDeviceTuner_->tuneImgsysHalIsp(
 			internalRequestId, tuning_param_p2, result_p2,
-			aaaIspExchange->aaaResult,
+			*aaaResult,
 			imgsys_info.rMapping_Info.eStage);
 
 		imgsys_info.rNdd_info = cam_info.rNdd_info;
 		imgsys_info.sr_para = cam_info.sr_para;
-
 	}
 
 	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
@@ -858,6 +874,22 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 		result_p2.exif, imgsys_info.rMapping_Info.eStage);
 
 	return 0;
+}
+
+void HalIsp::addHistory(uint32_t internalRequestId,
+			mtk::isphal::v1_0::IspPerframeControl &cam_info,
+			mtk::isphal::v1_0::IspReadOnlyControl &cam_info_3a)
+{
+	CamInfo camInfo;
+	std::memcpy((void *)&camInfo.cam_info, (void *)&cam_info, sizeof(cam_info));
+	std::memcpy(&camInfo.cam_info_3a, &cam_info_3a, sizeof(cam_info_3a));
+
+	camInfoHistory_.add(internalRequestId, camInfo);
+}
+
+HalIsp::CamInfo *HalIsp::queryHistory(uint32_t internalRequestId)
+{
+	return camInfoHistory_.query(internalRequestId);
 }
 
 } // namespace libcamera

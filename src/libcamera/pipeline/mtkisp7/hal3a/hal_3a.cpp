@@ -6,6 +6,7 @@
 
 #include "hal_3a.h"
 
+#include <cstring>
 #include <fstream>
 #include <string>
 #include <sys/mman.h>
@@ -14,6 +15,7 @@
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "../halisp/hal_isp.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
 
@@ -26,6 +28,11 @@ Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt)
 {
 	ASSERT(halIsp);
 	halIsp_ = halIsp;
+}
+
+void Hal3A::configure(Size camsysYuvSize)
+{
+	camsysYuvSize_ = camsysYuvSize;
 }
 
 void Hal3A::start()
@@ -428,11 +435,13 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(rawMetaBuffer);
 	m_hal3a_->GetResult(r3AResult_);
 
+	resultHistory_.add(internalRequestId, r3AResult_);
+
 	{
 		DmaSyncer syncer(rawMetaFd);
 
 		*rawMeta = r3AResult_.raw_meta;
-		aaaIspExchange->aaaResult = r3AResult_;
+		aaaIspExchange->aaaRequestId = internalRequestId;
 		halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
 					     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
 					     kRawMetaSize, faceMetadata,
@@ -440,6 +449,18 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	}
 
 	getExposureAndGain(exposureAndGain);
+	ControlList &aaaMetadata = aaaIspExchange->aaaMetadata;
+
+	if (internalRequestIdApplied &&
+	    onDeviceTuner_->isDumpStillCapture(internalRequestIdApplied.value())) {
+		writeStillCaptureDebugMetadata(aaaMetadata, r3AResult_);
+	}
+
+	// ISO sensitivity = analogue gain multiplied by digital gain.
+	// However, for now libcamera is assuming that ISO sensitivity
+	// is simply equal to analogue gain.
+	float floatIso = static_cast<float>(r3AResult_.ae_result.sensor_sensitivity);
+	aaaMetadata.set(controls::AnalogueGain, floatIso);
 }
 
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
@@ -818,6 +839,36 @@ void Hal3A::getExposureAndGain(
 	}
 
 	pHalSensor->destroyInstance("pipemgrPerframeSet");
+}
+
+void Hal3A::writeStillCaptureDebugMetadata(ControlList &out,
+					   mtk::hal3a::v1_0::mtk_3a_result &result)
+{
+	const unsigned int idx3ADebug = 6;
+	const unsigned int idxIspDebug = 7;
+
+	std::vector<uint16_t> jpegAppSegmentLength(16, 0);
+	jpegAppSegmentLength[idx3ADebug] = sizeof(AAA_DEBUG_INFO1_T);
+	jpegAppSegmentLength[idxIspDebug] = sizeof(AAA_DEBUG_INFO2_T);
+	out.set(controls::JpegApplicationSegmentLength,
+		Span<const uint16_t, 16>(jpegAppSegmentLength));
+
+	size_t totalSize = sizeof(AAA_DEBUG_INFO1_T) +
+			   sizeof(AAA_DEBUG_INFO2_T);
+	std::vector<uint8_t> jpegAppSegmentContent(totalSize);
+
+	uint8_t *app6Src = reinterpret_cast<uint8_t *>(
+		&result.debug_3a_info);
+	std::memcpy(jpegAppSegmentContent.data(), app6Src,
+		    jpegAppSegmentLength[idx3ADebug]);
+
+	uint8_t *app7Src = reinterpret_cast<uint8_t *>(
+		&result.debug_isp_info);
+	uint8_t *app7Dest = jpegAppSegmentContent.data() +
+			    jpegAppSegmentLength[idx3ADebug];
+	std::memcpy(app7Dest, app7Src, jpegAppSegmentLength[idxIspDebug]);
+
+	out.set(controls::JpegApplicationSegmentContent, jpegAppSegmentContent);
 }
 
 } /* namespace libcamera */

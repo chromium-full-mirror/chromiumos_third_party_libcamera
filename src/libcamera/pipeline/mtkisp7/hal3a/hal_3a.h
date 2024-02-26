@@ -6,8 +6,9 @@
 
 #pragma once
 
-#include "../halisp/hal_isp.h"
 #include "../sensor/sensor_info.h"
+#include "../utils/history.h"
+#include "libcamera/base/mutex.h"
 #include "libcamera/framebuffer.h"
 #include "libcamera/geometry.h"
 #include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
@@ -18,6 +19,9 @@ class SensorInfo;
 
 namespace libcamera {
 
+class HalIsp;
+struct AaaIspExchange;
+
 class Hal3A
 {
 public:
@@ -25,7 +29,7 @@ public:
 
 	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt);
 
-	void configure(Size camsysYuvSize) { camsysYuvSize_ = camsysYuvSize; }
+	void configure(Size camsysYuvSize);
 	void start();
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
@@ -43,11 +47,16 @@ public:
 
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 
+	History<mtk::hal3a::v1_0::mtk_3a_result> resultHistory_;
+
 private:
 	void init();
 	void getInitialInfo();
 	void config();
 	void startInternal();
+
+	void writeStillCaptureDebugMetadata(
+		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result &result);
 
 	mtk::hal3a::v1_0::mtk_3a_param get3AParam(uint32_t internalRequestId,
 						  MtkCameraFaceMetadata *faceMetadata,

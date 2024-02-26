@@ -9,24 +9,27 @@
 
 #include <memory>
 #include <optional>
-#include "stdint.h"
 
 #include <libcamera/geometry.h>
+
 #include <libcamera/internal/info_frame.h>
 
+#include "../utils/history.h"
+#include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 
-#include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
+#include "stdint.h"
 
 namespace libcamera {
+class Hal3A;
 
 /* Struct to exchange information between 3A and HalIsp tasks */
 struct AaaIspExchange {
-	mtk::isphal::v1_0::IspPerframeControl cam_info;
-	mtk::isphal::v1_0::IspReadOnlyControl cam_info_3a;
-	mtk::hal3a::v1_0::mtk_3a_result aaaResult;
+	bool highIsoMode = false;
+	uint32_t aaaRequestId = 0;
+	ControlList aaaMetadata;
 };
 
 struct ImgMetaRequest {
@@ -46,9 +49,14 @@ struct ImgMetaRequest {
 class HalIsp
 {
 public:
+	struct CamInfo {
+		mtk::isphal::v1_0::IspPerframeControl cam_info;
+		mtk::isphal::v1_0::IspReadOnlyControl cam_info_3a;
+	};
+
 	HalIsp(OnDeviceTuner *odt);
 
-	int init(int32_t sensorIdx, int32_t sensorDev);
+	int init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A);
 
 	int getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
@@ -61,11 +69,17 @@ public:
 				uint32_t internalRequestId,
 				bool needCropTNC16x9);
 
-	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
-
 private:
+	uint32_t getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info);
+
 	void fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
 				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo);
+
+	void addHistory(uint32_t internalRequestId,
+			mtk::isphal::v1_0::IspPerframeControl &cam_info,
+			mtk::isphal::v1_0::IspReadOnlyControl &cam_info_3a);
+
+	CamInfo *queryHistory(uint32_t internalRequestId);
 
 	int32_t sensorIdx_;
 	int32_t sensorDev_;
@@ -76,12 +90,16 @@ private:
 	std::shared_ptr<mtk::isphal::v1::IHalIsp> m_pHalisp;
 	mtk::isphal::v1_0::IspPerframeControl m_P1CamInfo;
 	mtk::isphal::v1_0::IspReadOnlyControl m_P1CamInfo_3a;
-	mtk::isphal::v1_0::IspPerframeControl m_BackupCamInfo;     // for p2
-	mtk::isphal::v1_0::IspReadOnlyControl m_BackupCamInfo_3a;  // for p2
+	mtk::isphal::v1_0::IspPerframeControl m_BackupCamInfo; // for p2
+	mtk::isphal::v1_0::IspReadOnlyControl m_BackupCamInfo_3a; // for p2
 
 	std::shared_ptr<mtk::isphal::v1::ITuningDataProvider> provider_;
 	std::optional<uint32_t> lpnrThredshold_;
 	OnDeviceTuner *onDeviceTuner_;
+
+	Hal3A *hal3A_;
+
+	History<CamInfo> camInfoHistory_;
 };
 
 } // namespace libcamera

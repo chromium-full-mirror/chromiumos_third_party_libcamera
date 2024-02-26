@@ -94,7 +94,7 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 
 	if (tuningPool_.size() == 0)
 		tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8,
-				  DmaHeap::CMA);
+					  DmaHeap::CMA);
 
 	releaseBuffers();
 	allocateBuffers();
@@ -183,7 +183,6 @@ std::pair<uint32_t, SharedMailBox<InfoFrame>> Hal3AManager::getDummyTuning()
 	       &hal3A_->r3AResult_.raw_meta, Hal3A::kRawMetaSize);
 
 	return std::make_pair(dummyMetaRequestId_, dummyTuning_);
-
 }
 
 void AATask::run()
@@ -220,8 +219,8 @@ void AATask::run()
 
 	if (internalRequestIdApplied_) {
 		onDeviceTuner_->tune3AState(
-				internalRequestIdApplied_.value(),
-				captureFrames_, &hal3A_->r3AResult_);
+			internalRequestIdApplied_.value(),
+			captureFrames_, &hal3A_->r3AResult_);
 	}
 
 	notifyDone();

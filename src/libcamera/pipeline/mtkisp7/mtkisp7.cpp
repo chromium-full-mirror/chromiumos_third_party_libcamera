@@ -40,6 +40,7 @@
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "sensor/sensor_info.h"
+#include "utils/history.h"
 
 namespace libcamera {
 LOG_DEFINE_CATEGORY(MtkISP7)
@@ -135,6 +136,12 @@ CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
 {
 }
 
+struct CaptureResult {
+	SharedMailBox<InfoFrame> tuningOutput;
+	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGainOutput;
+	SharedMailBox<AaaIspExchange> aaaIspExchange;
+};
+
 class MtkISP7CameraData : public Camera::Private
 {
 public:
@@ -147,7 +154,8 @@ public:
 		  lpnrTunManager(dmaHeap, halIsp, odt),
 		  mcnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
-		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A)
+		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A),
+		  captureResult_(5)
 	{
 	}
 
@@ -162,8 +170,7 @@ public:
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 	makeTasks(const std::string &id, Request *request,
-		  CaptureFrames &captureFrames, AATask::PerFrameControl perFrameControl,
-		  uint32_t internalRequestId);
+		  CaptureFrames &captureFrames, uint32_t internalRequestId);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
 				  SofTask *sofTask, AATask *aaTask,
 				  AFTask *afTask);
@@ -196,6 +203,8 @@ public:
 
 	Hal3A *hal3A_;
 	HalIsp *halIsp_;
+
+	History<CaptureResult> captureResult_;
 
 	uint32_t requestCount_ = 0;
 };
@@ -336,15 +345,7 @@ void CompleteRequestTask::run()
 
 	if (aaaIspExchange_->valid()) {
 		AaaIspExchange aaaIspExchange = aaaIspExchange_->get();
-		onDeviceTuner_->writeStillCaptureDebugMetadata(request_,
-							       metadata,
-							       aaaIspExchange);
-		// ISO sensitivity = analogue gain multiplied by digital gain.
-		// However, for now libcamera is assuming that ISO sensitivity
-		// is simply equal to analogue gain.
-		float floatIso = static_cast<float>(
-			aaaIspExchange.aaaResult.ae_result.sensor_sensitivity);
-		metadata.set(controls::AnalogueGain, floatIso);
+		metadata.merge(aaaIspExchange.aaaMetadata);
 	}
 
 	pipe_->completeMetadata(request_, metadata);
@@ -576,8 +577,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	hal3A_[0] = std::make_unique<Hal3A>(0, &halIsp_[0], &onDeviceTuner_);
 	hal3A_[1] = std::make_unique<Hal3A>(1, &halIsp_[1], &onDeviceTuner_);
 
-	halIsp_[0].init(0, 1);
-	halIsp_[1].init(1, 2);
+	halIsp_[0].init(0, 1, hal3A_[0].get());
+	halIsp_[1].init(1, 2, hal3A_[1].get());
 
 	uint32_t sensorCnt = 0;
 	for (unsigned int i = 0; i < 2; i++) {
@@ -680,7 +681,6 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames,
-			     AATask::PerFrameControl perFrameControl,
 			     uint32_t internalRequestId)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
@@ -688,36 +688,32 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	captureManager.makeCaptureFrames(captureFrames);
 
-	std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
-
-	if (capture3ATasks.size() >= CaptureTasksManager::kExposureAndGainDelay) {
-		auto iter = capture3ATasks.rbegin();
-		for (uint32_t i = 0; i < CaptureTasksManager::kExposureAndGainDelay - 1; ++i)
-			++iter;
-		captureFrames.exposureAndGain = static_cast<AATask *>(*iter)->captureFrames_.exposureAndGainOutput;
+	if (internalRequestId >= CaptureTasksManager::kExposureAndGainDelay) {
+		uint32_t aaRequestId = internalRequestId - CaptureTasksManager::kExposureAndGainDelay;
+		CaptureResult *aaCaptureResult = captureResult_.query(aaRequestId);
+		captureFrames.exposureAndGain = aaCaptureResult->exposureAndGainOutput;
 	} else {
 		captureFrames.exposureAndGain = makeMailBox<std::pair<uint32_t, uint32_t>>();
-		captureFrames.exposureAndGain->put(std::make_pair(0, 0), []([[maybe_unused]] std::pair<uint32_t, uint32_t> &ex_and_gain) {});
+		captureFrames.exposureAndGain->put(std::make_pair(0, 0), nullptr);
 	}
 
 	uint32_t camSysMetaRequestId = 0;
-	if (capture3ATasks.size() >= CaptureTasksManager::kRawMetaDelay) {
+	if (internalRequestId >= CaptureTasksManager::kRawMetaDelay) {
 		camSysMetaRequestId = internalRequestId - CaptureTasksManager::kRawMetaDelay;
-		auto iter = capture3ATasks.rbegin();
-		for (uint32_t i = 0; i < CaptureTasksManager::kRawMetaDelay - 1; ++i)
-			++iter;
-
-		auto *prevAATask = static_cast<AATask *>(*iter);
-		prevAATask->setRequest(request);
-		prevAATask->setInternalRequestIdApplied(internalRequestId);
-		captureFrames.tuning = prevAATask->captureFrames_.tuningOutput;
-
-		prevAATask->setPerFrameControl(perFrameControl);
+		CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
+		captureFrames.tuning = aaCaptureResult->tuningOutput;
 	} else {
 		auto [dummyId, dummyTuning] = hal3AManager_.getDummyTuning();
 		camSysMetaRequestId = dummyId;
 		captureFrames.tuning = dummyTuning;
 	}
+
+	CaptureResult captureResult;
+	captureResult.tuningOutput = captureFrames.tuningOutput;
+	captureResult.exposureAndGainOutput = captureFrames.exposureAndGainOutput;
+	captureResult.aaaIspExchange = captureFrames.aaaIspExchange;
+
+	captureResult_.add(internalRequestId, captureResult);
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
 		scheduler, id, request, captureFrames, internalRequestId);
@@ -896,6 +892,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
+
 	return 0;
 }
 
@@ -914,24 +911,61 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	std::string sequence = std::to_string(request->sequence());
 
-	for (size_t i = scheduler->groupTasks(AAGroup).size();
-	     i < CaptureTasksManager::kRawMetaDelay; ++i) {
-		CaptureFrames captureFrames;
+	// TODO: Implement the padding condition for per-frame control
+	bool aaControlChanged = false;
+	bool nddEnabled = onDeviceTuner_->isEnabled();
 
-		makeTasks("Padding capture", nullptr, captureFrames,
-			  AATask::PerFrameControl{ .isStillCapture = false },
-			  requestCount_++);
+	if (requestCount_ == 0 || aaControlChanged || nddEnabled) {
+		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
+		size_t numberOfPending3ATasks = 0;
+		for (auto *task : capture3ATasks)
+			if (!task->isRunning())
+				numberOfPending3ATasks++;
+
+		size_t needed = 0;
+		if (CaptureTasksManager::kRawMetaDelay > numberOfPending3ATasks)
+			needed = CaptureTasksManager::kRawMetaDelay - numberOfPending3ATasks;
+
+		for (size_t i = 0; i < needed; ++i) {
+			CaptureFrames captureFrames;
+			makeTasks("Padding capture", nullptr, captureFrames, requestCount_++);
+		}
 	}
-
-	CaptureFrames captureFrames;
 
 	uint32_t internalRequestId = requestCount_++;
 	bool isStillCapture = (still1Buffer || still2Buffer);
 
+	if (aaControlChanged || nddEnabled) {
+		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
+		if (capture3ATasks.size() >= CaptureTasksManager::kRawMetaDelay) {
+			auto iter = capture3ATasks.rbegin();
+			for (uint32_t i = 0; i < CaptureTasksManager::kRawMetaDelay - 1; ++i)
+				++iter;
+
+			auto *prevAATask = static_cast<AATask *>(*iter);
+			prevAATask->setRequest(request);
+			prevAATask->setInternalRequestIdApplied(internalRequestId);
+			prevAATask->setPerFrameControl(
+				AATask::PerFrameControl{ .isStillCapture = isStillCapture });
+		}
+	}
+
+	CaptureFrames captureFrames;
+
 	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask] = makeTasks(
-		"Capture " + sequence, request, captureFrames,
-		AATask::PerFrameControl{ .isStillCapture = isStillCapture },
-		internalRequestId);
+		"Capture " + sequence, request, captureFrames, internalRequestId);
+
+	Task *taskTr = nullptr;
+	Task *taskDip2 = nullptr;
+	bool hasVideo = video1Buffer || video2Buffer;
+
+	uint32_t camSysMetaRequestId = internalRequestId - CaptureTasksManager::kRawMetaDelay;
+	CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
+	SharedMailBox<AaaIspExchange> aaaIspExchange = aaCaptureResult->aaaIspExchange;
+
+	CompleteRequestTask *completeTask = new CompleteRequestTask(
+		scheduler, "Complete " + sequence, request, internalRequestId,
+		pipeline, onDeviceTuner_, faceDetector_, aaaIspExchange);
 
 	if (faceDetector_->canMakeFaceDetectionTask(request)) {
 		auto [faceDetectionTask, faceToneTask, parseTask] =
@@ -951,26 +985,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		scheduler->queueTask(faceToneTask, AieFaceToneClassificationGroup);
 		scheduler->queueTask(parseTask, AieParseGroup);
 	}
-
-	Task *taskTr = nullptr;
-	Task *taskDip2 = nullptr;
-	bool hasVideo = video1Buffer || video2Buffer;
-
-	// Find out the AATask that calculating the CamSysMetaTuning buffer
-	// for the current request, and tase the AaaIspExchange for
-	// ImgSysMetaTuning calculation
-	std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
-
-	auto iter = capture3ATasks.rbegin();
-	for (uint32_t i = 0; i < CaptureTasksManager::kRawMetaDelay; ++i)
-		++iter;
-
-	AATask *calculatingAATask = static_cast<AATask *>(*iter);
-	SharedMailBox<AaaIspExchange> aaaIspExchange = calculatingAATask->captureFrames_.aaaIspExchange;
-
-	CompleteRequestTask *completeTask = new CompleteRequestTask(
-		scheduler, "Complete " + sequence, request, internalRequestId,
-		pipeline, onDeviceTuner_, faceDetector_, aaaIspExchange);
 
 	if (hasVideo) {
 		MCNRFrames mcnr;
@@ -1065,18 +1079,19 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			Scheduler::precede(taskDip2, taskLpnrDip);
 		}
 
-		Scheduler::precede(calculatingAATask, lpnrTunXtrTask);
-
 		// Limit the interval from a producer task of tuning buffers
 		// to its corresponding consumer task as 2.
 		scheduler->succeedPrevTaskByStep(XtrGroup, 2, lpnrTunXtrTask);
 		scheduler->succeedPrevTaskByStep(LpnrDipGroup, 2, lpnrTunDipTask);
 
+		scheduler->succeedPrevTaskByStep(
+			AAGroup, CaptureTasksManager::kRawMetaDelay,
+			lpnrTunXtrTask);
+
 		Scheduler::precede(lpnrTunXtrTask, taskXtr);
 		scheduler->succeedPrevTaskByStep(LpnrTunXtrTaskGroup, 0, lpnrTunXtrTask);
 		scheduler->queueTask(lpnrTunXtrTask, LpnrTunXtrTaskGroup);
 
-		Scheduler::precede(calculatingAATask, lpnrTunDipTask);
 		Scheduler::precede(taskXtr, lpnrTunDipTask);
 		Scheduler::precede(lpnrTunDipTask, taskLpnrDip);
 		scheduler->succeedPrevTaskByStep(LpnrTunDipTaskGroup, 0, lpnrTunDipTask);

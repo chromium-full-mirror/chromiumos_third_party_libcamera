@@ -223,15 +223,10 @@ void LpnrTunDipTask::run()
 	ImgMetaRequest request = {};
 	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 
-	// TODO: Read the threshold from Tuning Provider
-	int32_t threshold = manager_->halIsp_->getLpnrIsoThreshold(aaaIspExchange);
-	int32_t sensorSensitivity = aaaIspExchange->aaaResult.ae_result.sensor_sensitivity;
-
-	bool highIsoMode = (sensorSensitivity > threshold) ? true : false;
+	bool highIsoMode = aaaIspExchange->highIsoMode;
 	if (manager_->onDeviceTuner_->isLowIsoLpnrEnforced()) {
 		highIsoMode = false;
 	}
-
 	highIsoMode_->put(highIsoMode, nullptr);
 
 	manager_->lpnrTun_.fetch(dipTun_[3]);
