@@ -33,12 +33,16 @@ public:
 	virtual void run() = 0;
 	std::string &id() { return id_; }
 
+	bool isRunning() { return running_; }
+
 protected:
 	Scheduler *scheduler_;
 	std::string id_;
 
 private:
 	friend Scheduler;
+
+	bool running_ = false;
 
 	void depend(Task *task);
 	size_t removeDependency(Task *task);

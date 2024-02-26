@@ -32,6 +32,7 @@ void Task::depend(Task *task)
 
 void Task::launch()
 {
+	running_ = true;
 	launchTime_ = std::chrono::steady_clock::now();
 
 	this->invokeMethod(&Task::run, ConnectionTypeQueued);
@@ -92,7 +93,6 @@ void Scheduler::schedule()
 		runningTasks_.emplace(task);
 		it = pendingTasks_.erase(it);
 
-		removeFromGroupTasks(task);
 		task->launch();
 	}
 }
@@ -116,13 +116,13 @@ void Scheduler::taskDone(Task *task)
 	taskDone_.emit(task);
 
 	runningTasks_.erase(task);
+	removeFromGroupTasks(task);
 
 	for (auto *succedent : task->succedents_) {
 		if (0 == succedent->removeDependency(task)) {
 			runningTasks_.emplace(succedent);
 			pendingTasks_.erase(succedent);
 
-			removeFromGroupTasks(succedent);
 			succedent->launch();
 		}
 	}
