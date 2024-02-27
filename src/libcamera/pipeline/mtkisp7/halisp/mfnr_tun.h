@@ -253,6 +253,7 @@ public:
 	std::vector<SharedMailBox<InfoFrame>> msbldF4Tun_;
 	std::vector<SharedMailBox<InfoFrame>> msbldF5Tun_;
 	std::vector<SharedMailBox<InfoFrame>> msbldF6Tun_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
@@ -280,8 +281,9 @@ public:
 	std::vector<SharedMailBox<InfoFrame>> afbldF4Tun_;
 	std::vector<SharedMailBox<InfoFrame>> afbldF5Tun_;
 	std::vector<SharedMailBox<InfoFrame>> afbldF6Tun_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 
-	SharedMailBox<InfoFrame> xtrTun_;
+	SharedMailBox<InfoFrame> tncso_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
 
 	Request *request_;

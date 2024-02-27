@@ -137,6 +137,7 @@ struct MsbldFrames {
 };
 
 struct AfbldFrames {
+	SharedMailBox<InfoFrame> tncso;
 	struct {
 		std::vector<SharedMailBox<InfoFrame>> vipi;
 		std::vector<SharedMailBox<InfoFrame>> imgi;
@@ -489,6 +490,7 @@ private:
 	AfbldFrames afbldF5_;
 	AfbldFrames afbldF6_;
 	SharedMailBox<InfoFrame> tnrso_;
+	MFNRFrames mfnr_;
 
 	FrameBuffer *stillOutput1_;
 	FrameBuffer *stillOutput2_;

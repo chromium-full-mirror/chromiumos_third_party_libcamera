@@ -42,12 +42,13 @@ struct XtrFrames;
 struct LpnrDipFrames;
 struct AaaIspExchange;
 struct BfbldFrames;
+struct McdsF1Frames;
 struct BfmeFrames;
 struct DsFrames;
 struct DsVbiFrames;
-struct McdsF1Frames;
 struct BssFrames;
-
+struct MsbldFrames;
+struct AfbldFrames;
 class OnDeviceTuner
 {
 public:
@@ -121,16 +122,25 @@ public:
 	// MFNR
 	void tuneBss(uint32_t internalRequestId, BssFrames &frames, int frameCount);
 	void tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, std::vector<int> order);
+	void tuneMcdsF1(uint32_t internalRequestId, McdsF1Frames &frames, std::vector<int> order);
 	void tuneBfme(uint32_t internalRequestId, BfmeFrames &frames, std::vector<int> order);
 	void tuneDs(uint32_t internalRequestId, DsFrames &frames, std::vector<int> order);
 	void tuneDsVbi(uint32_t internalRequestId, DsVbiFrames &ds_vbi_v2, DsVbiFrames &ds_vbi_v5, std::vector<int> order);
-	void tuneMcdsF1(uint32_t internalRequestId, McdsF1Frames &frames, std::vector<int> order);
+	void tuneMsbld(
+		uint32_t internalRequestId, MsbldFrames msbldF0_, MsbldFrames msbldF1_, MsbldFrames msbldF2_,
+		MsbldFrames msbldF3_, MsbldFrames msbldF4_, MsbldFrames msbldF5_, MsbldFrames msbldF6_, std::vector<int> order);
+	void tuneAfbld(
+		Request *request, uint32_t internalRequestId,
+		AfbldFrames afbldF0_, AfbldFrames afbldF1_, AfbldFrames afbldF2_,
+		AfbldFrames afbldF3_, AfbldFrames afbldF4_, AfbldFrames afbldF5_, AfbldFrames afbldF6_,
+		std::vector<int> order, FrameBuffer *still1Output, FrameBuffer *still2Output);
 
 
 private:
 	struct NamedFrame {
 		Dump::Id id;
 		InfoFrame &frame;
+		Stage stage = Stage::Default;
 	};
 	struct NamedPointer {
 		Dump::Id id;

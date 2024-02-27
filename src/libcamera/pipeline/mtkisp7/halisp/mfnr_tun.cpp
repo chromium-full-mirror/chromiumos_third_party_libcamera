@@ -542,7 +542,7 @@ MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
 		msbldF5Tun_[i] = mfnr.msbldF5.in.tunbufi[i];
 		msbldF6Tun_[i] = mfnr.msbldF6.in.tunbufi[i];
 	}
-
+	bssOrder_ = mfnr.bss_order;
 	aaaIspExchange_ = aaaIspExchange;
 }
 
@@ -556,13 +556,6 @@ void MfnrTunMsbldTask::run()
 		manager_->mfnrTun_.fetch(msbldF4Tun_[i]);
 		manager_->mfnrTun_.fetch(msbldF5Tun_[i]);
 		manager_->mfnrTun_.fetch(msbldF6Tun_[i]);
-		//fillTuning(msbldF0Tun_[i], tuningBuffers.capture_MSBLD_F0_tunbufi);
-		//fillTuning(msbldF1Tun_[i], tuningBuffers.capture_MSBLD_F1_tunbufi);
-		//fillTuning(msbldF2Tun_[i], tuningBuffers.capture_MSBLD_F2_tunbufi);
-		//fillTuning(msbldF3Tun_[i], tuningBuffers.capture_MSBLD_F3_tunbufi);
-		//fillTuning(msbldF4Tun_[i], tuningBuffers.capture_MSBLD_F4_tunbufi);
-		//fillTuning(msbldF5Tun_[i], tuningBuffers.capture_MSBLD_F5_tunbufi);
-		//fillTuning(msbldF6Tun_[i], tuningBuffers.capture_MSBLD_F6_tunbufi);
 	}
 
 	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
@@ -575,6 +568,8 @@ void MfnrTunMsbldTask::run()
 		{ NSIspTuning::EStage_MSBLD_F5, msbldF5Tun_ },
 		{ NSIspTuning::EStage_MSBLD_F6, msbldF6Tun_ }
 	};
+
+	auto bssOrder = bssOrder_->get();
 	for (auto i = 0; i < kInputRawCount - 2; i++) {
 		for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
 			int size_idx = it->first - EStage_MSBLD_F0;
@@ -594,9 +589,10 @@ void MfnrTunMsbldTask::run()
 				.tnr_frameTotal = kInputRawCount,
 				.reserved = {},
 			};
+			int frameNumber = internalRequestId_ + bssOrder[i + 1];
 			{
 				DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-				manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+				manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 			}
 		}
 	}
@@ -625,7 +621,8 @@ MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
 	afbldF4Tun_[0] = mfnr.afbldF4.in.tunbufi[0];
 	afbldF5Tun_[0] = mfnr.afbldF5.in.tunbufi[0];
 	afbldF6Tun_[0] = mfnr.afbldF6.in.tunbufi[0];
-
+	bssOrder_ = mfnr.bss_order;
+	tncso_ = mfnr.afbldF0.tncso;
 	aaaIspExchange_ = aaaIspExchange;
 }
 
@@ -639,13 +636,6 @@ void MfnrTunAfbldTask::run()
 	manager_->mfnrTun_.fetch(afbldF5Tun_[0]);
 	manager_->mfnrTun_.fetch(afbldF6Tun_[0]);
 
-	//fillTuning(afbldF0Tun_[0], tuningBuffers.capture_AFBLD_F0_tunbufi);
-	//fillTuning(afbldF1Tun_[0], tuningBuffers.capture_AFBLD_F1_tunbufi);
-	//fillTuning(afbldF2Tun_[0], tuningBuffers.capture_AFBLD_F2_tunbufi);
-	//fillTuning(afbldF3Tun_[0], tuningBuffers.capture_AFBLD_F3_tunbufi);
-	//fillTuning(afbldF4Tun_[0], tuningBuffers.capture_AFBLD_F4_tunbufi);
-	//fillTuning(afbldF5Tun_[0], tuningBuffers.capture_AFBLD_F5_tunbufi);
-	//fillTuning(afbldF6Tun_[0], tuningBuffers.capture_AFBLD_F6_tunbufi);
 	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	std::map<EStage_T, std::vector<SharedMailBox<InfoFrame>>, std::greater<EStage_T>> stageToTuningMap = {
 		{ NSIspTuning::EStage_AFBLD_F6, afbldF6Tun_ },
@@ -656,28 +646,48 @@ void MfnrTunAfbldTask::run()
 		{ NSIspTuning::EStage_AFBLD_F1, afbldF1Tun_ },
 		{ NSIspTuning::EStage_AFBLD_F0, afbldF0Tun_ }
 	};
-
+	auto bssOrder = bssOrder_->get();
 	for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
 		int size_idx = it->first - EStage_AFBLD_F0;
 		ImgMetaRequest request = {};
-		request = ImgMetaRequest{
-			.isCapture = true,
-			.isMfnr = true,
-			.stage = it->first,
-			.tuningBuffer = it->second[0]->get(),
-			.statisticsBuffer = {},
-			.swHistBuffer = {},
-			.inputSize = manager_->mfnrSizes_[size_idx],
-			.outputSize = manager_->yuvOutput1Size_,
-			.outputSize2 = manager_->yuvOutput2Size_,
-			.fullDipSize = manager_->mfnrSizes_[0],
-			.tnr_frameIndex = kInputRawCount - 2,
-			.tnr_frameTotal = kInputRawCount,
-			.reserved = {},
-		};
+		if (it->first == NSIspTuning::EStage_AFBLD_F0) {
+			request = ImgMetaRequest{
+				.isCapture = true,
+				.isMfnr = true,
+				.stage = it->first,
+				.tuningBuffer = it->second[0]->get(),
+				.statisticsBuffer = tncso_->get(),
+				.swHistBuffer = {},
+				.inputSize = manager_->mfnrSizes_[size_idx],
+				.outputSize = manager_->yuvOutput1Size_,
+				.outputSize2 = manager_->yuvOutput2Size_,
+				.fullDipSize = manager_->mfnrSizes_[0],
+				.tnr_frameIndex = kInputRawCount - 2,
+				.tnr_frameTotal = kInputRawCount,
+				.reserved = {},
+			};
+		} else {
+			request = ImgMetaRequest{
+				.isCapture = true,
+				.isMfnr = true,
+				.stage = it->first,
+				.tuningBuffer = it->second[0]->get(),
+				.statisticsBuffer = {},
+				.swHistBuffer = {},
+				.inputSize = manager_->mfnrSizes_[size_idx],
+				.outputSize = manager_->yuvOutput1Size_,
+				.outputSize2 = manager_->yuvOutput2Size_,
+				.fullDipSize = manager_->mfnrSizes_[0],
+				.tnr_frameIndex = kInputRawCount - 2,
+				.tnr_frameTotal = kInputRawCount,
+				.reserved = {},
+			};
+		}
+		int frameNumber = internalRequestId_ + bssOrder[bssOrder.size() - 1];
+
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 
