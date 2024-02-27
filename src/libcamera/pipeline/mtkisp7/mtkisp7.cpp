@@ -992,6 +992,18 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		taskTr = tempTaskTr;
 		taskDip2 = tempTaskDip2;
 
+		// Limit the interval from a producer task of tuning buffers
+		// to its corresponding consumer task as 2, and we only need
+		// to allocate 3 set of the tuning buffers instead of 8.
+		// The reason for the regulation is that the V4L2 will cause
+		// cache miss, it there are too many associated FDs for one
+		// video node, and all of the tuning buffers are using the
+		// video node for ImgSys.
+		scheduler->succeedPrevTaskByStep(MeAGroup, 2, meATunTask);
+		scheduler->succeedPrevTaskByStep(MeBGroup, 2, meBTunTask);
+		scheduler->succeedPrevTaskByStep(TrGroup, 2, trTunTask);
+		scheduler->succeedPrevTaskByStep(Dip2Group, 2, dipTunTask);
+
 		Scheduler::precede(taskDQBuf, meATunTask);
 		scheduler->succeedPrevTaskByStep(MeATunGroup, 0, meATunTask);
 		scheduler->succeedPrevTaskByStep(MeBTunGroup, 0, meATunTask);
@@ -1054,6 +1066,12 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		}
 
 		Scheduler::precede(calculatingAATask, lpnrTunXtrTask);
+
+		// Limit the interval from a producer task of tuning buffers
+		// to its corresponding consumer task as 2.
+		scheduler->succeedPrevTaskByStep(XtrGroup, 2, lpnrTunXtrTask);
+		scheduler->succeedPrevTaskByStep(LpnrDipGroup, 2, lpnrTunDipTask);
+
 		Scheduler::precede(lpnrTunXtrTask, taskXtr);
 		scheduler->succeedPrevTaskByStep(LpnrTunXtrTaskGroup, 0, lpnrTunXtrTask);
 		scheduler->queueTask(lpnrTunXtrTask, LpnrTunXtrTaskGroup);
