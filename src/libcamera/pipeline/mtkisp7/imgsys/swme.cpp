@@ -34,9 +34,9 @@ MRESULT SwmeWrapper::init()
 	initParam.Proc1_DSUS_mode = 0;
 
 	LOG(MtkISP7, Info) << "Proc1_imgW: " << initParam.Proc1_imgH
-					   << ", Proc1_imgH: " << initParam.Proc1_imgW
-					   << ", core_num: " << initParam.core_num
-					   << ", Proc1_DSUS_mode: " << initParam.Proc1_DSUS_mode;
+			   << ", Proc1_imgH: " << initParam.Proc1_imgW
+			   << ", core_num: " << initParam.core_num
+			   << ", Proc1_DSUS_mode: " << initParam.Proc1_DSUS_mode;
 
 	MRESULT ErrCode = S_MFBLL_OK;
 	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
@@ -460,12 +460,12 @@ void SwmeWrapper::prepareParam(
 	param.Proc1_ImgFmt = IPROC1_FMT_Y;
 	param.Proc_idx = 0;
 
-	LOG(MtkISP7, Info) << "workbuf_addr: " << static_cast<void *>(param.workbuf_addr);
-	LOG(MtkISP7, Info) << "buf_size: " << param.buf_size;
-	LOG(MtkISP7, Info) << "Proc1_base: " << static_cast<void *>(param.Proc1_base);
-	LOG(MtkISP7, Info) << "Proc1_ref: " << static_cast<void *>(param.Proc1_ref);
-	LOG(MtkISP7, Info) << "Proc1_width: " << param.Proc1_width;
-	LOG(MtkISP7, Info) << "Proc1_height: " << param.Proc1_height;
+	LOG(MtkISP7, Info) << "workbuf_addr: " << static_cast<void *>(param.workbuf_addr)
+			   << ", buf_size: " << param.buf_size
+			   << ", Proc1_base: " << static_cast<void *>(param.Proc1_base)
+			   << ", Proc1_ref: " << static_cast<void *>(param.Proc1_ref)
+			   << ", Proc1_width: " << param.Proc1_width
+			   << ", Proc1_height: " << param.Proc1_height;
 	char buf[1024];
 	sprintf(buf, "me wpe image size %dx%d stride:%d, wpe_np1_mode:%d",
 		param.Proc1_me_wpe_image_width, param.Proc1_me_wpe_image_height,
@@ -504,43 +504,43 @@ void SwmeWrapper::prepareParam(
 		param.Proc1_Ref_REYE_UX, param.Proc1_Ref_REYE_UY, param.Proc1_Ref_REYE_DX, param.Proc1_Ref_REYE_DY);
 	LOG(MtkISP7, Info) << buf;
 
-	LOG(MtkISP7, Info) << "SWME Proc1_ImgFmt: " << param.Proc1_ImgFmt;
-	LOG(MtkISP7, Info) << "SWME Proc_idx: " << param.Proc_idx;
-	LOG(MtkISP7, Info) << "mfnr_.pSWMENvram addr = " << static_cast<void *>(param.pSWMENvram);
+	LOG(MtkISP7, Info) << "SWME Proc1_ImgFmt: " << param.Proc1_ImgFmt
+			   << ", SWME Proc_idx: " << param.Proc_idx
+			   << ", mfnr_.pSWMENvram addr = " << static_cast<void *>(param.pSWMENvram);
 }
 
 void SwmeWrapper::prepareOutParam(
-	IMFBLL_PROC1_OUT_STRUCT_IPC &paramOut,
+	IMFBLL_PROC1_OUT_STRUCT_IPC *paramOut,
 	SharedMailBox<InfoFrame> confmap_buf,
 	SharedMailBox<InfoFrame> wrapping_buf,
 	SharedMailBox<InfoFrame> mcmv_buf)
 {
-	paramOut.pu1ConfMap = confmap_buf->get().address(0);
-	paramOut.u4MapSize = 0;
+	paramOut->pu1ConfMap = confmap_buf->get().address(0);
+	paramOut->u4MapSize = 0;
 	for (auto i = 0; i < (int)confmap_buf->get().numPlanes(); i++) {
 		LOG(MtkISP7, Info) << "confmap_buf[" << i << "], size = " << confmap_buf->get().buffer()->planes()[i].length;
-		paramOut.u4MapSize += confmap_buf->get().buffer()->planes()[i].length;
+		paramOut->u4MapSize += confmap_buf->get().buffer()->planes()[i].length;
 	}
-	paramOut.pi4WpeMapX = static_cast<MINT32 *>(reinterpret_cast<void *>(wrapping_buf->get().address(0)));
-	paramOut.pi4WpeMapY = static_cast<MINT32 *>(reinterpret_cast<void *>(wrapping_buf->get().address(1)));
-	paramOut.u4WpeMapSize = 0;
+	paramOut->pi4WpeMapX = static_cast<MINT32 *>(reinterpret_cast<void *>(wrapping_buf->get().address(0)));
+	paramOut->pi4WpeMapY = static_cast<MINT32 *>(reinterpret_cast<void *>(wrapping_buf->get().address(1)));
+	paramOut->u4WpeMapSize = 0;
 	for (auto i = 0; i < (int)wrapping_buf->get().numPlanes(); i++) {
 		LOG(MtkISP7, Info) << "wrapping_buf[" << i << "], size = " << wrapping_buf->get().buffer()->planes()[i].length;
-		paramOut.u4WpeMapSize += wrapping_buf->get().buffer()->planes()[i].length;
+		paramOut->u4WpeMapSize += wrapping_buf->get().buffer()->planes()[i].length;
 	}
-	paramOut.pu1MV = mcmv_buf->get().address(0);
-	paramOut.u4MVSize = 0;
+	paramOut->pu1MV = mcmv_buf->get().address(0);
+	paramOut->u4MVSize = 0;
 	for (auto i = 0; i < (int)mcmv_buf->get().numPlanes(); i++) {
 		LOG(MtkISP7, Info) << "mcmv_buf[" << i << "], size = " << mcmv_buf->get().buffer()->planes()[i].length;
-		paramOut.u4MVSize += mcmv_buf->get().buffer()->planes()[i].length;
+		paramOut->u4MVSize += mcmv_buf->get().buffer()->planes()[i].length;
 	}
-	LOG(MtkISP7, Info) << "pu1ConfMap: " << static_cast<void *>(paramOut.pu1ConfMap);
-	LOG(MtkISP7, Info) << "pi4WpeMapX: " << static_cast<void *>(paramOut.pi4WpeMapX);
-	LOG(MtkISP7, Info) << "pi4WpeMapY: " << static_cast<void *>(paramOut.pi4WpeMapY);
-	LOG(MtkISP7, Info) << "pu1MV: " << static_cast<void *>(paramOut.pu1MV);
-	LOG(MtkISP7, Info) << "u4MapSize: " << paramOut.u4MapSize;
-	LOG(MtkISP7, Info) << "u4WpeMapSize: " << paramOut.u4WpeMapSize;
-	LOG(MtkISP7, Info) << "u4MVSize: " << paramOut.u4MVSize;
+	LOG(MtkISP7, Info) << "pu1ConfMap: " << static_cast<void *>(paramOut->pu1ConfMap)
+			   << ", pi4WpeMapX: " << static_cast<void *>(paramOut->pi4WpeMapX)
+			   << ", pi4WpeMapY: " << static_cast<void *>(paramOut->pi4WpeMapY)
+			   << ", pu1MV: " << static_cast<void *>(paramOut->pu1MV)
+			   << ", u4MapSize: " << paramOut->u4MapSize
+			   << ", u4WpeMapSize: " << paramOut->u4WpeMapSize
+			   << ", u4MVSize: " << paramOut->u4MVSize;
 }
 
 } /* namespace libcamera */

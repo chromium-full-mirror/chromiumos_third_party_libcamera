@@ -346,10 +346,10 @@ MfnrTunSwmeTask::MfnrTunSwmeTask([[maybe_unused]] MFNRFrames &mfnr,
 
 void MfnrTunSwmeTask::run()
 {
-	auto &out = swmeFrames_.out;
-	for (auto i = 0; i < (int)out.db_param.size(); i++) {
+	auto &in = swmeFrames_.in;
+	for (auto i = 0; i < (int)in.db_param.size(); i++) {
 		std::shared_ptr<isp_swme_Param> dbParam = manager_->halIsp_->getIspSwmeParam();
-		out.db_param[i]->put(dbParam, nullptr);
+		in.db_param[i]->put(dbParam, nullptr);
 	}
 
 	notifyDone();

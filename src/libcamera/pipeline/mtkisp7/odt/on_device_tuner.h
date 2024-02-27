@@ -44,6 +44,7 @@ struct AaaIspExchange;
 struct BfbldFrames;
 struct McdsF1Frames;
 struct BfmeFrames;
+struct SwmeFrames;
 struct DsFrames;
 struct DsVbiFrames;
 struct BssFrames;
@@ -124,6 +125,7 @@ public:
 	void tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, std::vector<int> order);
 	void tuneMcdsF1(uint32_t internalRequestId, McdsF1Frames &frames, std::vector<int> order);
 	void tuneBfme(uint32_t internalRequestId, BfmeFrames &frames, std::vector<int> order);
+	void tuneSwme(uint32_t internalRequestId, SwmeFrames &frames, std::vector<int> order);
 	void tuneDs(uint32_t internalRequestId, DsFrames &frames, std::vector<int> order);
 	void tuneDsVbi(uint32_t internalRequestId, DsVbiFrames &ds_vbi_v2, DsVbiFrames &ds_vbi_v5, std::vector<int> order);
 	void tuneMsbld(

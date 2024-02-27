@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "libcamera/internal/info_frame.h"
+#include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/task_scheduler.h"
 
 #include "../camsys/capture.h"
@@ -167,12 +168,15 @@ struct SwmeFrames {
 		std::vector<SharedMailBox<InfoFrame>> workbuf;
 		std::vector<SharedMailBox<InfoFrame>> base_buf;
 		std::vector<SharedMailBox<InfoFrame>> ref_buf;
+		std::vector<SharedMailBox<InfoFrame>> paramInInfo;
+		std::vector<SharedMailBox<std::shared_ptr<isp_swme_Param>>> db_param;
+		std::vector<SharedMailBox<InfoFrame>> tuningInfo;
 	} in;
 	struct {
 		std::vector<SharedMailBox<InfoFrame>> conf_map;
 		std::vector<SharedMailBox<InfoFrame>> wrapping_map;
 		std::vector<SharedMailBox<InfoFrame>> mcmv;
-		std::vector<SharedMailBox<std::shared_ptr<isp_swme_Param>>> db_param;
+		std::vector<SharedMailBox<InfoFrame>> paramOutInfo;
 	} out;
 };
 
@@ -274,12 +278,16 @@ private:
 	InfoFramePool bssParamPool_;
 	InfoFramePool bssDataGPool_;
 	InfoFramePool bssVerPool_;
-	InfoFramePool bssTuningInfoPool_;
+	InfoFramePool bssTuningPool_;
 	InfoFramePool bssFdMainPool_;
 	InfoFramePool bssFdPool_;
 	InfoFramePool bssFacePool_;
 	InfoFramePool bssPosPool_;
 	InfoFramePool bssOutDataPool_;
+
+	InfoFramePool swmeParamPool_;
+	InfoFramePool swmeOutPool_;
+	InfoFramePool swmeTuningPool_;
 
 	InfoFramePool tunbufiPool_;
 	InfoFramePool wrap2pPool_;
@@ -513,6 +521,7 @@ private:
 	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
+	MFNRFrames mfnr_;
 	SwmeFrames frames_;
 	SharedMailBox<std::shared_ptr<isp_swme_Param>> dbParam_;
 };

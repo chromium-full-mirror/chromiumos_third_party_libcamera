@@ -208,7 +208,7 @@ public:
 		Size frame_size,
 		Size mc_size);
 	static void prepareOutParam(
-		IMFBLL_PROC1_OUT_STRUCT_IPC &paramOut,
+		IMFBLL_PROC1_OUT_STRUCT_IPC *paramOut,
 		SharedMailBox<InfoFrame> confmap_buf,
 		SharedMailBox<InfoFrame> wrapping_buf,
 		SharedMailBox<InfoFrame> mcmv_buf);
