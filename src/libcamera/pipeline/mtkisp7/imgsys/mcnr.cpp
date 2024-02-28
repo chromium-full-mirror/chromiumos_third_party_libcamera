@@ -56,7 +56,7 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 	assert(mailBox->valid());
 
 	{
-		DmaSyncer syncer(info.buffer()->planes()[0].fd.get());
+		DmaSyncer syncer(info.buffer()->planes()[0].fd.get(), DmaHeap::SyncWrite);
 		memset(dest, 0, length);
 	}
 }

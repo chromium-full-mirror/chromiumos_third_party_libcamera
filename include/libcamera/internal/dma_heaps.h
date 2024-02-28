@@ -46,10 +46,10 @@ private:
 class DmaSyncer final
 {
 public:
-	explicit DmaSyncer(int fd)
+	explicit DmaSyncer(int fd, DmaHeap::SyncType type = DmaHeap::SyncReadWrite)
 		: fd_(fd)
 	{
-		DmaHeap::sync(fd_, DmaHeap::Start, DmaHeap::SyncReadWrite);
+		DmaHeap::sync(fd_, DmaHeap::Start, type);
 	}
 
 	~DmaSyncer()

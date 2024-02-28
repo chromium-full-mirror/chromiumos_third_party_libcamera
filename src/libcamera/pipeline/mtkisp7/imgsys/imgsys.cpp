@@ -222,7 +222,7 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	int mediaRequest = mediaRequestPool_.get();
 
 	{
-		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get());
+		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get(), DmaHeap::SyncWrite);
 
 		request->sdRequest->fillRequestBufferForStage(
 			infoCtrl, mediaRequest, request->stage);
@@ -274,8 +274,8 @@ int ImgSysDevice::queueRequest(Request *request)
 	int mediaRequest = mediaRequestPool_.get();
 
 	{
-		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get());
-		DmaSyncer syncerDesc(infoDesc.buffer()->planes()[0].fd.get());
+		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get(), DmaHeap::SyncWrite);
+		DmaSyncer syncerDesc(infoDesc.buffer()->planes()[0].fd.get(), DmaHeap::SyncWrite);
 
 		request->sdRequest->fillRequestBuffer(infoCtrl, infoDesc, mediaRequest);
 		onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
