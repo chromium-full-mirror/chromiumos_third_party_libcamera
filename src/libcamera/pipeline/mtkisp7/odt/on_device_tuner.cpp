@@ -390,6 +390,7 @@ void OnDeviceTuner::tune(
 	}
 	if (forceDump || shouldExportDumpNow(requestNumber)) {
 		const auto exportResults = batchExport(dumps);
+		// TODO: Pipeline handler and IPC process need to avoid writing at the same time.
 		batchPrepareReimport(exportResults);
 	}
 	if (shouldImportDumpNow(requestNumber)) {

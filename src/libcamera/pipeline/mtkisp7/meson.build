@@ -47,6 +47,7 @@ libcamera_sources += files([
     'hal3a/aaa.cpp',
     'hal3a/hal_3a.cpp',
     'halisp/hal_isp.cpp',
+    'halisp/imgsys_task.cpp',
     'halisp/lpnr_tun.cpp',
     'halisp/mcnr_tun.cpp',
     'halisp/mfnr_tun.cpp',
@@ -64,6 +65,7 @@ libcamera_sources += files([
     'odt/camsys_driver_debug.cpp',
     'odt/imgsys_driver_debug.cpp',
     'odt/on_device_tuner.cpp',
+    'utils/img_meta_request_data_helper.cpp',
     'mtkisp7.cpp',
     'sensor/sensor_info.cpp'
 ])

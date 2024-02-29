@@ -911,9 +911,9 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 	Size outputSize2 = imgMetaRequest.outputSize2;
 	Size fullDipSize = imgMetaRequest.fullDipSize;
 
-	InfoFrame &tuningFrame = imgMetaRequest.tuningBuffer;
-	InfoFrame &statisFrame = imgMetaRequest.statisticsBuffer;
-	InfoFrame &swHistBuffer = imgMetaRequest.swHistBuffer;
+	FrameBuffer *tuningFrame = imgMetaRequest.tuningBuffer;
+	FrameBuffer *statisFrame = imgMetaRequest.statisticsBuffer;
+	FrameBuffer *swHistBuffer = imgMetaRequest.swHistBuffer;
 
 	mtk::isphal::IspTuningControl tuning_control = {};
 	mtk::isphal::IspTuningStatisticsP2 tuning_statistics = {};
@@ -929,40 +929,40 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		tuning_control.action = NSIspTuning::EAction_Preview;
 
 	mtk::isphal::Buffer metaBuf(
-		(intptr_t)tuningFrame.address(0),
-		tuningFrame.buffer()->planes()[0].fd.get(),
-		tuningFrame.buffer()->planes()[0].offset,
-		tuningFrame.buffer()->planes()[0].length);
+		(intptr_t)imgMetaRequest.mappedTuningBuffer->planes()[0].data(),
+		tuningFrame->planes()[0].fd.get(),
+		tuningFrame->planes()[0].offset,
+		tuningFrame->planes()[0].length);
 
 	tuning_data.p2_meta_buffer = metaBuf;
 	tuning_data.in_image = {};
 
 	fillPqInfo(imgMetaRequest.stage, inputSize, outputSize, outputSize2, tuning_data);
 
-	if (statisFrame.buffer()) {
+	if (statisFrame) {
 		mtk::isphal::Buffer statsBuf(
-			(intptr_t)statisFrame.address(0),
-			statisFrame.buffer()->planes()[0].fd.get(),
-			statisFrame.buffer()->planes()[0].offset,
-			statisFrame.buffer()->planes()[0].length);
+			(intptr_t)imgMetaRequest.mappedStatisticsBuffer->planes()[0].data(),
+			statisFrame->planes()[0].fd.get(),
+			statisFrame->planes()[0].offset,
+			statisFrame->planes()[0].length);
 		tuning_statistics.imgsys_statistics = statsBuf;
 	}
 
-	if (swHistBuffer.buffer()) {
+	if (swHistBuffer) {
 		mtk::isphal::Buffer swBuf(
-			(intptr_t)swHistBuffer.address(0),
-			swHistBuffer.buffer()->planes()[0].fd.get(),
-			swHistBuffer.buffer()->planes()[0].offset,
-			swHistBuffer.buffer()->planes()[0].length);
+			(intptr_t)imgMetaRequest.mappedSwHistBuffer->planes()[0].data(),
+			swHistBuffer->planes()[0].fd.get(),
+			swHistBuffer->planes()[0].offset,
+			swHistBuffer->planes()[0].length);
 		tuning_statistics.imgsys_hist_buffer = swBuf;
 	}
 
-	for (auto &[key, frame] : imgMetaRequest.reserved) {
+	for (auto &[key, buffer] : imgMetaRequest.reserved) {
 		mtk::isphal::Buffer reserveBuf(
-			(intptr_t)frame.address(0),
-			frame.buffer()->planes()[0].fd.get(),
-			frame.buffer()->planes()[0].offset,
-			frame.buffer()->planes()[0].length);
+			(intptr_t)buffer.second->planes()[0].data(),
+			buffer.first->planes()[0].fd.get(),
+			buffer.first->planes()[0].offset,
+			buffer.first->planes()[0].length);
 		tuning_statistics.reserved[key] = reserveBuf;
 	}
 

@@ -20,6 +20,7 @@ class Dip2Task;
 class MeATask;
 class MeBTask;
 class TrTask;
+class MtkISP7CameraData;
 
 struct MCNRPrevOutput {
 	/* For the first frame, there is no previous outputs. valid = false
@@ -55,7 +56,7 @@ struct TuningFrames {
 	SharedMailBox<InfoFrame> trTunF1; // Tuning of TR for stage HW_TR_F1
 	SharedMailBox<InfoFrame> trTunF4; // Tuning of TR for stage HW_TR_F4
 	SharedMailBox<InfoFrame> ltrTunVbi; // Tuning of LTR for stage HW_LTR_VBI
-	SharedMailBox<InfoFrame> wpeTun;    // Tuning of WPE for stage HW_WPE_W_F*
+	SharedMailBox<InfoFrame> wpeTun; // Tuning of WPE for stage HW_WPE_W_F*
 	std::vector<SharedMailBox<InfoFrame>> dipTun; // Tuning of DIP for each stages
 };
 
@@ -214,6 +215,7 @@ private:
 	friend class TrTask;
 	friend class MeATask;
 	friend class MeBTask;
+	friend MtkISP7CameraData;
 
 	int configureBuffers();
 
@@ -294,8 +296,8 @@ class MeBTask : public Task
 {
 public:
 	MeBTask(Scheduler *scheduler, const std::string &id,
-	        Request *request, uint32_t internalRequestId,
-	       ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
+		Request *request, uint32_t internalRequestId,
+		ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
 	void notifyDone() override;
@@ -338,7 +340,7 @@ class Dip1Task : public Task
 {
 public:
 	Dip1Task(Scheduler *scheduler, const std::string &id,
-	         Request *request, uint32_t internalRequestId,
+		 Request *request, uint32_t internalRequestId,
 		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;
@@ -366,7 +368,7 @@ class Dip2Task : public Task
 {
 public:
 	Dip2Task(Scheduler *scheduler, const std::string &id,
-	         Request *request, uint32_t internalRequestId,
+		 Request *request, uint32_t internalRequestId,
 		 ImgSysDevice *imgSys, MCNRFrames &mcnr, McnrTasksManager *manager);
 
 	void run() override;

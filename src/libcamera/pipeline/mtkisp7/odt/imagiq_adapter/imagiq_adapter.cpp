@@ -315,6 +315,8 @@ ImagiqAdapter::ExportResult ImagiqAdapter::exportDumpSplitPlanes(
 
 /**
  * @brief Copy MTK's reimport config to the session directory
+ *
+ * TODO: Pipeline handler and IPC process need to avoid writing at the same time.
  */
 void ImagiqAdapter::flushPrivateReimportConfig(
 	std::filesystem::path rootWorkPath,

@@ -32,9 +32,16 @@ struct ImgMetaRequest {
 	bool isCapture;
 	bool isMfnr = false;
 	NSIspTuning::EStage_T stage;
-	InfoFrame tuningBuffer;
-	InfoFrame statisticsBuffer;
-	InfoFrame swHistBuffer;
+
+	FrameBuffer *tuningBuffer;
+	MappedFrameBuffer *mappedTuningBuffer;
+
+	FrameBuffer *statisticsBuffer;
+	MappedFrameBuffer *mappedStatisticsBuffer;
+
+	FrameBuffer *swHistBuffer;
+	MappedFrameBuffer *mappedSwHistBuffer;
+
 	Size inputSize;
 	Size outputSize;
 	Size outputSize2;
@@ -42,7 +49,9 @@ struct ImgMetaRequest {
 	int tnr_frameIndex = 0;
 	int tnr_frameTotal = 1;
 
-	std::unordered_map<mtk::isphal::kISPExtBuf, InfoFrame> reserved;
+	std::unordered_map<mtk::isphal::kISPExtBuf,
+			   std::pair<FrameBuffer *, MappedFrameBuffer *>>
+		reserved;
 };
 
 class HalIsp

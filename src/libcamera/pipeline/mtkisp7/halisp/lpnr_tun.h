@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <memory>
-
 #include <libcamera/base/signal.h>
 #include <libcamera/base/thread.h>
 
@@ -16,13 +14,15 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/imgsys/lpnr.h"
+#include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
-#include "hal_isp.h"
+#include "imgsys_task.h"
 
 namespace libcamera {
 
 class DmaHeap;
+class MtkISP7CameraData;
 class PipelineHandler;
 class LpnrTunXtrTask;
 class LpnrTunDipTask;
@@ -31,7 +31,7 @@ class LpnrTunTasksManager
 {
 public:
 	LpnrTunTasksManager(
-		DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
+		DmaHeap *dmaHeap, IPADelegate *ipa, OnDeviceTuner *odt);
 
 	int configure(const Size &bayerInputSize,
 		      const Size &yuvOutput1Size, const Size &yuvOutput2Size);
@@ -49,6 +49,7 @@ public:
 		uint32_t internalRequestId);
 
 private:
+	friend MtkISP7CameraData;
 	friend LpnrTunXtrTask;
 	friend LpnrTunDipTask;
 
@@ -64,12 +65,12 @@ private:
 	DmaHeap *dmaHeap_;
 	InfoFramePool lpnrTun_;
 
-	HalIsp *halIsp_;
+	IPADelegate *ipa_;
 
 	OnDeviceTuner *onDeviceTuner_;
 };
 
-class LpnrTunXtrTask : public Task
+class LpnrTunXtrTask : public ImgSysTask
 {
 public:
 	LpnrTunXtrTask(LPNRFrames &lpnr,
@@ -81,15 +82,13 @@ public:
 	virtual void run() override final;
 
 	SharedMailBox<InfoFrame> xtrTun_;
-	uint32_t camSysMetaRequestId_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	LpnrTunTasksManager *manager_;
 };
 
-class LpnrTunDipTask : public Task
+class LpnrTunDipTask : public ImgSysTask
 {
 public:
 	LpnrTunDipTask(LPNRFrames &lpnr,
@@ -108,10 +107,8 @@ public:
 	std::vector<SharedMailBox<InfoFrame>> dipTun_;
 
 	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
-	uint32_t camSysMetaRequestId_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	LpnrTunTasksManager *manager_;
 };

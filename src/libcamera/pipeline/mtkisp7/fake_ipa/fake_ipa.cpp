@@ -24,7 +24,24 @@ IPAMtkISP7::IPAMtkISP7()
 int IPAMtkISP7::init(const int32_t sensorIdx)
 {
 	sensorIdx_ = sensorIdx;
-	hal3A_ = std::make_unique<Hal3A>(sensorIdx, halIsp_, onDeviceTuner_);
+	halIsp_ = std::make_unique<HalIsp>(onDeviceTuner_);
+	hal3A_ = std::make_unique<Hal3A>(sensorIdx, halIsp_.get(), onDeviceTuner_);
+
+	int32_t sensorDev = 0;
+	switch (sensorIdx) {
+	case 0:
+		sensorDev = 1;
+		break;
+	case 1:
+		sensorDev = 2;
+		break;
+
+	default:
+		LOG(IPAMtkISP7, Fatal) << "Unsupported sensorIdx: " << sensorIdx;
+		break;
+	}
+	halIsp_->init(sensorIdx, sensorDev, hal3A_.get());
+
 	aieParser_ = std::make_unique<AieParser>();
 
 	return 0;
@@ -75,9 +92,22 @@ void IPAMtkISP7::stop()
  * \brief Configure the MtkISP7 IPA
  * \param[in] sensorIdx The index of the sensor being used now
  */
-int IPAMtkISP7::configure(const Size &camsysYuvSize, bool isVideo)
+int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
+			  const Size &maxStillSize, bool isVideo, std::vector<uint8_t> *swmeParam,
+			  std::vector<uint8_t> *bssParam)
 {
 	hal3A_->configure(camsysYuvSize, isVideo);
+	halIsp_->configure(maxVideoSize, maxStillSize, isVideo);
+
+	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme = halIsp_->getIspSwmeParam();
+	const auto swmeSize = sizeof(mtk::isphal::v1::isp_swme_Param);
+	swmeParam->resize(swmeSize);
+	memcpy(swmeParam->data(), swme.get(), swmeSize);
+
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss = halIsp_->getIspBssParam();
+	const auto bssSize = sizeof(mtk::isphal::v1::isp_bss_Param);
+	bssParam->resize(bssSize);
+	memcpy(bssParam->data(), bss.get(), bssSize);
 
 	int ret = aieParser_->initialize();
 	if (ret != 0) {
@@ -233,6 +263,96 @@ IPAMtkISP7::getMappedBufferIter(unsigned int bufferId)
 	}
 
 	return &it->second;
+}
+
+void IPAMtkISP7::getImgSysMetaTuning(
+	const uint64_t cookie, const uint32_t camSysMetaRequestId,
+	const uint32_t frame, const bool needCropTNC16x9,
+	const uint32_t featureEnum,
+	const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests)
+{
+	for (const auto &requestData : imgMetaRequests) {
+		std::vector<DmaSyncer> syncers;
+
+		IPAMappedBuffer *tuningBuffer = getMappedBufferIter(requestData.tuningBufferId);
+		if (!tuningBuffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find tuning buffer!";
+			continue;
+		}
+		syncers.emplace_back(tuningBuffer->buffer.planes()[0].fd.get());
+
+		IPAMappedBuffer *statBuffer = nullptr;
+		if (requestData.statisticsBufferId > 0) {
+			statBuffer = getMappedBufferIter(requestData.statisticsBufferId);
+			if (!statBuffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find stat buffer!";
+				continue;
+			}
+
+			syncers.emplace_back(statBuffer->buffer.planes()[0].fd.get());
+		}
+
+		IPAMappedBuffer *swHistBuffer = nullptr;
+		if (requestData.swHistBufferId > 0) {
+			swHistBuffer = getMappedBufferIter(requestData.swHistBufferId);
+			if (!swHistBuffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swHist buffer!";
+				continue;
+			}
+		}
+
+		ImgMetaRequest request = {
+			.isCapture = requestData.isCapture,
+			.isMfnr = requestData.isMfnr,
+			.stage = static_cast<NSIspTuning::EStage_T>(requestData.stage),
+			.tuningBuffer = &tuningBuffer->buffer,
+			.mappedTuningBuffer = tuningBuffer->mapped.get(),
+			.statisticsBuffer = statBuffer ? &statBuffer->buffer : nullptr,
+			.mappedStatisticsBuffer = statBuffer ? statBuffer->mapped.get() : nullptr,
+			.swHistBuffer = swHistBuffer ? &swHistBuffer->buffer : nullptr,
+			.mappedSwHistBuffer = swHistBuffer ? swHistBuffer->mapped.get() : nullptr,
+			.inputSize = requestData.inputSize,
+			.outputSize = requestData.outputSize,
+			.outputSize2 = requestData.outputSize2,
+			.fullDipSize = requestData.fullDipSize,
+			.tnr_frameIndex = requestData.tnr_frameIndex,
+			.tnr_frameTotal = requestData.tnr_frameTotal,
+			.reserved = {}
+		};
+
+		for (const auto &[keyInt, bufferId] : requestData.reserved) {
+			mtk::isphal::kISPExtBuf key = static_cast<mtk::isphal::kISPExtBuf>(keyInt);
+			IPAMappedBuffer *mappedBuffer = getMappedBufferIter(bufferId);
+			if (!mappedBuffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find reserved buffer: " << bufferId;
+				continue;
+			}
+			request.reserved[key] =
+				std::make_pair<FrameBuffer *, MappedFrameBuffer *>(
+					&mappedBuffer->buffer,
+					mappedBuffer->mapped.get());
+
+			switch (key) {
+			case mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0:
+			case mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD1:
+			case mtk::isphal::kISPExtBif_IN_HWME_STAT_FMB_MD0:
+			case mtk::isphal::kISPExtBif_OUT_FWMM_MIL:
+				syncers.emplace_back(mappedBuffer->buffer.planes()[0].fd.get());
+				break;
+			default:
+				break;
+			}
+		}
+
+		halIsp_->getImgSysMetaTuning(
+			camSysMetaRequestId, request, frame,
+			requestData.hasFrameNumber
+				? requestData.frameNumber
+				: frame,
+			needCropTNC16x9, static_cast<Feature>(featureEnum));
+	}
+
+	ImgSysMetaTuningDone.emit(cookie);
 }
 
 IPAMtkISP7::AAManager::AAManager(IPAMtkISP7 *ipa)

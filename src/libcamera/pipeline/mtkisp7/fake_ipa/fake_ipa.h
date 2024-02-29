@@ -35,9 +35,8 @@ public:
 	IPAMtkISP7();
 
 	// Workaround functions
-	void preInit(HalIsp *halIsp, OnDeviceTuner *odt)
+	void preInit(OnDeviceTuner *odt)
 	{
-		halIsp_ = halIsp;
 		onDeviceTuner_ = odt;
 	}
 
@@ -46,7 +45,9 @@ public:
 	int start(const uint32_t rawMetaBufferId) override;
 	void stop() override;
 
-	int configure(const Size &camsysYuvSize, bool isVideo) override;
+	int configure(const Size &camsysYuvSize, const Size &maxVideoSize,
+		      const Size &maxStillSize, bool isVideo, std::vector<uint8_t> *swmeParam,
+		      std::vector<uint8_t> *bssParam) override;
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers) override;
 	void unmapBuffers(const std::vector<unsigned int> &ids) override;
@@ -69,6 +70,14 @@ public:
 		const int32_t featureEnum,
 		const VcmFocusInformation &vcmFocusInfo,
 		const ControlList &controls) override;
+
+	void getImgSysMetaTuning(
+		const uint64_t cookie,
+		const uint32_t camSysMetaRequestId,
+		const uint32_t frame,
+		const bool needCropTNC16x9,
+		const uint32_t featureEnum,
+		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests) override;
 
 private:
 	friend IPADelegate;
@@ -123,7 +132,6 @@ private:
 	ControlList convertFaceMetadata();
 
 	// Workarounds
-	HalIsp *halIsp_ = nullptr;
 	OnDeviceTuner *onDeviceTuner_;
 
 	std::map<unsigned int, IPAMappedBuffer> buffers_;
@@ -132,6 +140,7 @@ private:
 
 	// TODO: Check if we create a different instance for each CameraData.
 	std::unique_ptr<Hal3A> hal3A_;
+	std::unique_ptr<HalIsp> halIsp_;
 	std::unique_ptr<AieParser> aieParser_;
 
 	Thread aaThread_;

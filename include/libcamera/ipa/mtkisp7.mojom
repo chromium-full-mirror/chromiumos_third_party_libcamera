@@ -46,12 +46,36 @@ struct AaaIspExchange {
         libcamera.ControlList aaaMetadata;
 };
 
+struct ImgMetaRequestData {
+	bool isCapture;
+	uint32 stage;  // NSIspTuning::EStage_T
+	uint32 tuningBufferId;
+	uint32 statisticsBufferId;
+	uint32 swHistBufferId;
+	libcamera.Size inputSize;
+	libcamera.Size outputSize;
+	libcamera.Size outputSize2;
+	libcamera.Size fullDipSize;
+
+	// mtk::isphal::kISPExtBuf, InfoFrame
+	map<uint32, uint32> reserved;
+
+	bool isMfnr;
+	int32 tnr_frameIndex;
+	int32 tnr_frameTotal;
+
+	bool hasFrameNumber;
+	uint32 frameNumber;
+};
+
 interface IPAMtkISP7Interface {
 	init(int32 sensorIdx) => (int32 ret);
 	start(uint32 rawMetaBufferId) => (int32 lens_position);
 	stop();
 
-	configure(libcamera.Size camsysYuvSize, bool isVideo) => (int32 ret);
+	configure(libcamera.Size camsysYuvSize, libcamera.Size maxVideoSize,
+                  libcamera.Size maxStillSize, bool isVideo) =>
+                  (int32 ret, array<uint8> swmeParam, array<uint8> bssParam);
 
 	mapBuffers(array<libcamera.IPABuffer> buffers);
 	unmapBuffers(array<uint32> ids);
@@ -72,6 +96,11 @@ interface IPAMtkISP7Interface {
                                 int32 featureEnum,
                                 VcmFocusInformation vcmFocusInfo,
                                 libcamera.ControlList controls);
+
+	[async] getImgSysMetaTuning(uint64 cookie,
+	                            uint32 camSysMetaRequestId, uint32 frame,
+	                            bool needCropTNC16x9, uint32 featureEnum,
+	                            array<ImgMetaRequestData> imgMetaRequests);
 };
 
 interface IPAMtkISP7EventInterface {
@@ -82,4 +111,6 @@ interface IPAMtkISP7EventInterface {
         AAResultReady(uint32 frame, SensorSetting sensorSetting,
                       AaaIspExchange aaaIspExchange);
         AFResultReady(uint32 frame, int32 position);
+
+        ImgSysMetaTuningDone(uint64 taskCounter);
 };

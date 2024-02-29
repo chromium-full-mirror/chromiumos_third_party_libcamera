@@ -34,6 +34,7 @@ class DsVbiTask;
 class VbTask;
 class MsbldTask;
 class AfbldTask;
+class MtkISP7CameraData;
 
 struct MFNRPrevOutput {
 	/* For the first frame, there is no previous outputs. valid = false
@@ -256,6 +257,8 @@ private:
 	friend class MsbldTask;
 	friend class AfbldTask;
 	friend class SwmeTask;
+	friend MtkISP7CameraData;
+
 	int configureBuffers();
 
 	Size yuvOutputSize1_;
