@@ -169,7 +169,7 @@ struct SwmeFrames {
 		std::vector<SharedMailBox<InfoFrame>> base_buf;
 		std::vector<SharedMailBox<InfoFrame>> ref_buf;
 		std::vector<SharedMailBox<InfoFrame>> paramInInfo;
-		std::vector<SharedMailBox<std::shared_ptr<isp_swme_Param>>> db_param;
+		std::vector<SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>>> db_param;
 		std::vector<SharedMailBox<InfoFrame>> tuningInfo;
 	} in;
 	struct {
@@ -523,7 +523,7 @@ private:
 	MfnrTasksManager *manager_;
 	MFNRFrames mfnr_;
 	SwmeFrames frames_;
-	SharedMailBox<std::shared_ptr<isp_swme_Param>> dbParam_;
+	SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>> dbParam_;
 };
 
 } /* namespace libcamera */

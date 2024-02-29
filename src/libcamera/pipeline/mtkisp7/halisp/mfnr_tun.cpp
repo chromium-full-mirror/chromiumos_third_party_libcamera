@@ -233,7 +233,7 @@ MfnrTunBssTask::MfnrTunBssTask([[maybe_unused]] MFNRFrames &mfnr,
 void MfnrTunBssTask::run()
 {
 	auto &in = bssFrames_.in;
-	std::shared_ptr<isp_bss_Param> dbParam = manager_->halIsp_->getIspBssParam();
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam = manager_->halIsp_->getIspBssParam();
 	in.db_param->put(dbParam, nullptr);
 
 	notifyDone();
@@ -348,7 +348,7 @@ void MfnrTunSwmeTask::run()
 {
 	auto &in = swmeFrames_.in;
 	for (auto i = 0; i < (int)in.db_param.size(); i++) {
-		std::shared_ptr<isp_swme_Param> dbParam = manager_->halIsp_->getIspSwmeParam();
+		std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam = manager_->halIsp_->getIspSwmeParam();
 		in.db_param[i]->put(dbParam, nullptr);
 	}
 

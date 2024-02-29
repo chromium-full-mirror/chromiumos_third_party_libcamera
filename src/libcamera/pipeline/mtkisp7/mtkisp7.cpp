@@ -32,6 +32,7 @@
 #include "camsys/capture.h"
 #include "hal3a/aaa.h"
 #include "hal3a/hal_3a.h"
+#include "halisp/ITuningDataProvider.h"
 #include "halisp/hal_isp.h"
 #include "halisp/lpnr_tun.h"
 #include "halisp/mcnr_tun.h"
@@ -1065,7 +1066,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		scheduler->queueTask(faceToneTask, AieFaceToneClassificationGroup);
 		scheduler->queueTask(parseTask, AieParseGroup);
 	}
-
 	if (hasVideo) {
 		MCNRFrames mcnr;
 		mcnrManager.makeMCNRFrames(mcnr, mcnrPrev,
@@ -1141,18 +1141,19 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 		Scheduler::precede(taskDip2, completeTask);
 	}
-	bool useMfnr = false;
-	{
-		//TODO implement strategy to choose between mfnr and lpnr
-		useMfnr = MfnrTasksManager::forceMfnr();
-	}
 
 	bool hasStillCapture = still1Buffer || still2Buffer;
 
 	if (!hasStillCapture) {
 		onDeviceTuner_->notifyVideoOnly(internalRequestId);
 	} else {
-		if (useMfnr) {
+		bool useMfnr = false;
+		bool useLpnr = true;
+		{
+			//TODO implement strategy to choose between mfnr and lpnr
+			useMfnr = mfnrManager.forceMfnr() || AaaIspExchange::mfnrMode;
+		}
+		if (useMfnr && ! useLpnr) {
 			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_mfnr);
 			MFNRFrames mfnr;
 			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);

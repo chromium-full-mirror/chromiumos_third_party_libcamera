@@ -31,7 +31,6 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/task_scheduler.h"
 
-#include "mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_swme_Param.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/imgsys/bss.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -268,7 +267,7 @@ int MfnrTasksManager::configureBuffers()
 	bssParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_PARAM_STRUCT), 1), 1);
 	bssDataGPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_INPUT_DATA_G), 1), 1);
 	bssVerPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kBssGmDataMSize, 1);
-	bssTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(isp_bss_Param), 1), 1);
+	bssTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_bss_Param), 1), 1);
 	bssFdMainPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(FD_DATATYPE), 1), kInputRawCount);
 	bssFdPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFaceMetadata), 1), kInputRawCount);
 	bssFacePool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFace) * 15, 1), kInputRawCount);
@@ -276,7 +275,7 @@ int MfnrTasksManager::configureBuffers()
 
 	swmeOutPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_PROC1_OUT_STRUCT), 1), kInputRawCount - 1);
 	swmeParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_SET_PROC_INFO_STRUCT), 1), kInputRawCount - 1);
-	swmeTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(isp_swme_Param), 1), kInputRawCount - 1);
+	swmeTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_swme_Param), 1), kInputRawCount - 1);
 
 	bssOutDataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_OUTPUT_DATA), 1), 1);
 	p2sttoPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kP2sttoSize, 5);
@@ -382,8 +381,8 @@ void MfnrTasksManager::makeMFNRFrames(
 	std::vector<SharedMailBox<InfoFrame>> swmeMcmvBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> swmeParamInBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> swmeParamOutBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
-	std::vector<SharedMailBox<std::shared_ptr<isp_swme_Param>>> swmeDbParam =
-		makeMailBoxVector<std::shared_ptr<isp_swme_Param>>(kInputRawCount - 1);
+	std::vector<SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>>> swmeDbParam =
+		makeMailBoxVector<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>>(kInputRawCount - 1);
 
 	std::vector<SharedMailBox<InfoFrame>> mcdsF1Tun = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 
@@ -438,7 +437,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	BssFrames &bssFrames = mfnr.bssFrames;
 	bssFrames.in.bssParamInfo = makeMailBox<InfoFrame>();
 	bssFrames.in.bssDataGInfo = makeMailBox<InfoFrame>();
-	bssFrames.in.db_param = makeMailBox<std::shared_ptr<isp_bss_Param>>();
+	bssFrames.in.db_param = makeMailBox<std::shared_ptr<mtk::isphal::v1::isp_bss_Param>>();
 	bssFrames.in.bssTuningInfo = makeMailBox<InfoFrame>();
 	bssFrames.in.bssVerInfo = makeMailBox<InfoFrame>();
 	bssFrames.out.bssOutDataInfo = makeMailBox<InfoFrame>();
@@ -947,7 +946,7 @@ void BssTask::run()
 		DmaSyncer syncer_bssPosInfo(in.bssPosInfo[i]->get().buffer()->planes()[0].fd.get());
 	}
 
-	memcpy(reinterpret_cast<void *>(in.bssTuningInfo->get().address(0)), in.db_param->get().get(), sizeof(isp_bss_Param));
+	memcpy(reinterpret_cast<void *>(in.bssTuningInfo->get().address(0)), in.db_param->get().get(), sizeof(mtk::isphal::v1::isp_bss_Param));
 
 	manager_->onDeviceTuner_->tuneBss(internalRequestId_, frames_, kInputRawCount);
 	Task::notifyDone();

@@ -492,7 +492,7 @@ void BssWrapper::Parser_BSSOut_Done(void *pParaOut, void *pParaParseOut)
 void BssWrapper::updateBssProcInfo(IBSS_PARAM_STRUCT *bss_param,
 				   MINT32 frameNum,
 				   Size srcSize,
-				   std::shared_ptr<isp_bss_Param> dbParam)
+				   std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam)
 {
 	MINT32 roiPercentage = MF_BSS_ROI_PERCENTAGE;
 	MINT32 w = (srcSize.width * roiPercentage + 5) / 100;
@@ -658,7 +658,7 @@ MVOID BssWrapper::collectPreBSSExifData(IBSS_PARAM_STRUCT *bss_param)
 {
 	LOG(MtkISP7, Info) << "collectPreBSSExifData";
 #if (MFLL_MF_TAG_VERSION > 0)
-	isp_bss_Param *pBssDB = reinterpret_cast<isp_bss_Param *>(bss_param->pBSSNvram);
+	mtk::isphal::v1::isp_bss_Param *pBssDB = reinterpret_cast<mtk::isphal::v1::isp_bss_Param *>(bss_param->pBSSNvram);
 	LOG(MtkISP7, Info) << "pBssDB: " << reinterpret_cast<void *>(pBssDB);
 #define SET_EXIF_BSS(tag, value)                                              \
 	do {                                                                  \
@@ -802,7 +802,7 @@ MVOID BssWrapper::collectPostBSSExifData(std::vector<MINT32> &vNewIndex,
 void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 {
 	std::vector<SharedMailBox<InfoFrame>> p1Yuv;
-	std::shared_ptr<isp_bss_Param> dbParam = bssFrame.in.db_param->get();
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam = bssFrame.in.db_param->get();
 	std::vector<int> &BSSOrder = bssFrame.out.bss_order[0]->get();
 
 	for (auto i = 0; i < (int)bssFrame.in.imgi.size(); i++) {

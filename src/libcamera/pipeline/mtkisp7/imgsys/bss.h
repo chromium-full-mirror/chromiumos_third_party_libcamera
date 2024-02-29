@@ -16,7 +16,6 @@
 #include "mtkcam-interfaces/utils/odt/IOnDeviceTuning.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
-#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_bss_Param.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera/mt8188/include/libmfnr/MTKBss.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libBssWrapper/MTKBssHeader/EMTKBss.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libBssWrapper/MTKBssHeader/IMTKBss.h"
@@ -244,7 +243,7 @@ struct BssFrames {
 		SharedMailBox<InfoFrame> bssParamInfo;
 		SharedMailBox<InfoFrame> bssDataGInfo;
 		SharedMailBox<InfoFrame> bssVerInfo;
-		SharedMailBox<std::shared_ptr<isp_bss_Param>> db_param;
+		SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_bss_Param>> db_param;
 		SharedMailBox<InfoFrame> bssTuningInfo;
 
 		std::vector<SharedMailBox<InfoFrame>> bssFdMainInfo;
@@ -288,7 +287,7 @@ public:
 	void updateBssProcInfo(IBSS_PARAM_STRUCT *bss_param,
 			       MINT32 frameNum,
 			       Size srcSize,
-			       std::shared_ptr<isp_bss_Param> dbParam);
+			       std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam);
 	MBOOL appendBSSInput(std::vector<MappedFrameBuffer> &p1YuvMappedFrameBuffer,
 
 			     IBSS_INPUT_DATA_G_IPC &bss_input);
@@ -302,7 +301,7 @@ public:
 private:
 	void *m_pBssDrv;
 	std::shared_ptr<NSCam::TuningUtils::IOdtUtils> mOdtUtils;
-	std::shared_ptr<isp_bss_Param> mDbParam;
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> mDbParam;
 
 	ZipOutData mZipData;
 	uint32_t sensorIndex_;

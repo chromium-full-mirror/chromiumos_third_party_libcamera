@@ -21,8 +21,6 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
-#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_bss_Param.h"
-#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_swme_Param.h"
 
 #include "stdint.h"
 
@@ -34,6 +32,7 @@ struct AaaIspExchange {
 	bool highIsoMode = false;
 	uint32_t aaaRequestId = 0;
 	ControlList aaaMetadata;
+	static bool mfnrMode;
 };
 
 struct ImgMetaRequest {
@@ -85,12 +84,9 @@ public:
 				uint32_t internalRequestId,
 				bool needCropTNC16x9);
 
-	uint32_t getLpnrIsoThreshold(AaaIspExchange *aaaIspExchange);
-
-	std::shared_ptr<isp_swme_Param> querySwmeParam(const CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &qry, MBOOL force);
-	std::shared_ptr<isp_bss_Param> queryBssParam(const CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &qry, MBOOL force);
-	std::shared_ptr<isp_swme_Param> getIspSwmeParam();
-	std::shared_ptr<isp_bss_Param> getIspBssParam();
+	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> getIspSwmeParam();
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> getIspBssParam();
+	std::shared_ptr<mtk::isphal::v1::isp_mfnrthres_Param> getIspMfnrThresParam();
 
 private:
 	uint32_t getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info);
@@ -127,31 +123,11 @@ private:
 	Hal3A *hal3A_;
 
 	History<CamInfo> camInfoHistory_;
+
 public:
-	class Data
-	{
-	public:
-		Data() {}
-		virtual ~Data() {}
-	};
-	template<typename T>
-	class TData : public Data
-	{
-	public:
-		TData() { data_ = std::make_shared<T>(); }
-		~TData()
-		{
-			//MY_LOGD("~TData, size = %u", sizeof(T));
-		}
-		std::shared_ptr<T> get() { return data_; }
-
-	private:
-		std::shared_ptr<T> data_;
-	};
-
-	std::map<NSIspTuning::EModuleDB_T, std::shared_ptr<Data>> data_;
-
-	std::mutex lk_;
+	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> isp_swme_Param_ = nullptr;
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> isp_bss_Param_ = nullptr;
+	std::shared_ptr<mtk::isphal::v1::isp_mfnrthres_Param> isp_mfnrthres_Param_ = nullptr;
 };
 
 } // namespace libcamera

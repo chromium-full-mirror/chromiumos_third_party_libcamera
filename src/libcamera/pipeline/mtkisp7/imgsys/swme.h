@@ -6,8 +6,7 @@
 
 #pragma once
 #include "libcamera/internal/info_frame.h"
-
-#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/camera_db/include/BasicModule/auto/isp/isp_swme_Param.h"
+#include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera/mt8188/include/libmfnr/MTKMfbll.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/IMTKMfbll.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/include/EMfbll.h"
@@ -204,7 +203,7 @@ public:
 		SharedMailBox<InfoFrame> base_buf,
 		SharedMailBox<InfoFrame> ref_buf,
 		SharedMailBox<InfoFrame> wrapping_buf,
-		std::shared_ptr<isp_swme_Param> dbParam,
+		std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam,
 		Size frame_size,
 		Size mc_size);
 	static void prepareOutParam(
@@ -264,7 +263,7 @@ private:
 	SharedMailBox<InfoFrame> ref_buf_;
 	SharedMailBox<InfoFrame> wrapping_buf_;
 
-	std::shared_ptr<isp_swme_Param> m_dbParam;
+	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> m_dbParam;
 };
 
 } /* namespace libcamera */

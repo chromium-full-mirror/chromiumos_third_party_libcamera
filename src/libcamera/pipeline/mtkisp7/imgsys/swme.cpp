@@ -430,7 +430,7 @@ void SwmeWrapper::prepareParam(
 	SharedMailBox<InfoFrame> base_buf,
 	SharedMailBox<InfoFrame> ref_buf,
 	SharedMailBox<InfoFrame> wrapping_buf,
-	std::shared_ptr<isp_swme_Param> dbParam,
+	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam,
 	Size frame_size,
 	Size mc_size)
 {
