@@ -123,8 +123,6 @@ private:
 	std::unique_ptr<V4L2VideoDevice> rzh1n2to1_;
 	std::unique_ptr<V4L2VideoDevice> rzh1n2to2_;
 	std::unique_ptr<V4L2VideoDevice> rzh1n2to3_;
-	std::unique_ptr<V4L2VideoDevice> svImgOut1_;
-	std::unique_ptr<V4L2VideoDevice> svImgOut2_;
 
 	std::unique_ptr<V4L2VideoDevice> partialMeta0_;
 	std::unique_ptr<V4L2VideoDevice> partialMeta1_;

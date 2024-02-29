@@ -84,6 +84,11 @@ int CamSysDevice::init(MediaDevice *media, unsigned int index)
 	auto getVideoDevice = [this](const std::string &name,
 				     std::unique_ptr<V4L2VideoDevice> &videoDevice) {
 		MediaEntity *entity = media_->getEntityByName(name);
+		if (!entity) {
+			LOG(MtkISP7, Error) << "Could not find video device " << name;
+			return;
+		}
+
 		videoDevice = std::make_unique<V4L2VideoDevice>(entity);
 
 		allVideoDevices_.emplace_back(videoDevice.get());
@@ -104,14 +109,9 @@ int CamSysDevice::init(MediaDevice *media, unsigned int index)
 	getVideoDevice(hubName + " rzh1n2to-1", rzh1n2to1_);
 	getVideoDevice(hubName + " rzh1n2to-2", rzh1n2to2_);
 	getVideoDevice(hubName + " rzh1n2to-3", rzh1n2to3_);
-	getVideoDevice(hubName + " sv-imgo-1", svImgOut1_);
-	getVideoDevice(hubName + " sv-imgo-2", svImgOut2_);
 	getVideoDevice(hubName + " partial-meta-0", partialMeta0_);
 	getVideoDevice(hubName + " partial-meta-1", partialMeta1_);
 	getVideoDevice(hubName + " partial-meta-2", partialMeta2_);
-	getVideoDevice(hubName + " ext-meta-0", extMeta0_);
-	getVideoDevice(hubName + " ext-meta-1", extMeta1_);
-	getVideoDevice(hubName + " ext-meta-2", extMeta2_);
 
 	for (V4L2VideoDevice *device : allVideoDevices_) {
 		int ret = device->open();
@@ -222,15 +222,10 @@ void CamSysDevice::close()
 	rzh1n2to1_.reset();
 	rzh1n2to2_.reset();
 	rzh1n2to3_.reset();
-	svImgOut1_.reset();
-	svImgOut2_.reset();
 
 	partialMeta0_.reset();
 	partialMeta1_.reset();
 	partialMeta2_.reset();
-	extMeta0_.reset();
-	extMeta1_.reset();
-	extMeta2_.reset();
 
 	allVideoDevices_.clear();
 }
