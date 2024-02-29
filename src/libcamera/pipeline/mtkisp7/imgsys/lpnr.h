@@ -20,6 +20,7 @@ namespace libcamera {
 
 class XTRTask;
 class LpnrDipTask;
+class MtkISP7CameraData;
 
 struct XtrFrames {
 	struct {
@@ -76,6 +77,7 @@ public:
 private:
 	friend class XTRTask;
 	friend class LpnrDipTask;
+	friend MtkISP7CameraData;
 
 	Size yuvOutputSize1_;
 	Size yuvOutputSize2_;

@@ -17,9 +17,10 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
+#include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
-#include "hal_isp.h"
+#include "imgsys_task.h"
 
 namespace libcamera {
 
@@ -35,6 +36,7 @@ class MfnrTunDsVbiTask;
 class MfnrTunMcdsF1Task;
 class MfnrTunMsbldTask;
 class MfnrTunAfbldTask;
+class MtkISP7CameraData;
 
 class MfnrTunManager
 {
@@ -50,10 +52,12 @@ class MfnrTunManager
 
 public:
 	MfnrTunManager(
-		DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
+		DmaHeap *dmaHeap, IPADelegate *ipa, OnDeviceTuner *odt);
 
 	int configure(const Size &bayerInputSize,
-		      const Size &yuvOutput1Size, const Size &yuvOutput2Size);
+		      const Size &yuvOutput1Size, const Size &yuvOutput2Size,
+		      std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme,
+		      std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss);
 
 	void allocateBuffers();
 	void releaseBuffers();
@@ -69,10 +73,15 @@ public:
 		uint32_t internalRequestId);
 
 private:
+	friend MtkISP7CameraData;
+
 	Size yuvOutput1Size_;
 	Size yuvOutput2Size_;
 
 	Size bayerInputSize_;
+
+	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme_;
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss_;
 
 	bool needCropTNC16x9_;
 
@@ -81,7 +90,7 @@ private:
 	DmaHeap *dmaHeap_;
 	InfoFramePool mfnrTun_;
 
-	HalIsp *halIsp_;
+	IPADelegate *ipa_;
 
 	OnDeviceTuner *onDeviceTuner_;
 };
@@ -91,21 +100,16 @@ class MfnrTunBssTask : public Task
 public:
 	MfnrTunBssTask(MFNRFrames &mfnr,
 		       Scheduler *scheduler, const std::string &id,
-		       Request *request, MfnrTunManager *manager,
-		       uint32_t internalRequestId);
+		       std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> bfbldBaseTun_;
-
-	Request *request_;
-	uint32_t internalRequestId_;
-
-	MfnrTunManager *manager_;
 	BssFrames bssFrames_;
+
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss_;
 };
 
-class MfnrTunBfbldTask : public Task
+class MfnrTunBfbldTask : public ImgSysTask
 {
 public:
 	MfnrTunBfbldTask(MFNRFrames &mfnr,
@@ -117,16 +121,14 @@ public:
 	virtual void run() override final;
 
 	std::vector<SharedMailBox<InfoFrame>> bfbldTun_;
-	uint32_t camSysMetaRequestId_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
 
-class MfnrTunBfmeTask : public Task
+class MfnrTunBfmeTask : public ImgSysTask
 {
 public:
 	MfnrTunBfmeTask(MFNRFrames &mfnr,
@@ -138,12 +140,10 @@ public:
 	virtual void run() override final;
 
 	std::vector<SharedMailBox<InfoFrame>> bfmeTun_;
-	uint32_t camSysMetaRequestId_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 	SharedMailBox<InfoFrame> tncso_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
@@ -153,21 +153,16 @@ class MfnrTunSwmeTask : public Task
 public:
 	MfnrTunSwmeTask(MFNRFrames &mfnr,
 			Scheduler *scheduler, const std::string &id,
-			Request *request, MfnrTunManager *manager,
-			uint32_t internalRequestId);
+			std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme);
 
 	virtual void run() override final;
 
-	SharedMailBox<InfoFrame> bfmeTun_;
-
-	Request *request_;
-	uint32_t internalRequestId_;
-
-	MfnrTunManager *manager_;
 	SwmeFrames swmeFrames_;
+
+	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme_;
 };
 
-class MfnrTunDsTask : public Task
+class MfnrTunDsTask : public ImgSysTask
 {
 public:
 	MfnrTunDsTask(MFNRFrames &mfnr,
@@ -179,16 +174,14 @@ public:
 	virtual void run() override final;
 
 	std::vector<SharedMailBox<InfoFrame>> dsTun;
-	uint32_t camSysMetaRequestId_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
 
-class MfnrTunDsVbiTask : public Task
+class MfnrTunDsVbiTask : public ImgSysTask
 {
 public:
 	MfnrTunDsVbiTask(MFNRFrames &mfnr,
@@ -201,16 +194,14 @@ public:
 
 	std::vector<SharedMailBox<InfoFrame>> dsVbiV2Tun_;
 	std::vector<SharedMailBox<InfoFrame>> dsVbiV5Tun_;
-	uint32_t camSysMetaRequestId_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
 
-class MfnrTunMcdsF1Task : public Task
+class MfnrTunMcdsF1Task : public ImgSysTask
 {
 public:
 	MfnrTunMcdsF1Task(MFNRFrames &mfnr,
@@ -222,16 +213,14 @@ public:
 	virtual void run() override final;
 
 	std::vector<SharedMailBox<InfoFrame>> mcdsF1Tun_;
-	uint32_t camSysMetaRequestId_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
 
-class MfnrTunMsbldTask : public Task
+class MfnrTunMsbldTask : public ImgSysTask
 {
 public:
 	MfnrTunMsbldTask(MFNRFrames &mfnr,
@@ -251,15 +240,12 @@ public:
 	std::vector<SharedMailBox<InfoFrame>> msbldF6Tun_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 
-	uint32_t camSysMetaRequestId_;
-
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };
 
-class MfnrTunAfbldTask : public Task
+class MfnrTunAfbldTask : public ImgSysTask
 {
 public:
 	MfnrTunAfbldTask(MFNRFrames &mfnr,
@@ -280,10 +266,8 @@ public:
 	SharedMailBox<std::vector<int>> bssOrder_;
 
 	SharedMailBox<InfoFrame> tncso_;
-	uint32_t camSysMetaRequestId_;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	MfnrTunManager *manager_;
 };

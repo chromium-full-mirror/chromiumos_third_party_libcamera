@@ -8,7 +8,6 @@
 
 #include <functional>
 #include <memory>
-#include <unordered_map>
 
 #include <libcamera/base/signal.h>
 #include <libcamera/base/thread.h>
@@ -23,8 +22,6 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
-
-#include "hal_isp.h"
 
 namespace libcamera {
 
@@ -132,10 +129,10 @@ static TuningBuffers tuningBuffers;
 }
 
 MfnrTunManager::MfnrTunManager(
-	DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt)
+	DmaHeap *dmaHeap, IPADelegate *ipa, OnDeviceTuner *odt)
 {
 	dmaHeap_ = dmaHeap;
-	halIsp_ = halIsp;
+	ipa_ = ipa;
 	onDeviceTuner_ = odt;
 }
 
@@ -152,12 +149,17 @@ void MfnrTunManager::releaseBuffers()
 }
 
 int MfnrTunManager::configure(const Size &bayerInputSize,
-			      const Size &yuvOutput1Size, const Size &yuvOutput2Size)
+			      const Size &yuvOutput1Size, const Size &yuvOutput2Size,
+			      std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme,
+			      std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss)
 {
 	yuvOutput1Size_ = yuvOutput1Size;
 	yuvOutput2Size_ = yuvOutput2Size;
 
 	bayerInputSize_ = bayerInputSize;
+
+	swme_ = swme;
+	bss_ = bss;
 
 	mfnrSizes_.resize(7);
 	Size size = bayerInputSize_;
@@ -189,7 +191,7 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 				 uint32_t internalRequestId)
 {
 	MfnrTunBssTask *mfnrTunBssTask = new MfnrTunBssTask(
-		mfnr, scheduler, id, request, this, internalRequestId);
+		mfnr, scheduler, id, bss_);
 
 	MfnrTunBfbldTask *mfnrTunBfbldTask = new MfnrTunBfbldTask(
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
@@ -198,7 +200,7 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunSwmeTask *mfnrTunSwmeTask = new MfnrTunSwmeTask(
-		mfnr, scheduler, id, request, this, internalRequestId);
+		mfnr, scheduler, id, swme_);
 
 	MfnrTunDsTask *mfnrTunDsTask = new MfnrTunDsTask(
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
@@ -220,11 +222,11 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 			       mfnrTunMsbldTask, mfnrTunAfbldTask);
 }
 
-MfnrTunBssTask::MfnrTunBssTask([[maybe_unused]] MFNRFrames &mfnr,
+MfnrTunBssTask::MfnrTunBssTask(MFNRFrames &mfnr,
 			       Scheduler *scheduler,
-			       const std::string &id, Request *request, MfnrTunManager *manager,
-			       uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+			       const std::string &id,
+			       std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss)
+	: Task(scheduler, id), bss_(bss)
 {
 	bssFrames_ = mfnr.bssFrames;
 }
@@ -232,8 +234,7 @@ MfnrTunBssTask::MfnrTunBssTask([[maybe_unused]] MFNRFrames &mfnr,
 void MfnrTunBssTask::run()
 {
 	auto &in = bssFrames_.in;
-	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam = manager_->halIsp_->getIspBssParam();
-	in.db_param->put(dbParam, nullptr);
+	in.db_param->put(bss_, nullptr);
 
 	notifyDone();
 }
@@ -243,15 +244,19 @@ MfnrTunBfbldTask::MfnrTunBfbldTask(MFNRFrames &mfnr,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Capture_mfnr, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	bfbldTun_ = mfnr.bfbldFrames.in.tunbufi;
 	bssOrder_ = mfnr.bss_order;
-	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunBfbldTask::run()
 {
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+
 	for (auto i = 0; i < kInputRawCount; i++) {
 		manager_->mfnrTun_.fetch(bfbldTun_[i]);
 	}
@@ -259,29 +264,19 @@ void MfnrTunBfbldTask::run()
 
 	//fillTuning(bfbldRefTun_, tuningBuffers.capture_BFBLD_REF_tunbufi);
 	for (auto i = 0; i < kInputRawCount; i++) {
-		ImgMetaRequest request = {};
 		auto frameNumber = internalRequestId_ + bssOrder[i];
-		request = ImgMetaRequest{
-			.isCapture = true,
-			.isMfnr = true,
-			.stage = (i == 0) ? NSIspTuning::EStage_BFBLD_BASE : NSIspTuning::EStage_BFBLD_REF,
-			.tuningBuffer = bfbldTun_[i]->get(),
-			.statisticsBuffer = {},
-			.swHistBuffer = {},
-			.inputSize = manager_->mfnrSizes_[0],
-			.outputSize = manager_->yuvOutput1Size_,
-			.outputSize2 = manager_->yuvOutput2Size_,
-			.fullDipSize = manager_->mfnrSizes_[0],
-			.reserved = {}
-		};
-
-		{
-			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
-		}
+		request = ipa::mtkisp7::ImgMetaRequestData(
+			true,
+			(i == 0) ? NSIspTuning::EStage_BFBLD_BASE
+				 : NSIspTuning::EStage_BFBLD_REF,
+			bfbldTun_[i]->get().buffer()->cookie(),
+			0, 0, manager_->mfnrSizes_[0],
+			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+		requests.push_back(std::move(request));
 	}
 
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 MfnrTunBfmeTask::MfnrTunBfmeTask(MFNRFrames &mfnr,
@@ -289,16 +284,20 @@ MfnrTunBfmeTask::MfnrTunBfmeTask(MFNRFrames &mfnr,
 				 Scheduler *scheduler,
 				 const std::string &id, Request *request, MfnrTunManager *manager,
 				 uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Capture_mfnr, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	bfmeTun_ = mfnr.bfmeFrames.in.tunbufi;
-	camSysMetaRequestId_ = camSysMetaRequestId;
 	bssOrder_ = mfnr.bss_order;
 	tncso_ = mfnr.bfmeFrames.tncso;
 }
 
 void MfnrTunBfmeTask::run()
 {
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+
 	for (auto i = 0; i < kInputRawCount; i++) {
 		manager_->mfnrTun_.fetch(bfmeTun_[i]);
 	}
@@ -306,35 +305,25 @@ void MfnrTunBfmeTask::run()
 
 	auto &bssOrder = bssOrder_->get();
 	for (auto i = 0; i < kInputRawCount; i++) {
-		ImgMetaRequest request = {};
 		auto frameNumber = internalRequestId_ + bssOrder[i];
-		request = ImgMetaRequest{
-			.isCapture = true,
-			.isMfnr = true,
-			.stage = NSIspTuning::EStage_BFME,
-			.tuningBuffer = bfmeTun_[i]->get(),
-			.statisticsBuffer = tncso_->get(),
-			.swHistBuffer = {},
-			.inputSize = manager_->mfnrSizes_[2],
-			.outputSize = manager_->yuvOutput1Size_,
-			.outputSize2 = manager_->yuvOutput2Size_,
-			.fullDipSize = manager_->mfnrSizes_[0],
-			.reserved = {}
-		};
-
-		{
-			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
-		}
+		request = ipa::mtkisp7::ImgMetaRequestData(
+			true, NSIspTuning::EStage_BFME,
+			bfmeTun_[i]->get().buffer()->cookie(),
+			tncso_->get().buffer()->cookie(), 0,
+			manager_->mfnrSizes_[2],
+			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+		requests.push_back(std::move(request));
 	}
-	notifyDone();
+
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
-MfnrTunSwmeTask::MfnrTunSwmeTask([[maybe_unused]] MFNRFrames &mfnr,
+MfnrTunSwmeTask::MfnrTunSwmeTask(MFNRFrames &mfnr,
 				 Scheduler *scheduler,
-				 const std::string &id, Request *request, MfnrTunManager *manager,
-				 uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+				 const std::string &id,
+				 std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme)
+	: Task(scheduler, id), swme_(swme)
 {
 	swmeFrames_ = mfnr.swmeFrames;
 }
@@ -343,8 +332,7 @@ void MfnrTunSwmeTask::run()
 {
 	auto &in = swmeFrames_.in;
 	for (auto i = 0; i < (int)in.db_param.size(); i++) {
-		std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam = manager_->halIsp_->getIspSwmeParam();
-		in.db_param[i]->put(dbParam, nullptr);
+		in.db_param[i]->put(swme_, nullptr);
 	}
 
 	notifyDone();
@@ -355,15 +343,19 @@ MfnrTunDsTask::MfnrTunDsTask(MFNRFrames &mfnr,
 			     Scheduler *scheduler,
 			     const std::string &id, Request *request, MfnrTunManager *manager,
 			     uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Capture_mfnr, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	dsTun = mfnr.dsFrames.in.tunbufi;
-	camSysMetaRequestId_ = camSysMetaRequestId;
 	bssOrder_ = mfnr.bss_order;
 }
 
 void MfnrTunDsTask::run()
 {
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+
 	auto &bssOrder = bssOrder_->get();
 
 	for (auto i = 0; i < (int)bssOrder.size() + 1; i++) {
@@ -371,29 +363,17 @@ void MfnrTunDsTask::run()
 	}
 
 	for (auto i = 0; i < (int)bssOrder.size() + 1; i++) {
-		ImgMetaRequest request = {};
-		request = ImgMetaRequest{
-			.isCapture = true,
-			.isMfnr = true,
-			.stage = NSIspTuning::EStage_DS,
-			.tuningBuffer = dsTun[i]->get(),
-			.statisticsBuffer = {},
-			.swHistBuffer = {},
-			.inputSize = manager_->mfnrSizes_[0],
-			.outputSize = manager_->yuvOutput1Size_,
-			.outputSize2 = manager_->yuvOutput2Size_,
-			.fullDipSize = manager_->mfnrSizes_[0],
-			.reserved = {}
-		};
-
-		{
-			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			int frameNumber = (i == 0 || i == 1) ? internalRequestId_ + bssOrder[0] : internalRequestId_ + bssOrder[i - 1];
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
-		}
+		int frameNumber = (i == 0 || i == 1) ? internalRequestId_ + bssOrder[0] : internalRequestId_ + bssOrder[i - 1];
+		request = ipa::mtkisp7::ImgMetaRequestData(
+			true, NSIspTuning::EStage_DS,
+			dsTun[i]->get().buffer()->cookie(),
+			0, 0, manager_->mfnrSizes_[0],
+			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+		requests.push_back(std::move(request));
 	}
 
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 MfnrTunMcdsF1Task::MfnrTunMcdsF1Task(MFNRFrames &mfnr,
@@ -401,46 +381,39 @@ MfnrTunMcdsF1Task::MfnrTunMcdsF1Task(MFNRFrames &mfnr,
 				     Scheduler *scheduler,
 				     const std::string &id, Request *request, MfnrTunManager *manager,
 				     uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Capture_mfnr, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	mcdsF1Tun_.resize(kInputRawCount - 1);
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		mcdsF1Tun_[i] = mfnr.mcdsF1Frames.in.tunbufi[i];
 	}
 	bssOrder_ = mfnr.bss_order;
-	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunMcdsF1Task::run()
 {
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		manager_->mfnrTun_.fetch(mcdsF1Tun_[i]);
 		//fillTuning(mcdsF1Tun_[i], tuningBuffers.capture_MCDS_F1_tunbufi);
 	}
 	auto &bssOrder = bssOrder_->get();
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		ImgMetaRequest request = {};
-		request = ImgMetaRequest{
-			.isCapture = true,
-			.isMfnr = true,
-			.stage = NSIspTuning::EStage_MCDS_F1,
-			.tuningBuffer = mcdsF1Tun_[i]->get(),
-			.statisticsBuffer = {},
-			.swHistBuffer = {},
-			.inputSize = manager_->mfnrSizes_[0],
-			.outputSize = manager_->yuvOutput1Size_,
-			.outputSize2 = manager_->yuvOutput2Size_,
-			.fullDipSize = manager_->mfnrSizes_[0],
-			.reserved = {}
-		};
-
-		{
-			int frameNumber = internalRequestId_ + bssOrder[i + 1];
-			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
-		}
+		int frameNumber = internalRequestId_ + bssOrder[i + 1];
+		request = ipa::mtkisp7::ImgMetaRequestData(
+			true, NSIspTuning::EStage_MCDS_F1,
+			mcdsF1Tun_[i]->get().buffer()->cookie(),
+			0, 0, manager_->mfnrSizes_[0],
+			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+		requests.push_back(std::move(request));
 	}
-	notifyDone();
+
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 MfnrTunDsVbiTask::MfnrTunDsVbiTask(MFNRFrames &mfnr,
@@ -448,17 +421,21 @@ MfnrTunDsVbiTask::MfnrTunDsVbiTask(MFNRFrames &mfnr,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Capture_mfnr, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	// 0 for BFBLD_BASE Task
 	dsVbiV2Tun_ = mfnr.dsVbiFramesV2.in.tunbufi;
 	dsVbiV5Tun_ = mfnr.dsVbiFramesV5.in.tunbufi;
-	camSysMetaRequestId_ = camSysMetaRequestId;
 	bssOrder_ = mfnr.bss_order;
 }
 
 void MfnrTunDsVbiTask::run()
 {
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+
 	auto bssOrder = bssOrder_->get();
 	for (auto i = 0; i < (int)bssOrder.size() - 1; i++) {
 		manager_->mfnrTun_.fetch(dsVbiV2Tun_[i]);
@@ -469,46 +446,24 @@ void MfnrTunDsVbiTask::run()
 	//fillTuning(dsVbiV5Tun_, tuningBuffers.capture_DS_VBI_V5_tunbufi);
 	for (auto i = 0; i < (int)bssOrder.size() - 1; i++) {
 		int frameNumber = internalRequestId_ + bssOrder[i + 1];
-		ImgMetaRequest request = {};
-		request = ImgMetaRequest{
-			.isCapture = true,
-			.isMfnr = true,
-			.stage = NSIspTuning::EStage_DS_VBI_V2,
-			.tuningBuffer = dsVbiV2Tun_[i]->get(),
-			.statisticsBuffer = {},
-			.swHistBuffer = {},
-			.inputSize = manager_->mfnrSizes_[1],
-			.outputSize = manager_->yuvOutput1Size_,
-			.outputSize2 = manager_->yuvOutput2Size_,
-			.fullDipSize = manager_->mfnrSizes_[0],
-			.reserved = {}
-		};
+		request = ipa::mtkisp7::ImgMetaRequestData(
+			true, NSIspTuning::EStage_DS_VBI_V2,
+			dsVbiV2Tun_[i]->get().buffer()->cookie(),
+			0, 0, manager_->mfnrSizes_[1],
+			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+		requests.push_back(std::move(request));
 
-		{
-			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
-		}
-
-		request = ImgMetaRequest{
-			.isCapture = true,
-			.isMfnr = true,
-			.stage = NSIspTuning::EStage_DS_VBI_V5,
-			.tuningBuffer = dsVbiV5Tun_[i]->get(),
-			.statisticsBuffer = {},
-			.swHistBuffer = {},
-			.inputSize = manager_->mfnrSizes_[4],
-			.outputSize = manager_->yuvOutput1Size_,
-			.outputSize2 = manager_->yuvOutput2Size_,
-			.fullDipSize = manager_->mfnrSizes_[0],
-			.reserved = {}
-		};
-
-		{
-			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
-		}
+		request = ipa::mtkisp7::ImgMetaRequestData(
+			true, NSIspTuning::EStage_DS_VBI_V5,
+			dsVbiV5Tun_[i]->get().buffer()->cookie(),
+			0, 0, manager_->mfnrSizes_[4],
+			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+		requests.push_back(std::move(request));
 	}
-	notifyDone();
+
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
@@ -516,7 +471,9 @@ MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Capture_mfnr, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	msbldF0Tun_.resize(kInputRawCount - 2);
 	msbldF1Tun_.resize(kInputRawCount - 2);
@@ -535,11 +492,13 @@ MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
 		msbldF6Tun_[i] = mfnr.msbldF6.in.tunbufi[i];
 	}
 	bssOrder_ = mfnr.bss_order;
-	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunMsbldTask::run()
 {
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+
 	for (auto i = 0; i < kInputRawCount - 2; i++) {
 		manager_->mfnrTun_.fetch(msbldF0Tun_[i]);
 		manager_->mfnrTun_.fetch(msbldF1Tun_[i]);
@@ -564,31 +523,19 @@ void MfnrTunMsbldTask::run()
 	for (auto i = 0; i < kInputRawCount - 2; i++) {
 		for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
 			int size_idx = it->first - EStage_MSBLD_F0;
-			ImgMetaRequest request = {};
-			request = ImgMetaRequest{
-				.isCapture = true,
-				.isMfnr = true,
-				.stage = it->first,
-				.tuningBuffer = it->second[i]->get(),
-				.statisticsBuffer = {},
-				.swHistBuffer = {},
-				.inputSize = manager_->mfnrSizes_[size_idx],
-				.outputSize = manager_->yuvOutput1Size_,
-				.outputSize2 = manager_->yuvOutput2Size_,
-				.fullDipSize = manager_->mfnrSizes_[0],
-				.tnr_frameIndex = i,
-				.tnr_frameTotal = kInputRawCount,
-				.reserved = {},
-			};
 			int frameNumber = internalRequestId_ + bssOrder[i + 1];
-			{
-				DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-				manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
-			}
+			request = ipa::mtkisp7::ImgMetaRequestData(
+				true, it->first,
+				it->second[i]->get().buffer()->cookie(),
+				0, 0, manager_->mfnrSizes_[size_idx],
+				manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+				manager_->mfnrSizes_[0], {}, true, i,
+				kInputRawCount, true, frameNumber);
+			requests.push_back(std::move(request));
 		}
 	}
 
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
@@ -596,7 +543,9 @@ MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
-	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Capture_mfnr, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	afbldF0Tun_.resize(1);
 	afbldF1Tun_.resize(1);
@@ -614,11 +563,13 @@ MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
 	afbldF6Tun_[0] = mfnr.afbldF6.in.tunbufi[0];
 	bssOrder_ = mfnr.bss_order;
 	tncso_ = mfnr.afbldF0.tncso;
-	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunAfbldTask::run()
 {
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+
 	manager_->mfnrTun_.fetch(afbldF0Tun_[0]);
 	manager_->mfnrTun_.fetch(afbldF1Tun_[0]);
 	manager_->mfnrTun_.fetch(afbldF2Tun_[0]);
@@ -639,49 +590,35 @@ void MfnrTunAfbldTask::run()
 	auto bssOrder = bssOrder_->get();
 	for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
 		int size_idx = it->first - EStage_AFBLD_F0;
-		ImgMetaRequest request = {};
-		if (it->first == NSIspTuning::EStage_AFBLD_F0) {
-			request = ImgMetaRequest{
-				.isCapture = true,
-				.isMfnr = true,
-				.stage = it->first,
-				.tuningBuffer = it->second[0]->get(),
-				.statisticsBuffer = tncso_->get(),
-				.swHistBuffer = {},
-				.inputSize = manager_->mfnrSizes_[size_idx],
-				.outputSize = manager_->yuvOutput1Size_,
-				.outputSize2 = manager_->yuvOutput2Size_,
-				.fullDipSize = manager_->mfnrSizes_[0],
-				.tnr_frameIndex = kInputRawCount - 2,
-				.tnr_frameTotal = kInputRawCount,
-				.reserved = {},
-			};
-		} else {
-			request = ImgMetaRequest{
-				.isCapture = true,
-				.isMfnr = true,
-				.stage = it->first,
-				.tuningBuffer = it->second[0]->get(),
-				.statisticsBuffer = {},
-				.swHistBuffer = {},
-				.inputSize = manager_->mfnrSizes_[size_idx],
-				.outputSize = manager_->yuvOutput1Size_,
-				.outputSize2 = manager_->yuvOutput2Size_,
-				.fullDipSize = manager_->mfnrSizes_[0],
-				.tnr_frameIndex = kInputRawCount - 2,
-				.tnr_frameTotal = kInputRawCount,
-				.reserved = {},
-			};
-		}
 		int frameNumber = internalRequestId_ + bssOrder[bssOrder.size() - 1];
 
-		{
-			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
+		if (it->first == NSIspTuning::EStage_AFBLD_F0) {
+			request = ipa::mtkisp7::ImgMetaRequestData(
+				true, it->first,
+				it->second[0]->get().buffer()->cookie(),
+				tncso_->get().buffer()->cookie(), 0,
+				manager_->mfnrSizes_[size_idx],
+				manager_->yuvOutput1Size_,
+				manager_->yuvOutput2Size_,
+				manager_->mfnrSizes_[0], {}, true,
+				kInputRawCount - 2, kInputRawCount, true,
+				frameNumber);
+		} else {
+			request = ipa::mtkisp7::ImgMetaRequestData(
+				true, it->first,
+				it->second[0]->get().buffer()->cookie(),
+				0, 0, manager_->mfnrSizes_[size_idx],
+				manager_->yuvOutput1Size_,
+				manager_->yuvOutput2Size_,
+				manager_->mfnrSizes_[0], {}, true,
+				kInputRawCount - 2, kInputRawCount, true,
+				frameNumber);
 		}
+
+		requests.push_back(std::move(request));
 	}
 
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 } // namespace libcamera

@@ -6,10 +6,7 @@
 
 #pragma once
 
-#include <memory>
-
 #include <libcamera/base/signal.h>
-#include <libcamera/base/thread.h>
 
 #include <libcamera/geometry.h>
 
@@ -18,13 +15,15 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/imgsys/mcnr.h"
+#include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
-#include "hal_isp.h"
+#include "imgsys_task.h"
 
 namespace libcamera {
 
 class DmaHeap;
+class MtkISP7CameraData;
 class PipelineHandler;
 class McnrMeATask;
 class McnrMeBTask;
@@ -34,7 +33,7 @@ class McnrDipTask;
 class McnrTunManager
 {
 public:
-	McnrTunManager(DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
+	McnrTunManager(DmaHeap *dmaHeap, IPADelegate *ipa, OnDeviceTuner *odt);
 	~McnrTunManager();
 
 	int configure(const Size &yuvInputSize, const Size &yuvOutputSize1,
@@ -55,6 +54,7 @@ private:
 	friend McnrMeBTask;
 	friend McnrTrTask;
 	friend McnrDipTask;
+	friend MtkISP7CameraData;
 
 	bool needCropTNC16x9_;
 
@@ -80,13 +80,11 @@ private:
 	std::vector<InfoFramePool *> poolsWritenByCpu_;
 
 	DmaHeap *dmaHeap_;
-	HalIsp *halIsp_;
+	IPADelegate *ipa_;
 	OnDeviceTuner *onDeviceTuner_;
-
-	Thread threadHalIsp_;
 };
 
-class McnrMeATask : public Task
+class McnrMeATask : public ImgSysTask
 {
 public:
 	McnrMeATask(MCNRFrames &mcnr,
@@ -108,15 +106,12 @@ public:
 
 	SharedMailBox<InfoFrame> fwMeFst;
 
-	uint32_t camSysMetaRequestId_;
-
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };
 
-class McnrMeBTask : public Task
+class McnrMeBTask : public ImgSysTask
 {
 public:
 	McnrMeBTask(MCNRFrames &mcnr,
@@ -141,15 +136,12 @@ public:
 
 	SharedMailBox<InfoFrame> swHist;
 
-	uint32_t camSysMetaRequestId_;
-
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };
 
-class McnrTrTask : public Task
+class McnrTrTask : public ImgSysTask
 {
 public:
 	McnrTrTask(MCNRFrames &mcnr,
@@ -160,20 +152,17 @@ public:
 
 	virtual void run() override final;
 
-	uint32_t camSysMetaRequestId_;
-
 	SharedMailBox<InfoFrame> trTunF1;
 	SharedMailBox<InfoFrame> trTunF4;
 
 	SharedMailBox<InfoFrame> swHist;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };
 
-class McnrDipTask : public Task
+class McnrDipTask : public ImgSysTask
 {
 public:
 	McnrDipTask(MCNRFrames &mcnr,
@@ -183,8 +172,6 @@ public:
 		    uint32_t internalRequestId);
 
 	virtual void run() override final;
-
-	uint32_t camSysMetaRequestId_;
 
 	SharedMailBox<InfoFrame> fwMeFst;
 	SharedMailBox<InfoFrame> trawStt;
@@ -198,7 +185,6 @@ public:
 	SharedMailBox<InfoFrame> swHist;
 
 	Request *request_;
-	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
 };

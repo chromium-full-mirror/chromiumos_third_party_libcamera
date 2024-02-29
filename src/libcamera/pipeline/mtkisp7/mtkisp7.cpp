@@ -25,7 +25,6 @@
 
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/device_enumerator.h"
-#include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/gyro_sensor.h"
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/media_device.h"
@@ -205,19 +204,20 @@ class MtkISP7CameraData : public Camera::Private
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
 			  ImgSysDevice *imgSysDev, GyroSensor *gyroSensor, AieDevice *aieDev, OnDeviceTuner *odt,
-			  FaceDetector *faceDetector, DmaHeap *dmaHeap, HalIsp *halIsp,
+			  FaceDetector *faceDetector, DmaHeap *dmaHeap,
 			  int32_t sensor_idx)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
 		  gyroSensor_(gyroSensor), aieDev_(aieDev),
+		  ipa_(std::make_unique<IPADelegate>()),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
 		  mfnrManager(imgSysDev, dmaHeap, odt),
-		  lpnrTunManager(dmaHeap, halIsp, odt),
-		  mcnrTunManager(dmaHeap, halIsp, odt),
-		  mfnrTunManager(dmaHeap, halIsp, odt),
+		  lpnrTunManager(dmaHeap, ipa_.get(), odt),
+		  mcnrTunManager(dmaHeap, ipa_.get(), odt),
+		  mfnrTunManager(dmaHeap, ipa_.get(), odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap),
-		  halIsp_(halIsp), captureResult_(5), sensor_idx_(sensor_idx),
+		  captureResult_(5), sensor_idx_(sensor_idx),
 		  control_cache_(nullptr)
 	{
 	}
@@ -261,6 +261,10 @@ public:
 	GyroSensor *gyroSensor_;
 
 	AieDevice *aieDev_;
+
+	Thread ipaThread_;
+	std::unique_ptr<IPADelegate> ipa_;
+
 	CaptureTasksManager captureManager;
 	Hal3AManager hal3AManager_;
 
@@ -277,11 +281,7 @@ public:
 	FaceDetector *faceDetector_;
 	DmaHeap *dmaHeap_;
 
-	HalIsp *halIsp_;
-
 	History<CaptureResult> captureResult_;
-	Thread ipaThread_;
-	std::unique_ptr<IPADelegate> ipa_;
 
 	uint32_t requestCount_ = 0;
 
@@ -343,8 +343,6 @@ public:
 	MediaDevice *camSysMedia_;
 	CamSysDevice camSysDev_[2];
 	GyroSensor gyroSensor_;
-
-	HalIsp halIsp_[2];
 
 	MediaDevice *imgSysMedia_;
 	ImgSysDevice imgSysDev_;
@@ -480,7 +478,6 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 	: PipelineHandler(manager),
 	  camSysDev_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
-	  halIsp_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
 	  imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
 {
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
@@ -668,8 +665,6 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		return false;
 	}
 
-	// TODO: Remove this when we migrate IHalIsp to IPA as well.
-	std::vector<Hal3A *> hal3As;
 	uint32_t sensorCnt = 0;
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i))
@@ -760,13 +755,12 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 				this, &camSysDev_[i], &imgSysDev_,
 				errGyro ? nullptr : &gyroSensor_, &aieDev_,
 				&onDeviceTuner_, &faceDetector_,
-				dmaHeap_.get(), &halIsp_[i], i);
+				dmaHeap_.get(), i);
 
 		if (data->loadIPA()) {
 			LOG(MtkISP7, Error) << "Failed to loadIPA, index: " << i;
 			continue;
 		}
-		hal3As.push_back(data->ipa_->getHal3A());
 
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
@@ -792,9 +786,6 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	if (sensorCnt < 2)
 		return false;
 
-	halIsp_[0].init(0, 1, hal3As[0]);
-	halIsp_[1].init(1, 2, hal3As[1]);
-
 	// TODO: Only init imgsys when there is sensor detected.
 	// A temporary hack for factory testing. Find a more proper way to
 	// handle this case.
@@ -806,13 +797,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 int MtkISP7CameraData::loadIPA()
 {
-	ipa_ = std::make_unique<IPADelegate>();
-	ipa_->moveToThread(&ipaThread_);
-
-	if (!ipa_)
-		return -ENOENT;
-
-	ipa_->preInit(halIsp_, onDeviceTuner_);
+	ipa_->preInit(onDeviceTuner_);
 	if (ipa_->init(sensor_idx_)) {
 		LOG(MtkISP7, Error) << "IPA init failed";
 	}
@@ -822,8 +807,6 @@ int MtkISP7CameraData::loadIPA()
 
 int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 {
-	ipaThread_.start();
-
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 	control_cache_.reset();
@@ -962,6 +945,98 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&captureManager.statistics1Pool_);
 	registerIPABuffers(&hal3AManager_.tuningPool_);
 
+	registerIPABuffers(&lpnrManager.lpnrStt_);
+	for (unsigned i = 0; i < lpnrManager.lpnr_.size(); ++i)
+		registerIPABuffers(&lpnrManager.lpnr_[i]);
+	registerIPABuffers(&lpnrTunManager.lpnrTun_);
+
+	registerIPABuffers(&mcnrTunManager.fwmeFst_);
+	registerIPABuffers(&mcnrTunManager.fwmmFst_);
+	registerIPABuffers(&mcnrTunManager.fwmmRst_);
+	registerIPABuffers(&mcnrTunManager.fwmmMil_);
+	registerIPABuffers(&mcnrTunManager.fwmmGyro_);
+	registerIPABuffers(&mcnrTunManager.swHist_);
+	registerIPABuffers(&mcnrTunManager.meTun_);
+	registerIPABuffers(&mcnrTunManager.wpeTun_);
+	registerIPABuffers(&mcnrTunManager.dipTun_);
+	registerIPABuffers(&mcnrTunManager.trawTun_);
+	registerIPABuffers(&mcnrManager.fwmeFst_);
+	registerIPABuffers(&mcnrManager.fwmmFst);
+	registerIPABuffers(&mcnrManager.fwmmRst_);
+	registerIPABuffers(&mcnrManager.fwmmMil_);
+	registerIPABuffers(&mcnrManager.fwmmGyro_);
+	registerIPABuffers(&mcnrManager.meIn_);
+	registerIPABuffers(&mcnrManager.meMv0_);
+	registerIPABuffers(&mcnrManager.meMv1_);
+	registerIPABuffers(&mcnrManager.meFst_);
+	registerIPABuffers(&mcnrManager.meLmi_);
+	registerIPABuffers(&mcnrManager.meFmb0_);
+	registerIPABuffers(&mcnrManager.meFmb1_);
+	registerIPABuffers(&mcnrManager.meMmap0_);
+	registerIPABuffers(&mcnrManager.meMmap1_);
+	registerIPABuffers(&mcnrManager.meMmap2_);
+	registerIPABuffers(&mcnrManager.meMmap3_);
+	registerIPABuffers(&mcnrManager.meConf0_);
+	registerIPABuffers(&mcnrManager.meConf4_);
+	registerIPABuffers(&mcnrManager.meConf5_);
+	registerIPABuffers(&mcnrManager.trawStt_);
+	registerIPABuffers(&mcnrManager.idi_);
+	registerIPABuffers(&mcnrManager.tnrSo_);
+	registerIPABuffers(&mcnrManager.img4oF0_);
+	registerIPABuffers(&mcnrManager.img4oF1_);
+
+	for (unsigned i = 0; i < mcnrManager.wt_.size(); ++i)
+		registerIPABuffers(&mcnrManager.wt_[i]);
+	for (unsigned i = 0; i < mcnrManager.img3o_.size(); ++i)
+		registerIPABuffers(&mcnrManager.img3o_[i]);
+	for (unsigned i = 0; i < mcnrManager.tnrmo_.size(); ++i)
+		registerIPABuffers(&mcnrManager.tnrmo_[i]);
+	for (unsigned i = 0; i < mcnrManager.vbi_.size(); ++i)
+		registerIPABuffers(&mcnrManager.vbi_[i]);
+
+	registerIPABuffers(&mfnrTunManager.mfnrTun_);
+
+	for (unsigned i = 0; i < mfnrManager.mfnr_.size(); ++i)
+		registerIPABuffers(&mcnrManager.wt_[i]);
+
+	registerIPABuffers(&mfnrManager.bssParamPool_);
+	registerIPABuffers(&mfnrManager.bssDataGPool_);
+	registerIPABuffers(&mfnrManager.bssVerPool_);
+	registerIPABuffers(&mfnrManager.bssTuningPool_);
+	registerIPABuffers(&mfnrManager.bssFdMainPool_);
+	registerIPABuffers(&mfnrManager.bssFdPool_);
+	registerIPABuffers(&mfnrManager.bssFacePool_);
+	registerIPABuffers(&mfnrManager.bssPosPool_);
+	registerIPABuffers(&mfnrManager.bssOutDataPool_);
+	registerIPABuffers(&mfnrManager.swmeParamPool_);
+	registerIPABuffers(&mfnrManager.swmeOutPool_);
+	registerIPABuffers(&mfnrManager.swmeTuningPool_);
+	registerIPABuffers(&mfnrManager.tunbufiPool_);
+	registerIPABuffers(&mfnrManager.wrap2pPool_);
+	registerIPABuffers(&mfnrManager.p2sttoPool_);
+	registerIPABuffers(&mfnrManager.tnrciPool_);
+	registerIPABuffers(&mfnrManager.yuvp010_1_1_pool_);
+	registerIPABuffers(&mfnrManager.yuvp010_1_4_pool_);
+	registerIPABuffers(&mfnrManager.yuvp010_1_4_pool_aligned16_);
+	registerIPABuffers(&mfnrManager.yuvp012_1_1_pool_);
+	registerIPABuffers(&mfnrManager.yuvp012_1_2_pool_);
+	registerIPABuffers(&mfnrManager.yuvp012_1_4_pool_);
+	registerIPABuffers(&mfnrManager.yuvp012_1_8_pool_);
+	registerIPABuffers(&mfnrManager.yuvp012_1_16_pool_);
+	registerIPABuffers(&mfnrManager.yuvp012_1_32_pool_);
+	registerIPABuffers(&mfnrManager.yuvp012_1_64_pool_);
+	registerIPABuffers(&mfnrManager.y8_1_1_pool_);
+	registerIPABuffers(&mfnrManager.y8_1_2_pool_);
+	registerIPABuffers(&mfnrManager.y8_1_4_pool_);
+	registerIPABuffers(&mfnrManager.y8_1_8_pool_);
+	registerIPABuffers(&mfnrManager.y8_1_16_pool_);
+	registerIPABuffers(&mfnrManager.y8_1_32_pool_);
+	registerIPABuffers(&mfnrManager.fourBytes_pool_);
+	registerIPABuffers(&mfnrManager.nv12_1_64_pool_);
+	registerIPABuffers(&mfnrManager.nv21_1_1_pool_);
+	registerIPABuffers(&mfnrManager.nv12_wroto_pool_);
+	registerIPABuffers(&mfnrManager.memc_workbuf_pool_);
+
 	ipa_->mapBuffers(ipaBuffers_);
 }
 
@@ -1011,9 +1086,6 @@ void MtkISP7CameraData::stopDevice()
 
 	ipa_->stop();
 	freeIPABuffers();
-
-	ipaThread_.exit();
-	ipaThread_.wait();
 }
 
 void MtkISP7CameraData::releaseDevice()
@@ -1135,10 +1207,21 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 
-	ipa_->configure(camsysYuvSize, faceDetector_, isVideo);
-	halIsp_->configure(video1 > video2 ? video1 : video2,
-			   still1 > still2 ? still1 : still2,
-			   isVideo);
+	std::vector<uint8_t> swmeParam, bssParam;
+	ipa_->configure(camsysYuvSize, faceDetector_,
+			video1 > video2 ? video1 : video2,
+			still1 > still2 ? still1 : still2,
+			isVideo,
+			&swmeParam,
+			&bssParam);
+
+	auto swme = std::make_shared<mtk::isphal::v1::isp_swme_Param>();
+	memcpy(swme.get(), swmeParam.data(),
+	       sizeof(mtk::isphal::v1::isp_swme_Param));
+
+	auto bss = std::make_shared<mtk::isphal::v1::isp_bss_Param>();
+	memcpy(bss.get(), bssParam.data(),
+	       sizeof(mtk::isphal::v1::isp_bss_Param));
 
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_, ipa_.get());
@@ -1156,7 +1239,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 				      video1, video2,
 				      faceDetector_,
 				      sensor_idx_);
-		mfnrTunManager.configure(sensorFullSize_, still1, still2);
+		mfnrTunManager.configure(sensorFullSize_, still1, still2, swme, bss);
 	}
 
 	return 0;

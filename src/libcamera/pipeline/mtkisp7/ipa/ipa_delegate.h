@@ -14,6 +14,7 @@ namespace libcamera {
 class AATask;
 class AFTask;
 class MtkISP7CameraData;
+class ImgSysTask;
 
 class IPADelegate : public Object
 {
@@ -25,7 +26,12 @@ public:
 	int start(const uint32_t rawMetaBufferId);
 	void stop();
 
-	int configure(const Size &camsysYuvSize, FaceDetector *faceDetector, bool isVideo);
+	int configure(const Size &camsysYuvSize, FaceDetector *faceDetector,
+		      const Size &maxVideoSize,
+		      const Size &maxStillSize,
+		      bool isVideo,
+		      std::vector<uint8_t> *swmeParam,
+		      std::vector<uint8_t> *bssParam);
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers);
 	void unmapBuffers(const std::vector<unsigned int> &ids);
@@ -50,11 +56,18 @@ public:
 		const ipa::mtkisp7::VcmFocusInformation &vcmFocusInfo,
 		const ControlList &controls);
 
+	void getImgSysMetaTuning(
+		ImgSysTask *imgSysTask,
+		const uint32_t camSysMetaRequestId,
+		const uint32_t frame,
+		const bool needCropTNC16x9,
+		const Feature feature,
+		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests);
+
 	// Workaround
-	Hal3A *getHal3A() { return ipa_.hal3A_.get(); }
-	void preInit(HalIsp *halIsp, OnDeviceTuner *odt)
+	void preInit(OnDeviceTuner *odt)
 	{
-		ipa_.preInit(halIsp, odt);
+		ipa_.preInit(odt);
 	}
 
 private:
@@ -70,12 +83,17 @@ private:
 			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange);
 	void AFResultReady(uint32_t id, int32_t position);
 
+	void ImgSysMetaTuningDone(uint64_t cookie);
+
 	ipa::mtkisp7::IPAMtkISP7 ipa_;
 
 	FaceDetector *faceDetector_;
 
 	std::unordered_map<uint32_t, AATask *> aaTasks_;
 	std::unordered_map<uint32_t, AFTask *> afTasks_;
+
+	uint64_t imgSysCookieCounter_ = 1;
+	std::unordered_map<uint64_t, ImgSysTask *> imgSysTasks_;
 };
 
 } // namespace libcamera

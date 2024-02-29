@@ -6,10 +6,7 @@
 
 #include "mcnr_tun.h"
 
-#include <memory>
-
 #include <libcamera/base/signal.h>
-#include <libcamera/base/thread.h>
 
 #include <libcamera/formats.h>
 #include <libcamera/geometry.h>
@@ -18,10 +15,9 @@
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/task_scheduler.h"
 
+#include "../utils/img_meta_request_data_helper.h"
 #include "mtkcam-interfaces/isphal/IspTuningMeta.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
-
-#include "hal_isp.h"
 
 namespace libcamera {
 
@@ -139,7 +135,7 @@ static TuningBuffers tuningBuffers;
 }
 
 McnrTunManager::McnrTunManager(
-	DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt)
+	DmaHeap *dmaHeap, IPADelegate *ipa, OnDeviceTuner *odt)
 {
 	poolsWritenByCpu_.emplace_back(&fwmeFst_);
 	poolsWritenByCpu_.emplace_back(&fwmmFst_);
@@ -154,17 +150,11 @@ McnrTunManager::McnrTunManager(
 	poolsWritenByCpu_.emplace_back(&trawTun_);
 
 	dmaHeap_ = dmaHeap;
-	halIsp_ = halIsp;
+	ipa_ = ipa;
 	onDeviceTuner_ = odt;
-
-	threadHalIsp_.start();
 }
 
-McnrTunManager::~McnrTunManager()
-{
-	threadHalIsp_.exit();
-	threadHalIsp_.wait();
-}
+McnrTunManager::~McnrTunManager() = default;
 
 void McnrTunManager::allocateBuffers()
 {
@@ -241,11 +231,6 @@ McnrTunManager::makeMcnrTunTasks(
 	McnrDipTask *dipTunTask = new McnrDipTask(
 		mcnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
-	meATunTask->moveToThread(&threadHalIsp_);
-	meBTunTask->moveToThread(&threadHalIsp_);
-	trTunTask->moveToThread(&threadHalIsp_);
-	dipTunTask->moveToThread(&threadHalIsp_);
-
 	return std::make_tuple(meATunTask, meBTunTask, trTunTask, dipTunTask);
 }
 
@@ -254,9 +239,9 @@ McnrMeATask::McnrMeATask(MCNRFrames &mcnr,
 			 Scheduler *scheduler,
 			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
-	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
-	  request_(request), internalRequestId_(internalRequestId),
-	  manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Preview, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	(void)mcnr;
 
@@ -280,60 +265,32 @@ void McnrMeATask::run()
 
 	manager_->trawTun_.fetch(trMeTun);
 
-	ImgMetaRequest request = {};
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_LTR_ME_L1,
-		.tuningBuffer = trMeTun->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = Size{ 576, 432 },
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_LTR_ME_L1, trMeTun->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), Size{ 576, 432 },
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	requests.push_back(std::move(request));
 
 	manager_->meTun_.fetch(meATun);
 	manager_->fwmeFst_.fetch(fwMeFst);
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_ME_3PASS_MODE0,
-		.tuningBuffer = meATun->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->yuvInputSize_,
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_ME_3PASS_MODE0, meATun->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->yuvInputSize_,
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = prevFwMeFst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWMM_MMG_FBFST] = prevFwMmFst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = prevPrevMeAFst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD1] = prevPrevMeBFst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_OUT_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = prevFwMeFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWMM_MMG_FBFST] = prevFwMmFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = prevPrevMeAFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD1] = prevPrevMeBFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_OUT_FWME_FST] = fwMeFst->get();
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		DmaSyncer syncerMeAFst(prevPrevMeAFst->get().buffer()->planes()[0].fd.get());
-		DmaSyncer syncerMeBFst(prevPrevMeBFst->get().buffer()->planes()[0].fd.get());
-
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 McnrMeBTask::McnrMeBTask(MCNRFrames &mcnr,
@@ -341,9 +298,9 @@ McnrMeBTask::McnrMeBTask(MCNRFrames &mcnr,
 			 Scheduler *scheduler,
 			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
-	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
-	  request_(request), internalRequestId_(internalRequestId),
-	  manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Preview, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	meBTun = mcnr.meFrames.in.meBTun;
 	meMil = mcnr.meFrames.in.meMil;
@@ -371,68 +328,34 @@ void McnrMeBTask::run()
 	/* TODO: Read the Gyro data from gyro sensor */
 	zeroImage(fwMmGryo);
 
-	ImgMetaRequest request = {};
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_ME_3PASS_MM,
-		.tuningBuffer = meBTun->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->yuvInputSize_,
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
 
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = meAFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FMB_MD0] = meAFmb0->get();
-	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MMG_FBFST] = fwMmFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MMG_RST] = fwMmRst->get();
-	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MIL] = meMil->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_GYRO_MV] = fwMmGryo->get();
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_ME_3PASS_MM, meBTun->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->yuvInputSize_,
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = meAFst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FMB_MD0] = meAFmb0->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MMG_FBFST] = fwMmFst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MMG_RST] = fwMmRst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_OUT_FWMM_MIL] = meMil->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_GYRO_MV] = fwMmGryo->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		DmaSyncer syncerMil(meMil->get().buffer()->planes()[0].fd.get());
-		DmaSyncer syncerMeAFst(meAFst->get().buffer()->planes()[0].fd.get());
-		DmaSyncer syncerMeAFmb0(meAFmb0->get().buffer()->planes()[0].fd.get());
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_ME_3PASS_MODE1, meBTun->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->yuvInputSize_,
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_MODE_0_TUN_BUF] = meATun->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = meAFst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWMM_MMG_RST] = fwMmRst->get().buffer()->cookie();
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-
-		manager_->onDeviceTuner_->tuneMeMM(internalRequestId_, meBTun);
-	}
-
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_ME_3PASS_MODE1,
-		.tuningBuffer = meBTun->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->yuvInputSize_,
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_MODE_0_TUN_BUF] = meATun->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_HWME_STAT_FST_MD0] = meAFst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWMM_MMG_RST] = fwMmRst->get();
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		DmaSyncer syncerMeAFst(meAFst->get().buffer()->planes()[0].fd.get());
-
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 McnrTrTask::McnrTrTask(MCNRFrames &mcnr,
@@ -440,9 +363,9 @@ McnrTrTask::McnrTrTask(MCNRFrames &mcnr,
 		       Scheduler *scheduler,
 		       const std::string &id, Request *request, McnrTunManager *manager,
 		       uint32_t internalRequestId)
-	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
-	  request_(request), internalRequestId_(internalRequestId),
-	  manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Preview, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	trTunF1 = mcnr.trFrames.in.trTunF1;
 	trTunF4 = mcnr.trFrames.in.trTunF4;
@@ -452,53 +375,28 @@ McnrTrTask::McnrTrTask(MCNRFrames &mcnr,
 
 void McnrTrTask::run()
 {
-	ImgMetaRequest request = {};
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
 
 	manager_->trawTun_.fetch(trTunF1);
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_TR_Y2Y_F1,
-		.tuningBuffer = trTunF1->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[1],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_TR_Y2Y_F1, trTunF1->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->mcnrSizes[1],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	requests.push_back(std::move(request));
 
 	manager_->trawTun_.fetch(trTunF4);
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_TR_Y2Y_F4,
-		.tuningBuffer = trTunF4->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[4],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_TR_Y2Y_F4, trTunF4->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->mcnrSizes[4],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	requests.push_back(std::move(request));
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 McnrDipTask::McnrDipTask(MCNRFrames &mcnr,
@@ -506,9 +404,9 @@ McnrDipTask::McnrDipTask(MCNRFrames &mcnr,
 			 Scheduler *scheduler,
 			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
-	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
-	  request_(request), internalRequestId_(internalRequestId),
-	  manager_(manager)
+	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
+		     Feature::Preview, manager->ipa_),
+	  request_(request), manager_(manager)
 {
 	fwMeFst = mcnr.meFrames.in.fwMeFst;
 	trawStt = mcnr.trFrames.out.trawStt;
@@ -524,258 +422,113 @@ McnrDipTask::McnrDipTask(MCNRFrames &mcnr,
 
 void McnrDipTask::run()
 {
-	ImgMetaRequest request = {};
+	ipa::mtkisp7::ImgMetaRequestData request;
+	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
 
 	manager_->trawTun_.fetch(ltrTunF1);
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_WPE_LTR_Y2Y_F1,
-		.tuningBuffer = ltrTunF1->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[1],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_WPE_LTR_Y2Y_F1, ltrTunF1->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->mcnrSizes[1],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	requests.push_back(std::move(request));
 
 	manager_->trawTun_.fetch(ltrTunF4);
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_LTR_Y2Y_F4,
-		.tuningBuffer = ltrTunF4->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[4],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_LTR_Y2Y_F4, ltrTunF4->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->mcnrSizes[4],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	requests.push_back(std::move(request));
 
 	manager_->trawTun_.fetch(ltrTunVbi);
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_LTR_VBI,
-		.tuningBuffer = ltrTunVbi->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[3],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_LTR_VBI, ltrTunVbi->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->mcnrSizes[3],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	requests.push_back(std::move(request));
 
 	manager_->wpeTun_.fetch(wpeTun);
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_WPE_WghtMap,
-		.tuningBuffer = wpeTun->get(),
-		.statisticsBuffer = {},
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->yuvInputSize_,
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	// Sync here since all the following DIP stages will access it
-	DmaSyncer syncerStt(trawStt->get().buffer()->planes()[0].fd.get());
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_WPE_WghtMap, wpeTun->get().buffer()->cookie(),
+		0, swHist->get().buffer()->cookie(), manager_->yuvInputSize_,
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	requests.push_back(std::move(request));
 
 	for (size_t i = 0; i < dipTun.size(); i++) {
 		manager_->dipTun_.fetch(dipTun[i]);
 	}
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_P2_IDI,
-		.tuningBuffer = dipTun[6]->get(),
-		.statisticsBuffer = trawStt->get(),
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[6],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_P2_IDI, dipTun[6]->get().buffer()->cookie(),
+		trawStt->get().buffer()->cookie(),
+		swHist->get().buffer()->cookie(), manager_->mcnrSizes[6],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_P2_MS_F_SMALL, dipTun[5]->get().buffer()->cookie(),
+		trawStt->get().buffer()->cookie(),
+		swHist->get().buffer()->cookie(), manager_->mcnrSizes[5],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_P2_MS_F4, dipTun[4]->get().buffer()->cookie(),
+		trawStt->get().buffer()->cookie(),
+		swHist->get().buffer()->cookie(), manager_->mcnrSizes[4],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_P2_MS_F_SMALL,
-		.tuningBuffer = dipTun[5]->get(),
-		.statisticsBuffer = trawStt->get(),
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[5],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_P2_MS_F3, dipTun[3]->get().buffer()->cookie(),
+		trawStt->get().buffer()->cookie(),
+		swHist->get().buffer()->cookie(), manager_->mcnrSizes[3],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_P2_MS_F2, dipTun[2]->get().buffer()->cookie(),
+		trawStt->get().buffer()->cookie(),
+		swHist->get().buffer()->cookie(), manager_->mcnrSizes[2],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_P2_MS_F1, dipTun[1]->get().buffer()->cookie(),
+		trawStt->get().buffer()->cookie(),
+		swHist->get().buffer()->cookie(), manager_->mcnrSizes[1],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_P2_MS_F4,
-		.tuningBuffer = dipTun[4]->get(),
-		.statisticsBuffer = trawStt->get(),
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[4],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
+	request = makeImgMetaRequestDataNonMfnr(
+		false, EStage_WPE_P2_PQDIP_MS_F0, dipTun[0]->get().buffer()->cookie(),
+		trawStt->get().buffer()->cookie(),
+		swHist->get().buffer()->cookie(), manager_->mcnrSizes[0],
+		manager_->yuvOutputSize1_, manager_->yuvOutputSize2_,
+		manager_->yuvInputSize_, {});
+	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get().buffer()->cookie();
+	requests.push_back(std::move(request));
 
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_P2_MS_F3,
-		.tuningBuffer = dipTun[3]->get(),
-		.statisticsBuffer = trawStt->get(),
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[3],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_P2_MS_F2,
-		.tuningBuffer = dipTun[2]->get(),
-		.statisticsBuffer = trawStt->get(),
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[2],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_P2_MS_F1,
-		.tuningBuffer = dipTun[1]->get(),
-		.statisticsBuffer = trawStt->get(),
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[1],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	request = ImgMetaRequest{
-		.isCapture = false,
-		.stage = EStage_WPE_P2_PQDIP_MS_F0,
-		.tuningBuffer = dipTun[0]->get(),
-		.statisticsBuffer = trawStt->get(),
-		.swHistBuffer = swHist->get(),
-		.inputSize = manager_->mcnrSizes[0],
-		.outputSize = manager_->yuvOutputSize1_,
-		.outputSize2 = manager_->yuvOutputSize2_,
-		.fullDipSize = manager_->yuvInputSize_,
-		.reserved = {}
-	};
-
-	request.reserved[mtk::isphal::kISPExtBif_IN_FWME_FST] = fwMeFst->get();
-
-	{
-		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-		manager_->halIsp_->getImgSysMetaTuning(
-			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_, Feature::Preview);
-	}
-
-	notifyDone();
+	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
 }
 
 } /* namespace libcamera */

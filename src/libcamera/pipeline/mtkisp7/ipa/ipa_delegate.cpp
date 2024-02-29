@@ -9,11 +9,11 @@
 
 #include "../face_detect/detector.h"
 #include "../hal3a/aaa.h"
+#include "pipeline/mtkisp7/halisp/imgsys_task.h"
 
 #include "mtkisp7_ipa_interface.h"
 
 namespace libcamera {
-
 LOG_DEFINE_CATEGORY(IPADelegateMtkISP7)
 
 // Don't disconnect to avoid issues of BoundMethod.
@@ -24,6 +24,8 @@ IPADelegate::IPADelegate()
 
 	ipa_.AAResultReady.connect(this, &IPADelegate::AAResultReady);
 	ipa_.AFResultReady.connect(this, &IPADelegate::AFResultReady);
+
+	ipa_.ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
 }
 
 int IPADelegate::init(const int32_t sensorIdx)
@@ -41,11 +43,18 @@ void IPADelegate::stop()
 	ipa_.stop();
 }
 
-int IPADelegate::configure(const Size &camsysYuvSize, FaceDetector *faceDetector, bool isVideo)
+int IPADelegate::configure(
+	const Size &camsysYuvSize, FaceDetector *faceDetector,
+	const Size &maxVideoSize,
+	const Size &maxStillSize,
+	bool isVideo,
+	std::vector<uint8_t> *swmeParam,
+	std::vector<uint8_t> *bssParam)
 {
 	faceDetector_ = faceDetector;
 
-	return ipa_.configure(camsysYuvSize, isVideo);
+	return ipa_.configure(camsysYuvSize, maxVideoSize, maxStillSize,
+			      isVideo, swmeParam, bssParam);
 }
 
 void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
@@ -102,6 +111,24 @@ void IPADelegate::doCalculation3A(
 			  controls);
 }
 
+void IPADelegate::getImgSysMetaTuning(
+	ImgSysTask *imgSysTask,
+	const uint32_t camSysMetaRequestId,
+	const uint32_t frame,
+	const bool needCropTNC16x9,
+	const Feature feature,
+	const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests)
+{
+	uint64_t cookie = imgSysCookieCounter_++;
+	imgSysTasks_.emplace(cookie, imgSysTask);
+
+	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::getImgSysMetaTuning,
+			  ConnectionTypeQueued,
+			  cookie, camSysMetaRequestId, frame,
+			  needCropTNC16x9, static_cast<uint32_t>(feature),
+			  imgMetaRequests);
+}
+
 void IPADelegate::AieParseResultReady(
 	bool success,
 	const ipa::mtkisp7::PrimaryFaceData &primaryFace,
@@ -136,6 +163,20 @@ void IPADelegate::AFResultReady(uint32_t id, int32_t position)
 	it->second->AFResultReady(position);
 
 	afTasks_.erase(it);
+}
+
+void IPADelegate::ImgSysMetaTuningDone(uint64_t cookie)
+{
+	auto it = imgSysTasks_.find(cookie);
+	if (it == imgSysTasks_.end()) {
+		LOG(IPADelegateMtkISP7, Fatal)
+			<< "ImgSysMetaTuningDone: couldn't find task with cookie: "
+			<< cookie;
+		return;
+	}
+	it->second->notifyDone();
+
+	imgSysTasks_.erase(it);
 }
 
 } // namespace libcamera
