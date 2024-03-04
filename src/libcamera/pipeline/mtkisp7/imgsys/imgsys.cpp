@@ -138,7 +138,7 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 			configureVideo(videoDev.get(), formats::MTSR_MTISP, { sizeof(struct singlenode_desc_norm), 1 });
 		} else if (entity == ctrlMeta) {
 			ctrlMeta_ = videoDev.get();
-			configureVideo(videoDev.get(), formats::MTFP_MTISP, { 32768, 1 });
+			configureVideo(videoDev.get(), formats::MTFP_MTISP, { 28672, 1 });
 		} else if (entity == tuningMeta)
 			configureVideo(videoDev.get(), formats::MTFD_MTISP, { 219348, 1 });
 
@@ -356,7 +356,7 @@ int ImgSysDevice::configure()
 		descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 266960, 1 }, 32, DmaHeap::CMA);
 	#endif
 
-	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 32768, 1 }, 32, DmaHeap::CMA);
+	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 28672, 1 }, 32, DmaHeap::CMA);
 
 	#if !V4L2_STANDARD_MODE
 		handleKva(Add, descPool_);

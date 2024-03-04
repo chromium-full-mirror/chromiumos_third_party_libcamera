@@ -89,7 +89,7 @@ struct common_ctrl {
   bool sync_prev;
   int syncid;
   int stage;
-  char nddfp[512];
+  char nddfp[256];
   struct timeval enquetime;
   bool stoken_en;
   int stoken_num;
