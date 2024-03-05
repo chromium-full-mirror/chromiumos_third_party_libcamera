@@ -47,7 +47,7 @@ constexpr const char *kEnableTuningPath = "/run/camera/enable_tuning";
 constexpr const char *kEnforceLowIsoLpnr = "/run/camera/enforce_low_iso_lpnr";
 constexpr const char *kExportRequestPath = "/run/camera/export_dump";
 constexpr const char *kImportRequestPath = "/run/camera/import_dump";
-constexpr const char *kWorkDir = "/tmp/vendor/camera_dump";
+constexpr const char *kWorkDir = "/mnt/stateful_partition/vendor/camera_dump";
 
 } // namespace
 
