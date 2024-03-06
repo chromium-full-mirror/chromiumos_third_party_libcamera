@@ -523,13 +523,16 @@ void ImgSysRequestHelper::queueRequest(SingleDeviceRequest &sdRequest)
 
 void ImgSysRequestHelper::requestReady(ImgSysDevice::Request *request)
 {
-	for (auto &imgSysRequest : imgSysRequests_) {
-		if (request != &imgSysRequest)
+	for (auto iter = imgSysRequests_.begin(); iter != imgSysRequests_.end(); iter++) {
+		if (request != &*iter)
 			continue;
+
 		imgSys_->claimCompletedRequest(request);
+		imgSysRequests_.erase(iter);
+		break;
 	}
 
-	if (request != &imgSysRequests_.back())
+	if (!imgSysRequests_.empty())
 		return;
 
 	imgSys_->requestCompleted.disconnect(this, &ImgSysRequestHelper::requestReady);
