@@ -75,7 +75,6 @@ private:
 	InfoFramePool wpeTun_;
 	InfoFramePool dipTun_;
 	InfoFramePool trawTun_;
-	InfoFramePool pqdipTun_;
 
 	std::vector<InfoFramePool *> poolsWritenByCpu_;
 

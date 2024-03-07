@@ -151,7 +151,6 @@ McnrTunManager::McnrTunManager(
 	poolsWritenByCpu_.emplace_back(&wpeTun_);
 	poolsWritenByCpu_.emplace_back(&dipTun_);
 	poolsWritenByCpu_.emplace_back(&trawTun_);
-	poolsWritenByCpu_.emplace_back(&pqdipTun_);
 
 	dmaHeap_ = dmaHeap;
 	halIsp_ = halIsp;
@@ -174,7 +173,6 @@ void McnrTunManager::allocateBuffers()
 	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
 	fwmmMil_.createBuffers(dmaHeap_, formats::Y8_MTISP, kMeL1Size, 8);
 	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21, DmaHeap::CMA);
-	pqdipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 4, DmaHeap::CMA);
 	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6, DmaHeap::CMA);
 	trawTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 28, DmaHeap::CMA);
 	wpeTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 4, DmaHeap::CMA);
@@ -600,7 +598,7 @@ void McnrDipTask::run()
 				manager_->needCropTNC16x9_);
 	}
 
-	manager_->trawTun_.fetch(wpeTun);
+	manager_->wpeTun_.fetch(wpeTun);
 
 	request = ImgMetaRequest{
 		.isCapture = false,
