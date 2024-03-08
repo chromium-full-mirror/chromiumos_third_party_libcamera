@@ -40,7 +40,7 @@ public:
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			   uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
+			   bool isStillCapture, unsigned char *rawMetaBuffer,
 			   std::optional<MtkCameraFaceMetadata> metadata,
 			   GyroSensor::SensorSample gyroSample,
 			   ipa::mtkisp7::SensorSetting *exposureAndGain,
