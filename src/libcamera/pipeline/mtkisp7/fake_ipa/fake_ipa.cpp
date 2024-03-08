@@ -380,13 +380,24 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 	std::optional<Feature> featureApplied = std::nullopt;
 	if (featureEnum >= 0)
 		featureApplied = static_cast<Feature>(featureEnum);
-	ipa_->hal3A_->doCalculation(statistics0, timestamp, internalRequestId,
-				    camSysMetaRequestId, isStillCapture,
-				    rawMetaFd, rawMetaBuffer,
-				    metadata, gyroSample,
-				    &exposureAndGain, &aaaIspExchange,
-				    idApplied, featureApplied,
-				    controls);
+	{
+		DmaSyncer syncer(rawMetaFd);
+
+		ipa_->hal3A_->doCalculation(statistics0, timestamp, internalRequestId,
+					    camSysMetaRequestId, isStillCapture,
+					    rawMetaBuffer,
+					    metadata, gyroSample,
+					    &exposureAndGain, &aaaIspExchange,
+					    idApplied, featureApplied, controls);
+
+		ipa_->halIsp_->getCamSysMetaTuning(
+			internalRequestId, internalRequestId, rawMetaFd,
+			(intptr_t)rawMetaBuffer, 0,
+			Hal3A::kRawMetaSize, isStillCapture,
+			metadata ? &metadata.value() : nullptr,
+			internalRequestIdApplied, featureApplied,
+			&aaaIspExchange);
+	}
 
 	ipa_->AAResultReady.emit(internalRequestId, exposureAndGain, aaaIspExchange);
 

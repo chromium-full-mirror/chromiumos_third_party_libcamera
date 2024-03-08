@@ -368,7 +368,7 @@ void Hal3A::startInternal()
 
 void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
+			  bool isStillCapture, unsigned char *rawMetaBuffer,
 			  std::optional<MtkCameraFaceMetadata> metadata,
 			  GyroSensor::SensorSample gyroSample,
 			  ipa::mtkisp7::SensorSetting *exposureAndGain,
@@ -452,18 +452,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 
 	resultHistory_.add(internalRequestId, r3AResult_);
 
-	{
-		DmaSyncer syncer(rawMetaFd);
-
-		*rawMeta = r3AResult_.raw_meta;
-		halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
-					     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
-					     kRawMetaSize, isStillCapture,
-					     metadata ? &metadata.value() : nullptr,
-					     internalRequestIdApplied,
-					     featureApplied,
-					     aaaIspExchange);
-	}
+	*rawMeta = r3AResult_.raw_meta;
 	uint32_t exposureTimeMs;
 	getExposureAndGain(exposureAndGain, exposureTimeMs);
 
