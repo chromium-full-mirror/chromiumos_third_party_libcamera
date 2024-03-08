@@ -136,8 +136,6 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 	if (request)
 		sequence = std::to_string(request->sequence());
 
-	onDeviceTuner_->notifyRequestBegin(internalRequestId);
-
 	// Create CaptureData after CaptureFrames SharedMailBoxes are set.
 	auto data = std::make_shared<CaptureData>(captureFrames);
 

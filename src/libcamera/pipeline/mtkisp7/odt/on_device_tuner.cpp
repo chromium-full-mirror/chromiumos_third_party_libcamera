@@ -23,6 +23,8 @@
 #include <libcamera/request.h>
 #include <libcamera/stream.h>
 
+#include <libcamera/ipa/mtkisp7_ipa_interface.h>
+
 #include "debug_exif/aaa/dbg_aaa_param.h"
 #include "linux/mtkisp7/drv/7.1/ctrl_meta.h"
 #include "mtkcam-halif/utils/metadata/1.x/IMetadata.h"
@@ -32,6 +34,7 @@
 #include "pipeline/mtkisp7/imgsys/lpnr.h"
 #include "pipeline/mtkisp7/imgsys/mcnr.h"
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
+#include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
@@ -56,6 +59,8 @@ constexpr const char *kImportRequestPath = "/run/camera/import_dump";
 constexpr const char *kWorkDir = "/mnt/stateful_partition/vendor/camera_dump";
 constexpr const char *kEnableCamsysDebugFrame =
 	"/run/camera/camsys_debug_frame";
+
+constexpr const uint32_t kDelayOdt = 3;
 
 } // namespace
 
@@ -91,7 +96,8 @@ void OnDeviceTuner::batchPrepareReimport(
 }
 
 void OnDeviceTuner::configure(
-	const std::string &sensorId, unsigned int camsysIndex)
+	const std::string &sensorId, unsigned int camsysIndex,
+	int sessionTimestamp, IPADelegate *ipa)
 {
 	if (!enabled_) {
 		return;
@@ -107,7 +113,12 @@ void OnDeviceTuner::configure(
 	sensorId_ = sensorId;
 	enableCamsysDebugFrame_ = false;
 	camsysDebug_ = CamsysDebug::create(camsysIndex);
-	sessionTimestamp_ = ImagiqAdapter::generateDumpTimestamp();
+	if (isIpa_)
+		sessionTimestamp_ = sessionTimestamp;
+	else {
+		sessionTimestamp_ = ImagiqAdapter::generateDumpTimestamp();
+		ipa_ = ipa;
+	}
 
 	if (std::filesystem::exists(kEnforceLowIsoLpnr)) {
 		enforceLowIsoLpnr_ = true;
@@ -122,7 +133,9 @@ void OnDeviceTuner::configure(
 
 	// Immediately create one directory for any capture dumps.
 	prepareNewExportDirectory();
-	ImagiqAdapter::notifyNewSession(sensorId, sessionTimestamp_);
+
+	if (isIpa_)
+		ImagiqAdapter::notifyNewSession(sensorId, sessionTimestamp_);
 }
 
 void OnDeviceTuner::fillCamsysDebugFrame(
@@ -152,8 +165,9 @@ void OnDeviceTuner::fillCamsysDebugFrame(
 	ImagiqAdapter::importDump(imgo);
 }
 
-void OnDeviceTuner::initialize()
+void OnDeviceTuner::initialize(bool isIpa)
 {
+	isIpa_ = isIpa;
 	enabled_ = false;
 	enforceLowIsoLpnr_ = false;
 
@@ -167,10 +181,12 @@ void OnDeviceTuner::initialize()
 		return;
 	}
 
-	ret = ImagiqAdapter::enableMtkTuningTool(kWorkDir);
-	if (ret) {
-		LOG(MtkISP7, Error) << "Failed to enable MTK tuning tool";
-		return;
+	if (isIpa) {
+		ret = ImagiqAdapter::enableMtkTuningTool(kWorkDir);
+		if (ret) {
+			LOG(MtkISP7, Error) << "Failed to enable MTK tuning tool";
+			return;
+		}
 	}
 
 	LOG(MtkISP7, Warning) << "Pipeline tuning enabled";
@@ -187,8 +203,39 @@ bool OnDeviceTuner::isLowIsoLpnrEnforced()
 	return enabled_ && enforceLowIsoLpnr_;
 }
 
+void OnDeviceTuner::notifyExportBegin(
+	const uint32_t exportBegin,
+	const uint32_t exportEnd)
+{
+	if (!isIpa_)
+		LOG(MtkISP7, Fatal) << "Calling notifyExportBegin in pipeline handler";
+
+	exportBegin_ = exportBegin;
+	exportEnd_ = exportEnd;
+
+	if (prevStartedRequestNum_ == (int)exportBegin_)
+		ImagiqAdapter::notifyExportRequest(exportEnd_ - exportBegin_);
+}
+
+void OnDeviceTuner::notifyImportBegin(
+	const uint32_t importBegin,
+	const uint32_t importEnd)
+{
+	if (!isIpa_)
+		LOG(MtkISP7, Fatal) << "Calling notifyImportBegin in pipeline handler";
+
+	importBegin_ = importBegin;
+	importEnd_ = importEnd;
+
+	if (prevStartedRequestNum_ == (int)importBegin_)
+		ImagiqAdapter::notifyImportRequest(importEnd_ - importBegin_);
+}
+
 void OnDeviceTuner::loadTuneRequest(int requestNumber)
 {
+	if (isIpa_)
+		LOG(MtkISP7, Fatal) << "Calling loadTuneRequest in ipa";
+
 	if (!enabled_) {
 		return;
 	}
@@ -201,9 +248,10 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 		exportRequestFile.close();
 		std::filesystem::path path(kExportRequestPath);
 		std::filesystem::remove(path);
-		exportBegin_ = requestNumber;
-		exportEnd_ = requestNumber + exportRequestCount;
-		ImagiqAdapter::notifyExportRequest(exportRequestCount);
+		exportBegin_ = requestNumber + kDelayOdt; // Delay 3 frames to wait for IPA.
+		exportEnd_ = exportBegin_ + exportRequestCount;
+
+		ipa_->notifyExportBegin(exportBegin_, exportEnd_);
 	}
 
 	std::ifstream importRequestFile(kImportRequestPath);
@@ -215,9 +263,10 @@ void OnDeviceTuner::loadTuneRequest(int requestNumber)
 		importRequestFile.close();
 		std::filesystem::path path(kImportRequestPath);
 		std::filesystem::remove(path);
-		importBegin_ = requestNumber;
-		importEnd_ = requestNumber + importRequestCount;
-		ImagiqAdapter::notifyImportRequest(importRequestCount);
+		importBegin_ = requestNumber + kDelayOdt; // Delay 3 frames to wait for IPA.
+		importEnd_ = importBegin_ + importRequestCount;
+
+		ipa_->notifyImportBegin(importBegin_, importEnd_);
 	}
 }
 
@@ -237,6 +286,9 @@ InfoFrame OnDeviceTuner::getFrameInfoFromRequest(
 
 NSCam::IMetadata *OnDeviceTuner::getMtkMetadata(int requestNumber)
 {
+	if (!isIpa_)
+		LOG(MtkISP7, Fatal) << "getMtkMetadata is called in pipeline handler";
+
 	NSCam::IMetadata *metadata = nullptr;
 	if (mtkMetadata_.count(requestNumber) == 0) {
 		metadata = new NSCam::IMetadata;
@@ -275,9 +327,24 @@ void OnDeviceTuner::notifyRequestBegin(int requestNumber)
 		return;
 	}
 	prevStartedRequestNum_ = requestNumber;
-	loadTuneRequest(requestNumber);
-	ImagiqAdapter::notifyRequestBegin(
-		sensorId_, requestNumber);
+
+	if (!isIpa_)
+		loadTuneRequest(requestNumber);
+
+	if (isIpa_) {
+		if (prevStartedRequestNum_ == (int)exportBegin_) {
+			ImagiqAdapter::notifyExportRequest(
+				exportEnd_ - exportBegin_);
+		}
+
+		if (prevStartedRequestNum_ == (int)importBegin_) {
+			ImagiqAdapter::notifyImportRequest(
+				importEnd_ - importBegin_);
+		}
+
+		ImagiqAdapter::notifyRequestBegin(
+			sensorId_, requestNumber);
+	}
 }
 
 void OnDeviceTuner::notifyRequestEnd(int requestNumber)
@@ -286,11 +353,33 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 		return;
 	}
 	prevEndedRequestNum_ = requestNumber;
-	ImagiqAdapter::notifyRequestEnd(
-		sensorId_, requestNumber, sessionTimestamp_,
-		shouldExportDumpNow(requestNumber),
-		kWorkDir, currentExportPath_);
-	mtkMetadata_.erase(requestNumber);
+
+	if (isIpa_) {
+		ImagiqAdapter::notifyRequestEnd(
+			sensorId_, requestNumber, sessionTimestamp_,
+			shouldExportDumpNow(requestNumber),
+			kWorkDir, currentExportPath_);
+
+		mtkMetadata_.erase(requestNumber);
+	}
+}
+
+void OnDeviceTuner::notifyStillCapture(int requestNumber)
+{
+	if (isIpa_) {
+		ImagiqAdapter::configureScenarioRecorder(requestNumber, sessionTimestamp_,
+							 enforceLowIsoLpnr_, true);
+	}
+}
+
+void OnDeviceTuner::notifyVideoOnly(int requestNumber)
+{
+	if (!isIpa_)
+		LOG(MtkISP7, Fatal) << "notifyVideoOnly is called in pipeline handler";
+
+	ImagiqAdapter::configureScenarioRecorder(
+		requestNumber, sessionTimestamp_,
+		false, false);
 }
 
 bool OnDeviceTuner::parseHalIspNdd(
@@ -331,16 +420,18 @@ int OnDeviceTuner::prepareNewExportDirectory()
 	std::filesystem::path newPath =
 		workPath /
 		("UKey" + ImagiqAdapter::formatTimestamp(sessionTimestamp_));
-	auto cmd = "mkdir -p " + newPath.string();
-	int ret = system(cmd.c_str());
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to prepare dump directory, error code: "
-				    << ret;
-		return ret;
+	if (!isIpa_) {
+		auto cmd = "mkdir -p " + newPath.string();
+		int ret = system(cmd.c_str());
+		if (ret != 0) {
+			LOG(MtkISP7, Error) << "Failed to prepare dump directory, error code: "
+					    << ret;
+			return ret;
+		}
 	}
 	LOG(MtkISP7, Info) << "Current dump directory: " << newPath.string();
 	currentExportPath_ = newPath;
-	return ret;
+	return 0;
 }
 
 bool OnDeviceTuner::shouldExportDumpNow(uint32_t requestNumber)
@@ -1464,7 +1555,7 @@ void OnDeviceTuner::tuneAfbld(
 }
 
 void OnDeviceTuner::writeStillCaptureDebugMetadata(
-	ControlList &out,  mtk::hal3a::v1_0::mtk_3a_result *result,
+	ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
 	Feature feature)
 {
 	if (!enabled_ || !isStillCaptureFeature(feature)) {

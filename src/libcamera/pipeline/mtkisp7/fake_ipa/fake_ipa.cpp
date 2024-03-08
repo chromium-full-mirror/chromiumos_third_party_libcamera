@@ -24,8 +24,10 @@ IPAMtkISP7::IPAMtkISP7()
 int IPAMtkISP7::init(const int32_t sensorIdx)
 {
 	sensorIdx_ = sensorIdx;
-	halIsp_ = std::make_unique<HalIsp>(onDeviceTuner_);
-	hal3A_ = std::make_unique<Hal3A>(sensorIdx, halIsp_.get(), onDeviceTuner_);
+	halIsp_ = std::make_unique<HalIsp>(&onDeviceTuner_);
+	hal3A_ = std::make_unique<Hal3A>(sensorIdx, halIsp_.get(), &onDeviceTuner_);
+
+	onDeviceTuner_.initialize(true);
 
 	int32_t sensorDev = 0;
 	switch (sensorIdx) {
@@ -93,9 +95,17 @@ void IPAMtkISP7::stop()
  * \param[in] sensorIdx The index of the sensor being used now
  */
 int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
-			  const Size &maxStillSize, bool isVideo, std::vector<uint8_t> *swmeParam,
+			  const Size &maxStillSize, const std::string &sensorId,
+			  const uint32_t camsysIndex, const int32_t sessionTimestamp,
+			  bool isVideo,
+			  std::vector<uint8_t> *swmeParam,
 			  std::vector<uint8_t> *bssParam)
 {
+	ImagiqAdapter::sensorIdMap.emplace(
+		sensorId, NSCam::TuningUtils::eSensorId(sensorIdx_));
+
+	onDeviceTuner_.configure(sensorId, camsysIndex, sessionTimestamp);
+
 	hal3A_->configure(camsysYuvSize, isVideo);
 	halIsp_->configure(maxVideoSize, maxStillSize, isVideo);
 
@@ -142,6 +152,46 @@ void IPAMtkISP7::unmapBuffers(const std::vector<unsigned int> &ids)
 
 		buffers_.erase(it);
 	}
+}
+
+void IPAMtkISP7::writeStillCaptureDebugMetadata(
+	const uint32_t camSysMetaRequestId,
+	const uint32_t featureEnum,
+	ControlList *metadata)
+{
+	*metadata = controls::controls;
+	onDeviceTuner_.writeStillCaptureDebugMetadata(*metadata,
+						      hal3A_->resultHistory_.query(camSysMetaRequestId),
+						      static_cast<Feature>(featureEnum));
+}
+
+void IPAMtkISP7::notifyRequestBegin(const uint32_t frame,
+				    const bool hasStillCapture)
+{
+	onDeviceTuner_.notifyRequestBegin(frame);
+
+	if (hasStillCapture) {
+		onDeviceTuner_.notifyStillCapture(frame);
+	} else {
+		onDeviceTuner_.notifyVideoOnly(frame);
+	}
+}
+
+void IPAMtkISP7::notifyRequestEnd(const uint32_t frame)
+{
+	onDeviceTuner_.notifyRequestEnd(frame);
+}
+
+void IPAMtkISP7::notifyExportBegin(const uint32_t exportBegin,
+				   const uint32_t exportEnd)
+{
+	onDeviceTuner_.notifyExportBegin(exportBegin, exportEnd);
+}
+
+void IPAMtkISP7::notifyImportBegin(const uint32_t importBegin,
+				   const uint32_t importEnd)
+{
+	onDeviceTuner_.notifyImportBegin(importBegin, importEnd);
 }
 
 void IPAMtkISP7::aieParse(
@@ -402,7 +452,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 	ipa_->AAResultReady.emit(internalRequestId, exposureAndGain, aaaIspExchange);
 
 	if (idApplied && featureApplied) {
-		ipa_->onDeviceTuner_->tune3AState(
+		ipa_->onDeviceTuner_.tune3AState(
 			internalRequestIdApplied,
 			statistics0, &ipa_->hal3A_->r3AResult_,
 			featureApplied.value());

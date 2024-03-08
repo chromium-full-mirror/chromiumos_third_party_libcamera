@@ -52,14 +52,33 @@ struct DsVbiFrames;
 struct BssFrames;
 struct MsbldFrames;
 struct AfbldFrames;
+
+class IPADelegate;
+
 class OnDeviceTuner
 {
 public:
-	void initialize();
-	void configure(const std::string &sensorId, unsigned int camsysIndex);
+	void initialize(bool isIpa);
+	void configure(const std::string &sensorId, unsigned int camsysIndex,
+		       int sessionTimestamp = 0,
+		       IPADelegate *ipa = nullptr);
+
+	int getSessionTimestamp() { return sessionTimestamp_; }
 
 	void notifyRequestBegin(int requestNumber);
 	void notifyRequestEnd(int requestNumber);
+
+	void notifyExportBegin(
+		const uint32_t exportBegin,
+		const uint32_t exportEnd);
+	void notifyImportBegin(
+		const uint32_t importBegin,
+		const uint32_t importEnd);
+
+	// Tuning tools need to know if there is a still capture in
+	// the request or not.
+	void notifyVideoOnly(int requestNumber);
+	void notifyStillCapture(int requestNumber);
 
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
@@ -154,6 +173,8 @@ public:
 		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
 		Feature feature);
 
+	static bool isStillCaptureFeature(Feature feature);
+
 private:
 	struct NamedFrame {
 		Dump::Id id;
@@ -175,7 +196,6 @@ private:
 		Request *request, FrameBuffer *buffer);
 	NSCam::IMetadata *getMtkMetadata(int requestNumber);
 	bool isImgsysCaptureStage(PEU_Stage stage);
-	bool isStillCaptureFeature(Feature feature);
 	void loadTuneRequest(int requestNumber);
 	bool parseHalIspNdd(
 		uint32_t internalRequestId,
@@ -195,6 +215,9 @@ private:
 	void tune(uint32_t requestNumber,
 		  std::vector<NamedPointer> namedPointers,
 		  bool forceDump = false);
+
+	bool isIpa_;
+	IPADelegate *ipa_;
 
 	bool enabled_;
 	bool enforceLowIsoLpnr_;

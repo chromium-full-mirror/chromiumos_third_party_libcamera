@@ -46,7 +46,8 @@ void IPADelegate::stop()
 int IPADelegate::configure(
 	const Size &camsysYuvSize, FaceDetector *faceDetector,
 	const Size &maxVideoSize,
-	const Size &maxStillSize,
+	const Size &maxStillSize, const std::string &sensorId,
+	const uint32_t camsysIndex, const int32_t sessionTimestamp,
 	bool isVideo,
 	std::vector<uint8_t> *swmeParam,
 	std::vector<uint8_t> *bssParam)
@@ -54,6 +55,7 @@ int IPADelegate::configure(
 	faceDetector_ = faceDetector;
 
 	return ipa_.configure(camsysYuvSize, maxVideoSize, maxStillSize,
+			      sensorId, camsysIndex, sessionTimestamp,
 			      isVideo, swmeParam, bssParam);
 }
 
@@ -65,6 +67,44 @@ void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
 void IPADelegate::unmapBuffers(const std::vector<unsigned int> &ids)
 {
 	ipa_.unmapBuffers(ids);
+}
+
+void IPADelegate::writeStillCaptureDebugMetadata(
+	const uint32_t camSysMetaRequestId,
+	const Feature feature,
+	ControlList *metadata)
+{
+	ipa_.writeStillCaptureDebugMetadata(
+		camSysMetaRequestId, static_cast<uint32_t>(feature), metadata);
+}
+
+void IPADelegate::notifyRequestBegin(const uint32_t frame,
+				     const bool hasStillCapture)
+{
+	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyRequestBegin,
+			  ConnectionTypeQueued, frame, hasStillCapture);
+}
+
+void IPADelegate::notifyRequestEnd(const uint32_t frame)
+{
+	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyRequestEnd,
+			  ConnectionTypeQueued, frame);
+}
+
+void IPADelegate::notifyExportBegin(
+	const uint32_t exportBegin,
+	const uint32_t exportEnd)
+{
+	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyExportBegin,
+			  ConnectionTypeQueued, exportBegin, exportEnd);
+}
+
+void IPADelegate::notifyImportBegin(
+	const uint32_t importBegin,
+	const uint32_t importEnd)
+{
+	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyImportBegin,
+			  ConnectionTypeQueued, importBegin, importEnd);
 }
 
 void IPADelegate::aieParse(

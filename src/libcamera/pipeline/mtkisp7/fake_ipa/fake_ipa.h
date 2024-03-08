@@ -34,23 +34,36 @@ class IPAMtkISP7 : public IPAMtkISP7Interface, public Object
 public:
 	IPAMtkISP7();
 
-	// Workaround functions
-	void preInit(OnDeviceTuner *odt)
-	{
-		onDeviceTuner_ = odt;
-	}
-
 	int init(const int32_t sensorIdx) override;
 
 	int start(const uint32_t rawMetaBufferId) override;
 	void stop() override;
 
 	int configure(const Size &camsysYuvSize, const Size &maxVideoSize,
-		      const Size &maxStillSize, bool isVideo, std::vector<uint8_t> *swmeParam,
+		      const Size &maxStillSize, const std::string &sensorId,
+		      const uint32_t camsysIndex, const int32_t sessionTimestamp,
+		      bool isVideo,
+		      std::vector<uint8_t> *swmeParam,
 		      std::vector<uint8_t> *bssParam) override;
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers) override;
 	void unmapBuffers(const std::vector<unsigned int> &ids) override;
+
+	void writeStillCaptureDebugMetadata(
+		const uint32_t camSysMetaRequestId,
+		const uint32_t featureEnum,
+		ControlList *metadata) override;
+
+	void notifyRequestBegin(const uint32_t frame,
+				const bool hasStillCapture) override;
+	void notifyRequestEnd(const uint32_t frame) override;
+
+	void notifyExportBegin(
+		const uint32_t exportBegin,
+		const uint32_t exportEnd) override;
+	void notifyImportBegin(
+		const uint32_t importBegin,
+		const uint32_t importEnd) override;
 
 	void aieParse(
 		const uint32_t inputImageBufferId,
@@ -131,8 +144,7 @@ private:
 
 	ControlList convertFaceMetadata();
 
-	// Workarounds
-	OnDeviceTuner *onDeviceTuner_;
+	OnDeviceTuner onDeviceTuner_;
 
 	std::map<unsigned int, IPAMappedBuffer> buffers_;
 
