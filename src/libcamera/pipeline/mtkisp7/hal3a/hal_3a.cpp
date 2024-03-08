@@ -358,7 +358,7 @@ void Hal3A::startInternal()
 void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
-			  MtkCameraFaceMetadata *faceMetadata,
+			  MtkCameraFaceMetadata *faceMetadata, GyroSensor::SensorSample gyroSample,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain,
 			  AaaIspExchange *aaaIspExchange,
 			  std::optional<uint32_t> internalRequestIdApplied)
@@ -399,7 +399,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
 
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(
-		internalRequestId, faceMetadata, isStillCapture);
+		internalRequestId, faceMetadata, gyroSample, isStillCapture);
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -467,9 +467,12 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			    VcmFocusInformation vcmFocusInfo,
-			    MtkCameraFaceMetadata *metadata, int32_t *position)
+			    MtkCameraFaceMetadata *metadata,
+			    GyroSensor::SensorSample gyroSample,
+			    int32_t *position)
 {
-	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(internalRequestId, metadata, true);
+	mtk::hal3a::v1_0::mtk_3a_param r_3a_param =
+		get3AParam(internalRequestId, metadata, gyroSample, true);
 	m_hal3a_->SetParamAF(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_af_request r_af_request = {};
@@ -506,7 +509,9 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 
 mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	uint32_t internalRequestId,
-	MtkCameraFaceMetadata *faceMetadata, bool isStillCapture, [[maybe_unused]] bool isAF)
+	MtkCameraFaceMetadata *faceMetadata,
+	GyroSensor::SensorSample gyroSample,
+	bool isStillCapture, [[maybe_unused]] bool isAF)
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = {};
 
@@ -686,7 +691,15 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.manual_ev_ctrl.ae_lock = 0;
 	r_3a_param.mwb_cct = 0;
 	r_3a_param.pause_af = 0;
-	r_3a_param.gyro_valid = 0;
+	if (gyroSample.timestamp != 0) {
+		r_3a_param.gyro_valid = 1;
+		r_3a_param.gyro_data.gyro[0] = gyroSample.x_value;
+		r_3a_param.gyro_data.gyro[1] = gyroSample.y_value;
+		r_3a_param.gyro_data.gyro[2] = gyroSample.z_value;
+		r_3a_param.gyro_data.timestamp = gyroSample.timestamp;
+	} else {
+		r_3a_param.gyro_valid = 0;
+	}
 	r_3a_param.acce_valid = 0;
 	r_3a_param.light_valid = 0;
 	r_3a_param.als_all_valid[0] = 0;

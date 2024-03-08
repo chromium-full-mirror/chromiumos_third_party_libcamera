@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "libcamera/internal/gyro_sensor.h"
+
 #include "../sensor/sensor_info.h"
 #include "../utils/history.h"
 #include "libcamera/base/mutex.h"
@@ -36,6 +38,7 @@ public:
 			   uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			   MtkCameraFaceMetadata *metadata,
+			   GyroSensor::SensorSample gyroSample,
 			   std::pair<uint32_t, uint32_t> *exposureAndGain,
 			   AaaIspExchange *aaaIspExchange,
 			   std::optional<uint32_t> internalRequestIdApplied);
@@ -43,7 +46,8 @@ public:
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			     VcmFocusInformation vcmFocusInfo,
-			     MtkCameraFaceMetadata *metadata, int32_t *position);
+			     MtkCameraFaceMetadata *metadata,
+			     GyroSensor::SensorSample gyroSample, int32_t *position);
 
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 
@@ -60,6 +64,7 @@ private:
 
 	mtk::hal3a::v1_0::mtk_3a_param get3AParam(uint32_t internalRequestId,
 						  MtkCameraFaceMetadata *faceMetadata,
+						  GyroSensor::SensorSample gyroSample,
 						  bool isAF = false,
 						  bool isStillCapture = false);
 

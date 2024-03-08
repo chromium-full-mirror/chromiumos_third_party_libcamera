@@ -23,6 +23,7 @@
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/device_enumerator.h"
 #include "libcamera/internal/framebuffer.h"
+#include "libcamera/internal/gyro_sensor.h"
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pipeline_handler.h"
@@ -186,10 +187,11 @@ class MtkISP7CameraData : public Camera::Private
 {
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
-			  ImgSysDevice *imgSysDev, OnDeviceTuner *odt,
+			  ImgSysDevice *imgSysDev, GyroSensor *gyroSensor, OnDeviceTuner *odt,
 			  FaceDetector *faceDetector, DmaHeap *dmaHeap, Hal3A *hal3A, HalIsp *halIsp,
 			  int sensor_idx)
-		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
+		: Camera::Private(pipe), camSysDev_(camSysDev),
+		  imgSysDev_(imgSysDev), gyroSensor_(gyroSensor),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
 		  mfnrManager(imgSysDev, dmaHeap, odt),
@@ -229,6 +231,7 @@ public:
 	Size sensorFullSize_;
 	CamSysDevice *camSysDev_;
 	ImgSysDevice *imgSysDev_;
+	GyroSensor *gyroSensor_;
 
 	CaptureTasksManager captureManager;
 	Hal3AManager hal3AManager_;
@@ -305,6 +308,7 @@ public:
 
 	MediaDevice *camSysMedia_;
 	CamSysDevice camSysDev_[2];
+	GyroSensor gyroSensor_;
 
 	std::unique_ptr<Hal3A> hal3A_[2];
 	HalIsp halIsp_[2];
@@ -607,6 +611,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	if (camSysMedia_->disableLinks())
 		return false;
 
+	int errGyro = gyroSensor_.init(GyroSensor::Location::kLid);
+	if (errGyro) {
+		LOG(MtkISP7, Warning) << "No gyroscope available";
+	}
+
 	DeviceMatch imgSysDM("camera-dip");
 	imgSysDM.add("MTK-ISP-DIP-V4L2");
 
@@ -680,6 +689,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		std::unique_ptr<MtkISP7CameraData> data =
 			std::make_unique<MtkISP7CameraData>(
 				this, &camSysDev_[i], &imgSysDev_,
+				errGyro ? nullptr : &gyroSensor_,
 				&onDeviceTuner_, &faceDetector_,
 				dmaHeap_.get(), hal3A_[i].get(), &halIsp_[i], i);
 
@@ -735,6 +745,9 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	mfnrManager.start();
 	lpnrManager.start();
 	faceDetector_->start();
+
+	if (gyroSensor_)
+		gyroSensor_->startReading(30); // Assume FPS == 30
 
 	scheduler->schedule();
 	return 0;
@@ -847,6 +860,8 @@ void MtkISP7CameraData::stopDevice()
 
 	faceDetector_->stop();
 
+	if (gyroSensor_)
+		gyroSensor_->stopReading();
 	frameSequence_ = 0;
 }
 
@@ -954,7 +969,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 			   still1 > still2 ? still1 : still2);
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
-	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_);
+	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_, gyroSensor_);
 
 	imgSysDev_->configure();
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
@@ -1153,7 +1168,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			//TODO implement strategy to choose between mfnr and lpnr
 			useMfnr = mfnrManager.forceMfnr() || AaaIspExchange::mfnrMode;
 		}
-		if (useMfnr && ! useLpnr) {
+		if (useMfnr && !useLpnr) {
 			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_mfnr);
 			MFNRFrames mfnr;
 			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);

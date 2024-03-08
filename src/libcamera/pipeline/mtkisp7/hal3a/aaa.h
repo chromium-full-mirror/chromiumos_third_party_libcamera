@@ -7,6 +7,7 @@
 #pragma once
 
 #include "libcamera/internal/dma_heaps.h"
+#include "libcamera/internal/gyro_sensor.h"
 #include "libcamera/internal/task_scheduler.h"
 
 #include "libcamera/base/thread.h"
@@ -49,7 +50,7 @@ class Hal3AManager
 {
 public:
 	void configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
-		       Hal3A *hal3A, OnDeviceTuner *odt);
+		       Hal3A *hal3A, OnDeviceTuner *odt, GyroSensor *gyroSensor);
 	void start();
 
 	void releaseBuffers();
@@ -76,6 +77,8 @@ private:
 	Hal3A *hal3A_;
 	OnDeviceTuner *onDeviceTuner_;
 
+	GyroSensor *gyroSensor_;
+
 	FocusController focusController_;
 
 	InfoFramePool tuningPool_;
@@ -97,11 +100,12 @@ public:
 
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A, OnDeviceTuner *odt,
+	       GyroSensor *gyroSensor,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 	       FaceDetector *faceDetector)
 		: Task(scheduler, id), request_(nullptr), manager_(manager),
 		  captureFrames_(captureFrames), hal3A_(hal3A),
-		  onDeviceTuner_(odt),
+		  onDeviceTuner_(odt), gyroSensor_(gyroSensor),
 		  internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId), faceDetector_(faceDetector) {}
 
@@ -124,6 +128,8 @@ public:
 	Hal3A *hal3A_;
 	OnDeviceTuner *onDeviceTuner_;
 
+	GyroSensor *gyroSensor_;
+
 	uint32_t internalRequestId_;
 	uint32_t camSysMetaRequestId_;
 
@@ -139,10 +145,11 @@ public:
 
 	AFTask(Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
+	       GyroSensor *gyroSensor,
 	       uint32_t internalRequestId,
 	       FocusController *focusController, FaceDetector *faceDetector)
 		: Task(scheduler, id), captureFrames_(captureFrames),
-		  hal3A_(hal3A), internalRequestId_(internalRequestId),
+		  hal3A_(hal3A), gyroSensor_(gyroSensor), internalRequestId_(internalRequestId),
 		  focusController_(focusController), faceDetector_(faceDetector) {}
 
 	void run() override final;
@@ -150,6 +157,8 @@ public:
 	CaptureFrames captureFrames_;
 
 	Hal3A *hal3A_;
+
+	GyroSensor *gyroSensor_;
 
 	uint32_t internalRequestId_;
 

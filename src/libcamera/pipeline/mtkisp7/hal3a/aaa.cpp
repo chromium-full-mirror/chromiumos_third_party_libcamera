@@ -83,12 +83,14 @@ bool FocusController::isFirstRun()
 }
 
 void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
-			     Hal3A *hal3A, OnDeviceTuner *odt)
+			     Hal3A *hal3A, OnDeviceTuner *odt,
+			     GyroSensor *gyroSensor)
 {
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
 	hal3A_ = hal3A;
 	onDeviceTuner_ = odt;
+	gyroSensor_ = gyroSensor;
 
 	focusController_.configure(camSys_->getCameraLens());
 
@@ -146,7 +148,7 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 
 	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
 				    captureFrames, hal3A_,
-				    onDeviceTuner_,
+				    onDeviceTuner_, gyroSensor_,
 				    internalRequestId, camSysMetaRequestId,
 				    faceDetector);
 	aaTask->moveToThread(&thread3A_);
@@ -154,7 +156,7 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	AFTask *afTask;
 	if (hasAF()) {
 		afTask = new AFTask(scheduler, "AF " + sequence, captureFrames,
-				    hal3A_, internalRequestId,
+				    hal3A_, gyroSensor_, internalRequestId,
 				    &focusController_, faceDetector);
 		afTask->moveToThread(&threadAF_);
 	}
@@ -201,6 +203,13 @@ void AATask::run()
 
 	captureFrames_.aaaIspExchange->put({}, nullptr);
 
+	GyroSensor::SensorSample gyroSample;
+	if (gyroSensor_) {
+		gyroSample = gyroSensor_->getLatestSample();
+		if (gyroSample.timestamp == 0)
+			LOG(MtkISP7, Error) << "Gyro not found";
+	}
+
 	std::pair<uint32_t, uint32_t> exposureAndGain;
 	hal3A_->doCalculation(captureFrames_.statistics0->get().buffer(),
 			      captureFrames_.timestamp->get(),
@@ -208,7 +217,7 @@ void AATask::run()
 			      perFrameControl_.isStillCapture,
 			      tuningBuffer->planes()[0].fd.get(),
 			      mappedBuffer.planes()[0].data(),
-			      faces,
+			      faces, gyroSample,
 			      &exposureAndGain,
 			      &captureFrames_.aaaIspExchange->get(),
 			      internalRequestIdApplied_);
@@ -251,12 +260,16 @@ void AFTask::run()
 	faceDetector_->getLatestOutput(faceMetadata);
 	MtkCameraFaceMetadata *faces = (faceMetadata) ? &(*faceMetadata) : nullptr;
 
+	GyroSensor::SensorSample gyroSample;
+	if (gyroSensor_)
+		gyroSample = gyroSensor_->getLatestSample();
+
 	hal3A_->doCalculationAF(captureFrames_.statistics1->get().buffer(),
 				captureFrames_.timestamp->get(),
 				internalRequestId_,
 				internalRequestId_ - kLensDelay,
 				focusController_->getFocusInfo(),
-				faces, &position);
+				faces, gyroSample, &position);
 
 	focusController_->set(position, captureFrames_.timestamp->get());
 
