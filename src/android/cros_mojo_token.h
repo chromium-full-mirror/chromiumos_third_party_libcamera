@@ -7,6 +7,6 @@
 
 #pragma once
 
-#include <cros-camera/cros_camera_hal.h>
+#include <cros-camera/camera_mojo_channel_manager_token.h>
 
 inline cros::CameraMojoChannelManagerToken *gCrosMojoToken = nullptr;
