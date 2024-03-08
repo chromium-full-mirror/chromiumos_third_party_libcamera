@@ -63,10 +63,13 @@ includes = [
 
 libcamera_deps = []
 
+if get_option('android').enabled() and get_option('android_platform') == 'cros'
+    libcamera_sources += files(['cros_gyro_sensor.cpp'])
+    libcamera_deps += [dependency('libcros_camera')]
+endif
+
 libatomic = cc.find_library('atomic', required : false)
 libthreads = dependency('threads')
-
-libcamera_deps = []
 
 subdir('base')
 subdir('converter')
