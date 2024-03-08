@@ -19,6 +19,7 @@
 #include "imgsys.h"
 #include "swme.h"
 
+#define MFNR_QUEUE_SIZE 4
 namespace libcamera {
 
 constexpr int kInputRawCount = 4;
@@ -229,8 +230,8 @@ public:
 	static bool forceMfnr();
 
 	void makeMFNRFrames(MFNRFrames &mfnr,
-			    std::array<SharedMailBox<InfoFrame>, 8> &captureRawQueue,
-			    std::array<SharedMailBox<InfoFrame>, 8> &previewQueue,
+			    std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &captureRawQueue,
+			    std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &previewQueue,
 			    int captureRawQueue_idx,
 			    FrameBuffer *output1Frame,
 			    FrameBuffer *output2Frame);

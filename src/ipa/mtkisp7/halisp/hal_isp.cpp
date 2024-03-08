@@ -204,7 +204,7 @@ std::shared_ptr<mtk::isphal::v1::isp_swme_Param> HalIsp::getIspSwmeParam()
 	qry.mapping_info.eStage = EStage_SWME;
 	qry.mapping_info.eAction = EAction_Capture;
 
-	provider_->readDataForFeature(isp_swme_Param_.get(), sizeof(isp_swme_Param_), EModuleDB_SW_ME, qry);
+	provider_->readDataForFeature(isp_swme_Param_.get(), sizeof(mtk::isphal::v1::isp_swme_Param), EModuleDB_SW_ME, qry);
 
 	return isp_swme_Param_;
 }
@@ -221,7 +221,7 @@ std::shared_ptr<mtk::isphal::v1::isp_bss_Param> HalIsp::getIspBssParam()
 	qry.mapping_info.eStage = EStage_BSS;
 	qry.mapping_info.eAction = EAction_Capture;
 
-	provider_->readDataForFeature(isp_bss_Param_.get(), sizeof(isp_bss_Param_), NSIspTuning::EModuleDB_BSS, qry);
+	provider_->readDataForFeature(isp_bss_Param_.get(), sizeof(mtk::isphal::v1::isp_bss_Param), NSIspTuning::EModuleDB_BSS, qry);
 
 	return isp_bss_Param_;
 }
@@ -238,7 +238,7 @@ std::shared_ptr<mtk::isphal::v1::isp_mfnrthres_Param> HalIsp::getIspMfnrThresPar
 	qry.mapping_info.eStage = EStage_P1;
 	qry.mapping_info.eAction = EAction_Capture;
 
-	provider_->readDataForFeature(isp_mfnrthres_Param_.get(), sizeof(isp_mfnrthres_Param_), NSIspTuning::EModuleDB_MFNR_THRES, qry);
+	provider_->readDataForFeature(isp_mfnrthres_Param_.get(), sizeof(mtk::isphal::v1::isp_mfnrthres_Param), NSIspTuning::EModuleDB_MFNR_THRES, qry);
 
 	return isp_mfnrthres_Param_;
 }

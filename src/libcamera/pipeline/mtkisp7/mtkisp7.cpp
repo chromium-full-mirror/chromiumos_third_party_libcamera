@@ -288,8 +288,8 @@ public:
 
 	uint32_t requestCount_ = 0;
 
-	std::array<SharedMailBox<InfoFrame>, 8> captureRawQueue;
-	std::array<SharedMailBox<InfoFrame>, 8> previewQueue;
+	std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> captureRawQueue;
+	std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> previewQueue;
 	int captureRawQueue_idx = -1;
 
 	int getSensorIdx() { return sensor_idx_; }

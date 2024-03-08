@@ -61,7 +61,7 @@ MfnrTunManager::MfnrTunManager(
 
 void MfnrTunManager::allocateBuffers()
 {
-	mfnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 100);
+	mfnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 45, DmaHeap::CMA);
 	mfnrTun_.mmap();
 }
 
