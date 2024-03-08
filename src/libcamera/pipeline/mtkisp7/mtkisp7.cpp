@@ -156,9 +156,10 @@ public:
 	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
 			    Request *request, uint32_t internalRequestId,
 			    uint32_t camSysMetaRequestId, PipelineHandler *pipe,
+			    IPADelegate *ipa,
 			    OnDeviceTuner *odt, FaceDetector *faceDetector,
 			    SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
-			    Hal3A *hal3A, Feature feature);
+			    Feature feature);
 
 	virtual void run() override final;
 
@@ -168,9 +169,9 @@ private:
 	uint32_t internalRequestId_;
 	uint32_t camSysMetaRequestId_;
 	FaceDetector *faceDetector_;
+	IPADelegate *ipa_;
 	OnDeviceTuner *onDeviceTuner_;
 	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
-	Hal3A *hal3A_;
 	Feature feature_;
 };
 
@@ -181,15 +182,16 @@ CompleteRequestTask::CompleteRequestTask(
 	uint32_t internalRequestId,
 	uint32_t camSysMetaRequestId,
 	PipelineHandler *pipe,
+	IPADelegate *ipa,
 	OnDeviceTuner *odt,
 	FaceDetector *faceDetector,
 	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
-	Hal3A *hal3A, Feature feature)
+	Feature feature)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
 	  internalRequestId_(internalRequestId),
 	  camSysMetaRequestId_(camSysMetaRequestId),
-	  faceDetector_(faceDetector), onDeviceTuner_(odt),
-	  aaaIspExchange_(aaaIspExchange), hal3A_(hal3A), feature_(feature)
+	  faceDetector_(faceDetector), ipa_(ipa), onDeviceTuner_(odt),
+	  aaaIspExchange_(aaaIspExchange), feature_(feature)
 {
 }
 
@@ -238,7 +240,8 @@ public:
 	std::tuple<QueueTask *, DequeueTask *, SofTask *,
 		   AATask *, AFTask *, uint32_t>
 	makeTasks(const std::string &id, Request *request,
-		  CaptureFrames &captureFrames, uint32_t internalRequestId);
+		  CaptureFrames &captureFrames, uint32_t internalRequestId,
+		  bool hasStillCapture = false);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
 				  SofTask *sofTask, AATask *aaTask,
 				  AFTask *afTask);
@@ -385,10 +388,15 @@ void CompleteRequestTask::run()
 	if (aaaIspExchange_->valid()) {
 		auto aaaIspExchange = aaaIspExchange_->get();
 		metadata.merge(aaaIspExchange.aaaMetadata);
-		onDeviceTuner_->writeStillCaptureDebugMetadata(
-			metadata,
-			hal3A_->resultHistory_.query(camSysMetaRequestId_),
-			feature_);
+		if (onDeviceTuner_->isEnabled() &&
+		    OnDeviceTuner::isStillCaptureFeature(feature_)) {
+			ControlList debugMetadata;
+			ipa_->writeStillCaptureDebugMetadata(
+				camSysMetaRequestId_, feature_, &debugMetadata);
+			metadata.merge(debugMetadata);
+		}
+	} else {
+		metadata.set(controls::ExposureTime, (int64_t)66'666);
 	}
 
 	pipe_->completeMetadata(request_, metadata);
@@ -398,7 +406,11 @@ void CompleteRequestTask::run()
 		pipe_->completeBuffer(request_, buffer);
 	}
 
-	onDeviceTuner_->notifyRequestEnd(internalRequestId_);
+	if (onDeviceTuner_->isEnabled()) {
+		ipa_->notifyRequestEnd(internalRequestId_);
+		onDeviceTuner_->notifyRequestEnd(internalRequestId_);
+	}
+
 	pipe_->completeRequest(request_);
 	Task::notifyDone();
 }
@@ -624,7 +636,7 @@ int PipelineHandlerMtkISP7::queueRequestDevice(Camera *camera, Request *request)
 
 bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 {
-	onDeviceTuner_.initialize();
+	onDeviceTuner_.initialize(false);
 
 	DeviceMatch camSysDM("mtk-cam");
 	camSysDM.add("mtk-cam raw-0");
@@ -797,7 +809,6 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 int MtkISP7CameraData::loadIPA()
 {
-	ipa_->preInit(onDeviceTuner_);
 	if (ipa_->init(sensor_idx_)) {
 		LOG(MtkISP7, Error) << "IPA init failed";
 	}
@@ -847,7 +858,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *, uint32_t>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames,
-			     uint32_t internalRequestId)
+			     uint32_t internalRequestId, bool hasStillCapture)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
@@ -883,6 +894,13 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
 		scheduler, id, request, captureFrames, internalRequestId);
+
+	if (onDeviceTuner_->isEnabled()) {
+		onDeviceTuner_->notifyRequestBegin(internalRequestId);
+
+		// Make sure it's ahead of everything else.
+		ipa_->notifyRequestBegin(internalRequestId, hasStillCapture);
+	}
 
 	auto [aaTask, afTask] = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
@@ -1204,16 +1222,18 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
-	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
+	onDeviceTuner_->configure(camSysDev_->cameraId(),
+				  camSysDev_->getIndex(), 0, ipa_.get());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 
 	std::vector<uint8_t> swmeParam, bssParam;
 	ipa_->configure(camsysYuvSize, faceDetector_,
 			video1 > video2 ? video1 : video2,
-			still1 > still2 ? still1 : still2,
+			still1 > still2 ? still1 : still2, camSysDev_->cameraId(),
+			camSysDev_->getIndex(),
+			onDeviceTuner_->getSessionTimestamp(),
 			isVideo,
-			&swmeParam,
-			&bssParam);
+			&swmeParam, &bssParam);
 
 	auto swme = std::make_shared<mtk::isphal::v1::isp_swme_Param>();
 	memcpy(swme.get(), swmeParam.data(),
@@ -1286,11 +1306,12 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		}
 	}
 
+	bool hasStillCapture = still1Buffer || still2Buffer;
+
 	uint32_t internalRequestId = requestCount_++;
-	bool isStillCapture = (still1Buffer || still2Buffer);
 	// todo(yerlandinata): set feature for MFNR.
 	// todo(yerlandinata): check whether we need Feature::video or not.
-	Feature feature = isStillCapture ? Feature::Capture_lpnr : Feature::Preview;
+	Feature feature = hasStillCapture ? Feature::Capture_lpnr : Feature::Preview;
 
 	if (aaControlChanged || nddEnabled) {
 		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
@@ -1303,7 +1324,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 				prevAATask->setFeatureApplied(feature);
 				prevAATask->setPerFrameControl(
 					AATask::PerFrameControl{
-						.isStillCapture = isStillCapture,
+						.isStillCapture = hasStillCapture,
 						.controls = request->controls() });
 				iter++;
 			}
@@ -1313,10 +1334,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	CaptureFrames captureFrames;
 
 	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask, camSysMetaRequestId] = makeTasks(
-		"Capture " + sequence, request, captureFrames, internalRequestId);
+		"Capture " + sequence, request, captureFrames, internalRequestId, hasStillCapture);
 	aaTask->setPerFrameControl(
 		AATask::PerFrameControl{
-			.isStillCapture = isStillCapture,
+			.isStillCapture = hasStillCapture,
 			.controls = request->controls() });
 
 	Task *taskTr = nullptr;
@@ -1326,11 +1347,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
 	auto aaaIspExchange = aaCaptureResult->aaaIspExchange;
 
-	// TODO(chenghaoyang): Remove hal3A workaround when ODT in IPA is supported.
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, internalRequestId,
-		camSysMetaRequestId, pipeline, onDeviceTuner_, faceDetector_,
-		aaaIspExchange, ipa_->ipa_.hal3A_.get(), feature);
+		camSysMetaRequestId, pipeline, ipa_.get(), onDeviceTuner_,
+		faceDetector_, aaaIspExchange, feature);
 
 	if (afTask)
 		Scheduler::precede(afTask, completeTask);
@@ -1426,8 +1446,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 		Scheduler::precede(taskDip2, completeTask);
 	}
-
-	bool hasStillCapture = still1Buffer || still2Buffer;
 
 	if (hasStillCapture) {
 		if (useMfnr && !useLpnr) {

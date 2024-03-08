@@ -28,13 +28,30 @@ public:
 
 	int configure(const Size &camsysYuvSize, FaceDetector *faceDetector,
 		      const Size &maxVideoSize,
-		      const Size &maxStillSize,
+		      const Size &maxStillSize, const std::string &sensorId,
+		      const uint32_t camsysIndex, const int32_t sessionTimestamp,
 		      bool isVideo,
 		      std::vector<uint8_t> *swmeParam,
 		      std::vector<uint8_t> *bssParam);
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers);
 	void unmapBuffers(const std::vector<unsigned int> &ids);
+
+	void writeStillCaptureDebugMetadata(
+		const uint32_t camSysMetaRequestId,
+		const Feature feature,
+		ControlList *metadata);
+
+	void notifyRequestBegin(const uint32_t frame,
+				const bool hasStillCapture);
+	void notifyRequestEnd(const uint32_t frame);
+
+	void notifyExportBegin(
+		const uint32_t exportBegin,
+		const uint32_t exportEnd);
+	void notifyImportBegin(
+		const uint32_t importBegin,
+		const uint32_t importEnd);
 
 	void aieParse(
 		const uint32_t inputImageBufferId,
@@ -63,12 +80,6 @@ public:
 		const bool needCropTNC16x9,
 		const Feature feature,
 		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests);
-
-	// Workaround
-	void preInit(OnDeviceTuner *odt)
-	{
-		ipa_.preInit(odt);
-	}
 
 private:
 	friend MtkISP7CameraData;
