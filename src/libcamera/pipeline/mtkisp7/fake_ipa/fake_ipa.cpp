@@ -32,16 +32,16 @@ int IPAMtkISP7::init(const int32_t sensorIdx)
  */
 int IPAMtkISP7::start(const uint32_t rawMetaBufferId)
 {
-	auto itRawMeta = buffers_.find(rawMetaBufferId);
-	if (itRawMeta == buffers_.end()) {
+	IPAMappedBuffer *rawMetaBuffer = getMappedBufferIter(rawMetaBufferId);
+	if (!rawMetaBuffer) {
 		LOG(IPAMtkISP7, Error) << "Could not find rawMeta buffer!";
 		return -1;
 	}
-	MappedFrameBuffer mappedRawMeta(&itRawMeta->second,
+	MappedFrameBuffer mappedRawMeta(&rawMetaBuffer->buffer,
 					MappedFrameBuffer::MapFlag::ReadWrite);
 
 	hal3A_->start(reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(
-		mappedRawMeta.planes()[0].data()));
+		rawMetaBuffer->mapped->planes()[0].data()));
 
 	return hal3A_->r3AResult_.af_result.lens_position;
 }
@@ -107,12 +107,11 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 		return;
 	}
 
-	auto itRawMeta = buffers_.find(rawMetaBufferId);
-	if (itRawMeta == buffers_.end()) {
+	IPAMappedBuffer *rawMetaBuffer = getMappedBufferIter(rawMetaBufferId);
+	if (!rawMetaBuffer) {
 		LOG(IPAMtkISP7, Error) << "Could not find rawMeta buffer!";
 		return;
 	}
-	MappedFrameBuffer mappedRawMeta(&itRawMeta->second, MappedFrameBuffer::MapFlag::ReadWrite);
 
 	MtkCameraFaceMetadata *faces = (metadata_) ? &(*metadata_) : nullptr;
 
@@ -131,10 +130,10 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 	if (featureEnum >= 0)
 		featureApplied = static_cast<Feature>(featureEnum);
 
-	hal3A_->doCalculation(&itStat0->second, timestamp, frame,
+	hal3A_->doCalculation(&itStat0->second.buffer, timestamp, frame,
 			      camSysMetaRequestId, isStillCapture,
-			      itRawMeta->second.planes()[0].fd.get(),
-			      mappedRawMeta.planes()[0].data(),
+			      rawMetaBuffer->buffer.planes()[0].fd.get(),
+			      rawMetaBuffer->mapped->planes()[0].data(),
 			      faces, sample,
 			      &exposureAndGain, aaaIspExchange_,
 			      idApplied, featureApplied, controls);
@@ -144,7 +143,7 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 	if (internalRequestIdApplied != 0 && featureApplied.has_value()) {
 		onDeviceTuner_->tune3AState(
 			internalRequestIdApplied,
-			&itStat0->second, &hal3A_->r3AResult_,
+			&itStat0->second.buffer, &hal3A_->r3AResult_,
 			featureApplied.value());
 	}
 
@@ -165,10 +164,26 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 		return;
 	}
 
-	hal3A_->doCalculationAF(&itStat1->second, timestamp, frame,
+	hal3A_->doCalculationAF(&itStat1->second.buffer, timestamp, frame,
 				afCamSysMetaRequestId, vcm,
 				faces, sample, &position);
 	AFResultReady.emit(frame, position);
+}
+
+IPAMtkISP7::IPAMappedBuffer *
+IPAMtkISP7::getMappedBufferIter(unsigned int bufferId)
+{
+	auto it = buffers_.find(bufferId);
+	if (it == buffers_.end())
+		return nullptr;
+
+	if (!it->second.mapped) {
+		it->second.mapped = std::make_unique<MappedFrameBuffer>(
+			&it->second.buffer,
+			MappedFrameBuffer::MapFlag::ReadWrite);
+	}
+
+	return &it->second;
 }
 
 } // namespace ipa::mtkisp7
