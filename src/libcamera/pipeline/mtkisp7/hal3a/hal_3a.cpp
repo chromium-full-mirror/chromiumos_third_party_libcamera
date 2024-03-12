@@ -369,7 +369,8 @@ void Hal3A::startInternal()
 void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
-			  MtkCameraFaceMetadata *faceMetadata, GyroSensor::SensorSample gyroSample,
+			  std::optional<MtkCameraFaceMetadata> metadata,
+			  GyroSensor::SensorSample gyroSample,
 			  ipa::mtkisp7::SensorSetting *exposureAndGain,
 			  ipa::mtkisp7::AaaIspExchange *aaaIspExchange,
 			  std::optional<uint32_t> internalRequestIdApplied,
@@ -412,7 +413,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
 
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(
-		internalRequestId, faceMetadata, gyroSample, isStillCapture, controls);
+		internalRequestId, metadata, gyroSample, isStillCapture, controls);
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -458,7 +459,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
 					     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
 					     kRawMetaSize, isStillCapture,
-					     faceMetadata,
+					     metadata ? &metadata.value() : nullptr,
 					     internalRequestIdApplied,
 					     featureApplied,
 					     aaaIspExchange);
@@ -484,7 +485,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			    VcmFocusInformation vcmFocusInfo,
-			    MtkCameraFaceMetadata *metadata,
+			    std::optional<MtkCameraFaceMetadata> metadata,
 			    GyroSensor::SensorSample gyroSample,
 			    int32_t *position)
 {
@@ -526,7 +527,7 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 
 mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	uint32_t internalRequestId,
-	MtkCameraFaceMetadata *faceMetadata,
+	std::optional<MtkCameraFaceMetadata> metadata,
 	GyroSensor::SensorSample gyroSample,
 	bool isStillCapture,
 	std::optional<ControlList> controls_opt)
@@ -812,9 +813,9 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.fast_switch_param.is_seamless = 0;
 	r_3a_param.fast_switch_param.seam_policy = 0;
 
-	if (faceMetadata) {
-		r_3a_param.faces = *faceMetadata;
-		r_3a_param.face_num = faceMetadata->number_of_faces;
+	if (metadata) {
+		r_3a_param.faces = metadata.value();
+		r_3a_param.face_num = metadata->number_of_faces;
 		r_3a_param.is_fd_ready = true;
 	} else {
 		r_3a_param.face_num = 0;
