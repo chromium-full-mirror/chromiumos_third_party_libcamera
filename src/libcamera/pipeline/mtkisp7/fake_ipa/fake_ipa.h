@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <libcamera/base/thread.h>
+
 #include <libcamera/ipa/mtkisp7_ipa_interface.h>
 
 #include "libcamera/internal/mapped_framebuffer.h"
@@ -80,6 +82,42 @@ private:
 		std::unique_ptr<MappedFrameBuffer> mapped;
 	};
 
+	class AAManager : public Object
+	{
+	public:
+		AAManager(IPAMtkISP7 *ipa);
+		void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
+				   uint32_t internalRequestId,
+				   uint32_t camSysMetaRequestId,
+				   bool isStillCapture, int rawMetaFd,
+				   unsigned char *rawMetaBuffer,
+				   std::optional<MtkCameraFaceMetadata> metadata,
+				   GyroSensor::SensorSample gyroSample,
+				   const uint32_t internalRequestIdApplied,
+				   const ControlList &controls,
+				   const int32_t featureEnum);
+
+	private:
+		IPAMtkISP7 *ipa_;
+	};
+
+	class AFManager : public Object
+	{
+	public:
+		AFManager(IPAMtkISP7 *ipa);
+		void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
+				     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+				     ::VcmFocusInformation vcmFocusInfo,
+				     std::optional<MtkCameraFaceMetadata> metadata,
+				     GyroSensor::SensorSample gyroSample);
+
+	private:
+		IPAMtkISP7 *ipa_;
+	};
+
+	friend AAManager;
+	friend AFManager;
+
 	IPAMappedBuffer *getMappedBufferIter(unsigned int bufferId);
 
 	ControlList convertFaceMetadata();
@@ -95,6 +133,12 @@ private:
 	// TODO: Check if we create a different instance for each CameraData.
 	std::unique_ptr<Hal3A> hal3A_;
 	std::unique_ptr<AieParser> aieParser_;
+
+	Thread aaThread_;
+	std::unique_ptr<AAManager> aaManager_;
+
+	Thread afThread_;
+	std::unique_ptr<AFManager> afManager_;
 
 	// The sensor being configured.
 	int32_t sensorIdx_;
