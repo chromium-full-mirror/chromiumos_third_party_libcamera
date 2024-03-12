@@ -8,6 +8,8 @@
 
 #include <libcamera/ipa/mtkisp7_ipa_interface.h>
 
+#include "libcamera/internal/mapped_framebuffer.h"
+
 #include "../hal3a/hal_3a.h"
 
 // Workarounds
@@ -67,13 +69,23 @@ private:
 	friend IPADelegate;
 	friend MtkISP7CameraData;
 
+	struct IPAMappedBuffer {
+		IPAMappedBuffer(const std::vector<FrameBuffer::Plane> &planes)
+			: buffer(planes) {}
+
+		FrameBuffer buffer;
+		std::unique_ptr<MappedFrameBuffer> mapped;
+	};
+
+	IPAMappedBuffer *getMappedBufferIter(unsigned int bufferId);
+
 	// Workarounds
 	HalIsp *halIsp_ = nullptr;
 	OnDeviceTuner *onDeviceTuner_;
 	std::optional<MtkCameraFaceMetadata> metadata_;
 	AaaIspExchange *aaaIspExchange_;
 
-	std::map<unsigned int, FrameBuffer> buffers_;
+	std::map<unsigned int, IPAMappedBuffer> buffers_;
 
 	// TODO: Check if we create a different instance for each CameraData.
 	std::unique_ptr<Hal3A> hal3A_;
