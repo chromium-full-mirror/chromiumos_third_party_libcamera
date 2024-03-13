@@ -1753,27 +1753,6 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
 	}
 
 	LOG(V4L2, Debug) << "Queueing buffer " << buf.index;
-	// todo: Need to check with MTK about the behavior.
-	// Currently as a workaround to extend the number of planes to 3
-	// unconditinally for the raw output of camsys, to avoid invalid
-	// input errors.
-	if (format_.fourcc == V4L2_PIX_FMT_MTISP_SBGGR10 ||
-	    format_.fourcc == V4L2_PIX_FMT_MTISP_SGBRG10 ||
-	    format_.fourcc == V4L2_PIX_FMT_MTISP_SGRBG10 ||
-	    format_.fourcc == V4L2_PIX_FMT_MTISP_SRGGB10) {
-		buf.length = 3;
-		buf.m.planes[1] = buf.m.planes[0];
-		buf.m.planes[2] = buf.m.planes[0];
-
-		for (uint32_t i = 0; i < buf.length; i++) {
-			LOG(V4L2, Debug)
-				<< " plane " << i
-				<< " length " << buf.m.planes[i].length
-				<< " offset " << buf.m.planes[i].data_offset
-				<< " byteUsed " << buf.m.planes[i].bytesused
-				<< " fd " << buf.m.planes[i].m.fd;
-		}
-	}
 
 	ret = ioctl(VIDIOC_QBUF, &buf);
 	if (ret < 0) {
@@ -1855,12 +1834,6 @@ std::pair<FrameBuffer *, int> V4L2VideoDevice::dequeueBuffer()
 	}
 
 	LOG(V4L2, Debug) << "Dequeuing buffer " << buf.index;
-	/* Reset the hack for raw output of camsys */
-	if (format_.fourcc == V4L2_PIX_FMT_MTISP_SBGGR10 ||
-	    format_.fourcc == V4L2_PIX_FMT_MTISP_SGBRG10 ||
-	    format_.fourcc == V4L2_PIX_FMT_MTISP_SGRBG10 ||
-	    format_.fourcc == V4L2_PIX_FMT_MTISP_SRGGB10)
-		buf.length = 1;
 
 	/*
 	 * If the video node fails to stream-on successfully (which can occur
