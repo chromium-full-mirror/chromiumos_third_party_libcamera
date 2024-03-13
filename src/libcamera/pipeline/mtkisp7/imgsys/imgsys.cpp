@@ -439,6 +439,10 @@ int ImgSysDevice::configure()
 		case IMG_PORT_DRV_SIGDEV_NORMI:
 			ret = device->importBuffers(32);
 			break;
+		case IMG_PORT_WROTO:
+		case IMG_PORT_WDMAO:
+			ret = device->importBuffers(3);
+			break;
 		default:
 			ret = device->importBuffers(24);
 			break;
