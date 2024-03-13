@@ -137,8 +137,35 @@ private:
 		IPAMtkISP7 *ipa_;
 	};
 
+	class IspManager : public Object
+	{
+	public:
+		struct DataMappedBuffers {
+			bool valid;
+
+			IPAMappedBuffer *tuning;
+			IPAMappedBuffer *statistics;
+			IPAMappedBuffer *swHist;
+			std::vector<IPAMappedBuffer *> reserved;
+		};
+
+		IspManager(IPAMtkISP7 *ipa);
+		void getImgSysMetaTuning(
+			const uint64_t cookie,
+			const uint32_t camSysMetaRequestId,
+			const uint32_t frame,
+			const bool needCropTNC16x9,
+			const Feature feature,
+			const std::vector<ipa::mtkisp7::ImgMetaRequestData> imgMetaRequests,
+			const std::vector<DataMappedBuffers> dataMappedBuffersList);
+
+	private:
+		IPAMtkISP7 *ipa_;
+	};
+
 	friend AAManager;
 	friend AFManager;
+	friend IspManager;
 
 	IPAMappedBuffer *getMappedBufferIter(unsigned int bufferId);
 
@@ -160,6 +187,9 @@ private:
 
 	Thread afThread_;
 	std::unique_ptr<AFManager> afManager_;
+
+	Thread ispThread_;
+	std::unique_ptr<IspManager> ispManager_;
 
 	// The sensor being configured.
 	int32_t sensorIdx_;
