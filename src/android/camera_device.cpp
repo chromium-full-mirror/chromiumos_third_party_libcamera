@@ -385,6 +385,29 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 		streamConfigs.push_back(std::move(streamConfig));
 	}
 
+	/*
+	Hardware support maxium 2 video + 2 still capture strem, when still capture
+	stream is higher than 2, move the rest to video stream.
+	(cts: android.hardware.camera2.cts.RobustnessTest#testMandatoryOutputCombinations)
+	*/
+	int stillCnt = 0;
+	for (auto &streamCfg: streamConfigs){
+		if (streamCfg.config.role == StreamRole::StillCapture)
+			stillCnt += 1;
+	}
+	if (stillCnt > 2){
+		for (auto &streamCfg: streamConfigs){
+			if (streamCfg.config.role == StreamRole::StillCapture && streamCfg.streams[0].stream->format != HAL_PIXEL_FORMAT_BLOB){
+				streamCfg.config.role = StreamRole::Viewfinder;
+				stillCnt -=1;
+				if (stillCnt == 2){
+					break;
+				}
+			}
+		}
+	}
+
+
 	return 0;
 }
 
