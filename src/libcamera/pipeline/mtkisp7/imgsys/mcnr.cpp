@@ -236,12 +236,12 @@ int McnrTasksManager::configureBuffers()
 	}
 
 	img3o_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, tncSize, 3);
-	img3o_[1].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 12, DmaHeap::System, 1, 64);
-	img3o_[2].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[2], 12, DmaHeap::System, 1, 64);
-	img3o_[3].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[3], 12, DmaHeap::System, 1, 64);
-	img3o_[4].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[4], 12, DmaHeap::System, 1, 64);
-	img3o_[5].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[5], 12, DmaHeap::System, 1, 64);
-	img3o_[6].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[6], 12, DmaHeap::System, 1, 64);
+	img3o_[1].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 16, DmaHeap::System, 1, 64);
+	img3o_[2].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[2], 16, DmaHeap::System, 1, 64);
+	img3o_[3].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[3], 16, DmaHeap::System, 1, 64);
+	img3o_[4].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[4], 16, DmaHeap::System, 1, 64);
+	img3o_[5].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[5], 16, DmaHeap::System, 1, 64);
+	img3o_[6].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[6], 16, DmaHeap::System, 1, 64);
 
 	tnrmo_[1].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[1], 3, DmaHeap::System, 16);
 	tnrmo_[2].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 3, DmaHeap::System, 16);
