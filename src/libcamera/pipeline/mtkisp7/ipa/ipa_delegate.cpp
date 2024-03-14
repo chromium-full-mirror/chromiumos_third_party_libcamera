@@ -32,17 +32,21 @@ int IPADelegate::init(const std::string &model, const int32_t sensorIdx,
 		      const std::vector<uint8_t> &eeprom,
 		      const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray)
 {
-	return ipa_.init(model, sensorIdx, eeprom, camSysDataArray);
+	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::init,
+				 ConnectionTypeBlocking, model, sensorIdx,
+				 eeprom, camSysDataArray);
 }
 
 int IPADelegate::start(const uint32_t rawMetaBufferId)
 {
-	return ipa_.start(rawMetaBufferId);
+	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::start,
+				 ConnectionTypeBlocking, rawMetaBufferId);
 }
 
 void IPADelegate::stop()
 {
-	ipa_.stop();
+	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::stop,
+				 ConnectionTypeBlocking);
 }
 
 int IPADelegate::configure(
@@ -56,19 +60,24 @@ int IPADelegate::configure(
 {
 	faceDetector_ = faceDetector;
 
-	return ipa_.configure(camsysYuvSize, maxVideoSize, maxStillSize,
-			      sensorId, camsysIndex, sessionTimestamp,
-			      isVideo, swmeParam, bssParam);
+	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::configure,
+				 ConnectionTypeBlocking,
+				 camsysYuvSize, maxVideoSize, maxStillSize,
+				 sensorId, camsysIndex, sessionTimestamp,
+				 isVideo,
+				 swmeParam, bssParam);
 }
 
 void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
 {
-	ipa_.mapBuffers(buffers);
+	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::mapBuffers,
+				 ConnectionTypeBlocking, buffers);
 }
 
 void IPADelegate::unmapBuffers(const std::vector<unsigned int> &ids)
 {
-	ipa_.unmapBuffers(ids);
+	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::unmapBuffers,
+				 ConnectionTypeBlocking, ids);
 }
 
 void IPADelegate::writeStillCaptureDebugMetadata(
