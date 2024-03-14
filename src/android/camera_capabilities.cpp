@@ -1646,6 +1646,12 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	requestTemplate->addEntry(ANDROID_CONTROL_CAPTURE_INTENT,
 				  captureIntent);
 
+	std::vector<int32_t> cropRegion = {
+		0, 0, 0, 0,
+	};
+	requestTemplate->addEntry(ANDROID_SCALER_CROP_REGION,
+				  cropRegion);
+
 	return requestTemplate;
 }
 
