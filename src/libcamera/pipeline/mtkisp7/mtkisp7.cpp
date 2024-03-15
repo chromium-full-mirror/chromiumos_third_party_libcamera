@@ -494,7 +494,7 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 	: PipelineHandler(manager),
-	  camSysDev_{{&onDeviceTuner_}, {&onDeviceTuner_}},
+	  camSysDev_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
 	  halIsp_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
 	  imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
 {
@@ -1185,7 +1185,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		bool useLpnr = true;
 		{
 			//TODO implement strategy to choose between mfnr and lpnr
-			useMfnr = mfnrManager.forceMfnr() || AaaIspExchange::mfnrMode;
+			useMfnr = mfnrManager.forceMfnr() || hal3AManager_.getMfnrMode();
 		}
 		if (useMfnr && !useLpnr) {
 			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_mfnr);

@@ -20,8 +20,8 @@
 
 #include "../hal3a/hal_3a.h"
 #include "debug_exif/aaa/dbg_aaa_param.h"
-#include "halisp/utils/Size.h"
 #include "halisp/ITuningDataProvider.h"
+#include "halisp/utils/Size.h"
 #include "libcamera/request.h"
 #include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
@@ -33,7 +33,6 @@
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
-bool AaaIspExchange::mfnrMode = false;
 
 HalIsp::HalIsp(OnDeviceTuner *odt)
 	: onDeviceTuner_(odt)

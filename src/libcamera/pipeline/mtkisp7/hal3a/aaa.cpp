@@ -232,6 +232,8 @@ void AATask::run()
 			captureFrames_, &hal3A_->r3AResult_);
 	}
 
+	manager_->setMfnrMode(captureFrames_.aaaIspExchange->get().mfnrMode);
+
 	notifyDone();
 }
 

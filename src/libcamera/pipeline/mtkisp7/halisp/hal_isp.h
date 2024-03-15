@@ -16,8 +16,8 @@
 #include <libcamera/internal/info_frame.h>
 
 #include "../utils/history.h"
-#include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "halisp/utils/Size.h"
+#include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
@@ -32,7 +32,7 @@ struct AaaIspExchange {
 	bool highIsoMode = false;
 	uint32_t aaaRequestId = 0;
 	ControlList aaaMetadata;
-	static bool mfnrMode;
+	bool mfnrMode;
 };
 
 struct ImgMetaRequest {

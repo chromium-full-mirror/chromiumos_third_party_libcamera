@@ -68,6 +68,15 @@ public:
 
 	std::pair<uint32_t, SharedMailBox<InfoFrame>> getDummyTuning();
 
+	void setMfnrMode(bool mfnrMode)
+	{
+		mfnrMode_ = mfnrMode;
+	}
+	bool getMfnrMode() const
+	{
+		return mfnrMode_;
+	}
+
 private:
 	bool hasAF() const;
 	void allocateBuffers();
@@ -88,6 +97,8 @@ private:
 
 	uint32_t dummyMetaRequestId_;
 	SharedMailBox<InfoFrame> dummyTuning_;
+
+	bool mfnrMode_;
 };
 
 // AE & AWB task.
