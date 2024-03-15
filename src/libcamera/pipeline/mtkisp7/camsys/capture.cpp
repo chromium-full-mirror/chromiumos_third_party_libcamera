@@ -118,7 +118,7 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 	captureFrames.exposureAndGainOutput =
 		makeMailBox<ipa::mtkisp7::SensorSetting>();
 
-	captureFrames.aaaIspExchange = makeMailBox<AaaIspExchange>();
+	captureFrames.aaaIspExchange = makeMailBox<ipa::mtkisp7::AaaIspExchange>();
 
 	captureFrames.rawInject = makeMailBox<InfoFrame>();
 }

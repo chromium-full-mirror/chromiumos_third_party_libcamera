@@ -158,7 +158,7 @@ public:
 			    Request *request, uint32_t internalRequestId,
 			    uint32_t camSysMetaRequestId, PipelineHandler *pipe,
 			    OnDeviceTuner *odt, FaceDetector *faceDetector,
-			    SharedMailBox<AaaIspExchange> aaaIspExchange,
+			    SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 			    Hal3A *hal3A, Feature feature);
 
 	virtual void run() override final;
@@ -170,7 +170,7 @@ private:
 	uint32_t camSysMetaRequestId_;
 	FaceDetector *faceDetector_;
 	OnDeviceTuner *onDeviceTuner_;
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
 	Hal3A *hal3A_;
 	Feature feature_;
 };
@@ -184,7 +184,7 @@ CompleteRequestTask::CompleteRequestTask(
 	PipelineHandler *pipe,
 	OnDeviceTuner *odt,
 	FaceDetector *faceDetector,
-	SharedMailBox<AaaIspExchange> aaaIspExchange,
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 	Hal3A *hal3A, Feature feature)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
 	  internalRequestId_(internalRequestId),
@@ -197,7 +197,7 @@ CompleteRequestTask::CompleteRequestTask(
 struct CaptureResult {
 	SharedMailBox<InfoFrame> tuningOutput;
 	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGainOutput;
-	SharedMailBox<AaaIspExchange> aaaIspExchange;
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange;
 };
 
 class MtkISP7CameraData : public Camera::Private
@@ -385,7 +385,7 @@ void CompleteRequestTask::run()
 	metadata.merge(faceControls);
 
 	if (aaaIspExchange_->valid()) {
-		AaaIspExchange aaaIspExchange = aaaIspExchange_->get();
+		auto aaaIspExchange = aaaIspExchange_->get();
 		metadata.merge(aaaIspExchange.aaaMetadata);
 		onDeviceTuner_->writeStillCaptureDebugMetadata(
 			metadata,
@@ -1241,7 +1241,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool hasVideo = video1Buffer || video2Buffer;
 
 	CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
-	SharedMailBox<AaaIspExchange> aaaIspExchange = aaCaptureResult->aaaIspExchange;
+	auto aaaIspExchange = aaCaptureResult->aaaIspExchange;
 
 	// TODO(chenghaoyang): Remove hal3A workaround when ODT in IPA is supported.
 	CompleteRequestTask *completeTask = new CompleteRequestTask(

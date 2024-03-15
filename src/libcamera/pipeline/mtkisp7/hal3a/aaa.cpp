@@ -188,10 +188,6 @@ void AATask::run()
 	tuningBuffer->_d()->metadata().planes()[0].bytesused =
 		tuningBuffer->planes()[0].length;
 
-	captureFrames_.aaaIspExchange->put({}, nullptr);
-
-	ipa_->preDoCalculation3A(&captureFrames_.aaaIspExchange->get());
-
 	ipa::mtkisp7::GyroSampleData gyroSample;
 	if (gyroSensor_) {
 		GyroSensor::SensorSample sample = gyroSensor_->getLatestSample();
@@ -224,11 +220,13 @@ void AATask::run()
 		perFrameControl_.controls);
 }
 
-void AATask::AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain)
+void AATask::AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
+			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange)
 {
 	captureFrames_.exposureAndGainOutput->put(exposureAndGain, nullptr);
 
-	manager_->setMfnrMode(captureFrames_.aaaIspExchange->get().mfnrMode);
+	manager_->setMfnrMode(aaaIspExchange.mfnrMode);
+	captureFrames_.aaaIspExchange->put(aaaIspExchange, nullptr);
 
 	notifyDone();
 }

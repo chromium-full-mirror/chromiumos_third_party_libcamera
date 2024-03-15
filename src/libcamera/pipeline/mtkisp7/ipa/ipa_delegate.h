@@ -56,10 +56,6 @@ public:
 	{
 		ipa_.preInit(halIsp, odt);
 	}
-	void preDoCalculation3A(AaaIspExchange *aaaIspExchange)
-	{
-		ipa_.preDoCalculation3A(aaaIspExchange);
-	}
 
 private:
 	friend MtkISP7CameraData;
@@ -70,7 +66,8 @@ private:
 		const ControlList &faceControls);
 
 	void AAResultReady(uint32_t id,
-			   const ipa::mtkisp7::SensorSetting &sensorSetting);
+			   const ipa::mtkisp7::SensorSetting &sensorSetting,
+			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange);
 	void AFResultReady(uint32_t id, int32_t position);
 
 	ipa::mtkisp7::IPAMtkISP7 ipa_;

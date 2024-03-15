@@ -150,7 +150,7 @@ int LpnrTunTasksManager::configure(const Size &bayerInputSize,
 
 std::tuple<LpnrTunXtrTask *, LpnrTunDipTask *>
 LpnrTunTasksManager::makeLpnrTunTasks(LPNRFrames &lpnr,
-				      SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				      SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 				      uint32_t camSysMetaRequestId,
 				      Scheduler *scheduler,
 				      const std::string &id, Request *request,
@@ -207,7 +207,7 @@ void LpnrTunXtrTask::run()
 }
 
 LpnrTunDipTask::LpnrTunDipTask(LPNRFrames &lpnr,
-			       SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			       SharedMailBox<ipa::mtkisp7::AaaIspExchange> &aaaIspExchange,
 			       uint32_t camSysMetaRequestId,
 			       Scheduler *scheduler,
 			       const std::string &id, Request *request, LpnrTunTasksManager *manager,
@@ -226,7 +226,7 @@ LpnrTunDipTask::LpnrTunDipTask(LPNRFrames &lpnr,
 void LpnrTunDipTask::run()
 {
 	ImgMetaRequest request = {};
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
+	auto aaaIspExchange = &aaaIspExchange_->get();
 
 	bool highIsoMode = aaaIspExchange->highIsoMode;
 	if (manager_->onDeviceTuner_->isLowIsoLpnrEnforced()) {

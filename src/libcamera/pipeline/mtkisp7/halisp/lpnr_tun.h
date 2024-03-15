@@ -42,7 +42,7 @@ public:
 	std::tuple<LpnrTunXtrTask *, LpnrTunDipTask *>
 	makeLpnrTunTasks(
 		LPNRFrames &lpnr,
-		SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 		uint32_t camSysMetaRequestId,
 		Scheduler *scheduler,
 		const std::string &id, Request *request,
@@ -93,7 +93,7 @@ class LpnrTunDipTask : public Task
 {
 public:
 	LpnrTunDipTask(LPNRFrames &lpnr,
-		       SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		       SharedMailBox<ipa::mtkisp7::AaaIspExchange> &aaaIspExchange,
 		       uint32_t camSysMetaRequestId,
 		       Scheduler *scheduler, const std::string &id,
 		       Request *request, LpnrTunTasksManager *manager,
@@ -107,7 +107,7 @@ public:
 	SharedMailBox<InfoFrame> dipTunY2YPq_;
 	std::vector<SharedMailBox<InfoFrame>> dipTun_;
 
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
 	uint32_t camSysMetaRequestId_;
 
 	Request *request_;

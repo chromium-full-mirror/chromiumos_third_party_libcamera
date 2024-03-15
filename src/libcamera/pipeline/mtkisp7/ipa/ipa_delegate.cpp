@@ -111,7 +111,8 @@ void IPADelegate::AieParseResultReady(
 }
 
 void IPADelegate::AAResultReady(uint32_t id,
-				const ipa::mtkisp7::SensorSetting &sensorSetting)
+				const ipa::mtkisp7::SensorSetting &sensorSetting,
+				const ipa::mtkisp7::AaaIspExchange &aaaIspExchange)
 {
 	auto it = aaTasks_.find(id);
 	if (it == aaTasks_.end()) {
@@ -119,7 +120,7 @@ void IPADelegate::AAResultReady(uint32_t id,
 			<< "AAResultReady: couldn't find task with id: " << id;
 		return;
 	}
-	it->second->AAResultReady(sensorSetting);
+	it->second->AAResultReady(sensorSetting, aaaIspExchange);
 
 	aaTasks_.erase(it);
 }

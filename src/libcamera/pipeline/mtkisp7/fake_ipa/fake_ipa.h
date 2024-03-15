@@ -38,10 +38,6 @@ public:
 		halIsp_ = halIsp;
 		onDeviceTuner_ = odt;
 	}
-	void preDoCalculation3A(AaaIspExchange *aaaIspExchange)
-	{
-		aaaIspExchange_ = aaaIspExchange;
-	}
 
 	int init(const int32_t sensorIdx) override;
 
@@ -91,7 +87,6 @@ private:
 	// Workarounds
 	HalIsp *halIsp_ = nullptr;
 	OnDeviceTuner *onDeviceTuner_;
-	AaaIspExchange *aaaIspExchange_;
 
 	std::map<unsigned int, IPAMappedBuffer> buffers_;
 
