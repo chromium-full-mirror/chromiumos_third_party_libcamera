@@ -8,25 +8,22 @@
 
 #include <cstdint>
 #include <cstring>
-#include <fstream>
 #include <optional>
-#include <string>
 #include <sys/mman.h>
 
 #include <libcamera/base/log.h>
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
-#include "../camsys/capture.h"
 #include "../halisp/hal_isp.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
-#include "pipeline/mtkisp7/hal3a/utils_3a.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
 #include "platform/mtkisp7/platform_utils.h"
 
 #include "control_ids.h"
+#include "utils_3a.h"
 
 namespace libcamera {
 

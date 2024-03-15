@@ -16,7 +16,6 @@
 #include "libcamera/controls.h"
 #include "libcamera/framebuffer.h"
 #include "libcamera/geometry.h"
-#include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/utils/history.h"
@@ -31,8 +30,6 @@ class HalIsp;
 class Hal3A
 {
 public:
-	static const uint32_t kRawMetaSize = 113664;
-
 	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt);
 	~Hal3A();
 

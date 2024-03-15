@@ -18,6 +18,7 @@
 #include "libcamera/internal/mailbox.h"
 
 #include "../ipa/ipa_delegate.h"
+#include "libcamera/request.h"
 #include "mtkcam-core/hw/aie/3.1/hardware/v4l2/cam_fdvt_v4l2.h"
 
 /**

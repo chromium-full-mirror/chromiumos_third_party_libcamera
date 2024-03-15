@@ -28,6 +28,7 @@
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/device_enumerator.h"
 #include "libcamera/internal/gyro_sensor.h"
+#include "libcamera/internal/ipa_manager.h"
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/pipeline_handler.h"
@@ -35,11 +36,8 @@
 
 #include "camsys/camsys.h"
 #include "camsys/capture.h"
-#include "fake_ipa/fake_ipa.h"
 #include "hal3a/aaa.h"
-#include "hal3a/hal_3a.h"
 #include "halisp/ITuningDataProvider.h"
-#include "halisp/hal_isp.h"
 #include "halisp/lpnr_tun.h"
 #include "halisp/mcnr_tun.h"
 #include "halisp/mfnr_tun.h"
@@ -231,13 +229,15 @@ public:
 	{
 	}
 
-	int loadIPA();
+	bool loadIPA();
 
 	int configure(CameraConfiguration *c);
 	int queueRequest(Request *request);
 
 	int start(const ControlList *controls);
 	void stopDevice();
+
+	bool acquireDevice();
 	void releaseDevice();
 
 	void frameStart(uint32_t sequence);
@@ -339,6 +339,8 @@ public:
 
 	int start(Camera *camera, const ControlList *controls) override;
 	void stopDevice(Camera *camera) override;
+
+	bool acquireDevice(Camera *camera) override;
 	void releaseDevice(Camera *camera) override;
 
 	int queueRequestDevice(Camera *camera, Request *request) override;
@@ -659,6 +661,11 @@ void PipelineHandlerMtkISP7::stopDevice(Camera *camera)
 	cameraData(camera)->stopDevice();
 }
 
+bool PipelineHandlerMtkISP7::acquireDevice(Camera *camera)
+{
+	return cameraData(camera)->acquireDevice();
+}
+
 void PipelineHandlerMtkISP7::releaseDevice(Camera *camera)
 {
 	cameraData(camera)->releaseDevice();
@@ -840,10 +847,6 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 				&onDeviceTuner_, &faceDetector_,
 				dmaHeap_.get(), i);
 
-		if (data->loadIPA()) {
-			LOG(MtkISP7, Error) << "Failed to loadIPA, index: " << i;
-			continue;
-		}
 		Rectangle cropRegion = Rectangle{ pixelArraySize };
 		switch (PlatformUtils::platform_) {
 		case PlatformUtils::MtkISP7Platform::NONE:
@@ -905,8 +908,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	return true;
 }
 
-int MtkISP7CameraData::loadIPA()
+bool MtkISP7CameraData::loadIPA()
 {
+	if (ipa_->isValid())
+		return true;
+
 	std::string eepromPath;
 
 	switch (PlatformUtils::platform_) {
@@ -956,12 +962,19 @@ int MtkISP7CameraData::loadIPA()
 
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
-	if (ipa_->init(PlatformUtils::model_, sensor_idx_, buffer,
-		       pipeline->camSysDataArray_)) {
-		LOG(MtkISP7, Error) << "IPA init failed";
+	auto ipa = IPAManager::createIPA<ipa::mtkisp7::IPAProxyMtkISP7>(pipe(), 1, 1, true);
+	if (!ipa) {
+		LOG(MtkISP7, Error) << "Failed to load IPA";
+		return false;
 	}
 
-	return 0;
+	if (ipa_->init(std::move(ipa), PlatformUtils::model_, sensor_idx_,
+		       buffer, pipeline->camSysDataArray_)) {
+		LOG(MtkISP7, Error) << "IPA init failed";
+		return false;
+	}
+
+	return true;
 }
 
 int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
@@ -1255,6 +1268,11 @@ void MtkISP7CameraData::stopDevice()
 	freeIPABuffers();
 }
 
+bool MtkISP7CameraData::acquireDevice()
+{
+	return loadIPA();
+}
+
 void MtkISP7CameraData::releaseDevice()
 {
 	freeIPABuffers();
@@ -1277,6 +1295,12 @@ void MtkISP7CameraData::releaseDevice()
 		mfnrManager.releaseBuffers();
 		mfnrTunManager.releaseBuffers();
 	}
+
+	// TODO(chenghaoyang): Check with Han-lin. It will lose previous
+	// frames' info. 3A needs to re-converge.
+	// TODO(chenghaoyang): The third proxy seems to have issue when
+	// configuring. IPA took it as stop instead.
+	// ipa_->releaseProxy();
 }
 
 /*

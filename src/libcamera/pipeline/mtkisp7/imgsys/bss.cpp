@@ -16,6 +16,7 @@
 #include "mtkcam-interfaces/def/ImageFormat.h"
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/debug_exif/cam/dbg_cam_param.h"
+#include "sensor/sensor_info.h"
 
 #define MFLL_MF_TAG_VERSION 18
 #define MFLLBSS_FILE_PATH_LEN_MAX 512

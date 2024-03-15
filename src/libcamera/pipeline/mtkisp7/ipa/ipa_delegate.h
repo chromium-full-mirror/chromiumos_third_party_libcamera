@@ -6,8 +6,11 @@
  */
 #pragma once
 
+#include <libcamera/ipa/mtkisp7_ipa_proxy.h>
+
 #include "libcamera/base/object.h"
-#include "pipeline/mtkisp7/fake_ipa/fake_ipa.h"
+#include "pipeline/mtkisp7/face_detect/detector.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 
 namespace libcamera {
 
@@ -21,9 +24,12 @@ class IPADelegate : public Object
 public:
 	IPADelegate();
 
-	int init(const std::string &model, const int32_t sensorIdx,
+	int init(std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy,
+		 const std::string &model, const int32_t sensorIdx,
 		 const std::vector<uint8_t> &eeprom,
 		 const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray);
+	void releaseProxy();
+	bool isValid() { return ipaProxy_.get(); }
 
 	void start(const uint32_t rawMetaBufferId,
 		   ipa::mtkisp7::SensorSetting *sensorSetting,
@@ -102,7 +108,7 @@ private:
 
 	void ImgSysMetaTuningDone(uint64_t cookie);
 
-	ipa::mtkisp7::IPAMtkISP7 ipa_;
+	std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy_;
 
 	FaceDetector *faceDetector_;
 

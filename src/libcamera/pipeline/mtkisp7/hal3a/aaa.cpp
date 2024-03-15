@@ -14,15 +14,14 @@
 #include "libcamera/request.h"
 #include "libfdft_lib/faces.h"
 #include "peripheraldriver/lens/vcm_drv.h"
+#include "pipeline/mtkisp7/hal3a/const.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
-
-#include "hal_3a.h"
 
 namespace libcamera {
 
 namespace {
 
-static constexpr Size kMetaSize = Size{ Hal3A::kRawMetaSize, 1 };
+static constexpr Size kMetaSize = Size{ kHal3ARawMetaSize, 1 };
 
 // Todo: Move the funtion to common utils
 uint64_t getMonotonicTimestamp()

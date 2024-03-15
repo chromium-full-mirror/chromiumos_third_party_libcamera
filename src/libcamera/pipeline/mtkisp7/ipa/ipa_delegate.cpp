@@ -17,39 +17,49 @@ namespace libcamera {
 LOG_DEFINE_CATEGORY(IPADelegateMtkISP7)
 
 // Don't disconnect to avoid issues of BoundMethod.
-IPADelegate::IPADelegate()
-{
-	ipa_.AieParseResultReady.connect(this,
-					 &IPADelegate::AieParseResultReady);
+IPADelegate::IPADelegate() = default;
 
-	ipa_.AAResultReady.connect(this, &IPADelegate::AAResultReady);
-	ipa_.AFResultReady.connect(this, &IPADelegate::AFResultReady);
-
-	ipa_.ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
-}
-
-int IPADelegate::init(const std::string &model, const int32_t sensorIdx,
+int IPADelegate::init(std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy,
+		      const std::string &model, const int32_t sensorIdx,
 		      const std::vector<uint8_t> &eeprom,
 		      const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray)
 {
-	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::init,
-				 ConnectionTypeBlocking, model, sensorIdx,
-				 eeprom, camSysDataArray);
+	ipaProxy_ = std::move(ipaProxy);
+	if (!ipaProxy_)
+		return -ENOENT;
+
+	ipaProxy_->AieParseResultReady.connect(this,
+					       &IPADelegate::AieParseResultReady);
+
+	ipaProxy_->AAResultReady.connect(this, &IPADelegate::AAResultReady);
+	ipaProxy_->AFResultReady.connect(this, &IPADelegate::AFResultReady);
+
+	ipaProxy_->ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
+	int ret = ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::init,
+					  ConnectionTypeBlocking, model, sensorIdx,
+					  eeprom, camSysDataArray);
+
+	return ret;
+}
+
+void IPADelegate::releaseProxy()
+{
+	ipaProxy_.reset();
 }
 
 void IPADelegate::start(const uint32_t rawMetaBufferId,
 			ipa::mtkisp7::SensorSetting *sensorSetting,
 			int32_t *lens_position)
 {
-	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::start,
-				 ConnectionTypeBlocking, rawMetaBufferId,
-				 sensorSetting, lens_position);
+	return ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::start,
+				       ConnectionTypeBlocking, rawMetaBufferId,
+				       sensorSetting, lens_position);
 }
 
 void IPADelegate::stop()
 {
-	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::stop,
-				 ConnectionTypeBlocking);
+	return ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::stop,
+				       ConnectionTypeBlocking);
 }
 
 int IPADelegate::configure(
@@ -63,24 +73,23 @@ int IPADelegate::configure(
 {
 	faceDetector_ = faceDetector;
 
-	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::configure,
-				 ConnectionTypeBlocking,
-				 camsysYuvSize, maxVideoSize, maxStillSize,
-				 sensorId, camsysIndex, sessionTimestamp,
-				 isVideo,
-				 swmeParam, bssParam);
+	return ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::configure,
+				       ConnectionTypeBlocking,
+				       camsysYuvSize, maxVideoSize, maxStillSize,
+				       sensorId, camsysIndex, sessionTimestamp,
+				       isVideo, swmeParam, bssParam);
 }
 
 void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
 {
-	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::mapBuffers,
-				 ConnectionTypeBlocking, buffers);
+	return ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::mapBuffers,
+				       ConnectionTypeBlocking, buffers);
 }
 
 void IPADelegate::unmapBuffers(const std::vector<unsigned int> &ids)
 {
-	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::unmapBuffers,
-				 ConnectionTypeBlocking, ids);
+	return ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::unmapBuffers,
+				       ConnectionTypeBlocking, ids);
 }
 
 void IPADelegate::writeStillCaptureDebugMetadata(
@@ -88,37 +97,39 @@ void IPADelegate::writeStillCaptureDebugMetadata(
 	const Feature feature,
 	ControlList *metadata)
 {
-	ipa_.writeStillCaptureDebugMetadata(
+	ipaProxy_->invokeMethod(
+		&ipa::mtkisp7::IPAProxyMtkISP7::writeStillCaptureDebugMetadata,
+		ConnectionTypeBlocking,
 		camSysMetaRequestId, static_cast<uint32_t>(feature), metadata);
 }
 
 void IPADelegate::notifyRequestBegin(const uint32_t frame,
 				     const bool hasStillCapture)
 {
-	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyRequestBegin,
-			  ConnectionTypeQueued, frame, hasStillCapture);
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::notifyRequestBegin,
+				ConnectionTypeBlocking, frame, hasStillCapture);
 }
 
 void IPADelegate::notifyRequestEnd(const uint32_t frame)
 {
-	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyRequestEnd,
-			  ConnectionTypeQueued, frame);
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::notifyRequestEnd,
+				ConnectionTypeBlocking, frame);
 }
 
 void IPADelegate::notifyExportBegin(
 	const uint32_t exportBegin,
 	const uint32_t exportEnd)
 {
-	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyExportBegin,
-			  ConnectionTypeQueued, exportBegin, exportEnd);
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::notifyExportBegin,
+				ConnectionTypeBlocking, exportBegin, exportEnd);
 }
 
 void IPADelegate::notifyImportBegin(
 	const uint32_t importBegin,
 	const uint32_t importEnd)
 {
-	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::notifyImportBegin,
-			  ConnectionTypeQueued, importBegin, importEnd);
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::notifyImportBegin,
+				ConnectionTypeBlocking, importBegin, importEnd);
 }
 
 void IPADelegate::aieParse(
@@ -128,11 +139,11 @@ void IPADelegate::aieParse(
 	const Size &currentSensorSize,
 	const uint32_t camSysMetaRequestId)
 {
-	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::aieParse,
-			  ConnectionTypeQueued,
-			  inputImageBufferId, faceDetectionMetadataBufferId,
-			  faceToneClassificationMetadataBufferId,
-			  currentSensorSize, camSysMetaRequestId);
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::aieParse,
+				ConnectionTypeBlocking, inputImageBufferId,
+				faceDetectionMetadataBufferId,
+				faceToneClassificationMetadataBufferId,
+				currentSensorSize, camSysMetaRequestId);
 }
 
 void IPADelegate::doCalculation3A(
@@ -156,13 +167,14 @@ void IPADelegate::doCalculation3A(
 	if (featureApplied.has_value())
 		featureEnum = static_cast<int32_t>(featureApplied.value());
 
-	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::doCalculation3A, ConnectionTypeQueued,
-			  frame, stat0BufferId, stat1BufferId,
-			  timestamp, camSysMetaRequestId,
-			  afCamSysMetaRequestId, isStillCapture,
-			  rawMetaBufferId, gyroSample,
-			  internalRequestIdApplied, featureEnum, vcmFocusInfo,
-			  controls);
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::doCalculation3A,
+				ConnectionTypeBlocking,
+				frame, stat0BufferId, stat1BufferId,
+				timestamp, camSysMetaRequestId,
+				afCamSysMetaRequestId, isStillCapture,
+				rawMetaBufferId, gyroSample,
+				internalRequestIdApplied, featureEnum, vcmFocusInfo,
+				controls);
 }
 
 void IPADelegate::getImgSysMetaTuning(
@@ -177,11 +189,11 @@ void IPADelegate::getImgSysMetaTuning(
 	uint64_t cookie = imgSysCookieCounter_++;
 	imgSysTasks_.emplace(cookie, imgSysTask);
 
-	ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::getImgSysMetaTuning,
-			  ConnectionTypeQueued,
-			  cookie, camSysMetaRequestId, frame,
-			  needCropTNC16x9, static_cast<uint32_t>(feature),
-			  imgMetaRequests, controls);
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::getImgSysMetaTuning,
+				ConnectionTypeBlocking,
+				cookie, camSysMetaRequestId, frame,
+				needCropTNC16x9, static_cast<uint32_t>(feature),
+				imgMetaRequests, controls);
 }
 
 void IPADelegate::AieParseResultReady(

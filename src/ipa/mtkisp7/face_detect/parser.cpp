@@ -14,7 +14,7 @@
 #include "mtkcam-core/feature/common/faceeffect/FaceDetection/FD_Tuning/TuningPara.h"
 #include "mtkcam-halif/def/BuiltinTypes.h"
 
-#include "detector.h"
+#include "mtkisp7_ipa_interface.h"
 
 namespace libcamera {
 

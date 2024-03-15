@@ -193,6 +193,7 @@ add_project_link_arguments(cpp_arguments, language : 'cpp')
 libcamera_includes = include_directories(
     'include',
     'include/linux/mtkisp7',
+    'src/libcamera',
     'include/platform/mtkisp7',
     'include/platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc',
     'include/platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/aaa',

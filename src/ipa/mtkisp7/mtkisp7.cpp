@@ -2,17 +2,22 @@
 /*
  * Copyright (C) 2024, Google Inc.
  *
- * fake_ipa.cpp - Fake IPA implementation for MtkISP7
+ * mtkisp7.cpp - IPA implementation for MtkISP7
  */
 
-#include "fake_ipa.h"
+#include "mtkisp7.h"
 
-#include "libcamera/base/bound_method.h"
+#include <sys/wait.h>
+
+#include "halisp/hal_isp.h"
 #include "libcamera/base/log.h"
+#include "libcamera/control_ids.h"
 #include "libcamera/controls.h"
-#include "pipeline/mtkisp7/halisp/hal_isp.h"
+#include "libcamera/ipa/ipa_module_info.h"
+#include "pipeline/mtkisp7/hal3a/const.h"
 #include "platform/mtkisp7/cam_cal_helper.h"
 #include "platform/mtkisp7/platform_utils.h"
+#include "platform/mtkisp7/sensor/sensor_info.h"
 
 namespace libcamera {
 
@@ -44,9 +49,9 @@ int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
 	CamCalHelper::getInstance(sensorIdx)->setEepromData(eeprom);
 
 	if (PlatformUtils::platform_ == PlatformUtils::MtkISP7Platform::NONE)
-		LOG(MtkISP7, Fatal) << "Invalid model: " << model;
+		LOG(IPAMtkISP7, Fatal) << "Invalid model: " << model;
 
-	LOG(MtkISP7, Debug)
+	LOG(IPAMtkISP7, Debug)
 		<< "Running on platform "
 		<< PlatformUtils::enumToString(PlatformUtils::platform_)
 		<< ", model: " << model;
@@ -437,6 +442,23 @@ void IPAMtkISP7::getImgSysMetaTuning(
 		controls);
 }
 
+void IPAMtkISP7::doAAResultReady(uint32_t frame, SensorSetting sensorSetting,
+				 const AaaIspExchange &aaaIspExchange,
+				 LensPositionInfo lensPositionInfo)
+{
+	AAResultReady.emit(frame, sensorSetting, aaaIspExchange, lensPositionInfo);
+}
+
+void IPAMtkISP7::doAFResultReady(uint32_t frame, int32_t position)
+{
+	AFResultReady.emit(frame, position);
+}
+
+void IPAMtkISP7::doImgSysMetaTuningDone(uint64_t taskCounter)
+{
+	ImgSysMetaTuningDone.emit(taskCounter);
+}
+
 IPAMtkISP7::AAManager::AAManager(IPAMtkISP7 *ipa)
 	: ipa_(ipa)
 {
@@ -478,13 +500,16 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 		ipa_->halIsp_->getCamSysMetaTuning(
 			internalRequestId, internalRequestId, rawMetaFd,
 			(intptr_t)rawMetaBuffer, 0,
-			Hal3A::kRawMetaSize, isStillCapture,
+			kHal3ARawMetaSize, isStillCapture,
 			metadata ? &metadata.value() : nullptr,
 			internalRequestIdApplied, featureApplied,
 			&aaaIspExchange, controls);
 	}
 
-	ipa_->AAResultReady.emit(internalRequestId, exposureAndGain, aaaIspExchange, lensPositionInfo);
+	ipa_->invokeMethod(
+		&IPAMtkISP7::doAAResultReady, ConnectionTypeQueued,
+		internalRequestId, exposureAndGain, aaaIspExchange,
+		lensPositionInfo);
 
 	if (idApplied && featureApplied) {
 		ipa_->onDeviceTuner_.tune3AState(
@@ -510,7 +535,10 @@ void IPAMtkISP7::AFManager::doCalculationAF(FrameBuffer *statistics1, uint64_t t
 	ipa_->hal3A_->doCalculationAF(statistics1, timestamp, internalRequestId,
 				      camSysMetaRequestId, vcmFocusInfo,
 				      metadata, gyroSample, &position, controls);
-	ipa_->AFResultReady.emit(internalRequestId, position);
+	ipa_->invokeMethod(
+		&IPAMtkISP7::doAFResultReady,
+		ConnectionTypeQueued,
+		internalRequestId, position);
 }
 
 IPAMtkISP7::IspManager::IspManager(IPAMtkISP7 *ipa)
@@ -626,8 +654,43 @@ void IPAMtkISP7::IspManager::getImgSysMetaTuning(
 			needCropTNC16x9, feature, controls);
 	}
 
-	ipa_->ImgSysMetaTuningDone.emit(cookie);
+	ipa_->invokeMethod(
+		&IPAMtkISP7::doImgSysMetaTuningDone,
+		ConnectionTypeQueued, cookie);
 }
 
 } // namespace ipa::mtkisp7
+
+/**
+ * \brief External IPA module interface
+ *
+ * The IPAModuleInfo is required to match an IPA module construction against the
+ * intented pipeline handler with the module. The API and pipeline handler
+ * versions must match the corresponding IPA interface and pipeline handler.
+ *
+ * \sa struct IPAModuleInfo
+ */
+extern "C" {
+const struct IPAModuleInfo ipaModuleInfo = {
+	IPA_MODULE_API_VERSION,
+	1,
+	"PipelineHandlerMtkISP7",
+	"mtkisp7",
+};
+
+/**
+ * \brief Create an instance of the IPA interface
+ *
+ * This function is the entry point of the IPA module. It is called by the IPA
+ * manager to create an instance of the IPA interface for each camera. When
+ * matched against with a pipeline handler, the IPAManager will construct an IPA
+ * instance for each associated Camera.
+ */
+IPAInterface *ipaCreate()
+{
+	auto *ptr = new ipa::mtkisp7::IPAMtkISP7();
+	return ptr;
+}
+}
+
 } // namespace libcamera

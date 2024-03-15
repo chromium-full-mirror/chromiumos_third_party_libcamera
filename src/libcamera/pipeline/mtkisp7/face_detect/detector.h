@@ -21,8 +21,8 @@
 #include "libcamera/base/mutex.h"
 #include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/face_detect/aie.h"
-#include "pipeline/mtkisp7/face_detect/parser.h"
-#include "pipeline/mtkisp7/fake_ipa/fake_ipa.h"
+
+#include "mtkisp7_ipa_interface.h"
 
 namespace libcamera {
 
@@ -70,10 +70,11 @@ public:
 				 const ControlList &faceControls);
 
 	InfoFramePool resultMetadataPool_;
+
 private:
 	void cancelPendingRequests();
 	void queueHardwareRequest(FrameBuffer *input, FrameBuffer *result,
-				 int requestFd, FdDrv_input_struct &config);
+				  int requestFd, FdDrv_input_struct &config);
 
 	void sourceVideoReady(std::pair<FrameBuffer *, int> bufferWithRequest);
 	void resultMetaReady(FrameBuffer *bufferWithRequest);

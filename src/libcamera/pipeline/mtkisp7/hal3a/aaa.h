@@ -16,7 +16,6 @@
 #include "pipeline/mtkisp7/camsys/camsys.h"
 #include "pipeline/mtkisp7/camsys/capture.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
-#include "pipeline/mtkisp7/fake_ipa/fake_ipa.h"
 #include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 

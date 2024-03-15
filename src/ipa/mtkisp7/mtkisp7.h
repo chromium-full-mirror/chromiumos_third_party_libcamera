@@ -2,34 +2,31 @@
 /*
  * Copyright (C) 2024, Google Inc.
  *
- * fake_ipa.h - Fake IPA implementation for MtkISP7
+ * mtkisp7.h - IPA implementation for MtkISP7
  */
 #pragma once
 
-#include <libcamera/base/thread.h>
-
-#include <libcamera/ipa/mtkisp7_ipa_interface.h>
-
+#include "libcamera/internal/gyro_sensor.h"
 #include "libcamera/internal/mapped_framebuffer.h"
 
-#include "../hal3a/hal_3a.h"
+#include "face_detect/parser.h"
+#include "hal3a/hal_3a.h"
+#include "halisp/hal_isp.h"
+#include "libcamera/base/thread.h"
 #include "libcamera/controls.h"
 #include "libfdft_lib/faces.h"
-
-// Workarounds
-#include "../halisp/hal_isp.h"
-#include "pipeline/mtkisp7/camsys/capture.h"
-#include "pipeline/mtkisp7/face_detect/parser.h"
+#include "mtkcam-interfaces/utils/hw/faces.h"
+#include "peripheraldriver/lens/vcm_drv.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+
+#include "mtkisp7_ipa_interface.h"
 
 namespace libcamera {
 
 using namespace std::literals::chrono_literals;
 
-class IPADelegate;
-class MtkISP7CameraData;
-
 namespace ipa::mtkisp7 {
+
 class IPAMtkISP7 : public IPAMtkISP7Interface, public Object
 {
 public:
@@ -101,8 +98,13 @@ public:
 		const ControlList &controls) override;
 
 private:
-	friend IPADelegate;
-	friend MtkISP7CameraData;
+	void doAAResultReady(uint32_t frame, SensorSetting sensorSetting,
+			     const AaaIspExchange &aaaIspExchange,
+			     LensPositionInfo lensPositionInfo);
+
+	void doAFResultReady(uint32_t frame, int32_t position);
+
+	void doImgSysMetaTuningDone(uint64_t taskCounter);
 
 	struct IPAMappedBuffer {
 		IPAMappedBuffer(const std::vector<FrameBuffer::Plane> &planes)
