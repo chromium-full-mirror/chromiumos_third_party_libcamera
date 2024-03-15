@@ -9,6 +9,7 @@
 
 #include "libcamera/base/bound_method.h"
 #include "libcamera/base/log.h"
+#include "pipeline/mtkisp7/halisp/hal_isp.h"
 
 namespace libcamera {
 
@@ -183,15 +184,16 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 	if (featureEnum >= 0)
 		featureApplied = static_cast<Feature>(featureEnum);
 
+	AaaIspExchange aaaIspExchange;
 	hal3A_->doCalculation(&itStat0->second.buffer, timestamp, frame,
 			      camSysMetaRequestId, isStillCapture,
 			      rawMetaBuffer->buffer.planes()[0].fd.get(),
 			      rawMetaBuffer->mapped->planes()[0].data(),
 			      metadata, sample,
-			      &exposureAndGain, aaaIspExchange_,
+			      &exposureAndGain, &aaaIspExchange,
 			      idApplied, featureApplied, controls);
 
-	AAResultReady.emit(frame, exposureAndGain);
+	AAResultReady.emit(frame, exposureAndGain, aaaIspExchange);
 
 	if (internalRequestIdApplied != 0 && featureApplied.has_value()) {
 		onDeviceTuner_->tune3AState(

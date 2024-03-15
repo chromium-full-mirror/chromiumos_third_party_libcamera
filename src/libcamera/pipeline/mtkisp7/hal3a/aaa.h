@@ -126,7 +126,8 @@ public:
 		perFrameControl_ = perFrameControl;
 	}
 
-	void AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain);
+	void AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
+			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange);
 
 	void run() override final;
 

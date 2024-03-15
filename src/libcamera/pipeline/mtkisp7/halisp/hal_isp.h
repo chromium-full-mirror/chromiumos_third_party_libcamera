@@ -22,17 +22,11 @@
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 
+#include "mtkisp7_ipa_interface.h"
 #include "stdint.h"
 
 namespace libcamera {
 class Hal3A;
-
-/* Struct to exchange information between 3A and HalIsp tasks */
-struct AaaIspExchange {
-	bool highIsoMode = false;
-	ControlList aaaMetadata;
-	bool mfnrMode;
-};
 
 struct ImgMetaRequest {
 	bool isCapture;
@@ -69,9 +63,9 @@ public:
 				int fd, intptr_t va, size_t offset,
 				size_t bufSize, bool isCapture,
 				MtkCameraFaceMetadata *faces,
-				AaaIspExchange *aaaIspExchange,
 				std::optional<uint32_t> internalRequestIdApplied,
-				std::optional<Feature> featureApplied);
+				std::optional<Feature> featureApplied,
+				ipa::mtkisp7::AaaIspExchange *aaaIspExchange);
 
 	int getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,

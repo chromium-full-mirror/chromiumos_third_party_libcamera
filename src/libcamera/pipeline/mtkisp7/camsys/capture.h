@@ -47,7 +47,7 @@ struct CaptureFrames {
 	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGain; // input
 	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGainOutput; // output
 
-	SharedMailBox<AaaIspExchange> aaaIspExchange;
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange;
 
 	SharedMailBox<InfoFrame> rawInject; // Debug frame / ODT
 };

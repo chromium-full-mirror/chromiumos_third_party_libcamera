@@ -339,9 +339,9 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
 				size_t bufSize, bool isCapture,
 				MtkCameraFaceMetadata *faces,
-				AaaIspExchange *aaaIspExchange,
 				std::optional<uint32_t> internalRequestIdApplied,
-				std::optional<Feature> featureApplied)
+				std::optional<Feature> featureApplied,
+				ipa::mtkisp7::AaaIspExchange *aaaIspExchange)
 {
 	ASSERT(aaaIspExchange);
 
@@ -885,6 +885,7 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 		ASSERT(false);
 	}
 }
+
 int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,

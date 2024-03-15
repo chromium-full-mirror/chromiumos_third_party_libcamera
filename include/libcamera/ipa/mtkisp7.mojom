@@ -40,6 +40,12 @@ struct PrimaryFaceData {
         uint32 padding_down;
 };
 
+struct AaaIspExchange {
+        bool highIsoMode = false;
+        bool mfnrMode;
+        libcamera.ControlList aaaMetadata;
+};
+
 interface IPAMtkISP7Interface {
 	init(int32 sensorIdx) => (int32 ret);
 	start(uint32 rawMetaBufferId) => (int32 lens_position);
@@ -73,6 +79,7 @@ interface IPAMtkISP7EventInterface {
                             PrimaryFaceData faceToneConfig,
                             libcamera.ControlList faceControls);
 
-        AAResultReady(uint32 frame, SensorSetting sensorSetting);
+        AAResultReady(uint32 frame, SensorSetting sensorSetting,
+                      AaaIspExchange aaaIspExchange);
         AFResultReady(uint32 frame, int32 position);
 };

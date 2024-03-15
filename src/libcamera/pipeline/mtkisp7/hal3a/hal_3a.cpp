@@ -371,7 +371,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			  MtkCameraFaceMetadata *faceMetadata, GyroSensor::SensorSample gyroSample,
 			  ipa::mtkisp7::SensorSetting *exposureAndGain,
-			  AaaIspExchange *aaaIspExchange,
+			  ipa::mtkisp7::AaaIspExchange *aaaIspExchange,
 			  std::optional<uint32_t> internalRequestIdApplied,
 			  std::optional<Feature> featureApplied,
 			  ControlList controls)
@@ -458,9 +458,10 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		halIsp_->getCamSysMetaTuning(internalRequestId, internalRequestId,
 					     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
 					     kRawMetaSize, isStillCapture,
-					     faceMetadata, aaaIspExchange,
+					     faceMetadata,
 					     internalRequestIdApplied,
-					     featureApplied);
+					     featureApplied,
+					     aaaIspExchange);
 	}
 	uint32_t exposureTimeMs;
 	getExposureAndGain(exposureAndGain, exposureTimeMs);

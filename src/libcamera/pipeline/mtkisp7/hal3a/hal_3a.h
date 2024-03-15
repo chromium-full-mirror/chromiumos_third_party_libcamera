@@ -27,7 +27,6 @@ class SensorInfo;
 namespace libcamera {
 
 class HalIsp;
-struct AaaIspExchange;
 
 class Hal3A
 {
@@ -45,7 +44,7 @@ public:
 			   MtkCameraFaceMetadata *metadata,
 			   GyroSensor::SensorSample gyroSample,
 			   ipa::mtkisp7::SensorSetting *exposureAndGain,
-			   AaaIspExchange *aaaIspExchange,
+			   ipa::mtkisp7::AaaIspExchange *aaaIspExchange,
 			   std::optional<uint32_t> internalRequestIdApplied,
 			   std::optional<Feature> featureApplied,
 			   ControlList controls);
