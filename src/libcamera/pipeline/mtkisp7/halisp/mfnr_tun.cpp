@@ -182,37 +182,37 @@ std::tuple<MfnrTunBssTask *, MfnrTunBfbldTask *, MfnrTunBfmeTask *,
 	   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *,
 	   MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
-				 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				 uint32_t camSysMetaRequestId,
 				 Scheduler *scheduler,
 				 const std::string &id, Request *request,
 				 uint32_t internalRequestId)
 {
 	MfnrTunBssTask *mfnrTunBssTask = new MfnrTunBssTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunBfbldTask *mfnrTunBfbldTask = new MfnrTunBfbldTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunBfmeTask *mfnrTunBfmeTask = new MfnrTunBfmeTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunSwmeTask *mfnrTunSwmeTask = new MfnrTunSwmeTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunDsTask *mfnrTunDsTask = new MfnrTunDsTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunDsVbiTask *mfnrTunDsVbiTask = new MfnrTunDsVbiTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunMcdsF1Task *mfnrTunMcdsF1Task = new MfnrTunMcdsF1Task(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunMsbldTask *mfnrTunMsbldTask = new MfnrTunMsbldTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunAfbldTask *mfnrTunAfbldTask = new MfnrTunAfbldTask(
-		mfnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	return std::make_tuple(mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			       mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
@@ -220,14 +220,12 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 }
 
 MfnrTunBssTask::MfnrTunBssTask([[maybe_unused]] MFNRFrames &mfnr,
-			       SharedMailBox<AaaIspExchange> &aaaIspExchange,
 			       Scheduler *scheduler,
 			       const std::string &id, Request *request, MfnrTunManager *manager,
 			       uint32_t internalRequestId)
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	bssFrames_ = mfnr.bssFrames;
-	aaaIspExchange_ = aaaIspExchange;
 }
 
 void MfnrTunBssTask::run()
@@ -240,7 +238,7 @@ void MfnrTunBssTask::run()
 }
 
 MfnrTunBfbldTask::MfnrTunBfbldTask(MFNRFrames &mfnr,
-				   SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				   uint32_t camSysMetaRequestId,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
@@ -248,7 +246,7 @@ MfnrTunBfbldTask::MfnrTunBfbldTask(MFNRFrames &mfnr,
 {
 	bfbldTun_ = mfnr.bfbldFrames.in.tunbufi;
 	bssOrder_ = mfnr.bss_order;
-	aaaIspExchange_ = aaaIspExchange;
+	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunBfbldTask::run()
@@ -256,7 +254,6 @@ void MfnrTunBfbldTask::run()
 	for (auto i = 0; i < kInputRawCount; i++) {
 		manager_->mfnrTun_.fetch(bfbldTun_[i]);
 	}
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	auto &bssOrder = bssOrder_->get();
 
 	//fillTuning(bfbldRefTun_, tuningBuffers.capture_BFBLD_REF_tunbufi);
@@ -279,7 +276,7 @@ void MfnrTunBfbldTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 
@@ -287,14 +284,14 @@ void MfnrTunBfbldTask::run()
 }
 
 MfnrTunBfmeTask::MfnrTunBfmeTask(MFNRFrames &mfnr,
-				 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				 uint32_t camSysMetaRequestId,
 				 Scheduler *scheduler,
 				 const std::string &id, Request *request, MfnrTunManager *manager,
 				 uint32_t internalRequestId)
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	bfmeTun_ = mfnr.bfmeFrames.in.tunbufi;
-	aaaIspExchange_ = aaaIspExchange;
+	camSysMetaRequestId_ = camSysMetaRequestId;
 	bssOrder_ = mfnr.bss_order;
 	tncso_ = mfnr.bfmeFrames.tncso;
 }
@@ -310,7 +307,6 @@ void MfnrTunBfmeTask::run()
 	for (auto i = 0; i < kInputRawCount; i++) {
 		ImgMetaRequest request = {};
 		auto frameNumber = internalRequestId_ + bssOrder[i];
-		AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 		request = ImgMetaRequest{
 			.isCapture = true,
 			.isMfnr = true,
@@ -327,20 +323,18 @@ void MfnrTunBfmeTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 	notifyDone();
 }
 
 MfnrTunSwmeTask::MfnrTunSwmeTask([[maybe_unused]] MFNRFrames &mfnr,
-				 SharedMailBox<AaaIspExchange> &aaaIspExchange,
 				 Scheduler *scheduler,
 				 const std::string &id, Request *request, MfnrTunManager *manager,
 				 uint32_t internalRequestId)
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
-	aaaIspExchange_ = aaaIspExchange;
 	swmeFrames_ = mfnr.swmeFrames;
 }
 
@@ -356,14 +350,14 @@ void MfnrTunSwmeTask::run()
 }
 
 MfnrTunDsTask::MfnrTunDsTask(MFNRFrames &mfnr,
-			     SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			     uint32_t camSysMetaRequestId,
 			     Scheduler *scheduler,
 			     const std::string &id, Request *request, MfnrTunManager *manager,
 			     uint32_t internalRequestId)
 	: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	dsTun = mfnr.dsFrames.in.tunbufi;
-	aaaIspExchange_ = aaaIspExchange;
+	camSysMetaRequestId_ = camSysMetaRequestId;
 	bssOrder_ = mfnr.bss_order;
 }
 
@@ -376,7 +370,6 @@ void MfnrTunDsTask::run()
 	}
 
 	for (auto i = 0; i < (int)bssOrder.size() + 1; i++) {
-		AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 		ImgMetaRequest request = {};
 		request = ImgMetaRequest{
 			.isCapture = true,
@@ -395,7 +388,7 @@ void MfnrTunDsTask::run()
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			int frameNumber = (i == 0 || i == 1) ? internalRequestId_ + bssOrder[0] : internalRequestId_ + bssOrder[i - 1];
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 
@@ -403,7 +396,7 @@ void MfnrTunDsTask::run()
 }
 
 MfnrTunMcdsF1Task::MfnrTunMcdsF1Task(MFNRFrames &mfnr,
-				     SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				     uint32_t camSysMetaRequestId,
 				     Scheduler *scheduler,
 				     const std::string &id, Request *request, MfnrTunManager *manager,
 				     uint32_t internalRequestId)
@@ -414,7 +407,7 @@ MfnrTunMcdsF1Task::MfnrTunMcdsF1Task(MFNRFrames &mfnr,
 		mcdsF1Tun_[i] = mfnr.mcdsF1Frames.in.tunbufi[i];
 	}
 	bssOrder_ = mfnr.bss_order;
-	aaaIspExchange_ = aaaIspExchange;
+	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunMcdsF1Task::run()
@@ -424,7 +417,6 @@ void MfnrTunMcdsF1Task::run()
 		//fillTuning(mcdsF1Tun_[i], tuningBuffers.capture_MCDS_F1_tunbufi);
 	}
 	auto &bssOrder = bssOrder_->get();
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		ImgMetaRequest request = {};
 		request = ImgMetaRequest{
@@ -444,14 +436,14 @@ void MfnrTunMcdsF1Task::run()
 		{
 			int frameNumber = internalRequestId_ + bssOrder[i + 1];
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 	notifyDone();
 }
 
 MfnrTunDsVbiTask::MfnrTunDsVbiTask(MFNRFrames &mfnr,
-				   SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				   uint32_t camSysMetaRequestId,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
@@ -460,7 +452,7 @@ MfnrTunDsVbiTask::MfnrTunDsVbiTask(MFNRFrames &mfnr,
 	// 0 for BFBLD_BASE Task
 	dsVbiV2Tun_ = mfnr.dsVbiFramesV2.in.tunbufi;
 	dsVbiV5Tun_ = mfnr.dsVbiFramesV5.in.tunbufi;
-	aaaIspExchange_ = aaaIspExchange;
+	camSysMetaRequestId_ = camSysMetaRequestId;
 	bssOrder_ = mfnr.bss_order;
 }
 
@@ -476,7 +468,6 @@ void MfnrTunDsVbiTask::run()
 	//fillTuning(dsVbiV5Tun_, tuningBuffers.capture_DS_VBI_V5_tunbufi);
 	for (auto i = 0; i < (int)bssOrder.size() - 1; i++) {
 		int frameNumber = internalRequestId_ + bssOrder[i + 1];
-		AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 		ImgMetaRequest request = {};
 		request = ImgMetaRequest{
 			.isCapture = true,
@@ -494,7 +485,7 @@ void MfnrTunDsVbiTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 
 		request = ImgMetaRequest{
@@ -513,14 +504,14 @@ void MfnrTunDsVbiTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 	notifyDone();
 }
 
 MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
-				   SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				   uint32_t camSysMetaRequestId,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
@@ -543,7 +534,7 @@ MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
 		msbldF6Tun_[i] = mfnr.msbldF6.in.tunbufi[i];
 	}
 	bssOrder_ = mfnr.bss_order;
-	aaaIspExchange_ = aaaIspExchange;
+	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunMsbldTask::run()
@@ -558,7 +549,6 @@ void MfnrTunMsbldTask::run()
 		manager_->mfnrTun_.fetch(msbldF6Tun_[i]);
 	}
 
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	std::map<EStage_T, std::vector<SharedMailBox<InfoFrame>>, std::greater<EStage_T>> stageToTuningMap = {
 		{ NSIspTuning::EStage_MSBLD_F0, msbldF0Tun_ },
 		{ NSIspTuning::EStage_MSBLD_F1, msbldF1Tun_ },
@@ -592,7 +582,7 @@ void MfnrTunMsbldTask::run()
 			int frameNumber = internalRequestId_ + bssOrder[i + 1];
 			{
 				DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-				manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+				manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 			}
 		}
 	}
@@ -601,7 +591,7 @@ void MfnrTunMsbldTask::run()
 }
 
 MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
-				   SharedMailBox<AaaIspExchange> &aaaIspExchange,
+				   uint32_t camSysMetaRequestId,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
@@ -623,7 +613,7 @@ MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
 	afbldF6Tun_[0] = mfnr.afbldF6.in.tunbufi[0];
 	bssOrder_ = mfnr.bss_order;
 	tncso_ = mfnr.afbldF0.tncso;
-	aaaIspExchange_ = aaaIspExchange;
+	camSysMetaRequestId_ = camSysMetaRequestId;
 }
 
 void MfnrTunAfbldTask::run()
@@ -636,7 +626,6 @@ void MfnrTunAfbldTask::run()
 	manager_->mfnrTun_.fetch(afbldF5Tun_[0]);
 	manager_->mfnrTun_.fetch(afbldF6Tun_[0]);
 
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	std::map<EStage_T, std::vector<SharedMailBox<InfoFrame>>, std::greater<EStage_T>> stageToTuningMap = {
 		{ NSIspTuning::EStage_AFBLD_F6, afbldF6Tun_ },
 		{ NSIspTuning::EStage_AFBLD_F5, afbldF5Tun_ },
@@ -687,7 +676,7 @@ void MfnrTunAfbldTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(aaaIspExchange, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
 		}
 	}
 

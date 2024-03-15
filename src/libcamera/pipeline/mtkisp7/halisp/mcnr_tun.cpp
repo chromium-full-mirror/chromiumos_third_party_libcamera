@@ -17,6 +17,7 @@
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/task_scheduler.h"
+
 #include "mtkcam-interfaces/isphal/IspTuningMeta.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
@@ -28,15 +29,16 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 
 namespace {
 
-constexpr Size kMeL1Size{144, 108};
-constexpr Size kTunSize{219348, 1};
-constexpr Size kHistSize{11776, 1};
+constexpr Size kMeL1Size{ 144, 108 };
+constexpr Size kTunSize{ 219348, 1 };
+constexpr Size kHistSize{ 11776, 1 };
 
 /* Reserve the tuning Buffers for debug usage */
-class TuningBuffers {
+class TuningBuffers
+{
 public:
 	TuningBuffers();
-	void readBuffer(uint8_t *dest, size_t length, const char* file);
+	void readBuffer(uint8_t *dest, size_t length, const char *file);
 	void readAll();
 
 	uint8_t HW_DIP_F0_tunbufi[219348];
@@ -63,7 +65,7 @@ TuningBuffers::TuningBuffers()
 	readAll();
 }
 
-void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char* filename)
+void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char *filename)
 {
 	FILE *file = nullptr;
 	std::string filePath = std::string("/etc/camera/back_settings/") + filename;
@@ -72,7 +74,7 @@ void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char* filenam
 	if (!file)
 		LOG(MtkISP7, Error) << "Fail to open file " << filePath;
 
-	size_t size = fread(dest, length , 1, file);
+	size_t size = fread(dest, length, 1, file);
 	LOG(MtkISP7, Error) << "Read" << filename << " with size " << size;
 	fclose(file);
 }
@@ -116,10 +118,9 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 
 static TuningBuffers tuningBuffers;
 
-
 } //namespace
 
-[[maybe_unused]]static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t* tuning)
+[[maybe_unused]] static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t *tuning)
 {
 	assert(tuning);
 
@@ -167,10 +168,10 @@ McnrTunManager::~McnrTunManager()
 
 void McnrTunManager::allocateBuffers()
 {
-	fwmeFst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{400, 1}, 8);
-	fwmmFst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{80, 1}, 8);
-	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{132, 1}, 8);
-	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
+	fwmeFst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{ 400, 1 }, 8);
+	fwmmFst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{ 80, 1 }, 8);
+	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, Size{ 132, 1 }, 8);
+	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{ 32, 24 }, 8);
 	fwmmMil_.createBuffers(dmaHeap_, formats::Y8_MTISP, kMeL1Size, 8);
 	dipTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 21, DmaHeap::CMA);
 	meTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 6, DmaHeap::CMA);
@@ -222,23 +223,23 @@ int McnrTunManager::configure(const Size &yuvInputSize, const Size &yuvOutputSiz
 
 std::tuple<McnrMeATask *, McnrMeBTask *, McnrTrTask *, McnrDipTask *>
 McnrTunManager::makeMcnrTunTasks(
-		MCNRFrames &mcnr,
-		SharedMailBox<AaaIspExchange> &aaaIspExchange,
-		Scheduler *scheduler,
-		const std::string &id, Request *request,
-		uint32_t internalRequestId)
+	MCNRFrames &mcnr,
+	uint32_t camSysMetaRequestId,
+	Scheduler *scheduler,
+	const std::string &id, Request *request,
+	uint32_t internalRequestId)
 {
-	McnrMeATask *meATunTask =  new McnrMeATask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+	McnrMeATask *meATunTask = new McnrMeATask(
+		mcnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
-	McnrMeBTask *meBTunTask =  new McnrMeBTask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+	McnrMeBTask *meBTunTask = new McnrMeBTask(
+		mcnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
-	McnrTrTask *trTunTask =  new McnrTrTask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+	McnrTrTask *trTunTask = new McnrTrTask(
+		mcnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
-	McnrDipTask *dipTunTask =  new McnrDipTask(
-			mcnr, aaaIspExchange, scheduler, id, request, this, internalRequestId);
+	McnrDipTask *dipTunTask = new McnrDipTask(
+		mcnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	meATunTask->moveToThread(&threadHalIsp_);
 	meBTunTask->moveToThread(&threadHalIsp_);
@@ -249,13 +250,15 @@ McnrTunManager::makeMcnrTunTasks(
 }
 
 McnrMeATask::McnrMeATask(MCNRFrames &mcnr,
-			 SharedMailBox<AaaIspExchange> &aaaIspExchange,
+			 uint32_t camSysMetaRequestId,
 			 Scheduler *scheduler,
 			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
-	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
+	  request_(request), internalRequestId_(internalRequestId),
+	  manager_(manager)
 {
-	(void) mcnr;
+	(void)mcnr;
 
 	trMeTun = mcnr.meFrames.in.trMeTun;
 	meATun = mcnr.meFrames.in.meATun;
@@ -268,14 +271,10 @@ McnrMeATask::McnrMeATask(MCNRFrames &mcnr,
 	fwMeFst = mcnr.meFrames.in.fwMeFst;
 
 	swHist = mcnr.dip1Frames.out.swHist;
-
-	aaaIspExchange_ = aaaIspExchange;
 }
 
 void McnrMeATask::run()
 {
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
-
 	manager_->swHist_.fetch(swHist);
 	zeroImage(swHist);
 
@@ -298,8 +297,8 @@ void McnrMeATask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	manager_->meTun_.fetch(meATun);
@@ -330,19 +329,21 @@ void McnrMeATask::run()
 		DmaSyncer syncerMeBFst(prevPrevMeBFst->get().buffer()->planes()[0].fd.get());
 
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	notifyDone();
 }
 
 McnrMeBTask::McnrMeBTask(MCNRFrames &mcnr,
-			   SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			   Scheduler *scheduler,
-			   const std::string &id, Request *request, McnrTunManager *manager,
+			 uint32_t camSysMetaRequestId,
+			 Scheduler *scheduler,
+			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
-	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
+	  request_(request), internalRequestId_(internalRequestId),
+	  manager_(manager)
 {
 	meBTun = mcnr.meFrames.in.meBTun;
 	meMil = mcnr.meFrames.in.meMil;
@@ -357,14 +358,10 @@ McnrMeBTask::McnrMeBTask(MCNRFrames &mcnr,
 	meAFmb0 = mcnr.meFrames.out.meAFmb0;
 
 	swHist = mcnr.dip1Frames.out.swHist;
-
-	aaaIspExchange_ = aaaIspExchange;
 }
 
 void McnrMeBTask::run()
 {
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
-
 	manager_->meTun_.fetch(meBTun);
 	manager_->fwmmFst_.fetch(fwMmFst);
 	manager_->fwmmRst_.fetch(fwMmRst);
@@ -402,13 +399,13 @@ void McnrMeBTask::run()
 		DmaSyncer syncerMeAFmb0(meAFmb0->get().buffer()->planes()[0].fd.get());
 
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 
 		manager_->onDeviceTuner_->tuneMeMM(internalRequestId_, meBTun);
 	}
 
-	request = ImgMetaRequest {
+	request = ImgMetaRequest{
 		.isCapture = false,
 		.stage = EStage_ME_3PASS_MODE1,
 		.tuningBuffer = meBTun->get(),
@@ -431,31 +428,30 @@ void McnrMeBTask::run()
 		DmaSyncer syncerMeAFst(meAFst->get().buffer()->planes()[0].fd.get());
 
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	notifyDone();
 }
 
 McnrTrTask::McnrTrTask(MCNRFrames &mcnr,
-			   SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			   Scheduler *scheduler,
-			   const std::string &id, Request *request, McnrTunManager *manager,
-			 uint32_t internalRequestId)
-	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+		       uint32_t camSysMetaRequestId,
+		       Scheduler *scheduler,
+		       const std::string &id, Request *request, McnrTunManager *manager,
+		       uint32_t internalRequestId)
+	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
+	  request_(request), internalRequestId_(internalRequestId),
+	  manager_(manager)
 {
 	trTunF1 = mcnr.trFrames.in.trTunF1;
 	trTunF4 = mcnr.trFrames.in.trTunF4;
 
 	swHist = mcnr.dip1Frames.out.swHist;
-
-	aaaIspExchange_ = aaaIspExchange;
 }
 
 void McnrTrTask::run()
 {
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	ImgMetaRequest request = {};
 
 	manager_->trawTun_.fetch(trTunF1);
@@ -476,8 +472,8 @@ void McnrTrTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	manager_->trawTun_.fetch(trTunF4);
@@ -498,21 +494,22 @@ void McnrTrTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	notifyDone();
 }
 
 McnrDipTask::McnrDipTask(MCNRFrames &mcnr,
-			   SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			   Scheduler *scheduler,
-			   const std::string &id, Request *request, McnrTunManager *manager,
+			 uint32_t camSysMetaRequestId,
+			 Scheduler *scheduler,
+			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
-	:Task(scheduler, id), request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	: Task(scheduler, id), camSysMetaRequestId_(camSysMetaRequestId),
+	  request_(request), internalRequestId_(internalRequestId),
+	  manager_(manager)
 {
-
 	fwMeFst = mcnr.meFrames.in.fwMeFst;
 	trawStt = mcnr.trFrames.out.trawStt;
 
@@ -523,13 +520,10 @@ McnrDipTask::McnrDipTask(MCNRFrames &mcnr,
 	dipTun = mcnr.dip1Frames.in.dipTun;
 
 	swHist = mcnr.dip1Frames.out.swHist;
-
-	aaaIspExchange_ = aaaIspExchange;
 }
 
 void McnrDipTask::run()
 {
-	AaaIspExchange *aaaIspExchange = &aaaIspExchange_->get();
 	ImgMetaRequest request = {};
 
 	manager_->trawTun_.fetch(ltrTunF1);
@@ -550,8 +544,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	manager_->trawTun_.fetch(ltrTunF4);
@@ -572,8 +566,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	manager_->trawTun_.fetch(ltrTunVbi);
@@ -594,8 +588,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	manager_->wpeTun_.fetch(wpeTun);
@@ -616,8 +610,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	// Sync here since all the following DIP stages will access it
@@ -645,8 +639,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	request = ImgMetaRequest{
@@ -667,8 +661,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	request = ImgMetaRequest{
@@ -689,8 +683,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	request = ImgMetaRequest{
@@ -711,8 +705,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	request = ImgMetaRequest{
@@ -733,8 +727,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	request = ImgMetaRequest{
@@ -755,8 +749,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	request = ImgMetaRequest{
@@ -777,8 +771,8 @@ void McnrDipTask::run()
 	{
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
-				aaaIspExchange, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+			camSysMetaRequestId_, request, internalRequestId_,
+			manager_->needCropTNC16x9_);
 	}
 
 	notifyDone();

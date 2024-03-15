@@ -30,7 +30,6 @@ class Hal3A;
 /* Struct to exchange information between 3A and HalIsp tasks */
 struct AaaIspExchange {
 	bool highIsoMode = false;
-	uint32_t aaaRequestId = 0;
 	ControlList aaaMetadata;
 	bool mfnrMode;
 };
@@ -73,13 +72,13 @@ public:
 				AaaIspExchange *aaaIspExchange,
 				std::optional<uint32_t> internalRequestIdApplied);
 
-	int getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
+	int getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				uint32_t frameNumber,
 				bool needCropTNC16x9);
 
-	int getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
+	int getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				bool needCropTNC16x9);

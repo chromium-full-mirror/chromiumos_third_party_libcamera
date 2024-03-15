@@ -899,15 +899,17 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 		ASSERT(false);
 	}
 }
-int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
+int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				bool needCropTNC16x9)
 {
-	return getImgSysMetaTuning(aaaIspExchange, imgMetaRequest, internalRequestId, internalRequestId, needCropTNC16x9);
+	return getImgSysMetaTuning(camSysMetaRequestId, imgMetaRequest,
+				   internalRequestId, internalRequestId,
+				   needCropTNC16x9);
 }
 
-int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
+int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				uint32_t frameNumber,
@@ -988,9 +990,9 @@ int HalIsp::getImgSysMetaTuning(AaaIspExchange *aaaIspExchange,
 	imgsys_info.mock_imgsys = tuning_control.mock;
 
 	mtk::hal3a::v1_0::mtk_3a_result *aaaResult =
-		hal3A_->resultHistory_.query(aaaIspExchange->aaaRequestId);
+		hal3A_->resultHistory_.query(camSysMetaRequestId);
 
-	CamInfo *camInfo = queryHistory(aaaIspExchange->aaaRequestId);
+	CamInfo *camInfo = queryHistory(camSysMetaRequestId);
 
 	/* parsePipelineMetadata */
 	{

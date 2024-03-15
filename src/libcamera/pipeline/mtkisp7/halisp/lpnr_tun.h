@@ -27,7 +27,8 @@ class PipelineHandler;
 class LpnrTunXtrTask;
 class LpnrTunDipTask;
 
-class LpnrTunTasksManager {
+class LpnrTunTasksManager
+{
 public:
 	LpnrTunTasksManager(
 		DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
@@ -38,14 +39,14 @@ public:
 	void allocateBuffers();
 	void releaseBuffers();
 
-
 	std::tuple<LpnrTunXtrTask *, LpnrTunDipTask *>
 	makeLpnrTunTasks(
-			LPNRFrames &lpnr,
-			SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			Scheduler *scheduler,
-			const std::string &id, Request *request,
-			uint32_t internalRequestId);
+		LPNRFrames &lpnr,
+		SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		uint32_t camSysMetaRequestId,
+		Scheduler *scheduler,
+		const std::string &id, Request *request,
+		uint32_t internalRequestId);
 
 private:
 	friend LpnrTunXtrTask;
@@ -72,17 +73,17 @@ class LpnrTunXtrTask : public Task
 {
 public:
 	LpnrTunXtrTask(LPNRFrames &lpnr,
-		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
-		    Scheduler *scheduler, const std::string &id,
-		    Request *request, LpnrTunTasksManager *manager,
-		    uint32_t internalRequestId);
+		       uint32_t camSysMetaRequestId,
+		       Scheduler *scheduler, const std::string &id,
+		       Request *request, LpnrTunTasksManager *manager,
+		       uint32_t internalRequestId);
 
 	virtual void run() override final;
 
 	SharedMailBox<InfoFrame> xtrTun_;
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	uint32_t camSysMetaRequestId_;
 
-	Request* request_;
+	Request *request_;
 	uint32_t internalRequestId_;
 
 	LpnrTunTasksManager *manager_;
@@ -93,6 +94,7 @@ class LpnrTunDipTask : public Task
 public:
 	LpnrTunDipTask(LPNRFrames &lpnr,
 		       SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		       uint32_t camSysMetaRequestId,
 		       Scheduler *scheduler, const std::string &id,
 		       Request *request, LpnrTunTasksManager *manager,
 		       uint32_t internalRequestId);
@@ -106,8 +108,9 @@ public:
 	std::vector<SharedMailBox<InfoFrame>> dipTun_;
 
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	uint32_t camSysMetaRequestId_;
 
-	Request* request_;
+	Request *request_;
 	uint32_t internalRequestId_;
 
 	LpnrTunTasksManager *manager_;

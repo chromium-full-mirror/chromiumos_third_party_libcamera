@@ -1173,7 +1173,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 					   video2Buffer);
 
 		auto [meATunTask, meBTunTask, trTunTask, dipTunTask] =
-			mcnrTunManager.makeMcnrTunTasks(mcnr, aaaIspExchange, scheduler,
+			mcnrTunManager.makeMcnrTunTasks(mcnr, camSysMetaRequestId, scheduler,
 							"MCNR " + sequence, request, internalRequestId);
 
 		auto [taskMeA, taskMeB, tempTaskTr, taskDip1, tempTaskDip2] =
@@ -1252,7 +1252,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			auto [mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
 			      mfnrTunMsbldTask, mfnrTunAfbldTask] =
-				mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, scheduler, "MfnrTun " + sequence, request, internalRequestId);
+				mfnrTunManager.makeMfnrTunTasks(mfnr, camSysMetaRequestId, scheduler, "MfnrTun " + sequence, request, internalRequestId);
 
 			auto [mfnrBssTask, mfnrBfbldTask, mfnrBfmeTask, mfnrSwmeTask,
 			      mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask,
@@ -1356,7 +1356,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 
 			auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
-				lpnr, aaaIspExchange, scheduler, "Lpnr " + sequence, request, internalRequestId);
+				lpnr, aaaIspExchange, camSysMetaRequestId, scheduler, "Lpnr " + sequence, request, internalRequestId);
 
 			auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
 				lpnr, scheduler, "Lpnr " + sequence, request,

@@ -31,7 +31,8 @@ class McnrMeBTask;
 class McnrTrTask;
 class McnrDipTask;
 
-class McnrTunManager {
+class McnrTunManager
+{
 public:
 	McnrTunManager(DmaHeap *dmaHeap, HalIsp *halIsp, OnDeviceTuner *odt);
 	~McnrTunManager();
@@ -44,10 +45,10 @@ public:
 
 	std::tuple<McnrMeATask *, McnrMeBTask *, McnrTrTask *, McnrDipTask *>
 	makeMcnrTunTasks(MCNRFrames &mcnr,
-			SharedMailBox<AaaIspExchange> &aaaIspExchange,
-			Scheduler *scheduler,
-			const std::string &id, Request *request,
-			uint32_t internalRequestId);
+			 uint32_t camSysMetaRequestId,
+			 Scheduler *scheduler,
+			 const std::string &id, Request *request,
+			 uint32_t internalRequestId);
 
 private:
 	friend McnrMeATask;
@@ -89,7 +90,7 @@ class McnrMeATask : public Task
 {
 public:
 	McnrMeATask(MCNRFrames &mcnr,
-		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		    uint32_t camSysMetaRequestId,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, McnrTunManager *manager,
 		    uint32_t internalRequestId);
@@ -107,9 +108,9 @@ public:
 
 	SharedMailBox<InfoFrame> fwMeFst;
 
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	uint32_t camSysMetaRequestId_;
 
-	Request* request_;
+	Request *request_;
 	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
@@ -119,7 +120,7 @@ class McnrMeBTask : public Task
 {
 public:
 	McnrMeBTask(MCNRFrames &mcnr,
-		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		    uint32_t camSysMetaRequestId,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, McnrTunManager *manager,
 		    uint32_t internalRequestId);
@@ -140,9 +141,9 @@ public:
 
 	SharedMailBox<InfoFrame> swHist;
 
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	uint32_t camSysMetaRequestId_;
 
-	Request* request_;
+	Request *request_;
 	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
@@ -152,21 +153,21 @@ class McnrTrTask : public Task
 {
 public:
 	McnrTrTask(MCNRFrames &mcnr,
-		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
-		    Scheduler *scheduler, const std::string &id,
-		    Request *request, McnrTunManager *manager,
-		    uint32_t internalRequestId);
+		   uint32_t camSysMetaRequestId,
+		   Scheduler *scheduler, const std::string &id,
+		   Request *request, McnrTunManager *manager,
+		   uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	uint32_t camSysMetaRequestId_;
 
 	SharedMailBox<InfoFrame> trTunF1;
 	SharedMailBox<InfoFrame> trTunF4;
 
 	SharedMailBox<InfoFrame> swHist;
 
-	Request* request_;
+	Request *request_;
 	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
@@ -176,14 +177,14 @@ class McnrDipTask : public Task
 {
 public:
 	McnrDipTask(MCNRFrames &mcnr,
-		    SharedMailBox<AaaIspExchange> &aaaIspExchange,
+		    uint32_t camSysMetaRequestId,
 		    Scheduler *scheduler, const std::string &id,
 		    Request *request, McnrTunManager *manager,
 		    uint32_t internalRequestId);
 
 	virtual void run() override final;
 
-	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	uint32_t camSysMetaRequestId_;
 
 	SharedMailBox<InfoFrame> fwMeFst;
 	SharedMailBox<InfoFrame> trawStt;
@@ -196,7 +197,7 @@ public:
 
 	SharedMailBox<InfoFrame> swHist;
 
-	Request* request_;
+	Request *request_;
 	uint32_t internalRequestId_;
 
 	McnrTunManager *manager_;
