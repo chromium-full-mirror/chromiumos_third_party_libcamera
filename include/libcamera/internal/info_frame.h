@@ -64,10 +64,7 @@ public:
 			  const Size &size, uint32_t count,
 			  DmaHeap::Type type = DmaHeap::System,
 			  unsigned int strideAlign = 1, unsigned scanAlign = 1);
-	int createFlatBuffers(DmaHeap* dmaHeap, const PixelFormat &format,
-			      const Size &size, uint32_t count,
-			      DmaHeap::Type type = DmaHeap::System,
-			      unsigned int strideAlign = 1, unsigned scanAlign = 1);
+
 	void release() { pool_.release(); }
 
 	void fetch(SharedMailBox<InfoFrame> &mailBox);

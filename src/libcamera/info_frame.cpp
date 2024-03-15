@@ -186,38 +186,4 @@ int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
 	return setBuffers(format, size, buffers, strideAlign, scanAlign);
 }
 
-int InfoFramePool::createFlatBuffers(DmaHeap *dmaHeap,
-					 const PixelFormat &format, const Size &size,
-					 unsigned int count, DmaHeap::Type type,
-					 unsigned int align, unsigned scanAlign)
-{
-	const PixelFormatInfo &info = PixelFormatInfo::info(format);
-	uint32_t bufferSize = 0;
-	for (unsigned int i = 0; i < info.numPlanes(); i++)
-		bufferSize += info.planeSize(size, i, align, scanAlign);
-
-	uint32_t totalSize = bufferSize * count;
-	SharedFD fd(dmaHeap->alloc(totalSize, type));
-	if (!fd.isValid())
-		return -EBUSY;
-
-	std::vector<std::unique_ptr<FrameBuffer>> buffers;
-	buffers.reserve(count);
-	for (unsigned int i = 0, offset = 0; i < count; i++) {
-		std::vector<FrameBuffer::Plane> planes;
-		for (unsigned int j = 0; j < info.numPlanes(); j++) {
-			FrameBuffer::Plane plane;
-			plane.fd = fd;
-			plane.offset = offset;
-			plane.length = info.planeSize(size, j, align, scanAlign);
-			planes.emplace_back(plane);
-			offset += plane.length;
-		}
-
-		buffers.emplace_back(std::make_unique<FrameBuffer>(planes));
-	}
-
-	return setBuffers(format, size, buffers, align, scanAlign);
-}
-
 } /* namespace libcamera */

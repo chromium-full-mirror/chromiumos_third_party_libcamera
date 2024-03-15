@@ -194,13 +194,13 @@ int McnrTasksManager::configureBuffers()
 	fwmmMil_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8, DmaHeap::System, 64);
 	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
 
-	meFst_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFstSize, 8);
-	meFmb0_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
-	meFmb1_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
-	meLmi_.createFlatBuffers(dmaHeap_, formats::Y16_MTISP, kMeL1Size, 8);
-	meIn_.createFlatBuffers(dmaHeap_, formats::GREY, kMeL1Size, 12, DmaHeap::System, 576, 432);
-	meMv0_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kMeL1Size, 24);
-	meMv1_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 24);
+	meFst_.createBuffers(dmaHeap_, formats::Y32_MTISP, kFstSize, 8);
+	meFmb0_.createBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
+	meFmb1_.createBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
+	meLmi_.createBuffers(dmaHeap_, formats::Y16_MTISP, kMeL1Size, 8);
+	meIn_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 12, DmaHeap::System, 576, 432);
+	meMv0_.createBuffers(dmaHeap_, formats::Y32_MTISP, kMeL1Size, 24);
+	meMv1_.createBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 24);
 
 	meMmap0_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[0], 8, DmaHeap::System, 1168, 217);
 	meMmap1_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, meMmapSizes[1], 8, DmaHeap::System, 1168, 217);
@@ -213,22 +213,22 @@ int McnrTasksManager::configureBuffers()
 	meConf5_.createBuffers(dmaHeap_, formats::GREY,
 			mcnrSizes[5].boundedTo(kMeL1Size), 12, DmaHeap::System, 144, 108);
 
-	idi_.createFlatBuffers(dmaHeap_, formats::NV21, mcnrSizes[6], 21);
-	tnrSo_.createFlatBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 4);
+	idi_.createBuffers(dmaHeap_, formats::NV21, mcnrSizes[6], 21);
+	tnrSo_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 4);
 
 	img4oF0_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 4);
-	img4oF1_.createFlatBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 4);
+	img4oF1_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 4);
 
 	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4, DmaHeap::CMA);
 
-	wt_[0].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[0], 12, DmaHeap::System, 192, 192);
-	wt_[1].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[1], 12, DmaHeap::System, 192, 192);
-	wt_[2].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[2], 12, DmaHeap::System, 192, 192);
-	wt_[3].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[3], 12, DmaHeap::System, 192, 192);
+	wt_[0].createBuffers(dmaHeap_, formats::GREY, wtSizes[0], 12, DmaHeap::System, 192, 192);
+	wt_[1].createBuffers(dmaHeap_, formats::GREY, wtSizes[1], 12, DmaHeap::System, 192, 192);
+	wt_[2].createBuffers(dmaHeap_, formats::GREY, wtSizes[2], 12, DmaHeap::System, 192, 192);
+	wt_[3].createBuffers(dmaHeap_, formats::GREY, wtSizes[3], 12, DmaHeap::System, 192, 192);
 
-	wt_[4].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[4], 12, DmaHeap::System, 192, 192);
-	wt_[5].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
-	wt_[6].createFlatBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
+	wt_[4].createBuffers(dmaHeap_, formats::GREY, wtSizes[4], 12, DmaHeap::System, 192, 192);
+	wt_[5].createBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
+	wt_[6].createBuffers(dmaHeap_, formats::GREY, wtSizes[5], 12, DmaHeap::System, 192, 192);
 
 	Size tncSize(mcnrSizes[0]);
 	if (needCropTNC16x9_) {
@@ -243,19 +243,19 @@ int McnrTasksManager::configureBuffers()
 	img3o_[5].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[5], 12, DmaHeap::System, 1, 64);
 	img3o_[6].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[6], 12, DmaHeap::System, 1, 64);
 
-	tnrmo_[1].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[1], 3, DmaHeap::System, 16);
-	tnrmo_[2].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 3, DmaHeap::System, 16);
-	tnrmo_[3].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 3, DmaHeap::System, 16);
-	tnrmo_[4].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 3, DmaHeap::System, 16);
-	tnrmo_[5].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 3, DmaHeap::System, 16);
-	tnrmo_[6].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 3, DmaHeap::System, 16);
+	tnrmo_[1].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[1], 3, DmaHeap::System, 16);
+	tnrmo_[2].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 3, DmaHeap::System, 16);
+	tnrmo_[3].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 3, DmaHeap::System, 16);
+	tnrmo_[4].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 3, DmaHeap::System, 16);
+	tnrmo_[5].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 3, DmaHeap::System, 16);
+	tnrmo_[6].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 3, DmaHeap::System, 16);
 
-	vbi_[1].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 16);
-	vbi_[2].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 16);
-	vbi_[3].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 4, DmaHeap::System, 16);
-	vbi_[4].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 4, DmaHeap::System, 16);
-	vbi_[5].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 4, DmaHeap::System, 16);
-	vbi_[6].createFlatBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 4, DmaHeap::System, 16);
+	vbi_[1].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 16);
+	vbi_[2].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[2], 4, DmaHeap::System, 16);
+	vbi_[3].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[3], 4, DmaHeap::System, 16);
+	vbi_[4].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[4], 4, DmaHeap::System, 16);
+	vbi_[5].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[5], 4, DmaHeap::System, 16);
+	vbi_[6].createBuffers(dmaHeap_, formats::GREY, mcnrSizes[6], 4, DmaHeap::System, 16);
 
 	for (auto &pool : poolsWritenByCpu_)
 		pool->mmap();
