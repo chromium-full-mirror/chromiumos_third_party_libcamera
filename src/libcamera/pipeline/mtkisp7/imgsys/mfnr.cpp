@@ -15,8 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <sys/resource.h>
-#include <sys/sysinfo.h>
 #include <unistd.h>
 #include <vector>
 
@@ -223,47 +221,6 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 
 int MfnrTasksManager::configureBuffers()
 {
-	struct sysinfo info;
-
-	if (sysinfo(&info) != 0) {
-		perror("sysinfo");
-		exit(EXIT_FAILURE);
-	}
-
-	struct rlimit rlim;
-
-	if (getrlimit(RLIMIT_NOFILE, &rlim) != 0) {
-		perror("getrlimit");
-		exit(EXIT_FAILURE);
-	}
-
-	if (rlim.rlim_cur == RLIM_INFINITY) {
-		LOG(MtkISP7, Info) << "Current file descriptor limit: unlimited ";
-	} else {
-		LOG(MtkISP7, Info) << "Current file descriptor limit:" << rlim.rlim_cur;
-	}
-
-	if (rlim.rlim_max == RLIM_INFINITY) {
-		LOG(MtkISP7, Info) << "Maximum file descriptor limit: unlimited:";
-	} else {
-		LOG(MtkISP7, Info) << "Maximum file descriptor limit: " << rlim.rlim_max;
-	}
-
-	// Increase the soft limit (current limit)
-	rlim.rlim_cur = 2048; // Set your desired limit
-
-	// Set the new limits
-	if (setrlimit(RLIMIT_NOFILE, &rlim) != 0) {
-		perror("setrlimit");
-		exit(EXIT_FAILURE);
-	}
-
-	// Get and print the updated limits
-	if (getrlimit(RLIMIT_NOFILE, &rlim) != 0) {
-		perror("getrlimit");
-		exit(EXIT_FAILURE);
-	}
-
 	bssParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_PARAM_STRUCT), 1), 1);
 	bssDataGPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_INPUT_DATA_G), 1), 1);
 	bssVerPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kBssGmDataMSize, 1);

@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <sys/resource.h>
+#include <sys/sysinfo.h>
 #include <vector>
 
 #include <libcamera/base/log.h>
@@ -302,6 +304,8 @@ public:
 
 	bool match(DeviceEnumerator *enumerator) override;
 
+	void adjustRLimit();
+
 	std::unique_ptr<CategorizedScheduler<MtkISP7TaskGroup>> scheduler_;
 	std::unique_ptr<DmaHeap> dmaHeap_;
 
@@ -501,6 +505,8 @@ PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
 	dmaHeap_ = std::make_unique<DmaHeap>();
 
+	adjustRLimit();
+
 	thread()->setThreadAffinity(kMainThreadCpuAffinity);
 }
 
@@ -571,6 +577,46 @@ int PipelineHandlerMtkISP7::exportFrameBuffers([[maybe_unused]] Camera *camera,
 {
 	/* todo: Generate frame buffers by DMA heap */
 	return -EINVAL;
+}
+
+void PipelineHandlerMtkISP7::adjustRLimit()
+{
+	struct sysinfo info;
+
+	if (sysinfo(&info) != 0) {
+		perror("sysinfo");
+		exit(EXIT_FAILURE);
+	}
+
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) != 0) {
+		perror("getrlimit");
+		exit(EXIT_FAILURE);
+	}
+
+	if (rlim.rlim_cur == RLIM_INFINITY)
+		LOG(MtkISP7, Info) << "Current file descriptor limit: unlimited ";
+	else
+		LOG(MtkISP7, Info) << "Current file descriptor limit:" << rlim.rlim_cur;
+
+	if (rlim.rlim_max == RLIM_INFINITY)
+		LOG(MtkISP7, Info) << "Maximum file descriptor limit: unlimited:";
+	else
+		LOG(MtkISP7, Info) << "Maximum file descriptor limit: " << rlim.rlim_max;
+
+	// Increase the soft limit to 2048
+	rlim.rlim_cur = 2048;
+
+	if (setrlimit(RLIMIT_NOFILE, &rlim) != 0) {
+		perror("setrlimit");
+		exit(EXIT_FAILURE);
+	}
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) != 0) {
+		perror("getrlimit");
+		exit(EXIT_FAILURE);
+	}
 }
 
 int PipelineHandlerMtkISP7::configure(Camera *camera, CameraConfiguration *c)
