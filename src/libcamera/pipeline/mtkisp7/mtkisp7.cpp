@@ -60,6 +60,10 @@ static const ControlInfoMap::Map MtkISP7Controls = {
 
 static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
 
+//TODO implement strategy to choose between mfnr and lpnr
+static const bool useMfnr = false;
+static const bool useLpnr = true;
+
 enum MtkISP7TaskGroup {
 	SofGroup = 0,
 	CaptureQueueGroup,
@@ -807,9 +811,11 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 
 	imgSysDev_->start();
 	mcnrManager.start();
-	mfnrManager.start();
 	lpnrManager.start();
 	faceDetector_->start();
+
+	if (useMfnr)
+		mfnrManager.start();
 
 	if (gyroSensor_)
 		gyroSensor_->startReading(30); // Assume FPS == 30
@@ -920,8 +926,10 @@ void MtkISP7CameraData::stopDevice()
 	mcnrPrev = {};
 
 	mcnrManager.stop();
-	mfnrManager.stop();
 	lpnrManager.stop();
+
+	if (useMfnr)
+		mfnrManager.stop();
 
 	faceDetector_->stop();
 
@@ -938,12 +946,15 @@ void MtkISP7CameraData::releaseDevice()
 	captureManager.releaseBuffers();
 	hal3AManager_.releaseBuffers();
 	mcnrManager.releaseBuffers();
-	mfnrManager.releaseBuffers();
 	lpnrManager.releaseBuffers();
 
 	lpnrTunManager.releaseBuffers();
 	mcnrTunManager.releaseBuffers();
-	mfnrTunManager.releaseBuffers();
+
+	if (useMfnr) {
+		mfnrManager.releaseBuffers();
+		mfnrTunManager.releaseBuffers();
+	}
 }
 
 /*
@@ -1040,14 +1051,18 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	imgSysDev_->configure();
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still1, still2);
-	mfnrManager.configure(sensorFullSize_,
-			      still1, still2,
-			      video1, video2,
-			      faceDetector_,
-			      sensor_idx_);
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
-	mfnrTunManager.configure(sensorFullSize_, still1, still2);
+
+	if (useMfnr) {
+		mfnrManager.configure(sensorFullSize_,
+				      still1, still2,
+				      video1, video2,
+				      faceDetector_,
+				      sensor_idx_);
+		mfnrTunManager.configure(sensorFullSize_, still1, still2);
+	}
+
 	return 0;
 }
 
@@ -1227,12 +1242,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	if (!hasStillCapture) {
 		onDeviceTuner_->notifyVideoOnly(internalRequestId);
 	} else {
-		bool useMfnr = false;
-		bool useLpnr = true;
-		{
-			//TODO implement strategy to choose between mfnr and lpnr
-			useMfnr = mfnrManager.forceMfnr() || hal3AManager_.getMfnrMode();
-		}
 		if (useMfnr && !useLpnr) {
 			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_mfnr);
 			MFNRFrames mfnr;
