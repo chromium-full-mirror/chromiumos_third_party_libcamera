@@ -21,7 +21,7 @@ class IPADelegate : public Object
 public:
 	IPADelegate();
 
-	int init(const int32_t sensorIdx);
+	int init(const std::string &model, const int32_t sensorIdx);
 
 	int start(const uint32_t rawMetaBufferId);
 	void stop();

@@ -28,9 +28,9 @@ IPADelegate::IPADelegate()
 	ipa_.ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
 }
 
-int IPADelegate::init(const int32_t sensorIdx)
+int IPADelegate::init(const std::string &model, const int32_t sensorIdx)
 {
-	return ipa_.init(sensorIdx);
+	return ipa_.init(model, sensorIdx);
 }
 
 int IPADelegate::start(const uint32_t rawMetaBufferId)

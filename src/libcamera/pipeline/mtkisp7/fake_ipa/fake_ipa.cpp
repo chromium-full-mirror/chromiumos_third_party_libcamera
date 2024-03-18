@@ -10,6 +10,7 @@
 #include "libcamera/base/bound_method.h"
 #include "libcamera/base/log.h"
 #include "pipeline/mtkisp7/halisp/hal_isp.h"
+#include "platform/mtkisp7/platform_utils.h"
 
 namespace libcamera {
 
@@ -21,8 +22,18 @@ IPAMtkISP7::IPAMtkISP7()
 {
 }
 
-int IPAMtkISP7::init(const int32_t sensorIdx)
+int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx)
 {
+	PlatformUtils::setWithModelName(model);
+
+	if (PlatformUtils::platform_ == PlatformUtils::MtkISP7Platform::NONE)
+		LOG(MtkISP7, Fatal) << "Invalid model: " << model;
+
+	LOG(MtkISP7, Debug)
+		<< "Running on platform "
+		<< PlatformUtils::enumToString(PlatformUtils::platform_)
+		<< ", model: " << model;
+
 	sensorIdx_ = sensorIdx;
 	halIsp_ = std::make_unique<HalIsp>(&onDeviceTuner_);
 	hal3A_ = std::make_unique<Hal3A>(sensorIdx, halIsp_.get(), &onDeviceTuner_);

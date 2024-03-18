@@ -23,6 +23,7 @@
 #include "platform/mtkisp7/cam_cal_func.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/mem/cam_cal_drv.h"
+#include "platform/mtkisp7/platform_utils.h"
 
 #define LOG_ERR(fmt, ...) printf((fmt "\n"), ##__VA_ARGS__)
 #define LOG_WRN(fmt, ...)
@@ -122,18 +123,13 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 	int CamcamFID = 0;
 
 	std::string eepromDev = "";
-	int platformIdx = -1;
 
-	// 0: google platform (geralt), 1: lenovo platform (ciri)
-	platformIdx = 1;
-	if (platformIdx == 0)
-		LOG_INF("----google platform----\n");
-	else if (platformIdx == 1)
-		LOG_INF("----lenovo platform----\n");
-	else
-		LOG_INF("----check platform!!!----\n");
+	switch (libcamera::PlatformUtils::platform_) {
+	case libcamera::PlatformUtils::MtkISP7Platform::NONE:
+		LOG_ERR("Platform unconfigured");
+		break;
 
-	if (platformIdx == 0) {
+	case libcamera::PlatformUtils::MtkISP7Platform::GOOGLE:
 		if (pCamCalData->sensorID == HI1339_SENSOR_ID) {
 			LOG_INF("Read Sensor ID 0x%x Data", pCamCalData->sensorID);
 
@@ -189,7 +185,9 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 
 			close(CamcamFID);
 		}
-	} else {
+		break;
+
+	case libcamera::PlatformUtils::MtkISP7Platform::LENOVO:
 		LayoutType = CALIBRATION_LAYOUT_EXT_OP;
 		if (pCamCalData->sensorID == GC08A3_SENSOR_ID) {
 			eepromDev = "/sys/bus/i2c/devices/6-0058/eeprom";
@@ -220,6 +218,7 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 			//ShowCmdErrorLog(lsCommand);
 		}
 		close(CamcamFID);
+		break;
 	}
 
 	pthread_mutex_unlock(&mEEPROM_Mutex);

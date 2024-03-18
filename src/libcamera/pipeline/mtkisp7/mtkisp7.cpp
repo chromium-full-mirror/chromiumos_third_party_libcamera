@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <sys/resource.h>
@@ -809,7 +810,18 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 int MtkISP7CameraData::loadIPA()
 {
-	if (ipa_->init(sensor_idx_)) {
+	std::string model_name_path = "/run/chromeos-config/v1/name";
+	std::fstream model_name_file;
+	model_name_file.open(model_name_path, std::ios::in);
+	std::string model;
+	if (model_name_file.is_open()) {
+		getline(model_name_file, model);
+		model_name_file.close();
+	} else {
+		LOG(MtkISP7, Fatal) << "Unable to open file " << model_name_path;
+	}
+
+	if (ipa_->init(model, sensor_idx_)) {
 		LOG(MtkISP7, Error) << "IPA init failed";
 	}
 
