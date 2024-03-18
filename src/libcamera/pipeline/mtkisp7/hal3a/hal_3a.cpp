@@ -22,6 +22,7 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
+#include "platform/mtkisp7/platform_utils.h"
 
 #include "control_ids.h"
 
@@ -59,35 +60,12 @@ void Hal3A::init()
 
 	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
 
-	int platformIdx = 1;
-	std::string model_name_path = "/run/chromeos-config/v1/name";
-	std::fstream model_name_file;
-	model_name_file.open(model_name_path, std::ios::in);
-	std::string model;
-	if (model_name_file.is_open()) {
-		getline(model_name_file, model);
-		model_name_file.close();
-	} else {
-		LOG(MtkISP7, Error) << "Unable to open file " << model_name_path;
-	}
+	switch (PlatformUtils::platform_) {
+	case PlatformUtils::MtkISP7Platform::NONE:
+		LOG(MtkISP7, Fatal) << "Platform unconfigured";
+		break;
 
-	if (!model.compare("geralt")) {
-		platformIdx = 0;
-	} else if (!model.compare("ciri")) {
-		platformIdx = 1;
-	} else {
-		LOG(MtkISP7, Error) << "Undefined model name: " << model;
-	}
-
-	if (platformIdx == 0)
-		LOG(MtkISP7, Info) << "----google platform----";
-	else if (platformIdx == 1)
-		LOG(MtkISP7, Info) << "----lenovo platform----";
-	else
-		LOG(MtkISP7, Info) << "----check platform!!----";
-
-	if (platformIdx == 0) {
-		// TODO(chenghaoyang): Abstract sensors' information to support different sensor modules.
+	case PlatformUtils::MtkISP7Platform::GOOGLE:
 		if (sensor_idx_ == 0) { // back camera
 			_sensorIdxInfo.sensorDev = 1;
 			_sensorIdxInfo.sensorId = 4921;
@@ -104,7 +82,9 @@ void Hal3A::init()
 			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
 			sensor_id_ = GC08A3_SENSOR_ID;
 		}
-	} else if (platformIdx == 1) {
+		break;
+
+	case PlatformUtils::MtkISP7Platform::LENOVO:
 		if (sensor_idx_ == 0) { // back camera
 			_sensorIdxInfo.sensorDev = 1;
 			_sensorIdxInfo.sensorId = 2211;
@@ -120,8 +100,7 @@ void Hal3A::init()
 			_sensorIdxInfo.sensorName = "GC05A2_MIPI_RAW";
 			sensor_id_ = GC05A2_SENSOR_ID;
 		}
-	} else {
-		LOG(MtkISP7, Error) << "Invalid platformIdx: " << platformIdx;
+		break;
 	}
 
 	NvBufUtil::initSensorInfo(sensor_idx_, _sensorIdxInfo);

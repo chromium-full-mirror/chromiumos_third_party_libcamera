@@ -28,6 +28,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/mtkcam-core/aaa/include/nvbuf_util.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
+#include "platform/mtkisp7/platform_utils.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
@@ -51,35 +52,12 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 
 	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
 
-	// TODO, config platformIdx from config file dynamically
-	// 0: google platform (geralt), 1: lenovo platform (ciri)
-	std::string model_name_path = "/run/chromeos-config/v1/name";
-	std::fstream model_name_file;
-	model_name_file.open(model_name_path, std::ios::in);
-	std::string model;
-	if (model_name_file.is_open()) {
-		getline(model_name_file, model);
-		model_name_file.close();
-	} else {
-		LOG(MtkISP7, Error) << "Unable to open file " << model_name_path;
-	}
+	switch (PlatformUtils::platform_) {
+	case PlatformUtils::MtkISP7Platform::NONE:
+		LOG(MtkISP7, Fatal) << "Platform unconfigured";
+		break;
 
-	int platformIdx = 1;
-	if (!model.compare("geralt")) {
-		platformIdx = 0;
-	} else if (!model.compare("ciri")) {
-		platformIdx = 1;
-	} else {
-		LOG(MtkISP7, Error) << "Undefined model name: " << model;
-	}
-	if (platformIdx == 0)
-		LOG(MtkISP7, Info) << "----google platform----";
-	else if (platformIdx == 1)
-		LOG(MtkISP7, Info) << "----lenovo platform----";
-	else
-		LOG(MtkISP7, Info) << "----check platform!!----";
-
-	if (platformIdx == 0) {
+	case PlatformUtils::MtkISP7Platform::GOOGLE:
 		// TODO(chenghaoyang): Abstract sensors' information to support different sensor modules.
 		if (sensorIdx_ == 0) { // back camera
 			_sensorIdxInfo.sensorDev = 1;
@@ -97,7 +75,9 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
 			sensorId_ = GC08A3_SENSOR_ID;
 		}
-	} else if (platformIdx == 1) {
+		break;
+
+	case PlatformUtils::MtkISP7Platform::LENOVO:
 		if (sensorIdx_ == 0) { // back camera
 			_sensorIdxInfo.sensorDev = 1;
 			_sensorIdxInfo.sensorId = 2211;
@@ -113,8 +93,7 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 			_sensorIdxInfo.sensorName = "GC05A2_MIPI_RAW";
 			sensorId_ = GC05A2_SENSOR_ID;
 		}
-	} else {
-		LOG(MtkISP7, Error) << "Invalid platformIdx: " << platformIdx;
+		break;
 	}
 	m_P1CamInfo.i4_sensor_id = _sensorIdxInfo.sensorId;
 	m_P1CamInfo.app_iso_value = 100;

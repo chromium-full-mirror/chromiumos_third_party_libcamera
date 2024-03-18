@@ -6,7 +6,8 @@ mtkisp7_platform_sources = files([
   'imgsensor_info_helper.cpp',
   'halsensor_helper.cpp',
   'cam_cal_func.cpp',
-  'cam_cal_helper.cpp'
+  'cam_cal_helper.cpp',
+  'platform_utils.cpp'
 ])
 
 libcam_halsensor = cc.find_library('libcam.halsensor', required : true)

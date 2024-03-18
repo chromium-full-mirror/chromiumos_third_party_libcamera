@@ -69,7 +69,7 @@ struct ImgMetaRequestData {
 };
 
 interface IPAMtkISP7Interface {
-	init(int32 sensorIdx) => (int32 ret);
+	init(string model, int32 sensorIdx) => (int32 ret);
 	start(uint32 rawMetaBufferId) => (int32 lens_position);
 	stop();
 

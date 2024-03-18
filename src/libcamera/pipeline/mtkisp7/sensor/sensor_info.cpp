@@ -6,9 +6,9 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <fstream>
 #include <memory>
 #include <regex>
-#include <fstream>
 #include <string>
 
 #include <libcamera/base/log.h>
@@ -19,6 +19,7 @@
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/imgsensor_src/imgsensor_info_custom.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/camera_custom_imgsensor_cfg.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/imgsensor_info.h"
+#include "platform/mtkisp7/platform_utils.h"
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -43,7 +44,9 @@ SensorInfo::SensorInfo(int sensor_idx)
 	: m_sensor_index(sensor_idx),
 	  m_sensor_dev(0),
 	  m_sensor_id(0),
-	  m_module_id(0) {}
+	  m_module_id(0)
+{
+}
 
 void SensorInfo::init(int sensor_dev, int sensor_id, int module_id)
 {
@@ -144,25 +147,21 @@ bool SensorInfo::is_af_support()
 void SensorInfo::construct_sensor_static_info(
 	int index, std::shared_ptr<NSCam::SensorStaticInfo> pSensorStaticInfo)
 {
-	int sensorId_idx;
-	std::string model_name_path = "/run/chromeos-config/v1/name";
-	std::fstream model_name_file;
-	model_name_file.open(model_name_path,std::ios::in) ; 
-	std::string model;
-	if (model_name_file.is_open()) {
-		getline(model_name_file, model);
-		model_name_file.close();
-	} else {
-		LOG(MtkISP7, Error) << "Unable to open file " << model_name_path;
+	int sensorId_idx = 0;
+	switch (PlatformUtils::platform_) {
+	case PlatformUtils::MtkISP7Platform::NONE:
+		LOG(MtkISP7, Fatal) << "Platform unconfigured";
+		break;
+
+	case PlatformUtils::MtkISP7Platform::GOOGLE:
+		sensorId_idx = sensorId_idx_map_geralt[index];
+		break;
+
+	case PlatformUtils::MtkISP7Platform::LENOVO:
+		sensorId_idx = sensorId_idx_map_ciri[index];
+		break;
 	}
 
-	if (!model.compare("geralt")) {
-		sensorId_idx = sensorId_idx_map_geralt[index];
-	} else if (!model.compare("ciri")) {
-		sensorId_idx = sensorId_idx_map_ciri[index];
-	} else {
-		sensorId_idx = sensorId_idx_map_ciri[index];
-	}
 	IMGSENSOR_SENSOR_IDX sensorIdx = (IMGSENSOR_SENSOR_IDX)index;
 	struct imgsensor_info_struct *imgsensor_info;
 	if (index >
