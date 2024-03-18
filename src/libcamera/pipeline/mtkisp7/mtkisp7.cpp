@@ -666,7 +666,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		// todo: Fix the frame duration to 30fps for now. It should be
 		// updated on stream configuration
 		controls[&controls::FrameDurationLimits] = ControlInfo((int64_t)33'333,
-								       (int64_t)33'333,
+								       (int64_t)66'666,
 								       (int64_t)33'333);
 
 		// todo: Assign correct crop range
