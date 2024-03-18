@@ -26,7 +26,16 @@ public:
 	int get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum, int sensor_id,
 			 int sensor_dev, void *a_pCamCalData);
 
+	void setEepromData(const std::vector<uint8_t> &eepromData)
+	{
+		eepromData_ = eepromData;
+	}
+
 private:
 	static CAM_CAL_DATA_STRUCT StCamCalCaldata;
+
+	std::vector<uint8_t> eepromData_;
 	int get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData);
+
+	int getFakeFdWithEepromData();
 };

@@ -50,6 +50,7 @@
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "platform/mtkisp7/platform_utils.h"
 #include "sensor/sensor_info.h"
 #include "utils/history.h"
 
@@ -821,7 +822,56 @@ int MtkISP7CameraData::loadIPA()
 		LOG(MtkISP7, Fatal) << "Unable to open file " << model_name_path;
 	}
 
-	if (ipa_->init(model, sensor_idx_)) {
+	PlatformUtils::setWithModelName(model);
+
+	std::string eepromPath;
+
+	switch (PlatformUtils::platform_) {
+	case PlatformUtils::MtkISP7Platform::NONE:
+		LOG(MtkISP7, Fatal) << "Platform unconfigured";
+		break;
+
+	case PlatformUtils::MtkISP7Platform::GOOGLE:
+		if (sensor_idx_ == 0)
+			eepromPath = "/sys/bus/i2c/devices/6-0058/eeprom";
+		else
+			eepromPath = "/sys/bus/i2c/devices/5-0051/eeprom";
+
+		break;
+
+	case PlatformUtils::MtkISP7Platform::LENOVO:
+		if (sensor_idx_ == 0)
+			eepromPath = "/sys/bus/i2c/devices/6-0058/eeprom";
+		else
+			eepromPath = "/sys/bus/i2c/devices/5-0050/eeprom";
+
+		break;
+	}
+
+	std::vector<uint8_t> buffer;
+	std::ifstream file(eepromPath, std::ios::in | std::ios::binary | std::ios::ate);
+
+	if (file.is_open()) {
+		// Get the file size
+		std::streamsize size = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		// Create a buffer to hold the file contents
+		buffer.resize(size);
+
+		// Read the entire file into the buffer
+		if (!file.read((char *)buffer.data(), size)) {
+			LOG(MtkISP7, Fatal) << "Error reading file.";
+		} else {
+			LOG(MtkISP7, Info) << "Eeprom read size: " << size;
+		}
+
+		file.close();
+	} else {
+		LOG(MtkISP7, Fatal) << "Unable to open file: " << eepromPath;
+	}
+
+	if (ipa_->init(model, sensor_idx_, buffer)) {
 		LOG(MtkISP7, Error) << "IPA init failed";
 	}
 

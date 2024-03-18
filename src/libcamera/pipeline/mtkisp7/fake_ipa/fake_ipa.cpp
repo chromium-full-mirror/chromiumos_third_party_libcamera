@@ -10,6 +10,7 @@
 #include "libcamera/base/bound_method.h"
 #include "libcamera/base/log.h"
 #include "pipeline/mtkisp7/halisp/hal_isp.h"
+#include "platform/mtkisp7/cam_cal_helper.h"
 #include "platform/mtkisp7/platform_utils.h"
 
 namespace libcamera {
@@ -22,9 +23,11 @@ IPAMtkISP7::IPAMtkISP7()
 {
 }
 
-int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx)
+int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
+		     const std::vector<uint8_t> &eeprom)
 {
 	PlatformUtils::setWithModelName(model);
+	CamCalHelper::getInstance()->setEepromData(eeprom);
 
 	if (PlatformUtils::platform_ == PlatformUtils::MtkISP7Platform::NONE)
 		LOG(MtkISP7, Fatal) << "Invalid model: " << model;

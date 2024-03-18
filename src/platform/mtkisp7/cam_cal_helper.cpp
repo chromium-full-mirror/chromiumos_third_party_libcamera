@@ -18,6 +18,7 @@
 
 #include <fcntl.h>
 #include <string>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #include "platform/mtkisp7/cam_cal_func.h"
@@ -133,12 +134,8 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 		if (pCamCalData->sensorID == HI1339_SENSOR_ID) {
 			LOG_INF("Read Sensor ID 0x%x Data", pCamCalData->sensorID);
 
-			eepromDev = "/sys/bus/i2c/devices/6-0058/eeprom";
-			CamcamFID = open(eepromDev.c_str(), O_RDONLY);
+			CamcamFID = getFakeFdWithEepromData();
 			if (CamcamFID < 0) {
-				LOG_ERR("SensorID 0x%x eeprom device open failed", pCamCalData->sensorID);
-				result = CamCalReturnErr[lsCommand];
-				//ShowCmdErrorLog(lsCommand);
 				pthread_mutex_unlock(&mEEPROM_Mutex);
 				return result;
 			}
@@ -155,17 +152,11 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 				result = CamCalReturnErr[lsCommand];
 				//ShowCmdErrorLog(lsCommand);
 			}
-
-			close(CamcamFID);
 		} else if (pCamCalData->sensorID == GC08A3_SENSOR_ID) {
 			LOG_INF("Read Sensor ID 0x%x Data", pCamCalData->sensorID);
 
-			eepromDev = "/sys/bus/i2c/devices/5-0051/eeprom";
-			CamcamFID = open(eepromDev.c_str(), O_RDONLY);
+			CamcamFID = getFakeFdWithEepromData();
 			if (CamcamFID < 0) {
-				LOG_ERR("SensorID 0x%x eeprom device open failed", pCamCalData->sensorID);
-				result = CamCalReturnErr[lsCommand];
-				//ShowCmdErrorLog(lsCommand);
 				pthread_mutex_unlock(&mEEPROM_Mutex);
 				return result;
 			}
@@ -182,8 +173,6 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 				result = CamCalReturnErr[lsCommand];
 				//ShowCmdErrorLog(lsCommand);
 			}
-
-			close(CamcamFID);
 		}
 		break;
 
@@ -196,11 +185,8 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 		}
 		LOG_INF("Read Sensor ID 0x%x Data. Open eeprom device %s", pCamCalData->sensorID, eepromDev.c_str());
 
-		CamcamFID = open(eepromDev.c_str(), O_RDONLY);
+		CamcamFID = getFakeFdWithEepromData();
 		if (CamcamFID < 0) {
-			LOG_ERR("SensorID 0x%x eeprom device open failed", pCamCalData->sensorID);
-			result = CamCalReturnErr[lsCommand];
-			//ShowCmdErrorLog(lsCommand);
 			pthread_mutex_unlock(&mEEPROM_Mutex);
 			return result;
 		}
@@ -217,10 +203,45 @@ int CamCalHelper::get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData)
 			result = CamCalReturnErr[lsCommand];
 			//ShowCmdErrorLog(lsCommand);
 		}
-		close(CamcamFID);
 		break;
 	}
 
+	close(CamcamFID);
 	pthread_mutex_unlock(&mEEPROM_Mutex);
 	return result;
+}
+
+int CamCalHelper::getFakeFdWithEepromData()
+{
+	int fd = memfd_create("my_memfd", MFD_CLOEXEC);
+	if (fd == -1) {
+		LOG_ERR("Failed to memfd_create");
+		printf("Failed to memfd_create");
+
+		return -1;
+	}
+
+	// Set the initial size of the file (optional)
+	if (ftruncate(fd, eepromData_.size()) == -1) {
+		LOG_ERR("Failed to ftruncate");
+		printf("Failed to ftruncate");
+
+		close(fd);
+		return -1;
+	}
+
+	void *ptr = mmap(NULL, eepromData_.size(), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (ptr == MAP_FAILED) {
+		LOG_ERR("Failed to mmap");
+		printf("Failed to mmap");
+
+		close(fd);
+		return -1;
+	}
+
+	// Write to the memory region
+	memcpy(ptr, eepromData_.data(), eepromData_.size());
+	munmap(ptr, eepromData_.size());
+
+	return fd;
 }
