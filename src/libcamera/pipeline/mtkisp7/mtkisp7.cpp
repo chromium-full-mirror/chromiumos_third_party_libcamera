@@ -414,6 +414,8 @@ void CompleteRequestTask::run()
 	if (aaaIspExchange_->valid()) {
 		AaaIspExchange aaaIspExchange = aaaIspExchange_->get();
 		metadata.merge(aaaIspExchange.aaaMetadata);
+	} else {
+		metadata.set(controls::ExposureTime, (int64_t)66'666);
 	}
 
 	pipe_->completeMetadata(request_, metadata);

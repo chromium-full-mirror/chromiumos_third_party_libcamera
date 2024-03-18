@@ -6,6 +6,7 @@
 
 #include "hal_3a.h"
 
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -18,6 +19,8 @@
 #include "../halisp/hal_isp.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
+
+#include "control_ids.h"
 
 namespace libcamera {
 
@@ -448,8 +451,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 					     faceMetadata, aaaIspExchange,
 					     internalRequestIdApplied);
 	}
-
-	getExposureAndGain(exposureAndGain);
+	uint32_t exposureTimeMs;
+	getExposureAndGain(exposureAndGain, exposureTimeMs);
 	ControlList &aaaMetadata = aaaIspExchange->aaaMetadata;
 
 	if (internalRequestIdApplied &&
@@ -461,7 +464,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	// However, for now libcamera is assuming that ISO sensitivity
 	// is simply equal to analogue gain.
 	float floatIso = static_cast<float>(r3AResult_.ae_result.sensor_sensitivity);
-	aaaMetadata.set(controls::AnalogueGain, floatIso);
+	aaaIspExchange->aaaMetadata.set(controls::AnalogueGain, floatIso);
+	aaaIspExchange->aaaMetadata.set(controls::ExposureTime, exposureTimeMs);
 }
 
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
@@ -815,7 +819,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 }
 
 void Hal3A::getExposureAndGain(
-	std::pair<uint32_t, uint32_t> *exposureAndGain)
+	std::pair<uint32_t, uint32_t> *exposureAndGain, uint32_t &exposureTimeMs)
 {
 	ae_exposure_setting_table ae_table = r3AResult_.ae_result.ae_exp_table;
 	if (ae_table.cnt == 0)
@@ -847,7 +851,7 @@ void Hal3A::getExposureAndGain(
 
 		uint32_t gain = pHalSensor->convert_gain(dev_idx, ae_table.table[exp].afe_gain);
 		uint32_t ex = ae_table.table[exp].exposure_line;
-
+		exposureTimeMs = ae_table.table[exp].exposure_ns/1000;
 		*exposureAndGain = std::make_pair(ex, gain);
 		break;
 	}

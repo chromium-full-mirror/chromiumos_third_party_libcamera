@@ -68,7 +68,7 @@ private:
 						  bool isAF = false,
 						  bool isStillCapture = false);
 
-	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain);
+	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain, uint32_t &exposureTimeMs);
 
 	const uint32_t sensor_idx_;
 	int sensor_id_;
