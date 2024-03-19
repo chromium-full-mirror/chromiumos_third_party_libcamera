@@ -26,6 +26,10 @@ public:
 	~CameraLens();
 
 	int init();
+
+	int open();
+	int close();
+
 	int setFocusPosition(int32_t position);
 
 	const std::string &model() const { return model_; }

@@ -175,6 +175,10 @@ int CamSysDevice::start()
 		return ret;
 	}
 
+	if (sensor_->focusLens())
+		sensor_->focusLens()->open();
+
+
 	ASSERT(pendingRequests_.empty());
 	ASSERT(completedRequests_.empty());
 
@@ -205,6 +209,9 @@ int CamSysDevice::stop()
 	ret = videoHub_->setFrameStartEnabled(false);
 	if (ret)
 		LOG(MtkISP7, Error) << "Fatal due to cannot disable frame start " << strerror(-ret);
+
+	if (sensor_->focusLens())
+		sensor_->focusLens()->close();
 
 	ASSERT(pendingRequests_.empty());
 	ASSERT(completedRequests_.empty());
@@ -445,6 +452,11 @@ int CamSysDevice::initSensor(MediaEntity *seninfEntity)
 		return -ENODEV;
 
 	sensor_ = std::move(sensor);
+
+	// Close the lens by default to save power.
+	if (sensor_->focusLens())
+		sensor_->focusLens()->close();
+
 	return 0;
 }
 

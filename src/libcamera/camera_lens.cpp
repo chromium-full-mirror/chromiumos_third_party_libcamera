@@ -76,6 +76,17 @@ int CameraLens::init()
 	return 0;
 }
 
+int CameraLens::open()
+{
+	return subdev_->open();
+}
+
+int CameraLens::close()
+{
+	subdev_->close();
+	return 0;
+}
+
 /**
  * \brief This function sets the focal point of the lens to a specific position.
  * \param[in] position The focal point of the lens
