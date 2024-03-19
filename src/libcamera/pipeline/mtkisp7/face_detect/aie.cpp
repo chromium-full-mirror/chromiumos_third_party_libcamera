@@ -7,25 +7,8 @@
 
 #include "aie.h"
 
-#include <algorithm>
-#include <array>
-#include <cerrno>
-#include <cstring>
-#include <fcntl.h>
-#include <functional>
 #include <sys/syscall.h>
-#include <unistd.h>
-#include <vector>
 
-#include <linux/v4l2-controls.h>
-#include <linux/videodev2.h>
-
-#include <libcamera/base/event_notifier.h>
-#include <libcamera/base/log.h>
-#include <libcamera/base/span.h>
-
-#include <libcamera/control_ids.h>
-#include <libcamera/controls.h>
 #include <libcamera/formats.h>
 
 namespace libcamera {
@@ -45,8 +28,8 @@ AieDevice::AieDevice()
 	  resultMeta_(nullptr), media_(nullptr),
 	  driverInitConfig_{
 		  .src_max_width = inputSize_.width,
-		  .src_max_height = inputSize_.height,
-		  .src_pyramid_width = 504,
+		  .src_max_height = inputSize_.width * 3 / 2,
+		  .src_pyramid_width = 640,
 		  .src_pyramid_height = 640,
 		  .feature_threshold = unsigned(-64)
 	  }
@@ -128,19 +111,9 @@ FdDrv_input_struct AieDevice::createFaceToneClassificationDriverConfig()
 	return config;
 }
 
-int AieDevice::createRequestFDs(unsigned int count)
-{
-	std::vector<UniqueFD> requests;
-	media_->allocateRequests(count, requests);
-
-	requestFDPool_.setData(requests);
-	return 0;
-}
-
-int AieDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
+int AieDevice::init(MediaDevice *media)
 {
 	media_ = media;
-	dmaHeap_ = dmaHeap;
 
 	auto mediaEntity = media_->getEntityByName("mtk-aie-5.3-source");
 	std::string deviceNode = mediaEntity->deviceNode();
@@ -200,6 +173,14 @@ int AieDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 	return 0;
 }
 
+void AieDevice::changeWorkingThread(Thread *thread)
+{
+	Object::moveToThread(thread);
+
+	sourceVideo_->changePollerThread(thread);
+	resultMeta_->changePollerThread(thread);
+}
+
 int AieDevice::releaseBuffers()
 {
 	int retSrcVideo = sourceVideo_->releaseBuffers();
@@ -214,8 +195,6 @@ int AieDevice::releaseBuffers()
 		LOG(MtkISP7, Error) << "AIE device releaseBuffers failed: "
 				    << "faceDetectionResultMeta_";
 	}
-
-	resultMetadataPool_.release();
 
 	return std::min(retSrcVideo, retResultMeta);
 }
@@ -246,10 +225,6 @@ int AieDevice::requestBuffers()
 		// the struct definition used by the driver and struct
 		// definition used here.
 	}
-	// todo(yerlandinata):cannot do metaFormat.fourcc.toPixelFormat()
-	resultMetadataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP,
-					  { metaFormat.planes[0].size, 1 },
-					  bufferNum_);
 	ret = resultMeta_->importBuffers(bufferNum_);
 	if (ret < 0) {
 		LOG(MtkISP7, Error) << "AIE device failed to requestBuffers: "
@@ -285,22 +260,10 @@ int AieDevice::start()
 		}
 	};
 
-	ret = createRequestFDs(bufferNum_);
-	if (ret) {
-		LOG(MtkISP7, Error) << startFailed
-				    << "createRequestFDs: " << ret;
-		cancelRequestBuffers();
-		return ret;
-	}
-	const auto cancelCreateRequestFDs = [&]() {
-		requestFDPool_.release();
-	};
-
 	ret = sourceVideo_->streamOn();
 	if (ret) {
 		LOG(MtkISP7, Error) << startFailed
 				    << "sourceVideo_.streamOn: " << ret;
-		cancelCreateRequestFDs();
 		cancelRequestBuffers();
 		return ret;
 	}
@@ -316,7 +279,6 @@ int AieDevice::start()
 		LOG(MtkISP7, Error) << startFailed
 				    << "resultMeta_.streamOn: " << ret;
 		cancelSrcVideoStreamOn();
-		cancelCreateRequestFDs();
 		cancelRequestBuffers();
 		return ret;
 	}
@@ -339,8 +301,6 @@ int AieDevice::stop()
 				    << "faceDetectionResultMeta_ streamOff";
 	}
 
-	requestFDPool_.release();
-
 	int retReleaseBuff = releaseBuffers();
 	if (retReleaseBuff != 0) {
 		LOG(MtkISP7, Error) << "AIE device got failure when stop: "
@@ -348,160 +308,6 @@ int AieDevice::stop()
 	}
 
 	return std::min(std::min(retSrcVideo, retResultMeta), retReleaseBuff);
-}
-
-AieDevice::AieTask::AieTask(Scheduler *scheduler, const std::string &id,
-			    AieDevice *aieDev,
-			    SharedMailBox<InfoFrame> mailBoxInputImage,
-			    SharedMailBox<InfoFrame> mailBoxMetadata,
-			    SharedMailBox<FdDrv_input_struct> mailBoxConfig)
-	: Task(scheduler, id), aieDev_(aieDev),
-	  mailBoxInputImage_(std::move(mailBoxInputImage)),
-	  mailBoxMetadata_(std::move(mailBoxMetadata)),
-	  mailBoxDriverConfig_(std::move(mailBoxConfig)),
-	  requestFd_(-1)
-{
-}
-
-/**
- * @brief Notifies a sub-task has finished
- *
- * Then calls notifyDone() if all sub-tasks have finished.
- */
-void AieDevice::AieTask::notifySubTaskDone()
-{
-	if (--pendingSubTaskCount_ > 0) {
-		return;
-	}
-
-	notifyDone();
-	auto timeEnd = std::chrono::steady_clock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-		timeEnd - timeBeginRun_);
-	LOG(MtkISP7, Debug) << "AieTask done " << id() << "; runtime: "
-			    << duration.count() << " ms";
-}
-
-void AieDevice::AieTask::requestFdCleanup()
-{
-	fdBufferNotifier_.reset();
-	aieDev_->media_->reInitRequest(requestFd_);
-	aieDev_->requestFDPool_.put(requestFd_);
-}
-
-void AieDevice::AieTask::requestFdReady()
-{
-	requestFdCleanup();
-	notifySubTaskDone();
-}
-
-void AieDevice::AieTask::resultMetaCleanup()
-{
-	aieDev_->resultMeta_->bufferReady.disconnect(this);
-}
-
-void AieDevice::AieTask::resultMetaReady([[maybe_unused]] FrameBuffer *buffer)
-{
-	resultMetaCleanup();
-	notifySubTaskDone();
-}
-
-void AieDevice::AieTask::run()
-{
-	if (!mailBoxInputImage_->valid()) {
-		LOG(MtkISP7, Error) << "Input image is not yet ready, "
-				    << "abort " << id();
-		notifyDone();
-		return;
-	}
-
-	if (mailBoxInputImage_->get().size() != aieDev_->inputSize_) {
-		LOG(MtkISP7, Error) << "Wrong input image size: "
-				    << mailBoxInputImage_->get().size()
-				    << ". Expected: " << aieDev_->inputSize_
-				    << " Abort " << id();
-		notifyDone();
-		return;
-	}
-
-	if (!mailBoxDriverConfig_->valid()) {
-		// The pipeline doesn't have the configuration for this task.
-		// e.g. Face tone classification needs face ROI:
-		// If there is no face then there should be no face tone
-		// classification. First face tone classification task
-		// will always abort.
-		LOG(MtkISP7, Debug) << "Driver config is not available! "
-				    << "Abort " + id();
-		notifyDone();
-		return;
-	}
-	// Queue: video buffer, meta buffer, request.
-	pendingSubTaskCount_ = 3;
-
-	requestFd_ = aieDev_->requestFDPool_.get();
-	fdBufferNotifier_.reset(
-		new EventNotifier(requestFd_, EventNotifier::Exception));
-	fdBufferNotifier_->activated.connect(
-		this, &AieDevice::AieTask::requestFdReady);
-
-	FdDrv_input_struct driverConfig(mailBoxDriverConfig_->get());
-	struct v4l2_ext_control extControl {
-		.id = aieDev_->inferenceParamControlId_,
-		.size = sizeof(FdDrv_input_struct),
-		.reserved2 = {},
-		.p_u32 = reinterpret_cast<__u32 *>(&driverConfig)
-	};
-	int ret = aieDev_->sourceVideo_->setExtControl(&extControl, requestFd_);
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to set ext controls: " << ret;
-		requestFdCleanup();
-		notifyDone();
-		return;
-	}
-
-	ret = aieDev_->sourceVideo_->queueBuffer(
-		mailBoxInputImage_->get().buffer(), requestFd_);
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to queue image buf: " << ret;
-		requestFdCleanup();
-		notifyDone();
-		return;
-	}
-	aieDev_->sourceVideo_->bufferReady.connect(this, &AieDevice::AieTask::sourceVideoReady);
-
-	aieDev_->resultMetadataPool_.fetch(mailBoxMetadata_);
-	ret = aieDev_->resultMeta_->queueBuffer(mailBoxMetadata_->get().buffer());
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to queue metadata buf" << ret;
-		sourceVideoCleanup();
-		requestFdCleanup();
-		notifyDone();
-		return;
-	}
-	aieDev_->resultMeta_->bufferReady.connect(this, &AieDevice::AieTask::resultMetaReady);
-
-	ret = aieDev_->media_->queueRequest(requestFd_);
-	if (ret != 0) {
-		LOG(MtkISP7, Error) << "Failed to queue request: " << ret;
-		resultMetaCleanup();
-		sourceVideoCleanup();
-		requestFdCleanup();
-		notifyDone();
-		return;
-	}
-	timeBeginRun_ = std::chrono::steady_clock::now();
-	return;
-}
-
-void AieDevice::AieTask::sourceVideoCleanup()
-{
-	aieDev_->sourceVideo_->bufferReady.disconnect(this);
-}
-
-void AieDevice::AieTask::sourceVideoReady([[maybe_unused]] FrameBuffer *buffer)
-{
-	sourceVideoCleanup();
-	notifySubTaskDone();
 }
 
 } /* namespace libcamera */

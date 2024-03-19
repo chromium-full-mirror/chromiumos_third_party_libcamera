@@ -25,72 +25,81 @@ namespace libcamera {
 
 class FaceDetector;
 
+struct PrimaryFaceData
+{
+	uint32_t x1;
+	uint32_t y1;
+	uint32_t x2;
+	uint32_t y2;
+	uint32_t padding_left;
+	uint32_t padding_right;
+	uint32_t padding_up;
+	uint32_t padding_down;
+};
+
 class AieParser
 {
 public:
+	int initialize();
+	void configure();
+
+	int aieParse(FrameBuffer *input,
+		     FrameBuffer *faceResult,
+		     FrameBuffer *toneResult,
+		     Size currentSensorSize,
+		     uint32_t camSysMetaRequestId);
+
+	void setLatestOutput(const MtkCameraFaceMetadata &output);
+	void getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest);
+
+	Signal<bool, const PrimaryFaceData &, const ControlList &> AieParseResultReady;
+
+private:
+	void initParse();
+
+	int doParse(FrameBuffer *input, FrameBuffer *faceResult,
+		    FrameBuffer *toneResult, Size currentSensorSize,
+		    uint32_t camSysMetaRequestId,
+		    PrimaryFaceData &faceToneRoi,
+		    ControlList &out);
+
+	int parseAll(FrameBuffer *faceResult, FrameBuffer *toneResult,
+		     uint32_t camSysMetaRequestId,
+		     PrimaryFaceData &faceToneRoi, ControlList &out);
+
+	int parseFaceDetectionOutput(FrameBuffer *faceResult);
+	void parseFaceLandmark(FDRESULT *resultSet, int calibrationIndex, int resultSetIndex);
+	void parseFaceRoi(FDRESULT *resultSet, int calibrationIndex, int resultSetIndex);
+	int parseFaceToneClassificationOutput(FrameBuffer *toneResult);
+
+	void updateFaceToneDriverConfig(PrimaryFaceData &faceToneRoi);
+	void transformDetectionCoordinate(int32_t &x, int32_t &y) const;
+	void transformAllDetectionCoordinates(
+			MtkCameraFaceMetadata &faceMetadata) const;
+
+	void convertFaceMetadata(MtkCameraFaceMetadata *faceMetadata, ControlList &out);
+
+	FdOptions createBufferOptions() const;
+
 	MUINT8 *getWorkingBuffer();
 	bool isValid();
-	int initialize();
 
-	std::unique_ptr<MTKDetection> algoInterface;
-
-	int16_t rawFaceToneResult_[MAX_CROP_NUM][MAX_AIE2_ATT_LEN];
 	uint16_t parserBuffers_[MAX_CROP_NUM][8];
 	uint16_t *parserBufferList_[MAX_CROP_NUM];
 	unsigned char parserTaskList_[MAX_AIE_ATTR_TYPE][MAX_CROP_NUM];
 	unsigned char parserBufferStatus_[MAX_AIE_ATTR_TYPE][MAX_CROP_NUM];
 	int patchSize_[MAX_CROP_NUM];
 	int parserAttributeTask_[MAX_AIE_ATTR_TYPE] = { 0 };
+
 	result workingBuffer_[MAX_FACE_NUM];
-};
+	int16_t rawFaceToneResult_[MAX_CROP_NUM][MAX_AIE2_ATT_LEN];
 
-class AieParseTask : public Task
-{
-public:
-	AieParseTask(
-		Scheduler *scheduler, const std::string &id,
-		std::shared_ptr<AieParser> parser,
-		SharedMailBox<InfoFrame> mailBoxInputImage,
-		SharedMailBox<InfoFrame> mailBoxFaceDetectionMetadata,
-		SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata,
-		SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
-		FaceDetector *faceDetector,
-		const FdDrv_input_struct &defaultFaceToneConfig,
-		const Size &currentSensorSize, int camSysMetaRequestId);
-
-	void run() override;
-
-private:
-	FdOptions createBufferOptions() const;
-	void init();
-	int prepareBuffer();
-
-	void updateFaceToneDriverConfig();
-
-	int parseAll();
-	int parseFaceDetectionOutput();
-	void parseFaceLandmark(
-		FDRESULT *resultSet, int calibrationIndex, int resultSetIndex);
-	void parseFaceRoi(
-		FDRESULT *resultSet, int calibrationIndex, int resultSetIndex);
-	int parseFaceToneClassificationOutput();
-
-	void transformAllDetectionCoordinates(
-		MtkCameraFaceMetadata &faceMetadata) const;
-	void transformDetectionCoordinate(int32_t &x, int32_t &y) const;
-
-	std::shared_ptr<AieParser> parser_;
-	SharedMailBox<InfoFrame> mailBoxInputImage_;
-	SharedMailBox<InfoFrame> mailBoxFaceDetectionMetadata_;
-	SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata_;
-	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig_;
-	FaceDetector *faceDetector_;
-	const Size currentSensorSize_;
-	int camSysMetaRequestId_;
-
-	std::unique_ptr<MappedFrameBuffer> currentMappedImageBuffer_;
+	Size currentSensorSize_;
 	fd_cal_struct *algoCalibration_;
-	const FdDrv_input_struct defaultFaceToneDriverConfig_;
+	std::unique_ptr<MTKDetection> algoInterface;
+
+	Mutex lock_;
+	std::optional<MtkCameraFaceMetadata> latestOutput_;
 };
 
 } /* namespace libcamera */

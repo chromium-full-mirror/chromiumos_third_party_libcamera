@@ -9,6 +9,8 @@
 
 #include <memory>
 
+#include <libcamera/control_ids.h>
+
 #include "mtkcam-core/feature/common/faceeffect/FaceDetection/FD_Tuning/TuningPara.h"
 #include "mtkcam-halif/def/BuiltinTypes.h"
 
@@ -42,75 +44,98 @@ int AieParser::initialize()
 	for (int i = 0; i < MAX_CROP_NUM; i++) {
 		parserBufferList_[i] = parserBuffers_[i];
 	}
+
 	return 0;
 }
 
-AieParseTask::AieParseTask(
-	Scheduler *scheduler, const std::string &id,
-	std::shared_ptr<AieParser> parser,
-	SharedMailBox<InfoFrame> mailBoxInputImage,
-	SharedMailBox<InfoFrame> mailBoxFaceDetectionMetadata,
-	SharedMailBox<InfoFrame> mailBoxFaceToneClassificationMetadata,
-	SharedMailBox<FdDrv_input_struct> mailBoxFaceToneConfig,
-	FaceDetector *faceDetector,
-	const FdDrv_input_struct &defaultFaceToneConfig,
-	const Size &currentSensorSize, int camSysMetaRequestId)
-	: Task(scheduler, id),
-	  parser_(std::move(parser)),
-	  mailBoxInputImage_(std::move(mailBoxInputImage)),
-	  mailBoxFaceDetectionMetadata_(std::move(mailBoxFaceDetectionMetadata)),
-	  mailBoxFaceToneClassificationMetadata_(
-		  std::move(mailBoxFaceToneClassificationMetadata)),
-	  mailBoxFaceToneConfig_(std::move(mailBoxFaceToneConfig)),
-	  faceDetector_(faceDetector),
-	  currentSensorSize_(currentSensorSize),
-	  camSysMetaRequestId_(camSysMetaRequestId),
-	  defaultFaceToneDriverConfig_(defaultFaceToneConfig)
+void AieParser::configure()
 {
+	latestOutput_.reset();
 }
 
-FdOptions AieParseTask::createBufferOptions() const
+/**
+ * @brief Sets the latest face detection result. Should only be called by
+ *        AieParseTasks.
+ * \param[in] output of the face detection result from AieParseTask
+ */
+void AieParser::setLatestOutput(const MtkCameraFaceMetadata &output)
 {
-	FdOptions opts;
-	opts.fd_state = FDVT_GFD_MODE;
-	opts.direction = FACEDETECT_GSENSOR_DIRECTION_NO_SENSOR;
-	opts.fd_scale_start_position = 0;
-	opts.gfd_fast_mode = 0;
-	opts.ae_stable = false;
-	opts.ForceFDMode = FDVT_GFD_MODE;
-	opts.inputPlaneCount = 1;
-	opts.ImageBufferY = nullptr;
-	opts.ImageBufferUV20 = nullptr;
-	opts.ImageBufferRGB565 = nullptr;
-	opts.ImageBufferSrcVirtual = nullptr;
-	opts.ImageBufferPhyPlane1 = nullptr;
-	opts.ImageBufferPhyPlane2 = nullptr;
-	opts.ImageBufferPhyPlane3 = nullptr;
-	opts.startW = 0;
-	opts.startH = 0;
-	opts.model_version = 0;
-	opts.curr_gtype = 0; // todo
-	opts.LV = 74; // todo: FDNodeImp.cpp aeInfo->ae_lv_x10;
-	opts.DynamicLandmarkCnt = 0;
-	opts.TGWidthHeight[0] = currentSensorSize_.width;
-	opts.TGWidthHeight[1] = currentSensorSize_.height;
-	opts.TGCropOffsetXY[0] = 0;
-	opts.TGCropOffsetXY[1] = 0;
-	opts.TGCropWidthHeight[0] = currentSensorSize_.width;
-	opts.TGCropWidthHeight[1] = currentSensorSize_.height;
-	opts.MainCamID = -1;
-	opts.MainCamFov = 53; // todo: FOV
-	opts.MainCamFaceSize = 0;
-	opts.MainCamFOVRatio[0] = 100;
-	opts.MainCamFOVRatio[1] = 100;
-	opts.ThisCamFOVRatio[0] = 100;
-	opts.ThisCamFOVRatio[1] = 100;
-	return opts;
+	MutexLocker locker(lock_);
+	latestOutput_.emplace(output);
 }
 
-void AieParseTask::init()
+/**
+ * @brief Get the latest face detection result
+ *
+ * \param[in] latest output of the face detection result from AieParseTask
+ */
+void AieParser::getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest)
 {
-	auto inputSize = mailBoxInputImage_->get().size();
+	MutexLocker locker(lock_);
+	latest = latestOutput_;
+}
+
+int AieParser::aieParse(FrameBuffer *input,
+			FrameBuffer *faceResult,
+			FrameBuffer *toneResult,
+			Size currentSensorSize,
+			uint32_t camSysMetaRequestId)
+{
+	PrimaryFaceData faceData;
+
+	ControlList out;
+	int ret = doParse(input, faceResult, toneResult,
+			  currentSensorSize, camSysMetaRequestId, faceData, out);
+
+	AieParseResultReady.emit((ret == 0), faceData, out);
+
+	return 0;
+}
+
+int AieParser::doParse(FrameBuffer *input, FrameBuffer *faceResult,
+		       FrameBuffer *toneResult, Size currentSensorSize,
+		       uint32_t camSysMetaRequestId,
+		       PrimaryFaceData &faceToneRoi,
+		       ControlList &out)
+{
+	initParse();
+
+	algoCalibration_ = algoInterface->FDGetCalData();
+
+	if (!algoCalibration_) {
+		LOG(MtkISP7, Error) << "Failed to prepare calibration buffer!";
+		return -ENOMEM;
+	}
+
+	for (int i = 0; i < MAX_FACE_SEL_NUM; i++) {
+		algoCalibration_->display_flag[i] = KAL_FALSE;
+	}
+
+	currentSensorSize_ = currentSensorSize;
+	MappedFrameBuffer mappedImageBuffer(input,
+					    MappedFrameBuffer::MapFlag::Read);
+
+	if (!mappedImageBuffer.isValid()) {
+		LOG(MtkISP7, Error) << "Failed to map image buffer!";
+		return mappedImageBuffer.error();
+	}
+
+	FdOptions opts = createBufferOptions();
+	opts.ImageBufferY = mappedImageBuffer.planes()[0].data();
+	opts.ImageBufferUV20 = mappedImageBuffer.planes()[1].data();
+
+	// todo(yerlandinata): check if FDVTGetMode is needed.
+	FDVT_OPERATION_MODE_ENUM mode;
+	algoInterface->FDVTGetMode(&mode);
+	algoInterface->FDVTMain(&opts);
+
+	return parseAll(faceResult, toneResult,
+			camSysMetaRequestId, faceToneRoi, out);
+}
+
+void AieParser::initParse()
+{
+	auto inputSize = Size{ 640, 480};
 
 	MTKFDFTInitInfo config;
 	config.FDBufWidth = inputSize.width;
@@ -178,81 +203,46 @@ void AieParseTask::init()
 	config.FDVersion = 53;
 	config.ModelVersion = kFdVersion; // same value as in driver
 
-	parser_->algoInterface->FDVTInit(&config);
+	algoInterface->FDVTInit(&config);
 }
 
-void AieParseTask::updateFaceToneDriverConfig()
+FdOptions AieParser::createBufferOptions() const
 {
-	FdDrv_input_struct config(defaultFaceToneDriverConfig_);
-	const auto &configSource =
-		parser_->parserBuffers_[parser_->parserTaskList_[AIE_ATTR_TYPE_GENDER][0]];
-	config.src_roi.x1 = configSource[0];
-	config.src_roi.y1 = configSource[1];
-	config.src_roi.x2 = configSource[2];
-	config.src_roi.y2 = configSource[3];
-	if (config.src_roi.x1 == 0 &&
-	    config.src_roi.y1 == 0 &&
-	    config.src_roi.x2 == 0 &&
-	    config.src_roi.y2 == 0) {
-		return;
-	}
-	config.src_padding.left = configSource[4];
-	config.src_padding.up = configSource[5];
-	config.src_padding.right = configSource[6];
-	config.src_padding.down = configSource[7];
-	mailBoxFaceToneConfig_->put(config, [](FdDrv_input_struct &) {});
-}
-
-int AieParseTask::parseAll()
-{
-	int ret = parseFaceDetectionOutput();
-	if (ret) {
-		return ret;
-	}
-	int32_t gammaControl[193];
-	parser_->algoInterface->FDVTMainFastPhase(gammaControl);
-	parser_->algoInterface->FDVTMainCropPhaseV2(
-		parser_->parserTaskList_,
-		parser_->parserBufferStatus_,
-		parser_->parserBufferList_,
-		parser_->patchSize_,
-		parser_->parserAttributeTask_);
-	parser_->algoInterface->FDVTMainPostPhase();
-	if (mailBoxFaceToneClassificationMetadata_->valid()) {
-		ret = parseFaceToneClassificationOutput();
-		if (ret) {
-			return ret;
-		}
-		parser_->algoInterface->FDVTMainJoinPhaseV2(
-			parser_->parserBufferStatus_[AIE_ATTR_TYPE_GENDER],
-			parser_->rawFaceToneResult_, 4);
-	}
-	updateFaceToneDriverConfig();
-	parser_->algoInterface->FDVTMainJoinPhaseV2(
-		parser_->parserBufferStatus_[AIE_ATTR_TYPE_POSE],
-		parser_->rawFaceToneResult_, -1);
-	MtkCameraFaceMetadata detectionResult;
-	detectionResult.tcy_index = gammaControl[0];
-	for (int i = 0; i < 32; i++) {
-		detectionResult.tcy_y_curve[i] = gammaControl[i + 1];
-	}
-	detectionResult.tcy_uv_gain = gammaControl[33];
-
-	detectionResult.magicNo = camSysMetaRequestId_;
-
-	detectionResult.number_of_faces = 0;
-	auto inputSize = mailBoxInputImage_->get().size();
-	parser_->algoInterface->FDVTGetICSResult(
-		reinterpret_cast<MUINT8 *>(&detectionResult),
-		parser_->getWorkingBuffer(), inputSize.width,
-		inputSize.height, 0, 0, 0, 5);
-
-	transformAllDetectionCoordinates(detectionResult);
-	faceDetector_->setLatestOutput(detectionResult);
-
-	LOG(MtkISP7, Debug) << id() << " final detected faces: "
-			    << detectionResult.number_of_faces;
-	return 0;
+	FdOptions opts;
+	opts.fd_state = FDVT_GFD_MODE;
+	opts.direction = FACEDETECT_GSENSOR_DIRECTION_NO_SENSOR;
+	opts.fd_scale_start_position = 0;
+	opts.gfd_fast_mode = 0;
+	opts.ae_stable = false;
+	opts.ForceFDMode = FDVT_GFD_MODE;
+	opts.inputPlaneCount = 1;
+	opts.ImageBufferY = nullptr;
+	opts.ImageBufferUV20 = nullptr;
+	opts.ImageBufferRGB565 = nullptr;
+	opts.ImageBufferSrcVirtual = nullptr;
+	opts.ImageBufferPhyPlane1 = nullptr;
+	opts.ImageBufferPhyPlane2 = nullptr;
+	opts.ImageBufferPhyPlane3 = nullptr;
+	opts.startW = 0;
+	opts.startH = 0;
+	opts.model_version = 0;
+	opts.curr_gtype = 0; // todo
+	opts.LV = 74; // todo: FDNodeImp.cpp aeInfo->ae_lv_x10;
+	opts.DynamicLandmarkCnt = 0;
+	opts.TGWidthHeight[0] = currentSensorSize_.width;
+	opts.TGWidthHeight[1] = currentSensorSize_.height;
+	opts.TGCropOffsetXY[0] = 0;
+	opts.TGCropOffsetXY[1] = 0;
+	opts.TGCropWidthHeight[0] = currentSensorSize_.width;
+	opts.TGCropWidthHeight[1] = currentSensorSize_.height;
+	opts.MainCamID = -1;
+	opts.MainCamFov = 53; // todo: FOV
+	opts.MainCamFaceSize = 0;
+	opts.MainCamFOVRatio[0] = 100;
+	opts.MainCamFOVRatio[1] = 100;
+	opts.ThisCamFOVRatio[0] = 100;
+	opts.ThisCamFOVRatio[1] = 100;
+	return opts;
 }
 
 /**
@@ -266,10 +256,10 @@ int AieParseTask::parseAll()
  * https://en.wikipedia.org/wiki/Region_Based_Convolutional_Neural_Networks
  *
  */
-int AieParseTask::parseFaceDetectionOutput()
+int AieParser::parseFaceDetectionOutput(FrameBuffer *faceResult)
 {
 	MappedFrameBuffer metaMapped(
-		mailBoxFaceDetectionMetadata_->get().buffer(),
+		faceResult,
 		MappedFrameBuffer::MapFlag::Read);
 	if (!metaMapped.isValid()) {
 		LOG(MtkISP7, Error) << "Failed to map metadata buffer!";
@@ -302,7 +292,7 @@ int AieParseTask::parseFaceDetectionOutput()
 	return 0;
 }
 
-void AieParseTask::parseFaceLandmark(
+void AieParser::parseFaceLandmark(
 	FDRESULT *resultSet, int calibrationIndex, int resultSetIndex)
 {
 	algoCalibration_->fld_leye_x0[calibrationIndex] =
@@ -327,7 +317,7 @@ void AieParseTask::parseFaceLandmark(
 		resultSet->rop_landmark_score2[resultSetIndex];
 }
 
-void AieParseTask::parseFaceRoi(
+void AieParser::parseFaceRoi(
 	FDRESULT *resultSet, int calibrationIndex, int resultSetIndex)
 {
 	algoCalibration_->face_candi_pos_x0[calibrationIndex] =
@@ -349,10 +339,10 @@ void AieParseTask::parseFaceRoi(
 	algoCalibration_->result_type[calibrationIndex] = GFD_RST_TYPE;
 }
 
-int AieParseTask::parseFaceToneClassificationOutput()
+int AieParser::parseFaceToneClassificationOutput(FrameBuffer *toneResult)
 {
 	MappedFrameBuffer metaMapped(
-		mailBoxFaceToneClassificationMetadata_->get().buffer(),
+		toneResult,
 		MappedFrameBuffer::MapFlag::Read);
 	if (!metaMapped.isValid()) {
 		LOG(MtkISP7, Error) << "Failed to map metadata buffer!";
@@ -365,7 +355,7 @@ int AieParseTask::parseFaceToneClassificationOutput()
 			->ATTRIBUTEOUTPUT;
 
 	auto &targetCopy =
-		parser_->rawFaceToneResult_[parser_->parserTaskList_[AIE_ATTR_TYPE_GENDER][0]];
+		rawFaceToneResult_[parserTaskList_[AIE_ATTR_TYPE_GENDER][0]];
 
 	targetCopy[0] = deviceOutput.MERGED_GENDER_RESULT.RESULT[0];
 	targetCopy[1] = deviceOutput.MERGED_GENDER_RESULT.RESULT[1];
@@ -376,57 +366,113 @@ int AieParseTask::parseFaceToneClassificationOutput()
 	targetCopy[6] = deviceOutput.MERGED_IS_INDIAN_RESULT.RESULT[1];
 	targetCopy[7] = deviceOutput.MERGED_AGE_RESULT.RESULT[0];
 
-	parser_->parserBufferStatus_[AIE_ATTR_TYPE_GENDER][parser_->parserTaskList_[AIE_ATTR_TYPE_GENDER][0]] = 2;
+	parserBufferStatus_[AIE_ATTR_TYPE_GENDER][parserTaskList_[AIE_ATTR_TYPE_GENDER][0]] = 2;
 
 	return 0;
 }
 
-int AieParseTask::prepareBuffer()
+int AieParser::parseAll(FrameBuffer *faceResult,
+			FrameBuffer *toneResult,
+			uint32_t camSysMetaRequestId,
+			PrimaryFaceData &faceToneRoi,
+			ControlList &out)
 {
-	FdOptions opts = createBufferOptions();
-	currentMappedImageBuffer_.reset(new MappedFrameBuffer(
-		mailBoxInputImage_->get().buffer(),
-		MappedFrameBuffer::MapFlag::Read));
-	if (!currentMappedImageBuffer_->isValid()) {
-		LOG(MtkISP7, Error) << "Failed to map image buffer!";
-		return currentMappedImageBuffer_->error();
+	int ret = parseFaceDetectionOutput(faceResult);
+	if (ret) {
+		return ret;
 	}
-	opts.ImageBufferY = currentMappedImageBuffer_->planes()[0].data();
-	opts.ImageBufferUV20 = opts.ImageBufferY;
-	// todo(yerlandinata): check if FDVTGetMode is needed.
-	FDVT_OPERATION_MODE_ENUM mode;
-	parser_->algoInterface->FDVTGetMode(&mode);
-	parser_->algoInterface->FDVTMain(&opts);
-	algoCalibration_ = parser_->algoInterface->FDGetCalData();
-	if (algoCalibration_ == nullptr) {
-		LOG(MtkISP7, Error) << "Failed to prepare calibration buffer!";
-		return -ENOMEM;
+	int32_t gammaControl[193];
+	algoInterface->FDVTMainFastPhase(gammaControl);
+	algoInterface->FDVTMainCropPhaseV2(
+			parserTaskList_,
+			parserBufferStatus_,
+			parserBufferList_,
+			patchSize_,
+			parserAttributeTask_);
+	algoInterface->FDVTMainPostPhase();
+	if (toneResult) {
+		ret = parseFaceToneClassificationOutput(toneResult);
+		if (ret) {
+			return ret;
+		}
+		algoInterface->FDVTMainJoinPhaseV2(
+			parserBufferStatus_[AIE_ATTR_TYPE_GENDER],
+			rawFaceToneResult_, 4);
 	}
-	for (int i = 0; i < MAX_FACE_SEL_NUM; i++) {
-		algoCalibration_->display_flag[i] = KAL_FALSE;
+	updateFaceToneDriverConfig(faceToneRoi);
+
+	algoInterface->FDVTMainJoinPhaseV2(
+		parserBufferStatus_[AIE_ATTR_TYPE_POSE],
+		rawFaceToneResult_, -1);
+	MtkCameraFaceMetadata detectionResult;
+	detectionResult.tcy_index = gammaControl[0];
+	for (int i = 0; i < 32; i++) {
+		detectionResult.tcy_y_curve[i] = gammaControl[i + 1];
 	}
+	detectionResult.tcy_uv_gain = gammaControl[33];
+
+	detectionResult.magicNo = camSysMetaRequestId;
+
+	detectionResult.number_of_faces = 0;
+	auto inputSize = Size {640, 480};
+	algoInterface->FDVTGetICSResult(
+		reinterpret_cast<MUINT8 *>(&detectionResult),
+		getWorkingBuffer(), inputSize.width,
+		inputSize.height, 0, 0, 0, 5);
+
+	transformAllDetectionCoordinates(detectionResult);
+	setLatestOutput(detectionResult);
+	convertFaceMetadata(&detectionResult, out);
+
 	return 0;
 }
 
-void AieParseTask::run()
+void AieParser::updateFaceToneDriverConfig(PrimaryFaceData &faceToneRoi)
 {
-	init();
+	const auto &configSource =
+		parserBuffers_[parserTaskList_[AIE_ATTR_TYPE_GENDER][0]];
 
-	if (prepareBuffer() != 0) {
-		notifyDone();
+	if (configSource[0] == 0 &&
+	    configSource[1] == 0 &&
+	    configSource[2] == 0 &&
+	    configSource[3] == 0) {
 		return;
 	}
 
-	if (parseAll() != 0) {
-		notifyDone();
-		return;
-	}
+	faceToneRoi = {};
 
-	notifyDone();
+	faceToneRoi.x1 = configSource[0];
+	faceToneRoi.y1 = configSource[1];
+	faceToneRoi.x2 = configSource[2];
+	faceToneRoi.y2 = configSource[3];
+
+	faceToneRoi.padding_left = configSource[4];
+	faceToneRoi.padding_up = configSource[5];
+	faceToneRoi.padding_right = configSource[6];
+	faceToneRoi.padding_down = configSource[7];
 }
 
-void AieParseTask::transformAllDetectionCoordinates(
-	MtkCameraFaceMetadata &faceMetadata) const
+/**
+ * @brief Transforms detection coordinates into active sensor coordinate space.
+ *
+ * The face detection algorithm is not aware of the actual camera sensor size,
+ * it only knows its image input size. This function will map the point in
+ * face detection algo coordinate space to the camera sensor coordinate space.
+ *
+ * Transformation is done in place, no new variable / return value.
+ *
+ * @param[in,out] x
+ * @param[in,out] y
+ */
+void AieParser::transformDetectionCoordinate(
+	int32_t &x, int32_t &y) const
+{
+	x = ((x + 1000) * currentSensorSize_.width / 2000);
+	y = ((y + 1000) * currentSensorSize_.height / 2000);
+}
+
+void AieParser::transformAllDetectionCoordinates(
+		MtkCameraFaceMetadata &faceMetadata) const
 {
 	for (int i = 0; i < faceMetadata.number_of_faces; i++) {
 		transformDetectionCoordinate(faceMetadata.faces[i].rect[0],
@@ -458,23 +504,47 @@ void AieParseTask::transformAllDetectionCoordinates(
 	}
 }
 
-/**
- * @brief Transforms detection coordinates into active sensor coordinate space.
- *
- * The face detection algorithm is not aware of the actual camera sensor size,
- * it only knows its image input size. This function will map the point in
- * face detection algo coordinate space to the camera sensor coordinate space.
- *
- * Transformation is done in place, no new variable / return value.
- *
- * @param[in,out] x
- * @param[in,out] y
- */
-void AieParseTask::transformDetectionCoordinate(
-	int32_t &x, int32_t &y) const
+void AieParser::convertFaceMetadata(MtkCameraFaceMetadata *faceMetadata, ControlList &out)
 {
-	x = ((x + 1000) * currentSensorSize_.width / 2000);
-	y = ((y + 1000) * currentSensorSize_.height / 2000);
+	std::vector<uint8_t> faceScores;
+	std::vector<Rectangle> faceRectangles;
+	std::vector<Point> faceLandmarks;
+
+	faceScores.reserve(faceMetadata->number_of_faces);
+	faceRectangles.reserve(faceMetadata->number_of_faces);
+	faceLandmarks.reserve(3 * faceMetadata->number_of_faces);
+	for (int i = 0; i < faceMetadata->number_of_faces; i++) {
+		faceScores.push_back(faceMetadata->faces[i].score);
+		Point faceTopLeft = Point{
+			faceMetadata->faces[i].rect[0],
+			faceMetadata->faces[i].rect[1]
+		};
+		Point faceBottomRight = Point{
+			faceMetadata->faces[i].rect[2],
+			faceMetadata->faces[i].rect[3]
+		};
+		faceRectangles.emplace_back(faceTopLeft, faceBottomRight);
+		Point leftEye = Point{
+			(faceMetadata->leyex0[i] + faceMetadata->leyex1[i]) / 2,
+			(faceMetadata->leyey0[i] + faceMetadata->leyey1[i]) / 2
+		};
+		faceLandmarks.push_back(leftEye);
+
+		Point rightEye = Point{
+			(faceMetadata->reyex0[i] + faceMetadata->reyex1[i]) / 2,
+			(faceMetadata->reyey0[i] + faceMetadata->reyey1[i]) / 2
+		};
+		faceLandmarks.push_back(rightEye);
+
+		Point mouth = Point{
+			(faceMetadata->mouthx0[i] + faceMetadata->mouthx1[i]) / 2,
+			(faceMetadata->mouthy0[i] + faceMetadata->mouthy1[i]) / 2
+		};
+		faceLandmarks.push_back(mouth);
+	}
+	out.set(controls::FaceDetectFaceScores, faceScores);
+	out.set(controls::FaceDetectFaceRectangles, faceRectangles);
+	out.set(controls::FaceDetectFaceLandmark, faceLandmarks);
 }
 
 } /* namespace libcamera */

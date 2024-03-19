@@ -160,8 +160,6 @@ public:
 	virtual void run() override final;
 
 private:
-	void convertFaceMetadata(ControlList &out);
-
 	PipelineHandler *pipe_;
 	Request *request_;
 	[[maybe_unused]] uint32_t internalRequestId_;
@@ -337,59 +335,6 @@ private:
 	}
 };
 
-void CompleteRequestTask::convertFaceMetadata(ControlList &out)
-{
-	std::vector<uint8_t> faceScores;
-	std::vector<Rectangle> faceRectangles;
-	std::vector<Point> faceLandmarks;
-
-	std::optional<MtkCameraFaceMetadata> faceMetadata;
-	faceDetector_->getLatestOutput(faceMetadata);
-
-	if (!faceMetadata) {
-		out.set(controls::FaceDetectFaceScores, faceScores);
-		out.set(controls::FaceDetectFaceRectangles, faceRectangles);
-		out.set(controls::FaceDetectFaceLandmark, faceLandmarks);
-		return;
-	}
-
-	faceScores.reserve(faceMetadata->number_of_faces);
-	faceRectangles.reserve(faceMetadata->number_of_faces);
-	faceLandmarks.reserve(3 * faceMetadata->number_of_faces);
-	for (int i = 0; i < faceMetadata->number_of_faces; i++) {
-		faceScores.push_back(faceMetadata->faces[i].score);
-		Point faceTopLeft = Point{
-			faceMetadata->faces[i].rect[0],
-			faceMetadata->faces[i].rect[1]
-		};
-		Point faceBottomRight = Point{
-			faceMetadata->faces[i].rect[2],
-			faceMetadata->faces[i].rect[3]
-		};
-		faceRectangles.emplace_back(faceTopLeft, faceBottomRight);
-		Point leftEye = Point{
-			(faceMetadata->leyex0[i] + faceMetadata->leyex1[i]) / 2,
-			(faceMetadata->leyey0[i] + faceMetadata->leyey1[i]) / 2
-		};
-		faceLandmarks.push_back(leftEye);
-
-		Point rightEye = Point{
-			(faceMetadata->reyex0[i] + faceMetadata->reyex1[i]) / 2,
-			(faceMetadata->reyey0[i] + faceMetadata->reyey1[i]) / 2
-		};
-		faceLandmarks.push_back(rightEye);
-
-		Point mouth = Point{
-			(faceMetadata->mouthx0[i] + faceMetadata->mouthx1[i]) / 2,
-			(faceMetadata->mouthy0[i] + faceMetadata->mouthy1[i]) / 2
-		};
-		faceLandmarks.push_back(mouth);
-	}
-	out.set(controls::FaceDetectFaceScores, faceScores);
-	out.set(controls::FaceDetectFaceRectangles, faceRectangles);
-	out.set(controls::FaceDetectFaceLandmark, faceLandmarks);
-}
-
 void CompleteRequestTask::run()
 {
 	ControlList metadata;
@@ -409,7 +354,10 @@ void CompleteRequestTask::run()
 	metadata.set(controls::FrameDuration, (int64_t)33'333);
 
 	// todo(yerlandinata, before CTS): check if face metadata is requested
-	convertFaceMetadata(metadata);
+	ControlList faceControls;
+	faceDetector_->getLatestFaceControls(faceControls);
+
+	metadata.merge(faceControls);
 
 	if (aaaIspExchange_->valid()) {
 		AaaIspExchange aaaIspExchange = aaaIspExchange_->get();
@@ -688,7 +636,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Error) << "Failed to match AIE Media";
 		return false;
 	}
-	if (aieDev_.init(aieMedia_, dmaHeap_.get()) != 0) {
+	if (faceDetector_.init(aieMedia_, dmaHeap_.get()) != 0) {
 		LOG(MtkISP7, Error) << "Failed to init AIE device";
 		return false;
 	}
@@ -1145,24 +1093,17 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
 	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << captureRawQueue_idx;
 	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << static_cast<void *>(captureRawQueue[captureRawQueue_idx]->get().address(0));
-	if (faceDetector_->canMakeFaceDetectionTask(request)) {
-		auto [faceDetectionTask, faceToneTask, parseTask] =
-			faceDetector_->makeFaceDetectionTask(
-				scheduler, request, captureFrames.faceDetection,
-				aaTask->camSysMetaRequestId_);
+	/* Face Detection Task */
+	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
+			scheduler, request, captureFrames.faceDetection,
+			aaTask->camSysMetaRequestId_);
 
-		// Current face tone task depends on previous parse task
-		scheduler->succeedPrevTaskByStep(AieParseGroup,
-						 0, faceToneTask);
+	Scheduler::precede(taskDQBuf, faceDetectTask);
+	Scheduler::precede(faceDetectTask, completeTask);
+	scheduler->succeedPrevTaskByStep(AieFaceDetectionGroup, 0, faceDetectTask);
 
-		Scheduler::precede(taskDQBuf, faceDetectionTask);
-		Scheduler::precede(taskDQBuf, faceToneTask);
-		Scheduler::precede(faceDetectionTask, parseTask);
-		Scheduler::precede(faceToneTask, parseTask);
-		scheduler->queueTask(faceDetectionTask, AieFaceDetectionGroup);
-		scheduler->queueTask(faceToneTask, AieFaceToneClassificationGroup);
-		scheduler->queueTask(parseTask, AieParseGroup);
-	}
+	scheduler->queueTask(faceDetectTask, AieFaceDetectionGroup);
+
 	if (hasVideo) {
 		MCNRFrames mcnr;
 		mcnrManager.makeMCNRFrames(mcnr, mcnrPrev,

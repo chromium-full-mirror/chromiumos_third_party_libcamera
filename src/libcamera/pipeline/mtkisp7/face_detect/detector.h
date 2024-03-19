@@ -9,6 +9,9 @@
 #include <memory>
 #include <tuple>
 
+#include <libcamera/base/object.h>
+#include <libcamera/base/thread.h>
+
 #include <libcamera/controls.h>
 
 #include "libcamera/internal/info_frame.h"
@@ -22,40 +25,105 @@
 
 namespace libcamera {
 
-class FaceDetector
+class FaceDetector : public Object
 {
 public:
-	using FaceDetectionTasks =
-		std::tuple<AieDevice::AieTask *,
-			   AieDevice::AieTask *,
-			   AieParseTask *>;
+	struct FaceDetectRequest {
+		// Filled by User
+		uint32_t internalRequestId;
+		uint32_t camSysMetaRequestId;
+		SharedMailBox<InfoFrame> detectorInput;
+
+		// Filled by FaceDetector
+		int faceDetectRequestFd = -1;
+		int toneClassifyRequestFd = -1;
+		SharedMailBox<InfoFrame> faceResultMeta;
+		SharedMailBox<InfoFrame> toneResultMeta;
+		int pending = 0;
+	};
 
 	FaceDetector(AieDevice *aieDev);
+	virtual ~FaceDetector();
 
-	bool canMakeFaceDetectionTask(Request *request);
-	int configure(const Size &currentSensorSize);
+	int init(MediaDevice *media, DmaHeap *dmaHeap);
+	int configure(Size currentSensorSize);
 
-	void setLatestOutput(const MtkCameraFaceMetadata &output);
-	void getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest);
-
-	FaceDetectionTasks makeFaceDetectionTask(
-		Scheduler *scheduler, Request *request,
-		SharedMailBox<InfoFrame> detectorInput, int camSysMetaRequestId);
 	int start();
 	int stop();
 
+	void queueRequest(FaceDetectRequest &request);
+
+	Task *makeFaceDetectionTask(
+		Scheduler *scheduler, Request *request,
+		SharedMailBox<InfoFrame> detectorInput,
+		uint32_t camSysMetaRequestId);
+
+	bool shouldRun(uint32_t internalRequestId);
+
+	void getLatestOutput(std::optional<MtkCameraFaceMetadata> &latest);
+	void getLatestFaceControls(ControlList &latest);
 private:
+	void cancelPendingRequests();
+	void queueHardwareRequest(FrameBuffer *input, FrameBuffer *result,
+				 int requestFd, FdDrv_input_struct &config);
+
+	void sourceVideoReady(std::pair<FrameBuffer *, int> bufferWithRequest);
+	void resultMetaReady(FrameBuffer *bufferWithRequest);
+
+	void notifyHardwareDone();
+	void triggerParse();
+	void triggerNextRequest();
+
+	void AieParseResultReady(bool, const PrimaryFaceData &, const ControlList &);
+
+	void setLatestFaceControls(const ControlList &latest);
+
+private:
+	DmaHeap *dmaHeap_;
+
 	AieDevice *aieDev_;
 	const uint32_t period_;
 
 	std::shared_ptr<AieParser> parser_;
 
-	Mutex lock_;
-	std::optional<MtkCameraFaceMetadata> latestOutput_;
-
 	SharedMailBox<FdDrv_input_struct> faceToneConfig_;
 
 	Size currentSensorSize_;
+
+	InfoFramePool resultMetadataPool_;
+	Pool<int, UniqueFD> requestFDPool_;
+
+	/* Protects access to the isProcessing_ flag. */
+	libcamera::Mutex isProcessingMutex_;
+	libcamera::ConditionVariable isProcessingCv_;
+
+	/* Indicate if a request is processing */
+	bool isProcessing_ LIBCAMERA_TSA_GUARDED_BY(isProcessingMutex_);
+
+	/* Protects access to the latestFaceControls_. */
+	libcamera::Mutex faceControlMutex_;
+
+	std::optional<FaceDetectRequest> runningRequest_;
+	std::deque<FaceDetectRequest> pendingRequests_;
+	std::optional<PrimaryFaceData> latestFaceToneROI;
+	ControlList latestFaceControls_;
+
+	Thread threadFaceDetect_;
+};
+
+class FaceDetectTask : public Task
+{
+public:
+	FaceDetectTask(Scheduler *scheduler, const std::string &id, uint32_t camSysMetaRequestId,
+		       FaceDetector *detector, SharedMailBox<InfoFrame> mailBoxInputImage);
+
+	void run() override;
+
+private:
+	[[maybe_unused]] uint32_t camSysMetaRequestId_;
+	SharedMailBox<InfoFrame> mailBoxInputImage_;
+
+	[[maybe_unused]] FaceDetector *detector_;
 };
 
 } /* namespace libcamera */
