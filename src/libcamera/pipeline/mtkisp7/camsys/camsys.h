@@ -17,6 +17,7 @@
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/v4l2_subdevice.h"
 #include "libcamera/internal/v4l2_videodevice.h"
+
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 namespace libcamera {
@@ -48,6 +49,7 @@ public:
 	CamSysDevice(OnDeviceTuner *odt);
 
 	int init(MediaDevice *media, unsigned int index);
+	bool isValid() { return sensor_.get(); }
 
 	int start();
 	int stop();

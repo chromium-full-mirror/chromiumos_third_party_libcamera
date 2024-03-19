@@ -22,7 +22,8 @@ public:
 	IPADelegate();
 
 	int init(const std::string &model, const int32_t sensorIdx,
-		 const std::vector<uint8_t> &eeprom);
+		 const std::vector<uint8_t> &eeprom,
+		 const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray);
 
 	int start(const uint32_t rawMetaBufferId);
 	void stop();
