@@ -47,8 +47,15 @@ InfoFramePool::InfoFramePool() = default;
 
 InfoFramePool::~InfoFramePool()
 {
+	release();
+}
+
+void InfoFramePool::release()
+{
 	if (unmap())
-		LOG(InfoFrame, Error) << "Failed to ummap mapped buffers";
+		LOG(InfoFrame, Error) << "Failed to unmap mapped buffers";
+
+	pool_.release();
 }
 
 int InfoFramePool::setBuffers(const PixelFormat &format, const Size &size,
@@ -56,7 +63,7 @@ int InfoFramePool::setBuffers(const PixelFormat &format, const Size &size,
 			      unsigned int strideAlign, unsigned int scanAlign)
 {
 	if (unmap())
-		LOG(InfoFrame, Error) << "Failed to ummap buffers";
+		LOG(InfoFrame, Error) << "Failed to unmap buffers";
 
 	size_ = size;
 	format_ = format;

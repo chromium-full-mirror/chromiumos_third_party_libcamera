@@ -65,7 +65,7 @@ public:
 			  DmaHeap::Type type = DmaHeap::System,
 			  unsigned int strideAlign = 1, unsigned scanAlign = 1);
 
-	void release() { pool_.release(); }
+	void release();
 
 	void fetch(SharedMailBox<InfoFrame> &mailBox);
 
