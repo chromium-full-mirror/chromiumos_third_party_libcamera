@@ -13,6 +13,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
 #include <libcamera/controls.h>
 #include <libcamera/request.h>
@@ -22,13 +23,14 @@
 
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/aaa_hal_def.h"
 #include "mtkcam-halif/utils/metadata/1.x/IMetadata.h"
-#include "pipeline/mtkisp7/imgsys/single_device.h"
 #include "pipeline/mtkisp7/odt/camsys_driver_debug.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
+#include "pipeline/mtkisp7/odt/imgsys_driver_debug.h"
 #include "platform/mtkisp7/halisp/IspControls.h"
 #include "platform/mtkisp7/halisp/TuningParam.h"
+#include "platform/mtkisp7/single_device_helper.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
@@ -98,9 +100,18 @@ public:
 			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult);
 
 	// P2 Imgsys driver
+	// Todo: in V4L2 mode, there is only one stage,
+	// multiple stages per request is in only in single device mode.
+	// Once the single device mode code removed, then this function
+	// should only accept one stage.
 	void tuneImgsysMetadata(
-		SingleDeviceRequest *sdRequest,
-		InfoFrame &metaFrame);
+		uint32_t internalRequestId,
+		uint32_t frameNumber,
+		const std::vector<PEU_Stage> &stages,
+		InfoFrame &metaFrame,
+		int mediaRequestFd);
+	void tuneImgsysDriver(int internalRequestId,
+			      int mediaRequestFd, size_t stageCount);
 
 	// MCNR
 	void tuneMeA(uint32_t internalRequestId, MeFrames &frames);
@@ -139,7 +150,6 @@ public:
 		AfbldFrames afbldF0_, AfbldFrames afbldF1_, AfbldFrames afbldF2_,
 		AfbldFrames afbldF3_, AfbldFrames afbldF4_, AfbldFrames afbldF5_, AfbldFrames afbldF6_,
 		std::vector<int> order, FrameBuffer *still1Output, FrameBuffer *still2Output);
-
 
 private:
 	struct NamedFrame {
@@ -204,6 +214,7 @@ private:
 
 	std::map<int, Feature> stillCaptureRequestIdFeatureMap_;
 	std::unique_ptr<CamsysDebug> camsysDebug_;
+	ImgsysDebug imgsysDebug_;
 };
 
 } // namespace libcamera

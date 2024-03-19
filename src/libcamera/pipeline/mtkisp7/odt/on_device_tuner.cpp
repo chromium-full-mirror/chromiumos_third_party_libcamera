@@ -9,10 +9,12 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <unistd.h>
 #include <vector>
 
 #include <libcamera/base/log.h>
@@ -36,10 +38,10 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/dump_metadata.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
+#include "pipeline/mtkisp7/odt/imgsys_driver_debug.h"
 #include "platform/mtkisp7/halisp/IspControls.h"
+#include "platform/mtkisp7/single_device_helper.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
-
-#include "single_device_helper.h"
 
 namespace libcamera {
 
@@ -600,82 +602,66 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(
-	SingleDeviceRequest *sdRequest,
-	InfoFrame &metaFrame)
+	uint32_t internalRequestId,
+	uint32_t frameNumber,
+	const std::vector<PEU_Stage> &stages,
+	InfoFrame &metaFrame,
+	int mediaRequestFd)
 {
 	if (!enabled_) {
 		return;
 	}
 	ctrl_meta_t *imgSysMetadata =
 		reinterpret_cast<ctrl_meta_t *>(metaFrame.address(0));
-	const auto stageEnums = sdRequest->getStageEnums();
-	for (size_t i = 0; i < stageEnums.size(); i++) {
-		if (kPeuStageDumpIdMap.count(stageEnums[i]) == 0 && kPeuStageDumpIdVectorMap.count(stageEnums[i]) == 0) {
+	for (size_t i = 0; i < stages.size(); i++) {
+		if (kPeuStageDumpIdMap.count(stages[i]) == 0) {
 			LOG(MtkISP7, Error) << "Unrecognized stageEnum: "
-					    << stageEnums[i];
+					    << stages[i];
 			continue;
 		}
 		// Capture must always export dump.
-		if (!shouldExportDumpNow(sdRequest->sequence()) &&
-		    !isImgsysCaptureStage(stageEnums[i])) {
+		if (!shouldExportDumpNow(internalRequestId) &&
+		    !isImgsysCaptureStage(stages[i])) {
 			continue;
 		}
-
-		if (kPeuStageDumpIdMap.count(stageEnums[i])) {
-			Dump::Id id = kPeuStageDumpIdMap.at(stageEnums[i]);
-			Dump::Metadata dumpMetadata = kDumpMetadata.at(id);
-			Dump::Config config = dumpConfig_[id];
-			imgSysMetadata[i].common.needDump = true;
-			auto dumpFileName = ImagiqAdapter::getDumpFileName({
-				.id = id,
-				.requestNumber = sdRequest->sequence(),
-				.frameNumber = sdRequest->sequence(),
-				.sensorId = sensorId_,
-				.timestamp = sessionTimestamp_,
-				.workPath = currentExportPath_,
-				.frame = std::nullopt,
-				.array = std::nullopt,
-				.metadata = dumpMetadata,
-				.config = config,
-			});
-			strncpy(imgSysMetadata[i].common.nddfp, dumpFileName.c_str(),
-				dumpFileName.size());
-			LOG(MtkISP7, Info) << "Requested imgsys driver to dump register --"
-					   << " request number: " << sdRequest->sequence()
-					   << " stage: " << stageEnums[i]
-					   << " dump file prefix: " << dumpFileName;
-		} else if (kPeuStageDumpIdVectorMap.count(stageEnums[i])) {
-			for (auto Id : kPeuStageDumpIdVectorMap.at(stageEnums[i])) {
-				Dump::Id id = Id;
-				Dump::Metadata dumpMetadata = kDumpMetadata.at(id);
-				if (sdRequest->layer(i) != -1) {
-					LOG(MtkISP7, Info) << "layer = " << sdRequest->layer(i);
-					dumpMetadata.layer = sdRequest->layer(i);
-				}
-				Dump::Config config = dumpConfig_[id];
-				imgSysMetadata[i].common.needDump = true;
-				auto dumpFileName = ImagiqAdapter::getDumpFileName({
-					.id = id,
-					.requestNumber = sdRequest->sequence(),
-					.frameNumber = sdRequest->frameNumber(i),
-					.sensorId = sensorId_,
-					.timestamp = sessionTimestamp_,
-					.workPath = currentExportPath_,
-					.frame = std::nullopt,
-					.array = std::nullopt,
-					.metadata = dumpMetadata,
-					.config = config,
-				});
-				strncpy(imgSysMetadata[i].common.nddfp, dumpFileName.c_str(),
-					dumpFileName.size());
-				LOG(MtkISP7, Info) << "Requested imgsys driver to dump register --"
-						   << " request number: " << sdRequest->sequence()
-						   << " stage: " << stageEnums[i]
-						   << " dump file prefix: " << dumpFileName
-						   << " id = " << (int)id;
-			}
-		}
+		Dump::Id id = kPeuStageDumpIdMap.at(stages[i]);
+		Dump::Metadata dumpMetadata = kDumpMetadata.at(id);
+		Dump::Config config = dumpConfig_[id];
+		imgSysMetadata[i].common.needDump = true;
+		auto dumpFileName = ImagiqAdapter::getDumpFileName({
+			.id = id,
+			.requestNumber = internalRequestId,
+			.frameNumber = frameNumber,
+			.sensorId = sensorId_,
+			.timestamp = sessionTimestamp_,
+			.workPath = currentExportPath_,
+			.frame = std::nullopt,
+			.array = std::nullopt,
+			.metadata = dumpMetadata,
+			.config = config,
+		});
+		strncpy(imgSysMetadata[i].common.nddfp, dumpFileName.c_str(),
+			dumpFileName.size());
+		LOG(MtkISP7, Info) << "Requested imgsys driver to dump register --"
+				   << " request number: " << internalRequestId
+				   << " mediaRequestFd: " << mediaRequestFd
+				   << " stage: " << stages[i]
+				   << " dump file prefix: " << dumpFileName;
 	}
+}
+
+void OnDeviceTuner::tuneImgsysDriver(int internalRequestId,
+				     int mediaRequestFd, size_t stageCount)
+{
+	if (!enabled_) {
+		return;
+	}
+	if (!shouldExportDumpNow(internalRequestId) &&
+	    stillCaptureRequestIds_.count(internalRequestId) == 0) {
+		return;
+	}
+
+	imgsysDebug_.exportDump(mediaRequestFd, stageCount);
 }
 
 void OnDeviceTuner::tune3ARequest(
@@ -1135,7 +1121,7 @@ void OnDeviceTuner::tuneSwme(uint32_t internalRequestId, SwmeFrames &frames, std
 		return;
 	}
 	// Capture: always export dumps!
-	for (int i = 0; i < (int)order.size()-1; i++) {
+	for (int i = 0; i < (int)order.size() - 1; i++) {
 		std::vector<NamedFrame> namedFrames;
 		namedFrames.push_back({ Dump::Id::SWME_IN_BASE, frames.in.base_buf[i]->get() });
 		namedFrames.push_back({ Dump::Id::SWME_IN_REF, frames.in.ref_buf[i]->get() });
@@ -1145,7 +1131,7 @@ void OnDeviceTuner::tuneSwme(uint32_t internalRequestId, SwmeFrames &frames, std
 		namedFrames.push_back({ Dump::Id::SWME_CONF_MAP, frames.out.conf_map[i]->get() });
 		namedFrames.push_back({ Dump::Id::SWME_WPEX_MAP, frames.out.wrapping_map[i]->get() });
 
-		tune(internalRequestId, internalRequestId + order[i+1], namedFrames, true);
+		tune(internalRequestId, internalRequestId + order[i + 1], namedFrames, true);
 	}
 }
 void OnDeviceTuner::tuneDs(uint32_t internalRequestId, DsFrames &frames, std::vector<int> order)

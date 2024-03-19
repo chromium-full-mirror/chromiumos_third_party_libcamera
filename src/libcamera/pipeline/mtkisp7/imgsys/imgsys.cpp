@@ -221,12 +221,18 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	SharedMailBox<InfoFrame> singleDevNorm = makeMailBox<InfoFrame>();
 	int mediaRequest = mediaRequestPool_.get();
 
+	std::vector<PEU_Stage> stages{
+		request->sdRequest->Stages()[request->stage].getStageEnum() };
 	{
 		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get(), DmaHeap::SyncWrite);
 
 		request->sdRequest->fillRequestBufferForStage(
 			infoCtrl, mediaRequest, request->stage);
-		onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
+		onDeviceTuner_->tuneImgsysMetadata(
+			request->sdRequest->sequence(),
+			request->sdRequest->sequence(),
+			stages,
+			infoCtrl, mediaRequest);
 	}
 
 	StageEx &stage = request->sdRequest->Stages()[request->stage];
@@ -255,7 +261,10 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 		return ret;
 	}
 
-	pendingRequests_.push_back({ request, mediaRequest, ctrlMeta, singleDevNorm });
+	pendingRequests_.push_back({ request, mediaRequest,
+				     request->sdRequest->sequence(),
+				     1, ctrlMeta,
+				     singleDevNorm });
 
 	return 0;
 }
@@ -278,7 +287,11 @@ int ImgSysDevice::queueRequest(Request *request)
 		DmaSyncer syncerDesc(infoDesc.buffer()->planes()[0].fd.get(), DmaHeap::SyncWrite);
 
 		request->sdRequest->fillRequestBuffer(infoCtrl, infoDesc, mediaRequest);
-		onDeviceTuner_->tuneImgsysMetadata(request->sdRequest, infoCtrl);
+		onDeviceTuner_->tuneImgsysMetadata(
+			request->sdRequest->sequence(),
+			request->sdRequest->sequence(),
+			request->sdRequest->getStageEnums(),
+			infoCtrl, mediaRequest);
 	}
 
 	int ret = sigdevNorm_->queueBuffer(singleDev, mediaRequest);
@@ -290,7 +303,10 @@ int ImgSysDevice::queueRequest(Request *request)
 		return ret;
 	}
 
-	pendingRequests_.push_back({ request, mediaRequest, ctrlMeta, singleDevNorm });
+	pendingRequests_.push_back({ request, mediaRequest,
+				     request->sdRequest->sequence(),
+				     request->sdRequest->Stages().size(),
+				     ctrlMeta, singleDevNorm });
 	return 0;
 }
 
@@ -337,6 +353,11 @@ void ImgSysDevice::bufferReady(std::pair<FrameBuffer *, int> pair)
 		completedRequests_.emplace_back(request.request);
 		requestCompleted.emit(request.request);
 
+		/* Use the media request to tune the driver */
+		onDeviceTuner_->tuneImgsysDriver(request.internalRequestId,
+						 request.mediaRequest,
+						 request.stageCount);
+
 		/* Re-init media request. Buffers will be recycled on the
 		 * destructor of PendingRequest */
 		media_->reInitRequest(request.mediaRequest);
@@ -362,7 +383,7 @@ int ImgSysDevice::configure()
 		handleKva(Add, descPool_);
 		handleIova(Add, ctrlMetaPool_);
 
-	descPool_.mmap();
+		descPool_.mmap();
 	#endif
 	ctrlMetaPool_.mmap();
 

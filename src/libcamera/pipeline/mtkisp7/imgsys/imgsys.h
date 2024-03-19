@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -92,6 +93,8 @@ private:
 	struct PendingRequest {
 		Request *request;
 		int mediaRequest;
+		uint32_t internalRequestId;
+		size_t stageCount;
 		SharedMailBox<InfoFrame> ctrlMeta;
 		SharedMailBox<InfoFrame> singleDevNorm;
 	};
