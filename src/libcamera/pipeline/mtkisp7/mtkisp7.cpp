@@ -54,6 +54,8 @@
 #include "sensor/sensor_info.h"
 #include "utils/history.h"
 
+#include "mtkisp7_ipa_interface.h"
+
 namespace libcamera {
 LOG_DEFINE_CATEGORY(MtkISP7)
 
@@ -356,6 +358,8 @@ public:
 	AieDevice aieDev_;
 
 	FaceDetector faceDetector_;
+
+	std::vector<ipa::mtkisp7::CamSysData> camSysDataArray_;
 
 private:
 	MtkISP7CameraData *cameraData(Camera *camera)
@@ -679,9 +683,18 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		return false;
 	}
 
+	camSysDataArray_.resize(2);
 	uint32_t sensorCnt = 0;
 	for (unsigned int i = 0; i < 2; i++) {
 		if (camSysDev_[i].init(camSysMedia_, i))
+			continue;
+
+		camSysDataArray_[i].has_af = camSysDev_[i].getCameraLens();
+		camSysDataArray_[i].mbus_code = camSysDev_[i].mbusCode();
+	}
+
+	for (unsigned int i = 0; i < 2; i++) {
+		if (!camSysDev_[i].isValid())
 			continue;
 
 		ControlList properties = camSysDev_[i].properties();
@@ -804,7 +817,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	// A temporary hack for factory testing. Find a more proper way to
 	// handle this case.
 	imgSysDev_.init(imgSysMedia_, dmaHeap_.get());
-	SensorInfo::add_sensor(camSysDev_, 2);
+	std::vector<SensorInfo::CamSysData> dataArray;
+	for (const auto &data : camSysDataArray_) {
+		dataArray.emplace_back(data.has_af, data.mbus_code);
+	}
+	SensorInfo::add_sensor(dataArray);
 
 	return true;
 }
@@ -871,7 +888,9 @@ int MtkISP7CameraData::loadIPA()
 		LOG(MtkISP7, Fatal) << "Unable to open file: " << eepromPath;
 	}
 
-	if (ipa_->init(model, sensor_idx_, buffer)) {
+	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
+
+	if (ipa_->init(model, sensor_idx_, buffer, pipeline->camSysDataArray_)) {
 		LOG(MtkISP7, Error) << "IPA init failed";
 	}
 

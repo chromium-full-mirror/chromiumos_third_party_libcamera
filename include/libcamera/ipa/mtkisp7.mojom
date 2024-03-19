@@ -14,6 +14,11 @@ struct SensorSetting {
 	uint32 vblank;
 };
 
+struct CamSysData {
+        bool has_af;
+        uint32 mbus_code;
+};
+
 struct GyroSampleData {
 	double x_value;
 	double y_value;
@@ -69,7 +74,8 @@ struct ImgMetaRequestData {
 };
 
 interface IPAMtkISP7Interface {
-	init(string model, int32 sensorIdx, array<uint8> eeprom) => (int32 ret);
+	init(string model, int32 sensorIdx, array<uint8> eeprom,
+             array<CamSysData> camSysDataArray) => (int32 ret);
 	start(uint32 rawMetaBufferId) => (int32 lens_position);
 	stop();
 

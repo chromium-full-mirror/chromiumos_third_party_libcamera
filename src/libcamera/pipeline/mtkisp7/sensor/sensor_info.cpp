@@ -29,7 +29,7 @@ std::shared_ptr<SensorInfo> SensorInfo::sensor_info_[MAX_SENSOR_INFO_COUNT] = {
 };
 std::vector<std::shared_ptr<NSCam::SensorStaticInfo>>
 	SensorInfo::nscam_sensor_static_info_;
-std::vector<CamSysDevice *> SensorInfo::camSysDevices_;
+std::vector<SensorInfo::CamSysData> SensorInfo::camSysDataArray_;
 
 /*
 map senidx to sensnorId
@@ -63,14 +63,13 @@ std::shared_ptr<SensorInfo> SensorInfo::getInstance(int sensor_idx)
 	return sensor_info_[sensor_idx];
 }
 
-void SensorInfo::add_sensor(CamSysDevice *camSysDevice, int size)
+void SensorInfo::add_sensor(const std::vector<CamSysData> &camSysDataArray)
 {
-	if (camSysDevices_.size()) {
-		LOG(MtkISP7, Error) << "camSysDevices_ is not empty";
+	if (!camSysDataArray_.empty())
 		return;
-	}
-	for (int i = 0; i < size; i++) {
-		camSysDevices_.push_back(camSysDevice + i);
+
+	camSysDataArray_ = camSysDataArray;
+	for (unsigned i = 0; i < camSysDataArray_.size(); i++) {
 		std::shared_ptr<NSCam::SensorStaticInfo> s =
 			std::shared_ptr<NSCam::SensorStaticInfo>(new NSCam::SensorStaticInfo);
 		nscam_sensor_static_info_.push_back(s);
@@ -88,7 +87,7 @@ void SensorInfo::get_sensor_static_info(
 {
 	*nscam_sensor_static_info_array = {};
 	for (int i = 0; i < (int)kMaxSensorCnt; i++) {
-		if (i >= (int)camSysDevices_.size()) {
+		if (i >= (int)camSysDataArray_.size()) {
 			break;
 		}
 		nscam_sensor_static_info_array->at(i).index = i;
@@ -135,12 +134,11 @@ int SensorInfo::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
 
 bool SensorInfo::is_af_support()
 {
-	if (m_sensor_index > camSysDevices_.size()) {
+	if (m_sensor_index >= camSysDataArray_.size()) {
 		LOG(MtkISP7, Error) << "Invalid m_sensor_idx => " << m_sensor_index;
 		return false;
 	} else {
-		bool hasAF = camSysDevices_[m_sensor_index]->getCameraLens();
-		return hasAF;
+		return camSysDataArray_[m_sensor_index].has_af;
 	}
 }
 
@@ -172,7 +170,7 @@ void SensorInfo::construct_sensor_static_info(
 		imgsensor_info = &gImgsensor_info[sensorId_idx];
 	}
 	querySensorInfo(sensorId_idx, sensorIdx, imgsensor_info, pSensorStaticInfo);
-	pSensorStaticInfo->sensorMBusCode = camSysDevices_[index]->mbusCode();
+	pSensorStaticInfo->sensorMBusCode = camSysDataArray_[index].mbus_code;
 }
 
 } // namespace libcamera

@@ -24,7 +24,8 @@ IPAMtkISP7::IPAMtkISP7()
 }
 
 int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
-		     const std::vector<uint8_t> &eeprom)
+		     const std::vector<uint8_t> &eeprom,
+		     const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray)
 {
 	PlatformUtils::setWithModelName(model);
 	CamCalHelper::getInstance()->setEepromData(eeprom);
@@ -36,6 +37,12 @@ int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
 		<< "Running on platform "
 		<< PlatformUtils::enumToString(PlatformUtils::platform_)
 		<< ", model: " << model;
+
+	std::vector<SensorInfo::CamSysData> dataArray;
+	for (const auto &data : camSysDataArray) {
+		dataArray.emplace_back(data.has_af, data.mbus_code);
+	}
+	SensorInfo::add_sensor(dataArray);
 
 	sensorIdx_ = sensorIdx;
 	halIsp_ = std::make_unique<HalIsp>(&onDeviceTuner_);
