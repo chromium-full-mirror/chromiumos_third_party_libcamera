@@ -212,7 +212,7 @@ public:
 	int getFormat(V4L2DeviceFormat *format);
 	int tryFormat(V4L2DeviceFormat *format);
 	int setFormat(V4L2DeviceFormat *format);
-    int setFormatVideo(V4L2DeviceFormat *format);
+	int setFormatVideo(V4L2DeviceFormat *format);
 	Formats formats(uint32_t code = 0);
 
 	int setSelection(unsigned int target, Rectangle *rect);
@@ -238,6 +238,8 @@ public:
 	fromEntityName(const MediaDevice *media, const std::string &entity);
 
 	V4L2PixelFormat toV4L2PixelFormat(const PixelFormat &pixelFormat) const;
+
+	void changePollerThread(Thread *thread);
 
 protected:
 	std::string logPrefix() const override;

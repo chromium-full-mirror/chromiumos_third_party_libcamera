@@ -2170,6 +2170,14 @@ V4L2PixelFormat V4L2VideoDevice::toV4L2PixelFormat(const PixelFormat &pixelForma
 	return {};
 }
 
+void V4L2VideoDevice::changePollerThread(Thread *thread)
+{
+	if (!isOpen())
+		return;
+
+	fdBufferNotifier_->moveToThread(thread);
+}
+
 /**
  * \class V4L2M2MDevice
  * \brief Memory-to-Memory video device
