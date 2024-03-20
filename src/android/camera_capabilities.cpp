@@ -368,16 +368,19 @@ CameraCapabilities::computeCapabilities()
 
 	capabilities.insert(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE);
 
-	if (validateManualSensorCapability()) {
+	// Todo, force switch to full mode for now.
+	// Need a clarify logic for making the selection. 
+	bool supportFullMode = true;
+	if (validateManualSensorCapability() || supportFullMode) {
 		capabilities.insert(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR);
 		/* The requirements for READ_SENSOR_SETTINGS are a subset of MANUAL_SENSOR */
 		capabilities.insert(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS);
 	}
 
-	if (validateManualPostProcessingCapability())
+	if (validateManualPostProcessingCapability() || supportFullMode)
 		capabilities.insert(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING);
 
-	if (validateBurstCaptureCapability())
+	if (validateBurstCaptureCapability() || supportFullMode)
 		capabilities.insert(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE);
 
 	if (rawStreamAvailable_)
@@ -922,6 +925,7 @@ int CameraCapabilities::initializeStaticMetadata()
 				  aeAvailableAntiBandingModes);
 
 	std::vector<uint8_t> aeAvailableModes = {
+		ANDROID_CONTROL_AE_MODE_OFF,
 		ANDROID_CONTROL_AE_MODE_ON,
 	};
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_AVAILABLE_MODES,
@@ -963,6 +967,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	 */
 	std::vector<uint8_t> availableAwbModes = {
 		ANDROID_CONTROL_AWB_MODE_AUTO,
+		ANDROID_CONTROL_AWB_MODE_OFF,
 	};
 	staticMetadata_->addEntry(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
 				  availableAwbModes);
@@ -973,11 +978,11 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_CONTROL_MAX_REGIONS,
 				  availableMaxRegions);
 
-	uint8_t aeLockAvailable = ANDROID_CONTROL_AE_LOCK_AVAILABLE_FALSE;
+	uint8_t aeLockAvailable = ANDROID_CONTROL_AE_LOCK_AVAILABLE_TRUE;
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_LOCK_AVAILABLE,
 				  aeLockAvailable);
 
-	uint8_t awbLockAvailable = ANDROID_CONTROL_AWB_LOCK_AVAILABLE_FALSE;
+	uint8_t awbLockAvailable = ANDROID_CONTROL_AWB_LOCK_AVAILABLE_TRUE;
 	staticMetadata_->addEntry(ANDROID_CONTROL_AWB_LOCK_AVAILABLE,
 				  awbLockAvailable);
 
@@ -1280,7 +1285,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	setMetadata(staticMetadata_.get(), ANDROID_SYNC_MAX_LATENCY,
 		    controlsInfo, controls::draft::MaxLatency,
 		    ControlRange::Def,
-		    ANDROID_SYNC_MAX_LATENCY_UNKNOWN);
+		    ANDROID_SYNC_MAX_LATENCY_PER_FRAME_CONTROL);
 
 	/* Flash static metadata. */
 	char flashAvailable = ANDROID_FLASH_INFO_AVAILABLE_FALSE;
