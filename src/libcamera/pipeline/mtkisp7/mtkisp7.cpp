@@ -56,6 +56,7 @@ LOG_DEFINE_CATEGORY(MtkISP7)
 
 static const ControlInfoMap::Map MtkISP7Controls = {
 	{ &controls::draft::PipelineDepth, ControlInfo(8, 8, 8) },
+	{ &controls::draft::NoiseReductionMode, ControlInfo(controls::draft::NoiseReductionModeValues) },
 };
 
 static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
@@ -214,7 +215,8 @@ public:
 		  mfnrTunManager(dmaHeap, halIsp, odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap), hal3A_(hal3A),
-		  halIsp_(halIsp), captureResult_(5), sensor_idx_(sensor_idx)
+		  halIsp_(halIsp), captureResult_(5), sensor_idx_(sensor_idx),
+		  control_cache_(nullptr)
 	{
 	}
 
@@ -226,6 +228,8 @@ public:
 	void releaseDevice();
 
 	void frameStart(uint32_t sequence);
+
+	bool is3aControlChanged(std::shared_ptr<ControlList> controls_cur, std::shared_ptr<ControlList> controls_cache);
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *,
 		   AATask *, AFTask *, uint32_t>
@@ -279,6 +283,7 @@ public:
 
 private:
 	int sensor_idx_;
+	std::shared_ptr<ControlList> control_cache_;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -361,7 +366,6 @@ void CompleteRequestTask::run()
 		testPatternMode = *testPatternControl;
 
 	metadata.set(controls::draft::TestPatternMode, testPatternMode);
-	metadata.set(controls::FrameDuration, (int64_t)33'333);
 
 	// todo(yerlandinata, before CTS): check if face metadata is requested
 	ControlList faceControls;
@@ -376,8 +380,6 @@ void CompleteRequestTask::run()
 			metadata,
 			hal3A_->resultHistory_.query(camSysMetaRequestId_),
 			feature_);
-	} else {
-		metadata.set(controls::ExposureTime, (int64_t)66'666);
 	}
 
 	pipe_->completeMetadata(request_, metadata);
@@ -701,6 +703,14 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			static_cast<uint8_t>(controls::FaceDetectModeSimple)
 		};
 		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
+		controls[&controls::AeMode] = ControlInfo(controls::AeModeValues);
+		controls[&controls::AeLocked] = ControlInfo(true, false);
+		controls[&controls::draft::AePrecaptureTrigger] = ControlInfo(controls::draft::AePrecaptureTriggerValues);
+
+		controls[&controls::FrameDuration] = ControlInfo(
+			static_cast<int64_t>(33'333'333),
+			static_cast<int64_t>(66'333'333),
+			static_cast<int64_t>(33'333'333));
 
 		// For now these two controls are ignored.
 		// However, because MTK 3A algo is configured to prioritize
@@ -763,7 +773,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
-
+	control_cache_.reset();
 	camSysDev_->frameStart().disconnect(this);
 	camSysDev_->frameStart().connect(this, &MtkISP7CameraData::frameStart);
 
@@ -1048,7 +1058,12 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	std::string sequence = std::to_string(request->sequence());
 
 	// TODO: Implement the padding condition for per-frame control
-	bool aaControlChanged = false;
+	std::shared_ptr<ControlList> controls_cur = std::make_shared<ControlList>(request->controls());
+
+	bool aaControlChanged = is3aControlChanged(controls_cur, control_cache_);
+
+	control_cache_ = controls_cur;
+
 	bool nddEnabled = onDeviceTuner_->isEnabled();
 
 	if (requestCount_ == 0 || aaControlChanged || nddEnabled) {
@@ -1078,15 +1093,17 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
 		if (capture3ATasks.size() >= CaptureTasksManager::kRawMetaDelay) {
 			auto iter = capture3ATasks.rbegin();
-			for (uint32_t i = 0; i < CaptureTasksManager::kRawMetaDelay - 1; ++i)
-				++iter;
-
-			auto *prevAATask = static_cast<AATask *>(*iter);
-			prevAATask->setRequest(request);
-			prevAATask->setInternalRequestIdApplied(internalRequestId);
-			prevAATask->setFeatureApplied(feature);
-			prevAATask->setPerFrameControl(
-				AATask::PerFrameControl{ .isStillCapture = isStillCapture });
+			for (uint32_t shift = 0; shift < CaptureTasksManager::kRawMetaDelay; ++shift) {
+				auto *prevAATask = static_cast<AATask *>(*iter);
+				prevAATask->setRequest(request);
+				prevAATask->setInternalRequestIdApplied(internalRequestId);
+				prevAATask->setFeatureApplied(feature);
+				prevAATask->setPerFrameControl(
+					AATask::PerFrameControl{
+						.isStillCapture = isStillCapture,
+						.controls = request->controls() });
+				iter++;
+			}
 		}
 	}
 
@@ -1094,6 +1111,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask, camSysMetaRequestId] = makeTasks(
 		"Capture " + sequence, request, captureFrames, internalRequestId);
+	aaTask->setPerFrameControl(
+		AATask::PerFrameControl{
+			.isStillCapture = isStillCapture,
+			.controls = request->controls() });
 
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
@@ -1114,8 +1135,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	captureRawQueue_idx = captureRawQueue_idx % 8;
 	captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
 	previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
-	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << captureRawQueue_idx;
-	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << static_cast<void *>(captureRawQueue[captureRawQueue_idx]->get().address(0));
+
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
 		scheduler, request, captureFrames.faceDetection,
@@ -1366,6 +1386,75 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	scheduler->schedule();
 	return 0;
+}
+
+bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls_cur, std::shared_ptr<ControlList> controls_cache)
+{
+	if (!(controls_cache.get())) {
+		return true;
+	}
+	std::vector<int32_t> aeCheckList{
+		controls::AE_MODE,
+		controls::AE_LOCKED,
+		controls::EXPOSURE_TIME,
+		controls::AE_PRECAPTURE_TRIGGER,
+	};
+
+	for (auto id : aeCheckList) {
+		auto control = controls::controls.at(id);
+		auto type = control->type();
+		switch (type) {
+		case ControlTypeBool: {
+			auto bool_control = static_cast<Control<bool> *>(const_cast<ControlId *>(control));
+			bool value = static_cast<bool>(
+				controls_cur->get(*bool_control).value_or(false));
+			bool value_cache = static_cast<bool>(
+				controls_cache->get(*bool_control).value_or(false));
+			if (value != value_cache) {
+				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << ":" << value_cache;
+				return true;
+			}
+			break;
+		}
+		case ControlTypeByte:
+			break;
+		case ControlTypeUnsigned16:
+			break;
+		case ControlTypeUnsigned32:
+			break;
+		case ControlTypeInteger32: {
+			auto int32_control = static_cast<Control<int32_t> *>(const_cast<ControlId *>(control));
+			int32_t value = static_cast<int32_t>(
+				controls_cur->get(*int32_control).value_or(0));
+			int32_t value_cache = static_cast<int32_t>(
+				controls_cache->get(*int32_control).value_or(0));
+			if (value != value_cache) {
+				LOG(MtkISP7, Debug) << "id:" << int32_control->id() << " value changed!! " << value << ":" << value_cache;
+				return true;
+			}
+			break;
+		}
+		case ControlTypeInteger64:
+			break;
+		case ControlTypeFloat:
+			break;
+		case ControlTypeRectangle:
+			break;
+		case ControlTypeSize:
+			break;
+		case ControlTypePoint:
+			break;
+		case ControlTypeNone:
+			break;
+		case ControlTypeString:
+			break;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return false;
 }
 
 REGISTER_PIPELINE_HANDLER(PipelineHandlerMtkISP7)

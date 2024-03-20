@@ -1123,4 +1123,37 @@ controls:
             value. All of the custom test patterns will be static (that is the
             raw image must not vary from frame to frame).
 
+  - AeMode:
+      type: int32_t
+      description: |
+       ANDROID_CONTROL_AE_MODE.
+      enum:
+        - name: AeModeOff
+          value: 0
+          description: |
+           Disables automatic exposure. You'll need to manually control shutter
+           speed, ISO, and perhaps aperture.
+           (AE_MODE_OFF)
+        - name: AeModeOn
+          value: 1
+          description: |
+           Enables standard automatic exposure. The camera will adjust settings
+           to aim for a well-balanced exposure.
+           (AE_MODE_ON)
+        - name: AeModeOnAutoFlash
+          value: 2
+          description: |
+           Automatic exposure with the flash enabled. The camera will decide
+           when to trigger the flash for the best exposure.
+           (AE_MODE_ON_AUTO_FLASH)
+        - name: AeModeOnAlwaysFlash
+          value: 3
+          description: |
+           Automatic exposure, but the flash will fire with every shot.
+           (AE_MODE_ON_ALWAYS_FLASH)
+        - name: AeModeOnAutoFlashRedeye
+          value: 4
+          description: |
+           Automatic exposure with flash and red-eye reduction features enabled.
+           (AE_MODE_ON_AUTO_FLASH_REDEYE)
 ...

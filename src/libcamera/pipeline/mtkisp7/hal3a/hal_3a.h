@@ -6,11 +6,14 @@
 
 #pragma once
 
+#include <cstddef>
+
 #include "libcamera/internal/gyro_sensor.h"
 
 #include "../sensor/sensor_info.h"
 #include "../utils/history.h"
 #include "libcamera/base/mutex.h"
+#include "libcamera/controls.h"
 #include "libcamera/framebuffer.h"
 #include "libcamera/geometry.h"
 #include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
@@ -42,7 +45,8 @@ public:
 			   std::pair<uint32_t, uint32_t> *exposureAndGain,
 			   AaaIspExchange *aaaIspExchange,
 			   std::optional<uint32_t> internalRequestIdApplied,
-			   std::optional<Feature> featureApplied);
+			   std::optional<Feature> featureApplied,
+			   ControlList controls);
 
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
@@ -63,8 +67,8 @@ private:
 	mtk::hal3a::v1_0::mtk_3a_param get3AParam(uint32_t internalRequestId,
 						  MtkCameraFaceMetadata *faceMetadata,
 						  GyroSensor::SensorSample gyroSample,
-						  bool isAF = false,
-						  bool isStillCapture = false);
+						  bool isStillCapture,
+						  std::optional<ControlList> controls_opt);
 
 	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain, uint32_t &exposureTimeMs);
 
