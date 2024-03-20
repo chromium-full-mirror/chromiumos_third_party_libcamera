@@ -21,7 +21,7 @@ LOG_DEFINE_CATEGORY(DmaHeap)
 
 namespace {
 constexpr const char *kHeapName = "/dev/dma_heap/system";
-constexpr const char *kHeapCmaName = "/dev/dma_heap/cma@7A000000";
+constexpr const char *kHeapCmaName = "/dev/dma_heap/scp-isp-cma-region";
 } // namespace
 
 DmaHeap::DmaHeap()
