@@ -107,6 +107,7 @@ class AATask : public Task
 public:
 	struct PerFrameControl {
 		bool isStillCapture = false;
+		ControlList controls;
 	};
 
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,

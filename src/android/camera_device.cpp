@@ -14,8 +14,6 @@
 #include <unistd.h>
 #include <vector>
 
-#include <system/camera_metadata.h>
-
 #include <libcamera/base/log.h>
 #include <libcamera/base/span.h>
 #include <libcamera/base/unique_fd.h>
@@ -211,7 +209,7 @@ bool isVideoStream(camera3_stream_t *stream)
 bool isYuvSnapshotStream(camera3_stream_t *stream)
 {
 	return (!isVideoStream(stream) && !isPreviewStream(stream) &&
-	       (HAL_PIXEL_FORMAT_YCbCr_420_888 == stream->format));
+		(HAL_PIXEL_FORMAT_YCbCr_420_888 == stream->format));
 }
 
 bool isJpegStream(camera3_stream_t *stream)
@@ -219,9 +217,9 @@ bool isJpegStream(camera3_stream_t *stream)
 	return (HAL_PIXEL_FORMAT_BLOB == stream->format);
 }
 
-[[maybe_unused]]int buildStreamConfigsDefault(const CameraCapabilities &capabilities,
-					      camera3_stream_configuration_t *stream_list,
-					      std::vector<Camera3StreamConfig>& streamConfigs)
+[[maybe_unused]] int buildStreamConfigsDefault(const CameraCapabilities &capabilities,
+					       camera3_stream_configuration_t *stream_list,
+					       std::vector<Camera3StreamConfig> &streamConfigs)
 {
 	/* First handle all non-MJPEG streams. */
 	camera3_stream_t *jpegStream = nullptr;
@@ -341,7 +339,7 @@ bool isJpegStream(camera3_stream_t *stream)
 
 int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 			    camera3_stream_configuration_t *stream_list,
-			    std::vector<Camera3StreamConfig>& streamConfigs)
+			    std::vector<Camera3StreamConfig> &streamConfigs)
 {
 	for (unsigned int i = 0; i < stream_list->num_streams; ++i) {
 		camera3_stream_t *stream = stream_list->streams[i];
@@ -391,22 +389,21 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 	(cts: android.hardware.camera2.cts.RobustnessTest#testMandatoryOutputCombinations)
 	*/
 	int stillCnt = 0;
-	for (auto &streamCfg: streamConfigs){
+	for (auto &streamCfg : streamConfigs) {
 		if (streamCfg.config.role == StreamRole::StillCapture)
 			stillCnt += 1;
 	}
-	if (stillCnt > 2){
-		for (auto &streamCfg: streamConfigs){
-			if (streamCfg.config.role == StreamRole::StillCapture && streamCfg.streams[0].stream->format != HAL_PIXEL_FORMAT_BLOB){
+	if (stillCnt > 2) {
+		for (auto &streamCfg : streamConfigs) {
+			if (streamCfg.config.role == StreamRole::StillCapture && streamCfg.streams[0].stream->format != HAL_PIXEL_FORMAT_BLOB) {
 				streamCfg.config.role = StreamRole::Viewfinder;
-				stillCnt -=1;
-				if (stillCnt == 2){
+				stillCnt -= 1;
+				if (stillCnt == 2) {
 					break;
 				}
 			}
 		}
 	}
-
 
 	return 0;
 }
@@ -758,7 +755,7 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 
 		ASSERT(pendingRequests_.empty());
 		ASSERT(pendingPartialResults_.empty());
-		for (auto& [_, streamBuffers] : pendingStreamBuffers_)
+		for (auto &[_, streamBuffers] : pendingStreamBuffers_)
 			ASSERT(streamBuffers.empty());
 
 		pendingStreamBuffers_.clear();
@@ -1003,6 +1000,35 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::draft::TestPatternMode, testPatternMode);
 	}
 
+	if (settings.getEntry(ANDROID_CONTROL_AE_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::AeMode, static_cast<int>(data[0]));
+	}
+
+	if (settings.getEntry(ANDROID_SENSOR_EXPOSURE_TIME, &entry)) {
+		const int64_t *data = entry.data.i64;
+		controls.set(controls::ExposureTime, static_cast<int32_t>(data[0]/1000));
+	}
+
+	if (settings.getEntry(ANDROID_SENSOR_SENSITIVITY, &entry)) {
+		const int32_t *data = entry.data.i32;
+		controls.set(controls::AnalogueGain, data[0]);
+	}
+
+	if (settings.getEntry(ANDROID_SENSOR_FRAME_DURATION, &entry)) {
+		const int64_t *data = entry.data.i64;
+		controls.set(controls::FrameDuration, data[0]);
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AE_LOCK, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::AeLocked, static_cast<bool>(data[0]));
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &entry)) {
+		const int32_t *data = entry.data.i32;
+		controls.set(controls::draft::AePrecaptureTrigger, static_cast<int32_t>(data[0]));
+	}
 	return 0;
 }
 
@@ -1794,21 +1820,25 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 					 *pipelineDepth);
 
 	const auto &exposureTime = metadata.get(controls::ExposureTime);
-	if (exposureTime)
+	if (metadata.contains(controls::EXPOSURE_TIME)) {
 		resultMetadata->addEntry(ANDROID_SENSOR_EXPOSURE_TIME,
-					 *exposureTime * 1000ULL);
+					 exposureTime.value_or(33'333) * 1000ULL);
+	}
+	const auto &aeState = metadata.get(controls::draft::AeState);
+	if (metadata.contains(controls::AE_STATE)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_STATE, aeState.value_or(0));
+	}
 
 	const auto &sensorSensitivity =
 		metadata.get(controls::AnalogueGain);
-	if (sensorSensitivity) {
-		int intIso = static_cast<int32_t>(*sensorSensitivity);
-		resultMetadata->addEntry(ANDROID_SENSOR_SENSITIVITY, intIso);
+	if (metadata.contains(controls::ANALOGUE_GAIN)) {
+		resultMetadata->addEntry(ANDROID_SENSOR_SENSITIVITY, sensorSensitivity.value_or(100));
 	}
 
 	const auto &frameDuration = metadata.get(controls::FrameDuration);
-	if (frameDuration)
-		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION,
-					 *frameDuration * 1000);
+	if (metadata.contains(controls::FRAME_DURATION)) {
+		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION, frameDuration.value_or(33'333'333));
+	}
 
 	const auto &faceDetectRectangles =
 		metadata.get(controls::FaceDetectFaceRectangles);
@@ -1968,8 +1998,13 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	value = ANDROID_CONTROL_AE_LOCK_OFF;
 	resultMetadata->addEntry(ANDROID_CONTROL_AE_LOCK, value);
 
-	value = ANDROID_CONTROL_AE_MODE_ON;
-	resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, value);
+	if (settings.getEntry(ANDROID_CONTROL_AE_MODE, &entry)){
+		value = *entry.data.u8;
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, value);
+	}
+	else{
+	 	resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, ANDROID_CONTROL_AE_MODE_ON);
+	}
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry))
 		/*
@@ -1981,12 +2016,8 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 					 entry.data.i32, 2);
 
 	found = settings.getEntry(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &entry);
-	value = found ? *entry.data.u8 :
-			(uint8_t)ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+	value = found ? *entry.data.u8 : (uint8_t)ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
 	resultMetadata->addEntry(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, value);
-
-	value = ANDROID_CONTROL_AE_STATE_CONVERGED;
-	resultMetadata->addEntry(ANDROID_CONTROL_AE_STATE, value);
 
 	value = ANDROID_CONTROL_AF_MODE_OFF;
 	resultMetadata->addEntry(ANDROID_CONTROL_AF_MODE, value);
@@ -2014,16 +2045,14 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 
 	if (settings.getEntry(ANDROID_CONTROL_MODE, &entry)) {
 		resultMetadata->addEntry(ANDROID_CONTROL_MODE, *entry.data.u8);
-	}
-	else {
+	} else {
 		value = ANDROID_CONTROL_MODE_AUTO;
 		resultMetadata->addEntry(ANDROID_CONTROL_MODE, value);
 	}
 
 	if (settings.getEntry(ANDROID_CONTROL_SCENE_MODE, &entry)) {
 		resultMetadata->addEntry(ANDROID_CONTROL_SCENE_MODE, *entry.data.u8);
-	}
-	else {
+	} else {
 		value = ANDROID_CONTROL_SCENE_MODE_DISABLED;
 		resultMetadata->addEntry(ANDROID_CONTROL_SCENE_MODE, value);
 	}

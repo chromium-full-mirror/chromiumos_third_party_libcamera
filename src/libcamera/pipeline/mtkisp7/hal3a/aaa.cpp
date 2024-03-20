@@ -221,7 +221,8 @@ void AATask::run()
 			      &exposureAndGain,
 			      &captureFrames_.aaaIspExchange->get(),
 			      internalRequestIdApplied_,
-			      featureApplied_);
+			      featureApplied_,
+				  perFrameControl_.controls);
 	captureFrames_.exposureAndGainOutput->put(
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>

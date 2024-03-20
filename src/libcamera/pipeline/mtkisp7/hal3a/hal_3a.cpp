@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <sys/mman.h>
 
@@ -367,7 +368,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain,
 			  AaaIspExchange *aaaIspExchange,
 			  std::optional<uint32_t> internalRequestIdApplied,
-			  std::optional<Feature> featureApplied)
+			  std::optional<Feature> featureApplied,
+			  ControlList controls)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
 	if (sensor_idx_ == 0) { // back camera
@@ -405,7 +407,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		m_hal3a_->GetResultOfCamsysChange(camSysInfo, &setting);
 
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(
-		internalRequestId, faceMetadata, gyroSample, isStillCapture);
+		internalRequestId, faceMetadata, gyroSample, isStillCapture, controls);
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -464,6 +466,10 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	float floatIso = static_cast<float>(r3AResult_.ae_result.sensor_sensitivity);
 	aaaIspExchange->aaaMetadata.set(controls::AnalogueGain, floatIso);
 	aaaIspExchange->aaaMetadata.set(controls::ExposureTime, exposureTimeMs);
+	uint8_t mtk_ae_state = static_cast<uint8_t>(r3AResult_.ae_result.ae_state);
+	int64_t mtk_frame_duration = static_cast<int64_t>(r3AResult_.ae_result.sensor_frame_duration);
+	aaaIspExchange->aaaMetadata.set(controls::draft::AeState, mtk_ae_state);
+	aaaIspExchange->aaaMetadata.set(controls::FrameDuration, mtk_frame_duration);
 }
 
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
@@ -474,7 +480,7 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			    int32_t *position)
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param =
-		get3AParam(internalRequestId, metadata, gyroSample, true);
+		get3AParam(internalRequestId, metadata, gyroSample, false, std::nullopt);
 	m_hal3a_->SetParamAF(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_af_request r_af_request = {};
@@ -513,7 +519,8 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	uint32_t internalRequestId,
 	MtkCameraFaceMetadata *faceMetadata,
 	GyroSensor::SensorSample gyroSample,
-	bool isStillCapture, [[maybe_unused]] bool isAF)
+	bool isStillCapture,
+	std::optional<ControlList> controls_opt)
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = {};
 
@@ -532,13 +539,23 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.capture_intent = 1;
 	}
 	r_3a_param.inflight_capture = 0;
-	r_3a_param.ae_lock = 0;
-	r_3a_param.ae_mode = 1;
-	r_3a_param.ae_precap_trigger = 0;
+	if (controls_opt) {
+		r_3a_param.ae_mode = controls_opt->get(controls::AeMode).value_or(1);
+		r_3a_param.ae_lock = controls_opt->get(controls::AeLocked).value_or(0);
+		r_3a_param.ae_precap_trigger = controls_opt->get(controls::draft::AePrecaptureTrigger).value_or(0);
+		r_3a_param.sensor_frame_duration = controls_opt->get(controls::FrameDuration).value_or(33'333'333);
+		r_3a_param.sensor_exposure = controls_opt->get(controls::ExposureTime).value_or(10000) * 1000;
+		r_3a_param.sensor_sensitivity = controls_opt->get(controls::AnalogueGain).value_or(100);
+	} else {
+		r_3a_param.ae_mode = 1;
+		r_3a_param.ae_lock = 0;
+		r_3a_param.ae_precap_trigger = 0;
+		r_3a_param.sensor_frame_duration = 33333333;
+		r_3a_param.sensor_exposure = 10000000;
+		r_3a_param.sensor_sensitivity = 100;
+	}
+
 	r_3a_param.ae_anti_banding_mode = 3;
-	r_3a_param.sensor_frame_duration = 33333333;
-	r_3a_param.sensor_exposure = 10000000;
-	r_3a_param.sensor_sensitivity = 100;
 	r_3a_param.ae_exp_index = 0;
 	r_3a_param.ae_exp_step = 0.500000;
 	r_3a_param.ae_min_fps = 5000;
@@ -849,7 +866,7 @@ void Hal3A::getExposureAndGain(
 
 		uint32_t gain = pHalSensor->convert_gain(dev_idx, ae_table.table[exp].afe_gain);
 		uint32_t ex = ae_table.table[exp].exposure_line;
-		exposureTimeMs = ae_table.table[exp].exposure_ns/1000;
+		exposureTimeMs = ae_table.table[exp].exposure_ns / 1000;
 		*exposureAndGain = std::make_pair(ex, gain);
 		break;
 	}
