@@ -12,8 +12,6 @@
 
 #include "libcamera/internal/gyro_sensor.h"
 
-#include "../sensor/sensor_info.h"
-#include "../utils/history.h"
 #include "libcamera/base/mutex.h"
 #include "libcamera/controls.h"
 #include "libcamera/framebuffer.h"
@@ -21,6 +19,8 @@
 #include "mtkcam-core/aaa/peripheralcontroller/include/IPeripheralController.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "platform/mtkisp7/utils/history.h"
+#include "sensor/sensor_info.h"
 
 class SensorInfo;
 

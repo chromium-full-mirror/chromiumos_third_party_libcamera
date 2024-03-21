@@ -62,8 +62,7 @@ libcamera_sources += files([
     'odt/imgsys_driver_debug.cpp',
     'odt/on_device_tuner.cpp',
     'utils/img_meta_request_data_helper.cpp',
-    'mtkisp7.cpp',
-    'sensor/sensor_info.cpp'
+    'mtkisp7.cpp'
 ])
 
 platform_libs += platform_mtkisp7_libs

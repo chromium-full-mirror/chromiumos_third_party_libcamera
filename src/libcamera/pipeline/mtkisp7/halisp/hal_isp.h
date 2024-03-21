@@ -15,12 +15,12 @@
 
 #include <libcamera/internal/info_frame.h>
 
-#include "../utils/history.h"
 #include "halisp/utils/Size.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
+#include "platform/mtkisp7/utils/history.h"
 
 #include "mtkisp7_ipa_interface.h"
 #include "stdint.h"

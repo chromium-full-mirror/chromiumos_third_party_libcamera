@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <memory>
+
+#include "mtkcam-interfaces/hw/sensor/IHalSensor.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/camera_custom_imgsensor_cfg.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/imgsensor_info.h"
 typedef enum {

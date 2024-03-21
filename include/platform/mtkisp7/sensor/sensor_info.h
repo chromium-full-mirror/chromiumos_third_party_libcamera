@@ -11,8 +11,6 @@
 #include "platform/mtkisp7/mtkcam-core/aaa/peripheralcontroller/include/PeripheralInfoDef.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/mem/cam_cal_drv.h"
 
-namespace libcamera {
-
 #define MAX_SENSOR_INFO_COUNT 10
 
 class SensorInfo
@@ -46,5 +44,3 @@ private:
 		int index, std::shared_ptr<NSCam::SensorStaticInfo> pSensorStaticInfo);
 	int get_cam_cal_data(PCAM_CAL_DATA_STRUCT pCamCalData);
 };
-
-} // namespace libcamera

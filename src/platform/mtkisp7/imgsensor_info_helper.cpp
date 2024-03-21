@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/imgsensor_info.h"
+#include "platform/mtkisp7/imgsensor_info_helper.h"
 
 #include <fcntl.h>
 #include <memory>
@@ -38,7 +38,7 @@
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor_define_v4l2.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/IHalSensor.h"
-#include "platform/mtkisp7/imgsensor_info_helper.h"
+#include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/imgsensor_info.h"
 
 #define LOG_ERR(fmt, ...) printf((fmt "\n"), ##__VA_ARGS__)
 #define LOG_WRN(fmt, ...)
@@ -58,7 +58,7 @@ static NSCamCustomSensor::CUSTOM_CFG gCustomCfg[] = {
 	  .orientation = 0,
 	  .horizontalFov = 67,
 	  .verticalFov = 49,
-	  .secure = NSCamCustomSensor::CUSTOM_CFG_SECURE_NONE},
+	  .secure = NSCamCustomSensor::CUSTOM_CFG_SECURE_NONE },
 	{ .sensorIdx = IMGSENSOR_SENSOR_IDX_SUB,
 	  .mclk = NSCamCustomSensor::CUSTOM_CFG_MCLK_4,
 	  .port = NSCamCustomSensor::CUSTOM_CFG_CSI_PORT_0,
@@ -685,4 +685,135 @@ void querySensorInfo(
 	pSensorStaticInfo->sensorModuleID = sensor_info.SensorModuleID;
 
 	pSensorStaticInfo->virtualChannelSupport = MFALSE;
+}
+
+// Workaround for the issue of imgsensor_info_custom.h:
+// it defines global variables in a header file.
+
+#include <memory>
+
+#include "platform/mtkisp7/cam_cal_helper.h"
+#include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/sensor/imgsensor_info.h"
+#include "platform/mtkisp7/platform_utils.h"
+#include "sensor/sensor_info.h"
+
+std::shared_ptr<SensorInfo> SensorInfo::sensor_info_[MAX_SENSOR_INFO_COUNT] = {
+	nullptr
+};
+std::vector<std::shared_ptr<NSCam::SensorStaticInfo>>
+	SensorInfo::nscam_sensor_static_info_;
+std::vector<SensorInfo::CamSysData> SensorInfo::camSysDataArray_;
+
+/*
+map senidx to sensnorId
+0 -> GC08A3_SENSOR_ID
+1 -> HI1339_SENSOR_ID
+2 -> GC05A2_SENSOR_ID
+*/
+
+std::map<int, int> sensorId_idx_map_geralt = { { 0, 1 }, { 1, 0 } };
+std::map<int, int> sensorId_idx_map_ciri = { { 0, 0 }, { 1, 2 } };
+SensorInfo::SensorInfo(int sensor_idx)
+	: m_sensor_index(sensor_idx),
+	  m_sensor_dev(0),
+	  m_sensor_id(0)
+{
+}
+
+void SensorInfo::init(int sensor_dev, int sensor_id)
+{
+	m_sensor_dev = sensor_dev;
+	m_sensor_id = sensor_id;
+}
+
+std::shared_ptr<SensorInfo> SensorInfo::getInstance(int sensor_idx)
+{
+	if (!sensor_info_[sensor_idx]) {
+		sensor_info_[sensor_idx].reset(new SensorInfo(sensor_idx));
+	}
+	return sensor_info_[sensor_idx];
+}
+
+void SensorInfo::add_sensor(const std::vector<SensorInfo::CamSysData> &camSysDataArray)
+{
+	if (!camSysDataArray_.empty())
+		return;
+
+	camSysDataArray_ = camSysDataArray;
+	for (unsigned i = 0; i < camSysDataArray_.size(); i++) {
+		std::shared_ptr<NSCam::SensorStaticInfo> s =
+			std::shared_ptr<NSCam::SensorStaticInfo>(new NSCam::SensorStaticInfo);
+		nscam_sensor_static_info_.push_back(s);
+	}
+
+	for (int i = 0; i < (int)nscam_sensor_static_info_.size(); ++i) {
+		std::shared_ptr<NSCam::SensorStaticInfo> s = nscam_sensor_static_info_[i];
+		construct_sensor_static_info(i, s);
+	}
+}
+
+void SensorInfo::get_sensor_static_info(
+	std::array<mtk::hal3a::SensorStaticInfo, kMaxSensorCnt> *
+		nscam_sensor_static_info_array)
+{
+	*nscam_sensor_static_info_array = {};
+	for (int i = 0; i < (int)kMaxSensorCnt; i++) {
+		if (i >= (int)camSysDataArray_.size()) {
+			break;
+		}
+		nscam_sensor_static_info_array->at(i).index = i;
+		nscam_sensor_static_info_array->at(i).dev_id = 1 << i;
+		nscam_sensor_static_info_array->at(i).sensor_id =
+			nscam_sensor_static_info_[i]->sensorDevID;
+		// TODO, Query module id from EEProm
+		nscam_sensor_static_info_array->at(i).module_id = 0;
+		nscam_sensor_static_info_array->at(i).orientation =
+			nscam_sensor_static_info_[i]->facingDirection;
+		nscam_sensor_static_info_array->at(i).info = *nscam_sensor_static_info_[i];
+	}
+}
+
+int SensorInfo::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
+			     void *a_pCamCalData)
+{
+	return CamCalHelper::getInstance(m_sensor_index)->get_cal_data(cal_enum, m_sensor_id, m_sensor_dev, a_pCamCalData);
+}
+
+bool SensorInfo::is_af_support()
+{
+	if (m_sensor_index >= camSysDataArray_.size()) {
+		return false;
+	} else {
+		return camSysDataArray_[m_sensor_index].has_af;
+	}
+}
+
+void SensorInfo::construct_sensor_static_info(
+	int index, std::shared_ptr<NSCam::SensorStaticInfo> pSensorStaticInfo)
+{
+	int sensorId_idx = 0;
+	switch (libcamera::PlatformUtils::platform_) {
+	case libcamera::PlatformUtils::MtkISP7Platform::NONE:
+		// TODO: add a fatal
+		break;
+
+	case libcamera::PlatformUtils::MtkISP7Platform::GOOGLE:
+		sensorId_idx = sensorId_idx_map_geralt[index];
+		break;
+
+	case libcamera::PlatformUtils::MtkISP7Platform::LENOVO:
+		sensorId_idx = sensorId_idx_map_ciri[index];
+		break;
+	}
+
+	IMGSENSOR_SENSOR_IDX sensorIdx = (IMGSENSOR_SENSOR_IDX)index;
+	struct imgsensor_info_struct *imgsensor_info;
+	if (index >
+	    int(sizeof(gImgsensor_info) / sizeof(struct imgsensor_info_struct))) {
+		imgsensor_info = nullptr;
+	} else {
+		imgsensor_info = &gImgsensor_info[sensorId_idx];
+	}
+	querySensorInfo(sensorId_idx, sensorIdx, imgsensor_info, pSensorStaticInfo);
+	pSensorStaticInfo->sensorMBusCode = camSysDataArray_[index].mbus_code;
 }

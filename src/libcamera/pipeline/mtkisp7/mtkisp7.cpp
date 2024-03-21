@@ -52,8 +52,8 @@
 #include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/platform_utils.h"
+#include "platform/mtkisp7/utils/history.h"
 #include "sensor/sensor_info.h"
-#include "utils/history.h"
 
 #include "mtkisp7_ipa_interface.h"
 
