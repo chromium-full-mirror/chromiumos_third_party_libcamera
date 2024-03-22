@@ -257,7 +257,8 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	ret |= media_->queueRequest(mediaRequest);
 
 	if (ret) {
-		LOG(MtkISP7, Error) << "Fail to queue request";
+		LOG(MtkISP7, Fatal) << "Fail to queue request. "
+				    << "Need to check driver error";
 		return ret;
 	}
 
