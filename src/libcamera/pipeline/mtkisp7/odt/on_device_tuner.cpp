@@ -1024,7 +1024,7 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, uint32_t internalRequestId,
 		{ Dump::Id::P2_MS_F2_IMG3O_LPNR, dipImg3o[2]->get() },
 		{ Dump::Id::P2_MS_F2_META_P2_LPNR, frames.in.dipTun[2]->get() },
 		{ Dump::Id::P2_MS_F1_IMGI_D1_LPNR, frames.in.dipImgi[1]->get() },
-		{ Dump::Id::P2_MS_F2_RECI_D1_LPNR, reci[1]->get() },
+		{ Dump::Id::P2_MS_F1_RECI_D1_LPNR, reci[1]->get() },
 		{ Dump::Id::P2_MS_F1_IMG3O_LPNR, dipImg3o[1]->get() },
 		{ Dump::Id::P2_MS_F1_META_P2_LPNR, frames.in.dipTun[1]->get() },
 	};
