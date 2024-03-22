@@ -301,7 +301,7 @@ public:
 private:
 	int sensor_idx_;
 	std::shared_ptr<ControlList> control_cache_;
-	std::vector<IPABuffer> ipaBuffers_;
+	std::vector<unsigned int> ipaBufferIds_;
 	uint32_t ipaBufferCnt_;
 };
 
@@ -1135,26 +1135,24 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.nv21_1_1_pool_);
 	registerIPABuffers(&mfnrManager.nv12_wroto_pool_);
 	registerIPABuffers(&mfnrManager.memc_workbuf_pool_);
-
-	ipa_->mapBuffers(ipaBuffers_);
 }
 
 void MtkISP7CameraData::registerIPABuffers(InfoFramePool *pool)
 {
+	std::vector<IPABuffer> ipaBuffers;
 	for (std::unique_ptr<FrameBuffer> &buffer : pool->content()) {
 		buffer->setCookie(ipaBufferCnt_++);
-		ipaBuffers_.emplace_back(buffer->cookie(), buffer->planes());
+		ipaBuffers.emplace_back(buffer->cookie(), buffer->planes());
+		ipaBufferIds_.emplace_back(buffer->cookie());
 	}
+
+	ipa_->mapBuffers(ipaBuffers);
 }
 
 void MtkISP7CameraData::freeIPABuffers()
 {
-	std::vector<unsigned int> ids;
-	for (IPABuffer &ipabuf : ipaBuffers_)
-		ids.push_back(ipabuf.id);
-
-	ipa_->unmapBuffers(ids);
-	ipaBuffers_.clear();
+	ipa_->unmapBuffers(ipaBufferIds_);
+	ipaBufferIds_.clear();
 }
 
 void MtkISP7CameraData::stopDevice()
