@@ -214,12 +214,12 @@ int McnrTasksManager::configureBuffers()
 			mcnrSizes[5].boundedTo(kMeL1Size), 12, DmaHeap::System, 144, 108);
 
 	idi_.createBuffers(dmaHeap_, formats::NV21, mcnrSizes[6], 21);
-	tnrSo_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 4);
+	tnrSo_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 8);
 
-	img4oF0_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 4);
-	img4oF1_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 4);
+	img4oF0_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 8);
+	img4oF1_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 8);
 
-	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4, DmaHeap::CMA);
+	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 12, DmaHeap::CMA);
 
 	wt_[0].createBuffers(dmaHeap_, formats::GREY, wtSizes[0], 12, DmaHeap::System, 192, 192);
 	wt_[1].createBuffers(dmaHeap_, formats::GREY, wtSizes[1], 12, DmaHeap::System, 192, 192);
