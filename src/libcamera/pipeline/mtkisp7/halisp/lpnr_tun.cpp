@@ -16,6 +16,7 @@
 
 #include "libcamera/internal/task_scheduler.h"
 
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "hal_isp.h"
@@ -198,7 +199,8 @@ void LpnrTunXtrTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_,
+			Feature::Capture_lpnr);
 	}
 
 	notifyDone();
@@ -251,7 +253,8 @@ void LpnrTunDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_,
+			Feature::Capture_lpnr);
 	}
 
 	manager_->lpnrTun_.fetch(dipTun_[2]);
@@ -273,7 +276,8 @@ void LpnrTunDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_,
+			Feature::Capture_lpnr);
 	}
 
 	manager_->lpnrTun_.fetch(dipTun_[1]);
@@ -295,7 +299,8 @@ void LpnrTunDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_,
+			Feature::Capture_lpnr);
 	}
 
 	if (highIsoMode) {
@@ -318,7 +323,8 @@ void LpnrTunDipTask::run()
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			manager_->halIsp_->getImgSysMetaTuning(
 				camSysMetaRequestId_, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+				manager_->needCropTNC16x9_,
+				Feature::Capture_lpnr);
 		}
 
 		manager_->lpnrTun_.fetch(dipTunY2YPq_);
@@ -342,7 +348,8 @@ void LpnrTunDipTask::run()
 
 			manager_->halIsp_->getImgSysMetaTuning(
 				camSysMetaRequestId_, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+				manager_->needCropTNC16x9_,
+				Feature::Capture_lpnr);
 		}
 	} else {
 		manager_->lpnrTun_.fetch(dipTunPq_);
@@ -366,7 +373,8 @@ void LpnrTunDipTask::run()
 
 			manager_->halIsp_->getImgSysMetaTuning(
 				camSysMetaRequestId_, request, internalRequestId_,
-				manager_->needCropTNC16x9_);
+				manager_->needCropTNC16x9_,
+				Feature::Capture_lpnr);
 		}
 	}
 

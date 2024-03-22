@@ -1054,6 +1054,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	uint32_t internalRequestId = requestCount_++;
 	bool isStillCapture = (still1Buffer || still2Buffer);
+	// todo(yerlandinata): set feature for MFNR.
+	// todo(yerlandinata): check whether we need Feature::video or not.
+	Feature feature = isStillCapture ? Feature::Capture_lpnr : Feature::Preview;
 
 	if (aaControlChanged || nddEnabled) {
 		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
@@ -1065,6 +1068,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			auto *prevAATask = static_cast<AATask *>(*iter);
 			prevAATask->setRequest(request);
 			prevAATask->setInternalRequestIdApplied(internalRequestId);
+			prevAATask->setFeatureApplied(feature);
 			prevAATask->setPerFrameControl(
 				AATask::PerFrameControl{ .isStillCapture = isStillCapture });
 		}
@@ -1186,7 +1190,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		onDeviceTuner_->notifyVideoOnly(internalRequestId);
 	} else {
 		if (useMfnr && !useLpnr) {
-			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_mfnr);
+			onDeviceTuner_->notifyStillCapture(internalRequestId);
 			MFNRFrames mfnr;
 			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
 
@@ -1292,7 +1296,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 			Scheduler::precede(mfnrAfbldTask, completeTask);
 		} else {
-			onDeviceTuner_->notifyStillCapture(internalRequestId, Feature::Capture_lpnr);
+			onDeviceTuner_->notifyStillCapture(internalRequestId);
 			LPNRFrames lpnr;
 			lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 

@@ -298,7 +298,7 @@ void McnrMeATask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	manager_->meTun_.fetch(meATun);
@@ -330,7 +330,7 @@ void McnrMeATask::run()
 
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	notifyDone();
@@ -400,7 +400,7 @@ void McnrMeBTask::run()
 
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 
 		manager_->onDeviceTuner_->tuneMeMM(internalRequestId_, meBTun);
 	}
@@ -429,7 +429,7 @@ void McnrMeBTask::run()
 
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	notifyDone();
@@ -473,7 +473,7 @@ void McnrTrTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	manager_->trawTun_.fetch(trTunF4);
@@ -495,7 +495,7 @@ void McnrTrTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	notifyDone();
@@ -545,7 +545,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	manager_->trawTun_.fetch(ltrTunF4);
@@ -567,7 +567,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	manager_->trawTun_.fetch(ltrTunVbi);
@@ -589,7 +589,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	manager_->wpeTun_.fetch(wpeTun);
@@ -611,7 +611,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	// Sync here since all the following DIP stages will access it
@@ -640,7 +640,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	request = ImgMetaRequest{
@@ -662,7 +662,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	request = ImgMetaRequest{
@@ -684,7 +684,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	request = ImgMetaRequest{
@@ -706,7 +706,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	request = ImgMetaRequest{
@@ -728,7 +728,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	request = ImgMetaRequest{
@@ -750,7 +750,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	request = ImgMetaRequest{
@@ -772,7 +772,7 @@ void McnrDipTask::run()
 		DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 		manager_->halIsp_->getImgSysMetaTuning(
 			camSysMetaRequestId_, request, internalRequestId_,
-			manager_->needCropTNC16x9_);
+			manager_->needCropTNC16x9_, Feature::Preview);
 	}
 
 	notifyDone();

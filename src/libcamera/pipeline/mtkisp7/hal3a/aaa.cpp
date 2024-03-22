@@ -220,16 +220,19 @@ void AATask::run()
 			      faces, gyroSample,
 			      &exposureAndGain,
 			      &captureFrames_.aaaIspExchange->get(),
-			      internalRequestIdApplied_);
+			      internalRequestIdApplied_,
+			      featureApplied_);
 	captureFrames_.exposureAndGainOutput->put(
 		std::move(exposureAndGain),
 		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>
 			   &exposureAndGain) {});
 
 	if (internalRequestIdApplied_) {
+		ASSERT(featureApplied_);
 		onDeviceTuner_->tune3AState(
 			internalRequestIdApplied_.value(),
-			captureFrames_, &hal3A_->r3AResult_);
+			captureFrames_, &hal3A_->r3AResult_,
+			featureApplied_.value());
 	}
 
 	manager_->setMfnrMode(captureFrames_.aaaIspExchange->get().mfnrMode);
@@ -252,6 +255,12 @@ void AATask::setInternalRequestIdApplied(uint32_t internalRequestIdApplied)
 {
 	ASSERT(!internalRequestIdApplied_);
 	internalRequestIdApplied_ = internalRequestIdApplied;
+}
+
+void AATask::setFeatureApplied(Feature featureApplied)
+{
+	ASSERT(!featureApplied_);
+	featureApplied_ = featureApplied;
 }
 
 void AFTask::run()

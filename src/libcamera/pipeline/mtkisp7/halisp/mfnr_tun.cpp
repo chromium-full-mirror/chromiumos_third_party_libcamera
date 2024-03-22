@@ -20,6 +20,7 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
@@ -276,7 +277,7 @@ void MfnrTunBfbldTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 		}
 	}
 
@@ -323,7 +324,7 @@ void MfnrTunBfmeTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 		}
 	}
 	notifyDone();
@@ -388,7 +389,7 @@ void MfnrTunDsTask::run()
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
 			int frameNumber = (i == 0 || i == 1) ? internalRequestId_ + bssOrder[0] : internalRequestId_ + bssOrder[i - 1];
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 		}
 	}
 
@@ -436,7 +437,7 @@ void MfnrTunMcdsF1Task::run()
 		{
 			int frameNumber = internalRequestId_ + bssOrder[i + 1];
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 		}
 	}
 	notifyDone();
@@ -485,7 +486,7 @@ void MfnrTunDsVbiTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 		}
 
 		request = ImgMetaRequest{
@@ -504,7 +505,7 @@ void MfnrTunDsVbiTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 		}
 	}
 	notifyDone();
@@ -582,7 +583,7 @@ void MfnrTunMsbldTask::run()
 			int frameNumber = internalRequestId_ + bssOrder[i + 1];
 			{
 				DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-				manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+				manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 			}
 		}
 	}
@@ -676,7 +677,7 @@ void MfnrTunAfbldTask::run()
 
 		{
 			DmaSyncer syncer(request.tuningBuffer.buffer()->planes()[0].fd.get());
-			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request, internalRequestId_, frameNumber, manager_->needCropTNC16x9_);
+			manager_->halIsp_->getImgSysMetaTuning(camSysMetaRequestId_, request,internalRequestId_, frameNumber, manager_->needCropTNC16x9_, Feature::Capture_mfnr);
 		}
 	}
 

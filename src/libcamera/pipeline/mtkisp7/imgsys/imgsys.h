@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/task_scheduler.h"
@@ -18,6 +19,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "single_device.h"
+#include "single_device_helper.h"
 
 namespace libcamera {
 
@@ -94,7 +96,7 @@ private:
 		Request *request;
 		int mediaRequest;
 		uint32_t internalRequestId;
-		size_t stageCount;
+		std::vector<PEU_Stage> stages;
 		SharedMailBox<InfoFrame> ctrlMeta;
 		SharedMailBox<InfoFrame> singleDevNorm;
 	};

@@ -70,18 +70,21 @@ public:
 				size_t bufSize, bool isCapture,
 				MtkCameraFaceMetadata *faces,
 				AaaIspExchange *aaaIspExchange,
-				std::optional<uint32_t> internalRequestIdApplied);
+				std::optional<uint32_t> internalRequestIdApplied,
+				std::optional<Feature> featureApplied);
 
 	int getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				uint32_t frameNumber,
-				bool needCropTNC16x9);
+				bool needCropTNC16x9,
+				Feature feature);
 
 	int getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
-				bool needCropTNC16x9);
+				bool needCropTNC16x9,
+				Feature feature);
 
 	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> getIspSwmeParam();
 	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> getIspBssParam();

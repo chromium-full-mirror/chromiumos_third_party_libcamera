@@ -129,9 +129,11 @@ public:
 
 	void setRequest(Request *request);
 	void setInternalRequestIdApplied(uint32_t internalRequestIdApplied);
+	void setFeatureApplied(Feature feature);
 
 	Request *request_;
 	std::optional<uint32_t> internalRequestIdApplied_;
+	std::optional<Feature> featureApplied_;
 
 	Hal3AManager *manager_;
 	CaptureFrames captureFrames_;

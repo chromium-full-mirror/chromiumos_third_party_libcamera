@@ -263,6 +263,12 @@ bool OnDeviceTuner::isImgsysCaptureStage(PEU_Stage stage)
 	       kImgsysCaptureStages.end();
 }
 
+bool OnDeviceTuner::isStillCaptureFeature(Feature feature)
+{
+	return feature == Feature::Capture_lpnr ||
+	       feature == Feature::Capture_mfnr;
+}
+
 void OnDeviceTuner::notifyRequestBegin(int requestNumber)
 {
 	if (!enabled_ || requestNumber <= prevStartedRequestNum_) {
@@ -280,8 +286,6 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 		return;
 	}
 	prevEndedRequestNum_ = requestNumber;
-	stillCaptureRequestIds_.erase(requestNumber);
-	stillCaptureRequestIdFeatureMap_.erase(requestNumber);
 	ImagiqAdapter::notifyRequestEnd(
 		sensorId_, requestNumber, sessionTimestamp_,
 		shouldExportDumpNow(requestNumber),
@@ -289,12 +293,13 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 	mtkMetadata_.erase(requestNumber);
 }
 
-void OnDeviceTuner::notifyStillCapture(int requestNumber, Feature feature)
+void OnDeviceTuner::notifyStillCapture(int requestNumber)
 {
-	stillCaptureRequestIdFeatureMap_[requestNumber] = feature;
-	ImagiqAdapter::configureScenarioRecorder(requestNumber, sessionTimestamp_,
+	LOG(MtkISP7, Debug) << "notifyStillCapture: " << requestNumber;
+	// todo(yerlandinata): configureScenarioRecorder for MFNR
+	ImagiqAdapter::configureScenarioRecorder(requestNumber,
+						 sessionTimestamp_,
 						 enforceLowIsoLpnr_, true);
-	stillCaptureRequestIds_.insert(requestNumber);
 }
 
 void OnDeviceTuner::notifyVideoOnly(int requestNumber)
@@ -307,10 +312,11 @@ void OnDeviceTuner::notifyVideoOnly(int requestNumber)
 bool OnDeviceTuner::parseHalIspNdd(
 	uint32_t internalRequestId,
 	uint32_t frameNumber,
-	mtk::isphal::v1_0::NddInfo &ndd)
+	mtk::isphal::v1_0::NddInfo &ndd,
+	Feature feature)
 {
 	uint32_t requestNumber = internalRequestId;
-	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	bool isStillCapture = isStillCaptureFeature(feature);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return false;
 	}
@@ -318,18 +324,11 @@ bool OnDeviceTuner::parseHalIspNdd(
 		ndd.ndd_data.action =
 			static_cast<int>(Action::Capture);
 		ndd.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
-
-		if (stillCaptureRequestIdFeatureMap_.count(requestNumber)) {
-			ndd.ndd_data.feature = static_cast<int>(stillCaptureRequestIdFeatureMap_[requestNumber]);
-		} else {
-			ndd.ndd_data.feature = static_cast<int>(Feature::Capture_lpnr);
-		}
 	} else {
 		ndd.ndd_category =
 			NSCam::TuningUtils::eCategory::kSTREAMING;
-		ndd.ndd_data.feature =
-			static_cast<int>(Feature::Preview);
 	}
+	ndd.ndd_data.feature = static_cast<int>(feature);
 	ndd.ndd_data.requestNo = internalRequestId;
 	ndd.ndd_data.frameNo = frameNumber;
 	ndd.ndd_data.platform = 8188;
@@ -491,7 +490,8 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	uint32_t internalRequestId,
 	mtk::isphal::v1_0::TuningParamP1 &tuningParam,
 	mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
-	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult)
+	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
+	Feature feature)
 {
 	if (!enabled_) {
 		return false;
@@ -508,7 +508,8 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 		sessionTimestamp_, internalRequestId,
 		NSIspTuning::EStage_P1, sensorId_);
 
-	return parseHalIspNdd(internalRequestId, internalRequestId, tuningParam.cam_info->rNdd_info);
+	return parseHalIspNdd(internalRequestId, internalRequestId,
+			      tuningParam.cam_info->rNdd_info, feature);
 }
 
 void OnDeviceTuner::tuneExif(
@@ -516,39 +517,43 @@ void OnDeviceTuner::tuneExif(
 	uint32_t frameNumber,
 	const mtk::isphal::v1_0::ExifInfo3A &exif3a,
 	const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
-	EStage_T stage)
+	EStage_T stage, Feature feature)
 {
 	uint32_t requestNumber = internalRequestId;
-	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
-	bool isMfnr = stillCaptureRequestIdFeatureMap_.count(requestNumber);
+	bool isStillCapture = isStillCaptureFeature(feature);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
 	}
-
 	bool dumpIdFound = false;
-	if (isStillCapture) {
-		if (isMfnr) {
-			dumpIdFound = kMfnrExifDumpIdMap.count(stage) > 0;
-		} else {
-			dumpIdFound = kLpnrExifDumpIdMap.count(stage) > 0;
+	Dump::Id dumpId;
+	switch (feature) {
+	case Feature::Preview:
+		if (kMcnrExifDumpIdMap.count(stage) > 0) {
+			dumpId = kMcnrExifDumpIdMap.at(stage);
+			dumpIdFound = true;
 		}
-	} else {
-		dumpIdFound = kMcnrExifDumpIdMap.count(stage) > 0;
+		break;
+	case Feature::Capture_lpnr:
+		if (kLpnrExifDumpIdMap.count(stage) > 0) {
+			dumpId = kLpnrExifDumpIdMap.at(stage);
+			dumpIdFound = true;
+		}
+		break;
+	case Feature::Capture_mfnr:
+		if (kMfnrExifDumpIdMap.count(stage) > 0) {
+			dumpId = kMfnrExifDumpIdMap.at(stage);
+			dumpIdFound = true;
+		}
+		break;
+	default:
+		LOG(MtkISP7, Fatal) << "Unsupported feature: "
+				    << static_cast<int>(feature);
 	}
 
 	if (!dumpIdFound) {
-		LOG(MtkISP7, Info) << "No exif dump id for stage: " << static_cast<int>(stage);
+		LOG(MtkISP7, Error) << "No exif dump id for stage: "
+				    << static_cast<int>(stage);
 		return;
-	}
-	Dump::Id dumpId;
-	if (isStillCapture) {
-		if (isMfnr) {
-			dumpId = kMfnrExifDumpIdMap.at(stage);
-		} else {
-			dumpId = kLpnrExifDumpIdMap.at(stage);
-		}
-	} else {
-		dumpId = kMcnrExifDumpIdMap.at(stage);
 	}
 
 	std::vector<uint8_t> exifArray;
@@ -574,7 +579,7 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 	mtk::isphal::v1_0::TuningParamDip &tuningParam,
 	mtk::isphal::v1_0::ReturnParamDip &tuningResult,
 	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
-	EStage_T stage)
+	EStage_T stage, Feature feature)
 {
 	if (!enabled_) {
 		return;
@@ -598,7 +603,7 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 		tuningParam.cam_info.sr_para, getMtkMetadata(internalRequestId),
 		sessionTimestamp_, internalRequestId, stage, sensorId_);
 
-	parseHalIspNdd(internalRequestId, frameNumber, tuningParam.cam_info.rNdd_info);
+	parseHalIspNdd(internalRequestId, frameNumber, tuningParam.cam_info.rNdd_info, feature);
 }
 
 void OnDeviceTuner::tuneImgsysMetadata(
@@ -651,24 +656,34 @@ void OnDeviceTuner::tuneImgsysMetadata(
 }
 
 void OnDeviceTuner::tuneImgsysDriver(int internalRequestId,
-				     int mediaRequestFd, size_t stageCount)
+				     int mediaRequestFd,
+				     std::vector<PEU_Stage> stages)
 {
 	if (!enabled_) {
 		return;
 	}
+	bool containsImgsysCaptureStage = false;
+	for (PEU_Stage stage : stages) {
+		containsImgsysCaptureStage = isImgsysCaptureStage(stage);
+		if (containsImgsysCaptureStage) {
+			break;
+		}
+	}
 	if (!shouldExportDumpNow(internalRequestId) &&
-	    stillCaptureRequestIds_.count(internalRequestId) == 0) {
+	    !containsImgsysCaptureStage) {
 		return;
 	}
 
-	imgsysDebug_.exportDump(mediaRequestFd, stageCount);
+	imgsysDebug_.exportDump(mediaRequestFd, stages.size());
 }
 
 void OnDeviceTuner::tune3ARequest(
-	uint32_t internalRequestId, mtk::hal3a::v1_0::mtk_3a_request &aaaRequest)
+	uint32_t internalRequestId,
+	mtk::hal3a::v1_0::mtk_3a_request &aaaRequest,
+	Feature feature)
 {
 	uint32_t requestNumber = internalRequestId;
-	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	bool isStillCapture = isStillCaptureFeature(feature);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
 	}
@@ -676,25 +691,21 @@ void OnDeviceTuner::tune3ARequest(
 	aaaRequest.ndd_data.requestNo = internalRequestId;
 	aaaRequest.ndd_data.frameNo = internalRequestId;
 	aaaRequest.ndd_data.platform = 8188;
+	aaaRequest.ndd_data.feature = static_cast<int>(feature);
 	if (isStillCapture) {
-		if (stillCaptureRequestIdFeatureMap_.count(requestNumber)) {
-			aaaRequest.ndd_data.feature = static_cast<int>(stillCaptureRequestIdFeatureMap_[requestNumber]);
-		} else {
-			aaaRequest.ndd_data.feature = static_cast<int>(Feature::Capture_lpnr);
-		}
 		aaaRequest.ndd_category = NSCam::TuningUtils::eCategory::kCAPTURE;
 	} else {
-		aaaRequest.ndd_data.feature = static_cast<int>(Feature::Preview);
 		aaaRequest.ndd_category = NSCam::TuningUtils::eCategory::kSTREAMING;
 	}
 }
 
 void OnDeviceTuner::tune3AState(uint32_t internalRequestId,
 				CaptureFrames &frames,
-				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult)
+				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult,
+				Feature feature)
 {
 	uint32_t requestNumber = internalRequestId;
-	bool isStillCapture = stillCaptureRequestIds_.count(requestNumber) == 1;
+	bool isStillCapture = isStillCaptureFeature(feature);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
 	}
@@ -752,9 +763,9 @@ void OnDeviceTuner::tune3AState(uint32_t internalRequestId,
 			.size = static_cast<size_t>(mtk3AResult->tone_result.me_tcy_fst_o_data_size),
 		}
 	};
-	LOG(MtkISP7, Info) << "AE_OUT size: " << mtk3AResult->ae_result.ae_alg_data_size;
-	LOG(MtkISP7, Info) << "FW_ME_TCY_P size: " << mtk3AResult->tone_result.me_tcy_in_workbuf_data_size;
-	LOG(MtkISP7, Info) << "FW_ME_TCY_O size: " << mtk3AResult->tone_result.me_tcy_fst_o_data_size;
+	LOG(MtkISP7, Debug) << "AE_OUT size: " << mtk3AResult->ae_result.ae_alg_data_size;
+	LOG(MtkISP7, Debug) << "FW_ME_TCY_P size: " << mtk3AResult->tone_result.me_tcy_in_workbuf_data_size;
+	LOG(MtkISP7, Debug) << "FW_ME_TCY_O size: " << mtk3AResult->tone_result.me_tcy_fst_o_data_size;
 	tune(requestNumber, namedPointers, isStillCapture);
 }
 
@@ -1443,12 +1454,6 @@ void OnDeviceTuner::tuneAfbld(
 	namedFrames.push_back({ Dump::Id::AFBLD_F6_IMG4O, afbldF6_.out.img4o[i]->get() });
 
 	tune(internalRequestId, internalRequestId + order[order.size() - 1], namedFrames, true);
-}
-
-bool OnDeviceTuner::isDumpStillCapture(uint32_t internalRequestId)
-
-{
-	return (enabled_ && stillCaptureRequestIds_.count(internalRequestId) == 1);
 }
 
 } // namespace libcamera

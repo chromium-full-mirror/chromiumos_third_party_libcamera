@@ -263,7 +263,7 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 
 	pendingRequests_.push_back({ request, mediaRequest,
 				     request->sdRequest->sequence(),
-				     1, ctrlMeta,
+				     stages, ctrlMeta,
 				     singleDevNorm });
 
 	return 0;
@@ -305,7 +305,7 @@ int ImgSysDevice::queueRequest(Request *request)
 
 	pendingRequests_.push_back({ request, mediaRequest,
 				     request->sdRequest->sequence(),
-				     request->sdRequest->Stages().size(),
+				     request->sdRequest->getStageEnums(),
 				     ctrlMeta, singleDevNorm });
 	return 0;
 }
@@ -356,7 +356,7 @@ void ImgSysDevice::bufferReady(std::pair<FrameBuffer *, int> pair)
 		/* Use the media request to tune the driver */
 		onDeviceTuner_->tuneImgsysDriver(request.internalRequestId,
 						 request.mediaRequest,
-						 request.stageCount);
+						 request.stages);
 
 		/* Re-init media request. Buffers will be recycled on the
 		 * destructor of PendingRequest */

@@ -64,7 +64,7 @@ public:
 	// Tuning tools need to know if there is a still capture in
 	// the request or not.
 	void notifyVideoOnly(int requestNumber);
-	void notifyStillCapture(int requestNumber, Feature feature);
+	void notifyStillCapture(int requestNumber);
 
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
@@ -77,27 +77,30 @@ public:
 		uint32_t internalRequestId,
 		mtk::isphal::v1_0::TuningParamP1 &tuningParam,
 		mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
-		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult);
+		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
+		Feature feature);
 	void tuneImgsysHalIsp(
 		uint32_t internalRequestId,
 		uint32_t frameNumber,
 		mtk::isphal::v1_0::TuningParamDip &tuningParam,
 		mtk::isphal::v1_0::ReturnParamDip &tuningResult,
 		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
-		EStage_T stage);
+		EStage_T stage, Feature feature);
 	void tuneExif(uint32_t internalRequestId,
 		      uint32_t frameNumber,
 		      const mtk::isphal::v1_0::ExifInfo3A &exif3a,
 		      const mtk::isphal::v1_0::ExifInfoP2 &exifIsp,
-		      EStage_T stage);
+		      EStage_T stage, Feature feature);
 
 	// 3A
 	void tune3ARequest(
 		uint32_t internalRequestId,
-		mtk::hal3a::v1_0::mtk_3a_request &r3aRequest);
+		mtk::hal3a::v1_0::mtk_3a_request &r3aRequest,
+		Feature feature);
 	void tune3AState(uint32_t internalRequestId,
 			 CaptureFrames &frames,
-			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult);
+			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult,
+			 Feature feature);
 
 	// P2 Imgsys driver
 	// Todo: in V4L2 mode, there is only one stage,
@@ -111,7 +114,8 @@ public:
 		InfoFrame &metaFrame,
 		int mediaRequestFd);
 	void tuneImgsysDriver(int internalRequestId,
-			      int mediaRequestFd, size_t stageCount);
+			      int mediaRequestFd,
+			      std::vector<PEU_Stage> stages);
 
 	// MCNR
 	void tuneMeA(uint32_t internalRequestId, MeFrames &frames);
@@ -132,7 +136,6 @@ public:
 			 FrameBuffer *still2Output);
 	bool isLowIsoLpnrEnforced();
 
-	bool isDumpStillCapture(uint32_t internalRequestId);
 	bool isEnabled() { return enabled_; }
 	// MFNR
 	void tuneBss(uint32_t internalRequestId, BssFrames &frames, int frameCount);
@@ -150,6 +153,8 @@ public:
 		AfbldFrames afbldF0_, AfbldFrames afbldF1_, AfbldFrames afbldF2_,
 		AfbldFrames afbldF3_, AfbldFrames afbldF4_, AfbldFrames afbldF5_, AfbldFrames afbldF6_,
 		std::vector<int> order, FrameBuffer *still1Output, FrameBuffer *still2Output);
+
+	static bool isStillCaptureFeature(Feature feature);
 
 private:
 	struct NamedFrame {
@@ -176,7 +181,8 @@ private:
 	bool parseHalIspNdd(
 		uint32_t internalRequestId,
 		uint32_t frameNumber,
-		mtk::isphal::v1_0::NddInfo &ndd);
+		mtk::isphal::v1_0::NddInfo &ndd,
+		Feature feature);
 	int prepareNewExportDirectory();
 	bool shouldExportDumpNow(uint32_t requestNumber);
 	bool shouldImportDumpNow(uint32_t requestNumber);
@@ -206,13 +212,11 @@ private:
 	std::filesystem::path currentExportPath_;
 
 	std::map<Dump::Id, Dump::Config> dumpConfig_;
-	std::set<int> stillCaptureRequestIds_;
 
 	// These metadata must live through the request.
 	std::map<int, std::unique_ptr<NSCam::IMetadata>>
 		mtkMetadata_;
 
-	std::map<int, Feature> stillCaptureRequestIdFeatureMap_;
 	std::unique_ptr<CamsysDebug> camsysDebug_;
 	ImgsysDebug imgsysDebug_;
 };

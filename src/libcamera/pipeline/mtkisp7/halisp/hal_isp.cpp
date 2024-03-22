@@ -359,7 +359,8 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				size_t bufSize, bool isCapture,
 				MtkCameraFaceMetadata *faces,
 				AaaIspExchange *aaaIspExchange,
-				std::optional<uint32_t> internalRequestIdApplied)
+				std::optional<uint32_t> internalRequestIdApplied,
+				std::optional<Feature> featureApplied)
 {
 	ASSERT(aaaIspExchange);
 
@@ -434,11 +435,12 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	mtk::hal3a::v1_0::mtk_3a_result *aaaResult = hal3A_->resultHistory_.query(aaaFrmId);
 
 	bool shouldDump = false;
-	if (internalRequestIdApplied) {
+	if (internalRequestIdApplied && featureApplied) {
 		// Not dummy frame
 		shouldDump = onDeviceTuner_->tuneCamsysHalIsp(
 			internalRequestIdApplied.value(),
-			tuning_param_p1, result_p1, *aaaResult);
+			tuning_param_p1, result_p1, *aaaResult,
+			featureApplied.value());
 	}
 
 	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
@@ -902,18 +904,20 @@ void fillTncInfo(NSIspTuning::EStage_T stage, Size inputSize, Size outputSize, S
 int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
-				bool needCropTNC16x9)
+				bool needCropTNC16x9,
+				Feature feature)
 {
 	return getImgSysMetaTuning(camSysMetaRequestId, imgMetaRequest,
 				   internalRequestId, internalRequestId,
-				   needCropTNC16x9);
+				   needCropTNC16x9, feature);
 }
 
 int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				uint32_t frameNumber,
-				bool needCropTNC16x9)
+				bool needCropTNC16x9,
+				Feature feature)
 {
 	bool is_capture = imgMetaRequest.isCapture;
 	bool is_mfnr = imgMetaRequest.isMfnr;
@@ -1124,7 +1128,7 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		onDeviceTuner_->tuneImgsysHalIsp(
 			internalRequestId, frameNumber, tuning_param_p2, result_p2,
 			*aaaResult,
-			imgsys_info.rMapping_Info.eStage);
+			imgsys_info.rMapping_Info.eStage, feature);
 
 		imgsys_info.rNdd_info = cam_info.rNdd_info;
 		imgsys_info.sr_para = cam_info.sr_para;
@@ -1133,7 +1137,7 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
 	onDeviceTuner_->tuneExif(
 		internalRequestId, frameNumber, tuning_param_p2.exif_3a,
-		result_p2.exif, imgsys_info.rMapping_Info.eStage);
+		result_p2.exif, imgsys_info.rMapping_Info.eStage, feature);
 
 	return 0;
 }

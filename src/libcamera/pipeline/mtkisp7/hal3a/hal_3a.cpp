@@ -18,6 +18,8 @@
 
 #include "../halisp/hal_isp.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
+#include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
 
 #include "control_ids.h"
@@ -364,7 +366,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  MtkCameraFaceMetadata *faceMetadata, GyroSensor::SensorSample gyroSample,
 			  std::pair<uint32_t, uint32_t> *exposureAndGain,
 			  AaaIspExchange *aaaIspExchange,
-			  std::optional<uint32_t> internalRequestIdApplied)
+			  std::optional<uint32_t> internalRequestIdApplied,
+			  std::optional<Feature> featureApplied)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
 	if (sensor_idx_ == 0) { // back camera
@@ -420,7 +423,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	r_3a_request.buf_info.sof_timestamp = timestamp;
 	if (internalRequestIdApplied) {
 		onDeviceTuner_->tune3ARequest(internalRequestIdApplied.value(),
-					      r_3a_request);
+					      r_3a_request,
+					      featureApplied.value());
 	}
 
 	r_3a_request.stt_buf.fd = statistics0->planes()[0].fd.get();
@@ -448,14 +452,16 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 					     rawMetaFd, (intptr_t)rawMetaBuffer, 0,
 					     kRawMetaSize, isStillCapture,
 					     faceMetadata, aaaIspExchange,
-					     internalRequestIdApplied);
+					     internalRequestIdApplied,
+					     featureApplied);
 	}
 	uint32_t exposureTimeMs;
 	getExposureAndGain(exposureAndGain, exposureTimeMs);
 	ControlList &aaaMetadata = aaaIspExchange->aaaMetadata;
 
-	if (internalRequestIdApplied &&
-	    onDeviceTuner_->isDumpStillCapture(internalRequestIdApplied.value())) {
+	if (internalRequestIdApplied && featureApplied &&
+	    onDeviceTuner_->isEnabled() &&
+	    OnDeviceTuner::isStillCaptureFeature(featureApplied.value())) {
 		writeStillCaptureDebugMetadata(aaaMetadata, r3AResult_);
 	}
 

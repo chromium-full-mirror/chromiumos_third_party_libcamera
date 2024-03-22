@@ -41,7 +41,8 @@ public:
 			   GyroSensor::SensorSample gyroSample,
 			   std::pair<uint32_t, uint32_t> *exposureAndGain,
 			   AaaIspExchange *aaaIspExchange,
-			   std::optional<uint32_t> internalRequestIdApplied);
+			   std::optional<uint32_t> internalRequestIdApplied,
+			   std::optional<Feature> featureApplied);
 
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
