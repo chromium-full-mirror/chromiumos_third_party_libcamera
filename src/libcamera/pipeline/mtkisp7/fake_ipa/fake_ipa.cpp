@@ -256,7 +256,7 @@ void IPAMtkISP7::aieParse(
 	}
 
 	PrimaryFaceData faceData;
-	ControlList faceControls;
+	ControlList faceControls(controls::controls);
 	aieParser_->doParse(inputBuffer, faceMetatBuffer, FTCMetadataFrameBuffer,
 			    currentSensorSize, camSysMetaRequestId,
 			    faceData, faceControls);
@@ -430,6 +430,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 {
 	SensorSetting exposureAndGain;
 	AaaIspExchange aaaIspExchange;
+	aaaIspExchange.aaaMetadata = controls::controls;
 	std::optional<uint32_t> idApplied = std::nullopt;
 	if (internalRequestIdApplied != 0)
 		idApplied = internalRequestIdApplied;
