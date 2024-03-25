@@ -60,9 +60,6 @@ private:
 	void config();
 	void startInternal();
 
-	void writeStillCaptureDebugMetadata(
-		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result &result);
-
 	mtk::hal3a::v1_0::mtk_3a_param get3AParam(uint32_t internalRequestId,
 						  MtkCameraFaceMetadata *faceMetadata,
 						  GyroSensor::SensorSample gyroSample,

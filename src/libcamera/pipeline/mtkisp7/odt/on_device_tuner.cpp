@@ -1456,4 +1456,39 @@ void OnDeviceTuner::tuneAfbld(
 	tune(internalRequestId, internalRequestId + order[order.size() - 1], namedFrames, true);
 }
 
+void OnDeviceTuner::writeStillCaptureDebugMetadata(
+	ControlList &out,  mtk::hal3a::v1_0::mtk_3a_result *result,
+	Feature feature)
+{
+	if (!enabled_ || !isStillCaptureFeature(feature)) {
+		return;
+	}
+
+	const unsigned int idx3ADebug = 6;
+	const unsigned int idxIspDebug = 7;
+
+	std::vector<uint16_t> jpegAppSegmentLength(16, 0);
+	jpegAppSegmentLength[idx3ADebug] = sizeof(AAA_DEBUG_INFO1_T);
+	jpegAppSegmentLength[idxIspDebug] = sizeof(AAA_DEBUG_INFO2_T);
+	out.set(controls::JpegApplicationSegmentLength,
+		Span<const uint16_t, 16>(jpegAppSegmentLength));
+
+	size_t totalSize = sizeof(AAA_DEBUG_INFO1_T) +
+			   sizeof(AAA_DEBUG_INFO2_T);
+	std::vector<uint8_t> jpegAppSegmentContent(totalSize);
+
+	uint8_t *app6Src = reinterpret_cast<uint8_t *>(
+		&result->debug_3a_info);
+	std::memcpy(jpegAppSegmentContent.data(), app6Src,
+		    jpegAppSegmentLength[idx3ADebug]);
+
+	uint8_t *app7Src = reinterpret_cast<uint8_t *>(
+		&result->debug_isp_info);
+	uint8_t *app7Dest = jpegAppSegmentContent.data() +
+			    jpegAppSegmentLength[idx3ADebug];
+	std::memcpy(app7Dest, app7Src, jpegAppSegmentLength[idxIspDebug]);
+
+	out.set(controls::JpegApplicationSegmentContent, jpegAppSegmentContent);
+}
+
 } // namespace libcamera

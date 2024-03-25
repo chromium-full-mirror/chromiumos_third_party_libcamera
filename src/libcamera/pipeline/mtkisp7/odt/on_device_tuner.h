@@ -154,7 +154,10 @@ public:
 		AfbldFrames afbldF3_, AfbldFrames afbldF4_, AfbldFrames afbldF5_, AfbldFrames afbldF6_,
 		std::vector<int> order, FrameBuffer *still1Output, FrameBuffer *still2Output);
 
-	static bool isStillCaptureFeature(Feature feature);
+	// Still capture only
+	void writeStillCaptureDebugMetadata(
+		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
+		Feature feature);
 
 private:
 	struct NamedFrame {
@@ -177,6 +180,7 @@ private:
 		Request *request, FrameBuffer *buffer);
 	NSCam::IMetadata *getMtkMetadata(int requestNumber);
 	bool isImgsysCaptureStage(PEU_Stage stage);
+	bool isStillCaptureFeature(Feature feature);
 	void loadTuneRequest(int requestNumber);
 	bool parseHalIspNdd(
 		uint32_t internalRequestId,

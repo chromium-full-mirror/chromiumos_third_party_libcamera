@@ -153,32 +153,41 @@ class CompleteRequestTask : public Task
 public:
 	CompleteRequestTask(Scheduler *scheduler, const std::string &id,
 			    Request *request, uint32_t internalRequestId,
-			    PipelineHandler *pipe, OnDeviceTuner *odt,
-			    FaceDetector *faceDetector,
-			    SharedMailBox<AaaIspExchange> aaaIspExchange);
+			    uint32_t camSysMetaRequestId, PipelineHandler *pipe,
+			    OnDeviceTuner *odt, FaceDetector *faceDetector,
+			    SharedMailBox<AaaIspExchange> aaaIspExchange,
+			    Hal3A *hal3A, Feature feature);
 
 	virtual void run() override final;
 
 private:
 	PipelineHandler *pipe_;
 	Request *request_;
-	[[maybe_unused]] uint32_t internalRequestId_;
+	uint32_t internalRequestId_;
+	uint32_t camSysMetaRequestId_;
 	FaceDetector *faceDetector_;
 	OnDeviceTuner *onDeviceTuner_;
 	SharedMailBox<AaaIspExchange> aaaIspExchange_;
+	Hal3A *hal3A_;
+	Feature feature_;
 };
 
-CompleteRequestTask::CompleteRequestTask(Scheduler *scheduler,
-					 const std::string &id,
-					 Request *request,
-					 uint32_t internalRequestId,
-					 PipelineHandler *pipe,
-					 OnDeviceTuner *odt,
-					 FaceDetector *faceDetector,
-					 SharedMailBox<AaaIspExchange> aaaIspExchange)
+CompleteRequestTask::CompleteRequestTask(
+	Scheduler *scheduler,
+	const std::string &id,
+	Request *request,
+	uint32_t internalRequestId,
+	uint32_t camSysMetaRequestId,
+	PipelineHandler *pipe,
+	OnDeviceTuner *odt,
+	FaceDetector *faceDetector,
+	SharedMailBox<AaaIspExchange> aaaIspExchange,
+	Hal3A *hal3A, Feature feature)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
-	  internalRequestId_(internalRequestId), faceDetector_(faceDetector),
-	  onDeviceTuner_(odt), aaaIspExchange_(aaaIspExchange)
+	  internalRequestId_(internalRequestId),
+	  camSysMetaRequestId_(camSysMetaRequestId),
+	  faceDetector_(faceDetector), onDeviceTuner_(odt),
+	  aaaIspExchange_(aaaIspExchange), hal3A_(hal3A), feature_(feature)
 {
 }
 
@@ -218,7 +227,8 @@ public:
 
 	void frameStart(uint32_t sequence);
 
-	std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
+	std::tuple<QueueTask *, DequeueTask *, SofTask *,
+		   AATask *, AFTask *, uint32_t>
 	makeTasks(const std::string &id, Request *request,
 		  CaptureFrames &captureFrames, uint32_t internalRequestId);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
@@ -362,6 +372,10 @@ void CompleteRequestTask::run()
 	if (aaaIspExchange_->valid()) {
 		AaaIspExchange aaaIspExchange = aaaIspExchange_->get();
 		metadata.merge(aaaIspExchange.aaaMetadata);
+		onDeviceTuner_->writeStillCaptureDebugMetadata(
+			metadata,
+			hal3A_->resultHistory_.query(camSysMetaRequestId_),
+			feature_);
 	} else {
 		metadata.set(controls::ExposureTime, (int64_t)66'666);
 	}
@@ -775,7 +789,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	return 0;
 }
 
-std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *>
+std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, AFTask *, uint32_t>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames,
 			     uint32_t internalRequestId)
@@ -821,7 +835,8 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaTask, afTask);
 
-	return std::make_tuple(taskQBuf, taskDQBuf, sofTask, aaTask, afTask);
+	return std::make_tuple(taskQBuf, taskDQBuf, sofTask,
+			       aaTask, afTask, camSysMetaRequestId);
 }
 
 void MtkISP7CameraData::setTasksDependencies(
@@ -1077,20 +1092,20 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	CaptureFrames captureFrames;
 
-	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask] = makeTasks(
+	auto [taskQBuf, taskDQBuf, sofTask, aaTask, afTask, camSysMetaRequestId] = makeTasks(
 		"Capture " + sequence, request, captureFrames, internalRequestId);
 
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
 	bool hasVideo = video1Buffer || video2Buffer;
 
-	uint32_t camSysMetaRequestId = internalRequestId - CaptureTasksManager::kRawMetaDelay;
 	CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
 	SharedMailBox<AaaIspExchange> aaaIspExchange = aaCaptureResult->aaaIspExchange;
 
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, internalRequestId,
-		pipeline, onDeviceTuner_, faceDetector_, aaaIspExchange);
+		camSysMetaRequestId, pipeline, onDeviceTuner_, faceDetector_,
+		aaaIspExchange, hal3A_, feature);
 
 	if (afTask)
 		Scheduler::precede(afTask, completeTask);
@@ -1103,8 +1118,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	//LOG(MtkISP7, Error) << "captureRawQueue[idx]" << static_cast<void *>(captureRawQueue[captureRawQueue_idx]->get().address(0));
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
-			scheduler, request, captureFrames.faceDetection,
-			aaTask->camSysMetaRequestId_);
+		scheduler, request, captureFrames.faceDetection,
+		aaTask->camSysMetaRequestId_);
 
 	Scheduler::precede(taskDQBuf, faceDetectTask);
 	Scheduler::precede(faceDetectTask, completeTask);
