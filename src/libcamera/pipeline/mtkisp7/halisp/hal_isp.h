@@ -63,7 +63,7 @@ public:
 
 	int init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A);
 
-	void configure(const Size &maxVideoSize, const Size &maxStillSize);
+	void configure(const Size &maxVideoSize, const Size &maxStillSize, const bool isVideo);
 
 	int getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				int fd, intptr_t va, size_t offset,
@@ -111,6 +111,7 @@ private:
 
 	Size maxVideoStreamSize_;
 	Size maxStillStreamSize_;
+	bool isVideo_ = false;
 
 	std::shared_ptr<mtk::isphal::v1::IHalIsp> m_pHalisp;
 	mtk::isphal::v1_0::IspPerframeControl m_P1CamInfo;

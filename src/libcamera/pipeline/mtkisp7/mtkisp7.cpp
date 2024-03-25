@@ -1031,13 +1031,19 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 		return -EINVAL;
 	}
 
+	// If no still capture stream is requested, assume it be video mode.
+	bool isVidoe = (still1.isNull() && still2.isNull());
+
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
 	onDeviceTuner_->configure(camSysDev_->cameraId(), camSysDev_->getIndex());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
-	hal3A_->configure(camsysYuvSize);
+
+	hal3A_->configure(camsysYuvSize, isVidoe);
 	halIsp_->configure(video1 > video2 ? video1 : video2,
-			   still1 > still2 ? still1 : still2);
+			   still1 > still2 ? still1 : still2,
+			   isVidoe);
+
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_);
 	hal3AManager_.configure(dmaHeap_, camSysDev_, hal3A_, onDeviceTuner_, gyroSensor_);

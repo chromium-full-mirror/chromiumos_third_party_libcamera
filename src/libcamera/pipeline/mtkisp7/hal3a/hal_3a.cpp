@@ -37,9 +37,10 @@ Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt)
 	halIsp_ = halIsp;
 }
 
-void Hal3A::configure(Size camsysYuvSize)
+void Hal3A::configure(Size camsysYuvSize, bool isVideo)
 {
 	camsysYuvSize_ = camsysYuvSize;
+	isVideo_ = isVideo;
 }
 
 void Hal3A::start()
@@ -166,7 +167,7 @@ void Hal3A::getInitialInfo()
 	config.ae_sensor_max_fps = 30000;
 	config.multiexp_hdr_mode = 0;
 	config.ae_valid_exp = 0;
-	config.tuning_feature = 0;
+	config.tuning_feature = (isVideo_) ? EFeature_Video : EFeature_Preview;
 	config.tuning_feature_cap = 0;
 	config.target_size_w = 0;
 	config.target_size_h = 0;
@@ -184,13 +185,13 @@ void Hal3A::getInitialInfo()
 
 	config.control_config.subsample_count = 1;
 	config.control_config.request_count = 1;
-	config.control_config.sensor_mode = 0;
+	config.control_config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 	config.control_config.sensor_id = 0;
 	config.control_config.bit_mode = 1;
 
 	config.fno = 1.790000;
 	config.focal_length = 4.710000;
-	config.sensor_mode = 0;
+	config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 
 	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
 	if (!pHalSensorList) {
@@ -238,7 +239,6 @@ void Hal3A::getInitialInfo()
 void Hal3A::config()
 {
 	mtk::hal3a::v1_0::mtk_3a_config config = {};
-
 	if (sensor_info_) {
 		sensor_info_->get_sensor_perframe_dynamic_info(&config.sensor_perframe_dynamic_info);
 	} else {
@@ -252,7 +252,7 @@ void Hal3A::config()
 	config.ae_sensor_max_fps = 30000;
 	config.multiexp_hdr_mode = 0;
 	config.ae_valid_exp = 0;
-	config.tuning_feature = 0;
+	config.tuning_feature = (isVideo_) ? EFeature_Video : EFeature_Preview;
 	config.tuning_feature_cap = 0;
 	config.target_size_w = 0;
 	config.target_size_h = 0;
@@ -275,7 +275,7 @@ void Hal3A::config()
 	*/
 	config.control_config.subsample_count = 1;
 	config.control_config.request_count = 1;
-	config.control_config.sensor_mode = 0;
+	config.control_config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 	config.control_config.sensor_id = 0;
 	config.control_config.bit_mode = 1;
 
@@ -320,7 +320,7 @@ void Hal3A::config()
 		config.fno = 1.790000;
 		config.focal_length = 4.710000;
 		config.feature_mode = 0;
-		config.sensor_mode = 0;
+		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
 	case GC08A3_SENSOR_ID:
 		config.tg_width = 3264;
@@ -328,7 +328,7 @@ void Hal3A::config()
 		config.fno = 1.790000;
 		config.focal_length = 4.710000;
 		config.feature_mode = 0;
-		config.sensor_mode = 0;
+		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
 	case GC05A2_SENSOR_ID:
 		config.tg_width = 2592;
@@ -336,7 +336,7 @@ void Hal3A::config()
 		config.fno = 1.790000;
 		config.focal_length = 4.710000;
 		config.feature_mode = 0;
-		config.sensor_mode = 0;
+		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
 	default:
 		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
@@ -345,7 +345,7 @@ void Hal3A::config()
 		config.fno = 1.790000;
 		config.focal_length = 4.710000;
 		config.feature_mode = 0;
-		config.sensor_mode = 0;
+		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
 	}
 
@@ -764,7 +764,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.subsample_sync_info = 0;
 	r_3a_param.multiexp_hdr_mode = 0;
 	r_3a_param.hdr_mode = 0;
-	r_3a_param.fast_switch_param.sensor_mode = 0;
+	r_3a_param.fast_switch_param.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 	// r_3a_param.fast_switch_param.tg_size = { w = 3264, h = 2448 };
 	// r_3a_param.fast_switch_param.full_tg_size = { w = 3264, h = 2448 };
 
@@ -818,7 +818,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.is_fd_enable = 1;
 	r_3a_param.ot_info.is_valid = 0;
 	r_3a_param.gf_info.is_valid = 0;
-	r_3a_param.tuning_feature = 0;
+	r_3a_param.tuning_feature = (isVideo_) ? EFeature_Video : EFeature_Preview;
 	r_3a_param.sensor_feature = 0;
 	r_3a_param.custom_feature = 0;
 	if (isStillCapture) {
