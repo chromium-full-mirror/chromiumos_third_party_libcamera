@@ -154,7 +154,7 @@ public:
 class AFTask : public Task
 {
 public:
-	constexpr static uint32_t kLensDelay = 2;
+	constexpr static uint32_t kLensDelay = 3;
 
 	AFTask(Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, Hal3A *hal3A,
