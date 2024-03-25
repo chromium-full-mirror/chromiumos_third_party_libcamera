@@ -121,39 +121,13 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 	m_P1CamInfo.i4ZoomRatio_x100 = 100;
 	m_P1CamInfo.fgFDEnable = 1;
 	m_P1CamInfo.rFdInfo.FD_source = 1;
+	m_P1CamInfo.user_id = sensorDev;
 
 	NvBufUtil::initSensorInfo(sensorIdx_, _sensorIdxInfo);
-	m_pHalisp = mtk::isphal::v1::IHalIsp::createInstance(sensorDev, sensorIdx, 0);
+	m_pHalisp = mtk::isphal::v1::IHalIsp::createInstance(sensorDev, sensorIdx, m_P1CamInfo.user_id);
 
 	mtk_isp_buf_info bufferInfo;
 	m_pHalisp->queryISPBufferInfo(&bufferInfo);
-
-	printf("lceso_size: %zu\n"
-	       "lcesho_size: %zu\n"
-	       "dceso_size: %zu\n"
-	       "camsys_stat_size: %zu\n"
-	       "camsys_meta_size: %zu\n"
-	       "camsys_meta_version: %zu\n"
-	       "imgsys_stat_size: %zu\n"
-	       "imgsys_hist_buf_size: %zu\n"
-	       "imgsys_meta_size: %zu\n"
-	       "imgsys_meta_version: %zu\n"
-	       "hwme_stat_fst_size: %zu\n"
-	       "hwme_stat_fmb_size: %zu\n"
-	       "hwme_stat_lmi_size: %zu\n"
-	       "fwme_fst_meta_size: %zu\n"
-	       "fwmm_mmg_fbfst_meta_size: %zu\n"
-	       "fwmm_mmg_rst_meta_size: %zu\n"
-	       "fwmm_mil_meta_size: %zu\n",
-	       bufferInfo.lceso_size, bufferInfo.lcesho_size, bufferInfo.dceso_size,
-	       bufferInfo.camsys_stat_size, bufferInfo.camsys_meta_size, bufferInfo.camsys_meta_version,
-	       bufferInfo.imgsys_stat_size, bufferInfo.imgsys_hist_buf_size, bufferInfo.imgsys_meta_size,
-	       bufferInfo.imgsys_meta_version, bufferInfo.hwme_stat_fst_size,
-	       bufferInfo.hwme_stat_fmb_size, bufferInfo.hwme_stat_lmi_size, bufferInfo.fwme_fst_meta_size,
-	       bufferInfo.fwmm_mmg_fbfst_meta_size, bufferInfo.fwmm_mmg_rst_meta_size,
-	       bufferInfo.fwmm_mil_meta_size);
-
-	m_P1CamInfo.rMapping_Info.eSensorMode = ESensorMode_Preview;
 
 	//TODO, seperate the config for differnt module (geralt, ciri)
 	switch (sensorId_) {
@@ -176,7 +150,26 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 		break;
 	}
 
-	m_P1CamInfo.rMapping_Info.eFeature = NSIspTuning::EFeature_Preview;
+	provider_ = mtk::isphal::v1_0::TuningDataProvider::createInstance(
+		sensorIdx_, sensorDev_, 0);
+
+	return 0;
+}
+
+void HalIsp::configure(const Size &maxVideoSize,
+		       const Size &maxStillSize,
+		       const bool isVideo)
+{
+	maxVideoStreamSize_ = maxVideoSize;
+	maxStillStreamSize_ = maxStillSize;
+	isVideo_ = isVideo;
+
+	m_P1CamInfo.rMapping_Info.eSensorMode =
+		(isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
+
+	m_P1CamInfo.rMapping_Info.eFeature =
+		(isVideo_) ? NSIspTuning::EFeature_Video : EFeature_Preview;
+
 	m_P1CamInfo.rMapping_Info.eStage = NSIspTuning::EStage_P1;
 	m_P1CamInfo.rMapping_Info.eCustomFeature = NSIspTuning::ECustomFeature_OFF;
 
@@ -190,18 +183,6 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 
 	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r2_ds = 2;
 	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r4_ds = 0;
-
-	provider_ = mtk::isphal::v1_0::TuningDataProvider::createInstance(
-		sensorIdx_, sensorDev_, 0);
-
-	return 0;
-}
-
-void HalIsp::configure(const Size &maxVideoSize,
-		       const Size &maxStillSize)
-{
-	maxVideoStreamSize_ = maxVideoSize;
-	maxStillStreamSize_ = maxStillSize;
 }
 
 uint32_t HalIsp::getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info)
@@ -388,7 +369,9 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 
 	tuning_param_p1.is_need_exif = true;
 
-	tuning_param_p1.cam_info->rMapping_Info.eFeature = NSIspTuning::EFeature_Preview;
+	tuning_param_p1.cam_info->rMapping_Info.eFeature
+		= (isVideo_) ? NSIspTuning::EFeature_Video : NSIspTuning::EFeature_Preview;
+
 	tuning_param_p1.cam_info->rMapping_Info.eStage = NSIspTuning::EStage_P1;
 	tuning_param_p1.cam_info->rMapping_Info.eSensorFeature = NSIspTuning::ESensorFeature_OFF;
 
@@ -1032,12 +1015,13 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		}
 
 		tuning_param_p2.cam_info.multi_frame_bss_index = 0;
-		tuning_param_p2.cam_info.user_id = 0;
+		// tuning_param_p2.cam_info.user_id = 0;
 
 		if (is_capture)
 			tuning_param_p2.cam_info.rMapping_Info.eFeature = (is_mfnr) ? NSIspTuning::EFeature_Capture_mfnr : NSIspTuning::EFeature_Capture_lpnr;
 		else
-			tuning_param_p2.cam_info.rMapping_Info.eFeature = NSIspTuning::EFeature_Video;
+			tuning_param_p2.cam_info.rMapping_Info.eFeature
+				= (isVideo_) ? NSIspTuning::EFeature_Video : NSIspTuning::EFeature_Preview;
 
 		tuning_param_p2.cam_info.rMapping_Info.eCustomFeature = NSIspTuning::ECustomFeature_OFF;
 

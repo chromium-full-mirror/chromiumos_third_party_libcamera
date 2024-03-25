@@ -40,7 +40,7 @@ public:
 
 	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt);
 
-	void configure(Size camsysYuvSize);
+	void configure(Size camsysYuvSize, bool isVideo);
 	void start();
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
@@ -81,6 +81,7 @@ private:
 	const uint32_t sensor_idx_;
 	int sensor_id_;
 	Size camsysYuvSize_;
+	bool isVideo_ = false;
 
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;
 	HalIsp *halIsp_ = nullptr;
