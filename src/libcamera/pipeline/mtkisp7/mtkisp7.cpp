@@ -753,13 +753,14 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	camSysDev_->frameStart().disconnect(this);
 	camSysDev_->frameStart().connect(this, &MtkISP7CameraData::frameStart);
 
+	camSysDev_->start();
+	imgSysDev_->start();
+
 	hal3A_->start();
 	// Needs to be called after |hal3A_->start()|, as it uses AF result.
+	// Needs to be called after |camSysDev_->start()|, as it uses lens.
 	hal3AManager_.start();
 
-	camSysDev_->start();
-
-	imgSysDev_->start();
 	mcnrManager.start();
 	lpnrManager.start();
 	faceDetector_->start();
@@ -1090,6 +1091,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, internalRequestId,
 		pipeline, onDeviceTuner_, faceDetector_, aaaIspExchange);
+
+	if (afTask)
+		Scheduler::precede(afTask, completeTask);
 
 	captureRawQueue_idx += 1;
 	captureRawQueue_idx = captureRawQueue_idx % 8;
