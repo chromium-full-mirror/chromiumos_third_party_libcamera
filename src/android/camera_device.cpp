@@ -1029,6 +1029,17 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		const int32_t *data = entry.data.i32;
 		controls.set(controls::draft::AePrecaptureTrigger, static_cast<int32_t>(data[0]));
 	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AWB_MODE, &entry)) {
+		const int32_t *data = entry.data.i32;
+		controls.set(controls::AwbMode, static_cast<int>(data[0]));
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AWB_LOCK, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::AwbLocked, static_cast<bool>(data[0]));
+	}
+
 	return 0;
 }
 
@@ -1835,6 +1846,11 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_SENSOR_SENSITIVITY, sensorSensitivity.value_or(100));
 	}
 
+	const auto &awbState = metadata.get(controls::draft::AwbState);
+	if (metadata.contains(controls::AWB_STATE)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_AWB_STATE, awbState.value_or(0));
+	}
+
 	const auto &frameDuration = metadata.get(controls::FrameDuration);
 	if (metadata.contains(controls::FRAME_DURATION)) {
 		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION, frameDuration.value_or(33'333'333));
@@ -1995,15 +2011,21 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	resultMetadata->addEntry(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION,
 				 value32);
 
-	value = ANDROID_CONTROL_AE_LOCK_OFF;
-	resultMetadata->addEntry(ANDROID_CONTROL_AE_LOCK, value);
+	if (settings.getEntry(ANDROID_CONTROL_AE_LOCK, &entry)) {
+		value = *entry.data.u8;
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_LOCK, value);
+	}
 
-	if (settings.getEntry(ANDROID_CONTROL_AE_MODE, &entry)){
+	if (settings.getEntry(ANDROID_CONTROL_AWB_LOCK, &entry)) {
+		value = *entry.data.u8;
+		resultMetadata->addEntry(ANDROID_CONTROL_AWB_LOCK, value);
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AE_MODE, &entry)) {
 		value = *entry.data.u8;
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, value);
-	}
-	else{
-	 	resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, ANDROID_CONTROL_AE_MODE_ON);
+	} else {
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, ANDROID_CONTROL_AE_MODE_ON);
 	}
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry))
@@ -2028,14 +2050,19 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	value = ANDROID_CONTROL_AF_TRIGGER_IDLE;
 	resultMetadata->addEntry(ANDROID_CONTROL_AF_TRIGGER, value);
 
-	value = ANDROID_CONTROL_AWB_MODE_AUTO;
-	resultMetadata->addEntry(ANDROID_CONTROL_AWB_MODE, value);
+	if (settings.getEntry(ANDROID_CONTROL_AWB_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_AWB_MODE, *entry.data.u8);
+	} else {
+		value = ANDROID_CONTROL_AWB_MODE_AUTO;
+		resultMetadata->addEntry(ANDROID_CONTROL_AWB_MODE, value);
+	}
 
-	value = ANDROID_CONTROL_AWB_LOCK_OFF;
-	resultMetadata->addEntry(ANDROID_CONTROL_AWB_LOCK, value);
-
-	value = ANDROID_CONTROL_AWB_STATE_CONVERGED;
-	resultMetadata->addEntry(ANDROID_CONTROL_AWB_STATE, value);
+	if (settings.getEntry(ANDROID_CONTROL_AWB_LOCK, &entry)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_AWB_LOCK, *entry.data.u8);
+	} else {
+		value = ANDROID_CONTROL_AWB_LOCK_OFF;
+		resultMetadata->addEntry(ANDROID_CONTROL_AWB_LOCK, value);
+	}
 
 	value = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
 	resultMetadata->addEntry(ANDROID_CONTROL_CAPTURE_INTENT, value);
