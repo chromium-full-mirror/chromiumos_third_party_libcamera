@@ -254,13 +254,11 @@ void AATask::setRequest(Request *request)
 
 void AATask::setInternalRequestIdApplied(uint32_t internalRequestIdApplied)
 {
-	ASSERT(!internalRequestIdApplied_);
 	internalRequestIdApplied_ = internalRequestIdApplied;
 }
 
 void AATask::setFeatureApplied(Feature featureApplied)
 {
-	ASSERT(!featureApplied_);
 	featureApplied_ = featureApplied;
 }
 
