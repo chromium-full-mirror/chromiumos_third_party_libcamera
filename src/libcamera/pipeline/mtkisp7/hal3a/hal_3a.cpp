@@ -466,9 +466,12 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	float floatIso = static_cast<float>(r3AResult_.ae_result.sensor_sensitivity);
 	aaaIspExchange->aaaMetadata.set(controls::AnalogueGain, floatIso);
 	aaaIspExchange->aaaMetadata.set(controls::ExposureTime, exposureTimeMs);
+
 	uint8_t mtk_ae_state = static_cast<uint8_t>(r3AResult_.ae_result.ae_state);
+	uint8_t mtk_awb_state = static_cast<uint32_t>(r3AResult_.awb_result.awb_state);
 	int64_t mtk_frame_duration = static_cast<int64_t>(r3AResult_.ae_result.sensor_frame_duration);
 	aaaIspExchange->aaaMetadata.set(controls::draft::AeState, mtk_ae_state);
+	aaaIspExchange->aaaMetadata.set(controls::draft::AwbState, mtk_awb_state);
 	aaaIspExchange->aaaMetadata.set(controls::FrameDuration, mtk_frame_duration);
 }
 
@@ -546,6 +549,8 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.sensor_frame_duration = controls_opt->get(controls::FrameDuration).value_or(33'333'333);
 		r_3a_param.sensor_exposure = controls_opt->get(controls::ExposureTime).value_or(10000) * 1000;
 		r_3a_param.sensor_sensitivity = controls_opt->get(controls::AnalogueGain).value_or(100);
+		r_3a_param.awb_lock = controls_opt->get(controls::AwbLocked).value_or(0);
+		r_3a_param.awb_mode = controls_opt->get(controls::AwbMode).value_or(1);
 	} else {
 		r_3a_param.ae_mode = 1;
 		r_3a_param.ae_lock = 0;
@@ -553,6 +558,8 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.sensor_frame_duration = 33333333;
 		r_3a_param.sensor_exposure = 10000000;
 		r_3a_param.sensor_sensitivity = 100;
+		r_3a_param.awb_lock = 0;
+		r_3a_param.awb_mode = 1;
 	}
 
 	r_3a_param.ae_anti_banding_mode = 3;
@@ -563,8 +570,6 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.ae_region.count = 1;
 	r_3a_param.black_level_lock = 0;
 	r_3a_param.set_converge = 0;
-	r_3a_param.awb_lock = 0;
-	r_3a_param.awb_mode = 1;
 	if (isStillCapture) {
 		r_3a_param.color_correct_mode = 2;
 	} else {

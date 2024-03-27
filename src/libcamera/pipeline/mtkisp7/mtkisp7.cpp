@@ -705,6 +705,10 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
 		controls[&controls::AeMode] = ControlInfo(controls::AeModeValues);
 		controls[&controls::AeLocked] = ControlInfo(true, false);
+
+		controls[&controls::AwbMode] = ControlInfo(controls::AwbModeValues);
+		controls[&controls::AwbEnable] = ControlInfo(true, false);
+		controls[&controls::AwbLocked] = ControlInfo(true, false);
 		controls[&controls::draft::AePrecaptureTrigger] = ControlInfo(controls::draft::AePrecaptureTriggerValues);
 
 		controls[&controls::FrameDuration] = ControlInfo(
@@ -1393,14 +1397,17 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 	if (!(controls_cache.get())) {
 		return true;
 	}
-	std::vector<int32_t> aeCheckList{
+	std::vector<int32_t> checkList{
 		controls::AE_MODE,
 		controls::AE_LOCKED,
 		controls::EXPOSURE_TIME,
 		controls::AE_PRECAPTURE_TRIGGER,
+		controls::AWB_MODE,
+		controls::AWB_ENABLE,
+		controls::AWB_LOCKED,
 	};
 
-	for (auto id : aeCheckList) {
+	for (auto id : checkList) {
 		auto control = controls::controls.at(id);
 		auto type = control->type();
 		switch (type) {
