@@ -685,6 +685,18 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 								       (int64_t)66'666,
 								       (int64_t)33'333);
 
+		// todo: Fix the ExposureTime for now. It should be updated from
+		// sensor config
+		controls[&controls::ExposureTime] = ControlInfo((int32_t)100,
+								(int32_t)100'000,
+								(int32_t)33'333);
+
+		// todo: Fix the AnalogueGain for now. It should be updated from
+		// sensor config
+		controls[&controls::AnalogueGain] = ControlInfo((float)100,
+								(float)2400,
+								(float)100);
+
 		// todo: Assign correct crop range
 		const Size &pixelArraySize = properties.get(properties::PixelArraySize).value_or(Size{});
 		Rectangle maxCrop = Rectangle{ pixelArraySize };
@@ -709,6 +721,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::AwbMode] = ControlInfo(controls::AwbModeValues);
 		controls[&controls::AwbEnable] = ControlInfo(true, false);
 		controls[&controls::AwbLocked] = ControlInfo(true, false);
+		controls[&controls::AwbMode] = ControlInfo(controls::AwbModeValues);
+
 		controls[&controls::draft::AePrecaptureTrigger] = ControlInfo(controls::draft::AePrecaptureTriggerValues);
 
 		controls[&controls::FrameDuration] = ControlInfo(
@@ -1401,6 +1415,7 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::AE_MODE,
 		controls::AE_LOCKED,
 		controls::EXPOSURE_TIME,
+		controls::ANALOGUE_GAIN,
 		controls::AE_PRECAPTURE_TRIGGER,
 		controls::AWB_MODE,
 		controls::AWB_ENABLE,
@@ -1418,7 +1433,7 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 			bool value_cache = static_cast<bool>(
 				controls_cache->get(*bool_control).value_or(false));
 			if (value != value_cache) {
-				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << ":" << value_cache;
+				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << "(new) : " << value_cache << "(old)";
 				return true;
 			}
 			break;
@@ -1436,15 +1451,25 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 			int32_t value_cache = static_cast<int32_t>(
 				controls_cache->get(*int32_control).value_or(0));
 			if (value != value_cache) {
-				LOG(MtkISP7, Debug) << "id:" << int32_control->id() << " value changed!! " << value << ":" << value_cache;
+				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << "(new) : " << value_cache << "(old)";
 				return true;
 			}
 			break;
 		}
 		case ControlTypeInteger64:
 			break;
-		case ControlTypeFloat:
+		case ControlTypeFloat: {
+			auto float_control = static_cast<Control<float> *>(const_cast<ControlId *>(control));
+			float value = static_cast<float>(
+				controls_cur->get(*float_control).value_or(0));
+			float value_cache = static_cast<float>(
+				controls_cache->get(*float_control).value_or(0));
+			if (value != value_cache) {
+				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << "(new) : " << value_cache << "(old)";
+				return true;
+			}
 			break;
+		}
 		case ControlTypeRectangle:
 			break;
 		case ControlTypeSize:
