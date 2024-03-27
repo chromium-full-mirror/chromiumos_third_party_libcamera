@@ -1012,7 +1012,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_SENSOR_SENSITIVITY, &entry)) {
 		const int32_t *data = entry.data.i32;
-		controls.set(controls::AnalogueGain, data[0]);
+		controls.set(controls::AnalogueGain, static_cast<float>(data[0]));
 	}
 
 	if (settings.getEntry(ANDROID_SENSOR_FRAME_DURATION, &entry)) {
@@ -1830,20 +1830,22 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_REQUEST_PIPELINE_DEPTH,
 					 *pipelineDepth);
 
-	const auto &exposureTime = metadata.get(controls::ExposureTime);
+
 	if (metadata.contains(controls::EXPOSURE_TIME)) {
-		resultMetadata->addEntry(ANDROID_SENSOR_EXPOSURE_TIME,
-					 exposureTime.value_or(33'333) * 1000ULL);
+		const auto &exposureTime = metadata.get(controls::ExposureTime);
+		int64_t exposure_time = static_cast<int64_t>(exposureTime.value_or(33'333));
+		resultMetadata->addEntry(ANDROID_SENSOR_EXPOSURE_TIME, exposure_time * 1000ULL);
 	}
-	const auto &aeState = metadata.get(controls::draft::AeState);
+
 	if (metadata.contains(controls::AE_STATE)) {
+		const auto &aeState = metadata.get(controls::draft::AeState);
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_STATE, aeState.value_or(0));
 	}
 
-	const auto &sensorSensitivity =
-		metadata.get(controls::AnalogueGain);
+
 	if (metadata.contains(controls::ANALOGUE_GAIN)) {
-		resultMetadata->addEntry(ANDROID_SENSOR_SENSITIVITY, sensorSensitivity.value_or(100));
+		const auto &sensorSensitivity = metadata.get(controls::AnalogueGain).value_or(100);
+		resultMetadata->addEntry(ANDROID_SENSOR_SENSITIVITY, static_cast<int>(sensorSensitivity));
 	}
 
 	const auto &awbState = metadata.get(controls::draft::AwbState);

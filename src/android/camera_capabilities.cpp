@@ -1059,11 +1059,28 @@ int CameraCapabilities::initializeStaticMetadata()
 					  data);
 	}
 
-	int32_t sensitivityRange[] = {
-		32, 2400,
-	};
-	staticMetadata_->addEntry(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE,
-				  sensitivityRange);
+	const auto &analogGain = controlsInfo.find(&controls::AnalogueGain);
+	if (analogGain != controlsInfo.end()) {
+		int32_t sensorMaxAnalogSensitivity =
+			static_cast<int>(analogGain->second.max().get<float>());
+		int32_t sensorMinAnalogSensitivity =
+			static_cast<int>(analogGain->second.min().get<float>());
+		int32_t sensitivityRange[] = {
+			sensorMinAnalogSensitivity, sensorMaxAnalogSensitivity,
+		};
+		staticMetadata_->addEntry(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE,
+					  sensitivityRange);
+		staticMetadata_->addEntry(ANDROID_SENSOR_MAX_ANALOG_SENSITIVITY,
+					  sensorMaxAnalogSensitivity);
+	} else {
+		int32_t sensitivityRange[] = {
+			32, 2400,
+		};
+		staticMetadata_->addEntry(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE,
+					sensitivityRange);
+		staticMetadata_->addEntry(ANDROID_SENSOR_MAX_ANALOG_SENSITIVITY,
+					  2400);
+	}
 
 	/* Report the color filter arrangement if the camera reports it. */
 	const auto &filterArr = properties.get(properties::draft::ColorFilterArrangement);
