@@ -1565,6 +1565,15 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateManual() cons
 	if (!manualTemplate)
 		return nullptr;
 
+	uint8_t controlMode = ANDROID_CONTROL_MODE_OFF;
+	manualTemplate->updateEntry(ANDROID_CONTROL_MODE, controlMode);
+
+	uint8_t aeMode = ANDROID_CONTROL_AE_MODE_OFF;
+	manualTemplate->updateEntry(ANDROID_CONTROL_AE_MODE, aeMode);
+
+	uint8_t awbmode = ANDROID_CONTROL_AWB_MODE_OFF;
+	manualTemplate->updateEntry(ANDROID_CONTROL_AWB_MODE, awbmode);
+
 	return manualTemplate;
 }
 
