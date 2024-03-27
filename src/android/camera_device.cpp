@@ -2120,8 +2120,12 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	value = ANDROID_STATISTICS_SCENE_FLICKER_NONE;
 	resultMetadata->addEntry(ANDROID_STATISTICS_SCENE_FLICKER, value);
 
-	value = ANDROID_NOISE_REDUCTION_MODE_OFF;
-	resultMetadata->addEntry(ANDROID_NOISE_REDUCTION_MODE, value);
+	if (settings.getEntry(ANDROID_NOISE_REDUCTION_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_NOISE_REDUCTION_MODE, *entry.data.u8);
+	} else {
+		value = ANDROID_NOISE_REDUCTION_MODE_OFF;
+		resultMetadata->addEntry(ANDROID_NOISE_REDUCTION_MODE, value);
+	}
 
 	/* 33.3 msec */
 	const int64_t rolling_shutter_skew = 33300000;

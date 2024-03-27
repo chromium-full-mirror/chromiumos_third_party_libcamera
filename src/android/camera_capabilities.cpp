@@ -1629,7 +1629,7 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	requestTemplate->addEntry(ANDROID_STATISTICS_FACE_DETECT_MODE,
 				  faceDetectMode);
 
-	uint8_t noiseReduction = ANDROID_NOISE_REDUCTION_MODE_OFF;
+	uint8_t noiseReduction = ANDROID_NOISE_REDUCTION_MODE_FAST;
 	requestTemplate->addEntry(ANDROID_NOISE_REDUCTION_MODE,
 				  noiseReduction);
 
@@ -1666,6 +1666,9 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateStill() const
 	if (!stillTemplate)
 		return nullptr;
 
+	uint8_t noiseReductionMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+	stillTemplate->updateEntry(ANDROID_NOISE_REDUCTION_MODE,
+				  noiseReductionMode);
 	return stillTemplate;
 }
 
