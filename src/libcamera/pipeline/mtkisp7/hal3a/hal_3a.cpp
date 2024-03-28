@@ -551,6 +551,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.sensor_sensitivity = controls_opt->get(controls::AnalogueGain).value_or(100);
 		r_3a_param.awb_lock = controls_opt->get(controls::AwbLocked).value_or(0);
 		r_3a_param.awb_mode = controls_opt->get(controls::AwbMode).value_or(1);
+		r_3a_param.ae_anti_banding_mode = controls_opt->get(controls::AeAntiBandingMode).value_or(3);
 	} else {
 		r_3a_param.ae_mode = 1;
 		r_3a_param.ae_lock = 0;
@@ -560,9 +561,9 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.sensor_sensitivity = 100;
 		r_3a_param.awb_lock = 0;
 		r_3a_param.awb_mode = 1;
+		r_3a_param.ae_anti_banding_mode = 3;
 	}
 
-	r_3a_param.ae_anti_banding_mode = 3;
 	r_3a_param.ae_exp_index = 0;
 	r_3a_param.ae_exp_step = 0.500000;
 	r_3a_param.ae_min_fps = 5000;

@@ -1156,4 +1156,42 @@ controls:
           description: |
            Automatic exposure with flash and red-eye reduction features enabled.
            (AE_MODE_ON_AUTO_FLASH_REDEYE)
+
+  - AeAntiBandingMode:
+      type: int32_t
+      description: |
+        Android Camera2 API that provides developers and users with fine-grained
+        control over how the camera handles a specific image artifact called
+        "banding".
+        (SEE ANDROID_CONTROL_AE_ANTIBANDING_MODE)
+      enum:
+        - name: AeAntiBandingModeOff
+          value: 0
+          description: |
+           Disables any automatic anti-banding adjustments by the camera.
+           The camera will not attempt to match its exposure time to the
+           frequency of light flicker.
+           (SEE ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF)
+        - name: AeAntiBandingMode50Hz
+          value: 1
+          description: |
+           This mode tells the camera to adjust its exposure settings
+           specifically to minimize banding caused by light sources
+           flickering at 50Hz. This frequency is common in regions using
+           a 50Hz power grid (Europe, Asia, etc.)
+           (SEE ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ)
+        - name: AeAntiBandingMode60Hz
+          value: 2
+          description: |
+           This mode is similar, but targets light flicker at 60Hz, which
+           is the common power grid frequency in North America and parts
+           of South America.
+           (SEE ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ)
+        - name: AeAntiBandingModeAuto
+          value: 3
+          description: |
+           Allows the camera to automatically detect the flicker frequency
+           of the ambient light and apply the appropriate anti-banding
+           adjustments (either 50Hz or 60Hz).
+           (SEE ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO)
 ...

@@ -1040,6 +1040,11 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::AwbLocked, static_cast<bool>(data[0]));
 	}
 
+	if (settings.getEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::AeAntiBandingMode, static_cast<bool>(data[0]));
+	}
+
 	return 0;
 }
 
@@ -1990,7 +1995,7 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	 * Total bytes: 16
 	 */
 	std::unique_ptr<CameraMetadata> resultMetadata =
-		std::make_unique<CameraMetadata>(31, 16);
+		std::make_unique<CameraMetadata>(32, 16);
 	if (!resultMetadata->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate result metadata";
 		return nullptr;
@@ -2005,9 +2010,6 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	uint8_t value = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF;
 	resultMetadata->addEntry(ANDROID_COLOR_CORRECTION_ABERRATION_MODE,
 				 value);
-
-	value = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
-	resultMetadata->addEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE, value);
 
 	int32_t value32 = 0;
 	resultMetadata->addEntry(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION,
@@ -2028,6 +2030,20 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, value);
 	} else {
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, ANDROID_CONTROL_AE_MODE_ON);
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &entry)) {
+		value = *entry.data.u8;
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE, value);
+	} else {
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE, ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF);
+	}
+
+	if (settings.getEntry(ANDROID_BLACK_LEVEL_LOCK, &entry)) {
+		value = *entry.data.u8;
+		resultMetadata->addEntry(ANDROID_BLACK_LEVEL_LOCK, value);
+	} else {
+		resultMetadata->addEntry(ANDROID_BLACK_LEVEL_LOCK, ANDROID_BLACK_LEVEL_LOCK_OFF);
 	}
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry))

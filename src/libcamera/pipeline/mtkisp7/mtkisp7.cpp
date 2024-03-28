@@ -717,11 +717,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
 		controls[&controls::AeMode] = ControlInfo(controls::AeModeValues);
 		controls[&controls::AeLocked] = ControlInfo(true, false);
+		controls[&controls::AeAntiBandingMode] = ControlInfo(controls::AeAntiBandingModeValues);
 
 		controls[&controls::AwbMode] = ControlInfo(controls::AwbModeValues);
 		controls[&controls::AwbEnable] = ControlInfo(true, false);
 		controls[&controls::AwbLocked] = ControlInfo(true, false);
-		controls[&controls::AwbMode] = ControlInfo(controls::AwbModeValues);
 
 		controls[&controls::draft::AePrecaptureTrigger] = ControlInfo(controls::draft::AePrecaptureTriggerValues);
 
@@ -1420,6 +1420,7 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::AWB_MODE,
 		controls::AWB_ENABLE,
 		controls::AWB_LOCKED,
+		controls::AE_ANTI_BANDING_MODE,
 	};
 
 	for (auto id : checkList) {
