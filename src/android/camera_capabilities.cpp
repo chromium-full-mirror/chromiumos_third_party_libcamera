@@ -821,6 +821,15 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES,
 		ANDROID_STATISTICS_INFO_MAX_FACE_COUNT,
 		ANDROID_SYNC_MAX_LATENCY,
+		ANDROID_EDGE_AVAILABLE_EDGE_MODES,
+		ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES,
+		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
+		ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
+		ANDROID_SENSOR_INFO_WHITE_LEVEL,
+		ANDROID_SENSOR_MAX_ANALOG_SENSITIVITY,
+		ANDROID_SHADING_AVAILABLE_MODES,
+		ANDROID_TONEMAP_AVAILABLE_TONE_MAP_MODES,
+		ANDROID_TONEMAP_MAX_CURVE_POINTS,
 	};
 
 	availableRequestKeys_ = {
@@ -1500,7 +1509,7 @@ int CameraCapabilities::initializeStaticMetadata()
 				  maxNumInputStreams);
 
 	/* Number of { RAW, YUV, JPEG } supported output streams */
-	int32_t numOutStreams[] = { rawStreamAvailable_, 2, 1 };
+	int32_t numOutStreams[] = { rawStreamAvailable_, 3, 1 };
 	staticMetadata_->addEntry(ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS,
 				  numOutStreams);
 
@@ -1512,6 +1521,60 @@ int CameraCapabilities::initializeStaticMetadata()
 
 	computeHwLevel(capabilities_);
 	staticMetadata_->addEntry(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, hwLevel_);
+
+	uint8_t availableEdgeMode[] = {
+		ANDROID_EDGE_MODE_OFF,
+		ANDROID_EDGE_MODE_FAST,
+		ANDROID_EDGE_MODE_HIGH_QUALITY,
+		ANDROID_EDGE_MODE_ZERO_SHUTTER_LAG,
+	};
+	staticMetadata_->addEntry(ANDROID_EDGE_AVAILABLE_EDGE_MODES, availableEdgeMode);
+
+	float availableFilterDensities[] = {
+		1.0f,
+	};
+	staticMetadata_->addEntry(ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES, availableFilterDensities);
+
+	float availableFocusDistanceCalibration[] = {
+		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED,
+		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_APPROXIMATE,
+		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_CALIBRATED,
+	};
+	staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
+		availableFocusDistanceCalibration);
+
+	uint8_t shadingAvailableModes[] = {
+		ANDROID_SHADING_MODE_OFF,
+		ANDROID_SHADING_MODE_FAST,
+		ANDROID_SHADING_MODE_HIGH_QUALITY,
+	};
+	staticMetadata_->addEntry(ANDROID_SHADING_AVAILABLE_MODES,
+		shadingAvailableModes);
+
+	int32_t sensorBlackLevelPattern[] = {
+		2, 4 ,3, 2,
+	};
+	staticMetadata_->addEntry(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
+		sensorBlackLevelPattern);
+
+	int32_t sensorInfoWhiteLevel = 1023;
+	staticMetadata_->addEntry(ANDROID_SENSOR_INFO_WHITE_LEVEL,
+		sensorInfoWhiteLevel);
+
+	uint8_t availableToneMapModes[] = {
+		ANDROID_TONEMAP_MODE_CONTRAST_CURVE,
+		ANDROID_TONEMAP_MODE_FAST,
+		ANDROID_TONEMAP_MODE_HIGH_QUALITY,
+		ANDROID_TONEMAP_MODE_GAMMA_VALUE,
+		ANDROID_TONEMAP_MODE_PRESET_CURVE,
+	};
+	staticMetadata_->addEntry(ANDROID_TONEMAP_AVAILABLE_TONE_MAP_MODES,
+		availableToneMapModes);
+
+	int32_t toneMapMaxCurvePoints = 64;
+
+	staticMetadata_->addEntry(ANDROID_TONEMAP_MAX_CURVE_POINTS,
+		toneMapMaxCurvePoints);
 
 	LOG(HAL, Info)
 		<< "Hardware level: " << hwLevelStrings.find(hwLevel_)->second;
