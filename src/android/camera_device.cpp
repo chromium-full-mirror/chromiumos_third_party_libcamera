@@ -1995,7 +1995,7 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	 * Total bytes: 16
 	 */
 	std::unique_ptr<CameraMetadata> resultMetadata =
-		std::make_unique<CameraMetadata>(32, 16);
+		std::make_unique<CameraMetadata>(64, 128);
 	if (!resultMetadata->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate result metadata";
 		return nullptr;
@@ -2149,6 +2149,47 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	const int64_t rolling_shutter_skew = 33300000;
 	resultMetadata->addEntry(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW,
 				 rolling_shutter_skew);
+
+	// Support FULL mode metadata
+	if (settings.getEntry(ANDROID_COLOR_CORRECTION_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_COLOR_CORRECTION_MODE, *entry.data.u8);
+	}
+
+	if (settings.getEntry(ANDROID_COLOR_CORRECTION_TRANSFORM, &entry)) {
+		resultMetadata->addEntry(ANDROID_COLOR_CORRECTION_TRANSFORM, entry.data.r, entry.count);
+	}
+
+	if (settings.getEntry(ANDROID_COLOR_CORRECTION_GAINS, &entry)) {
+		resultMetadata->addEntry(ANDROID_COLOR_CORRECTION_GAINS, entry.data.f, entry.count);
+	}
+
+	if (settings.getEntry(ANDROID_EDGE_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_EDGE_MODE, *entry.data.u8);
+	}
+
+	if (settings.getEntry(ANDROID_HOT_PIXEL_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_HOT_PIXEL_MODE, *entry.data.u8);
+	}
+
+	if (settings.getEntry(ANDROID_LENS_FILTER_DENSITY, &entry)) {
+		resultMetadata->addEntry(ANDROID_LENS_FILTER_DENSITY, entry.data.f, 1);
+	}
+
+	if (settings.getEntry(ANDROID_LENS_FOCUS_DISTANCE, &entry)) {
+		resultMetadata->addEntry(ANDROID_LENS_FOCUS_DISTANCE, entry.data.f, 1);
+	}
+
+	if (settings.getEntry(ANDROID_LENS_FOCUS_RANGE, &entry)) {
+		resultMetadata->addEntry(ANDROID_LENS_FOCUS_RANGE, entry.data.f, entry.count);
+	}
+
+	if (settings.getEntry(ANDROID_SHADING_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_SHADING_MODE, *entry.data.u8);
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_TONEMAP_MODE, *entry.data.u8);
+	}
 
 	/*
 	 * Return the result metadata pack even is not valid: get() will return
