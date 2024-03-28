@@ -1683,6 +1683,10 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	requestTemplate->addEntry(ANDROID_SCALER_CROP_REGION,
 				  cropRegion);
 
+	uint8_t blackLevelLock = ANDROID_BLACK_LEVEL_LOCK_OFF;
+	requestTemplate->addEntry(ANDROID_BLACK_LEVEL_LOCK,
+				  blackLevelLock);
+
 	return requestTemplate;
 }
 
