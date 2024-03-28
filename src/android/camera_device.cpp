@@ -1995,7 +1995,7 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	 * Total bytes: 16
 	 */
 	std::unique_ptr<CameraMetadata> resultMetadata =
-		std::make_unique<CameraMetadata>(64, 128);
+		std::make_unique<CameraMetadata>(64, 512);
 	if (!resultMetadata->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate result metadata";
 		return nullptr;
@@ -2187,8 +2187,28 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 		resultMetadata->addEntry(ANDROID_SHADING_MODE, *entry.data.u8);
 	}
 
+	if (settings.getEntry(ANDROID_TONEMAP_GAMMA, &entry)) {
+		resultMetadata->addEntry(ANDROID_TONEMAP_GAMMA, *entry.data.f);
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_PRESET_CURVE, &entry)) {
+		resultMetadata->addEntry(ANDROID_TONEMAP_PRESET_CURVE, *entry.data.u8);
+	}
+
 	if (settings.getEntry(ANDROID_TONEMAP_MODE, &entry)) {
 		resultMetadata->addEntry(ANDROID_TONEMAP_MODE, *entry.data.u8);
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_CURVE_RED, &entry)) {
+		resultMetadata->addEntry(ANDROID_TONEMAP_CURVE_RED, entry.data.f, entry.count);
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_CURVE_GREEN, &entry)) {
+		resultMetadata->addEntry(ANDROID_TONEMAP_CURVE_GREEN, entry.data.f, entry.count);
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_CURVE_BLUE, &entry)) {
+		resultMetadata->addEntry(ANDROID_TONEMAP_CURVE_BLUE, entry.data.f, entry.count);
 	}
 
 	/*
