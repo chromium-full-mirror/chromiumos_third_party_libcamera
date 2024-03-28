@@ -17,6 +17,7 @@
 
 #include <hardware/camera3.h>
 #include <system/camera_metadata.h>
+#include "android/metadata/system/camera_metadata.h"
 
 #include <libcamera/base/log.h>
 
@@ -846,6 +847,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_JPEG_THUMBNAIL_SIZE,
 		ANDROID_LENS_APERTURE,
 		ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
+		ANDROID_EDGE_MODE,
 		ANDROID_NOISE_REDUCTION_MODE,
 		ANDROID_SCALER_CROP_REGION,
 		ANDROID_STATISTICS_FACE_DETECT_MODE
@@ -885,6 +887,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_LENS_FOCAL_LENGTH,
 		ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 		ANDROID_LENS_STATE,
+		ANDROID_EDGE_MODE,
 		ANDROID_NOISE_REDUCTION_MODE,
 		ANDROID_REQUEST_PIPELINE_DEPTH,
 		ANDROID_SCALER_CROP_REGION,
@@ -1587,7 +1590,7 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	 * CameraMetadata is capable of resizing the container on the fly, if
 	 * adding a new entry will exceed its capacity.
 	 */
-	auto requestTemplate = std::make_unique<CameraMetadata>(22, 38);
+	auto requestTemplate = std::make_unique<CameraMetadata>(44, 76);
 	if (!requestTemplate->isValid()) {
 		return nullptr;
 	}
@@ -1687,6 +1690,48 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	requestTemplate->addEntry(ANDROID_BLACK_LEVEL_LOCK,
 				  blackLevelLock);
 
+	uint8_t colorCorrectionMode = ANDROID_COLOR_CORRECTION_MODE_FAST;
+	requestTemplate->addEntry(ANDROID_COLOR_CORRECTION_MODE,
+				  colorCorrectionMode);
+
+	const camera_metadata_rational_t colorCorrectionTransform[] = {
+		{ 1, 1}, { 0, 1}, {0, 1},
+		{ 0, 1}, { 1, 1}, {0, 1},
+		{ 0, 1}, { 0, 1}, {1, 1},
+	};
+	requestTemplate->addEntry(ANDROID_COLOR_CORRECTION_TRANSFORM,
+				  colorCorrectionTransform);
+
+	float colorCorrectionGains[] = {
+		1.0f, 1.0f, 1.0f, 1.0f,
+	};
+	requestTemplate->addEntry(ANDROID_COLOR_CORRECTION_GAINS,
+				  colorCorrectionGains);
+
+	uint8_t edgeMode = ANDROID_EDGE_MODE_FAST;
+	requestTemplate->addEntry(ANDROID_EDGE_MODE, edgeMode);
+
+	uint8_t hotPixelMode = ANDROID_HOT_PIXEL_MODE_FAST;
+	requestTemplate->addEntry(ANDROID_HOT_PIXEL_MODE, hotPixelMode);
+
+	float lensFilterDensity = 1.0f;
+	requestTemplate->addEntry(ANDROID_LENS_FILTER_DENSITY, lensFilterDensity);
+
+	float lensFocusDistance = 0.0f;
+	requestTemplate->addEntry(ANDROID_LENS_FOCUS_DISTANCE, lensFocusDistance);
+
+	float lensFocusRange[] = {
+		0.0f, 100.0f
+	};
+	requestTemplate->addEntry(ANDROID_LENS_FOCUS_RANGE,
+				  lensFocusRange);
+
+	uint8_t shadingMode = ANDROID_SHADING_MODE_FAST;
+	requestTemplate->addEntry(ANDROID_SHADING_MODE, shadingMode);
+
+	uint8_t toneMapMode = ANDROID_TONEMAP_MODE_FAST;
+	requestTemplate->addEntry(ANDROID_TONEMAP_MODE, toneMapMode);
+
 	return requestTemplate;
 }
 
@@ -1699,6 +1744,23 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateStill() const
 	uint8_t noiseReductionMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
 	stillTemplate->updateEntry(ANDROID_NOISE_REDUCTION_MODE,
 				  noiseReductionMode);
+
+	uint8_t colorCorrectionMode = ANDROID_COLOR_CORRECTION_MODE_HIGH_QUALITY;
+	stillTemplate->updateEntry(ANDROID_COLOR_CORRECTION_MODE,
+				  colorCorrectionMode);
+
+	uint8_t edgeMode = ANDROID_EDGE_MODE_HIGH_QUALITY;
+	stillTemplate->updateEntry(ANDROID_EDGE_MODE, edgeMode);
+
+	uint8_t hotPixelMode = ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY;
+	stillTemplate->updateEntry(ANDROID_HOT_PIXEL_MODE, hotPixelMode);
+
+	uint8_t shadingMode = ANDROID_SHADING_MODE_HIGH_QUALITY;
+	stillTemplate->updateEntry(ANDROID_SHADING_MODE, shadingMode);
+
+	uint8_t toneMapMode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
+	stillTemplate->updateEntry(ANDROID_TONEMAP_MODE, toneMapMode);
+
 	return stillTemplate;
 }
 
