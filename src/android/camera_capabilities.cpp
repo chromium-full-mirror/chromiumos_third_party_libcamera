@@ -859,7 +859,21 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_EDGE_MODE,
 		ANDROID_NOISE_REDUCTION_MODE,
 		ANDROID_SCALER_CROP_REGION,
-		ANDROID_STATISTICS_FACE_DETECT_MODE
+		ANDROID_STATISTICS_FACE_DETECT_MODE,
+		ANDROID_SENSOR_FRAME_DURATION,
+		ANDROID_SENSOR_EXPOSURE_TIME,
+		ANDROID_SENSOR_SENSITIVITY,
+		ANDROID_BLACK_LEVEL_LOCK,
+		ANDROID_TONEMAP_MODE,
+		ANDROID_COLOR_CORRECTION_GAINS,
+		ANDROID_COLOR_CORRECTION_TRANSFORM,
+		ANDROID_SHADING_MODE,
+		ANDROID_STATISTICS_LENS_SHADING_MAP_MODE,
+		ANDROID_LENS_FILTER_DENSITY,
+		ANDROID_TONEMAP_MAX_CURVE_POINTS,
+		ANDROID_TONEMAP_CURVE_RED,
+		ANDROID_TONEMAP_CURVE_BLUE,
+		ANDROID_TONEMAP_CURVE_GREEN,
 	};
 
 	availableResultKeys_ = {
@@ -909,6 +923,16 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_STATISTICS_LENS_SHADING_MAP_MODE,
 		ANDROID_STATISTICS_HOT_PIXEL_MAP_MODE,
 		ANDROID_STATISTICS_SCENE_FLICKER,
+		ANDROID_TONEMAP_MODE,
+		ANDROID_COLOR_CORRECTION_GAINS,
+		ANDROID_COLOR_CORRECTION_TRANSFORM,
+		ANDROID_SHADING_MODE,
+		ANDROID_BLACK_LEVEL_LOCK,
+		ANDROID_SENSOR_SENSITIVITY,
+		ANDROID_TONEMAP_MAX_CURVE_POINTS,
+		ANDROID_TONEMAP_CURVE_RED,
+		ANDROID_TONEMAP_CURVE_BLUE,
+		ANDROID_TONEMAP_CURVE_GREEN,
 	};
 
 	/* Color correction static metadata. */
@@ -1369,8 +1393,10 @@ int CameraCapabilities::initializeStaticMetadata()
 		data.reserve(5);
 		const auto &infoMap = controlsInfo.find(&controls::draft::NoiseReductionMode);
 		if (infoMap != controlsInfo.end()) {
-			for (const auto &value : infoMap->second.values())
-				data.push_back(value.get<int32_t>());
+			for (const auto &value : infoMap->second.values()){
+				if (value.get<int32_t>() != ANDROID_NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG)
+					data.push_back(value.get<int32_t>());
+			}
 		} else {
 			data.push_back(ANDROID_NOISE_REDUCTION_MODE_OFF);
 		}
@@ -1526,7 +1552,6 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_EDGE_MODE_OFF,
 		ANDROID_EDGE_MODE_FAST,
 		ANDROID_EDGE_MODE_HIGH_QUALITY,
-		ANDROID_EDGE_MODE_ZERO_SHUTTER_LAG,
 	};
 	staticMetadata_->addEntry(ANDROID_EDGE_AVAILABLE_EDGE_MODES, availableEdgeMode);
 
@@ -1794,6 +1819,30 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 
 	uint8_t toneMapMode = ANDROID_TONEMAP_MODE_FAST;
 	requestTemplate->addEntry(ANDROID_TONEMAP_MODE, toneMapMode);
+
+	int64_t frameDuration = 33'333'333;
+	requestTemplate->addEntry(ANDROID_SENSOR_FRAME_DURATION, frameDuration);
+
+	int64_t exposureTime = 33'333'333;
+	requestTemplate->addEntry(ANDROID_SENSOR_EXPOSURE_TIME, exposureTime);
+
+	int32_t sensitivity = 100;
+	requestTemplate->addEntry(ANDROID_SENSOR_SENSITIVITY, sensitivity);
+
+	uint8_t lensShadingMapMode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF;
+	requestTemplate->addEntry(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, lensShadingMapMode);
+
+	int32_t toneMapMaxCurvePoints = 64;
+	requestTemplate->addEntry(ANDROID_TONEMAP_MAX_CURVE_POINTS,
+		toneMapMaxCurvePoints);
+
+	float red[] = {0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f};
+	float green[] = {0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f};
+	float blue[] = {0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f};
+
+	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_RED,red);
+	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_GREEN,green);
+	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_BLUE,blue);
 
 	return requestTemplate;
 }
