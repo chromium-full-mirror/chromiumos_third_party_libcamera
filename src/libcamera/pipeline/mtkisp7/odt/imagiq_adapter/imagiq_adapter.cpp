@@ -913,6 +913,9 @@ NSCam::TuningUtils::NddData ImagiqAdapter::parseNdd(const Dump &dump)
 	case formats::NV21:
 		bitsPerPixel = 8;
 		break;
+	case formats::NV12_10P_MTISP:
+		bitsPerPixel = 10;
+		break;
 	default:
 		break;
 	}
