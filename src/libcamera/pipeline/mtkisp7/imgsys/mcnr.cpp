@@ -1160,7 +1160,7 @@ void Dip2Task::run()
 		tncCrop.y = (mcnrSizes[0].height - tncCrop.height) / 2;
 	}
 
-	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, tncCrop);
+	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, Size{tncCrop.width, tncCrop.height});
 	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, tncCrop);
 	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, tncCrop);
 	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
