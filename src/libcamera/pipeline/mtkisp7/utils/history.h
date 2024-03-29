@@ -20,7 +20,7 @@ template<typename T>
 class History
 {
 public:
-	static const uint32_t kMaxSize = 15;
+	static const uint32_t kMaxSize = 32;
 
 	History(int size = kMaxSize)
 		: size_(size)
