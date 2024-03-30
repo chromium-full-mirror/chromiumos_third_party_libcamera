@@ -1160,9 +1160,12 @@ void Dip2Task::run()
 		tncCrop.y = (mcnrSizes[0].height - tncCrop.height) / 2;
 	}
 
+	Rectangle tncCropAlign = tncCrop;
+	tncCropAlign.y = tncCropAlign.y / 16 * 16;
+
 	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, Size{tncCrop.width, tncCrop.height});
-	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, tncCrop);
-	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, tncCrop);
+	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, tncCropAlign);
+	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, tncCropAlign);
 	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	HW_DIP_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
 	HW_DIP_F0.setPqInfo();
@@ -1187,7 +1190,7 @@ void Dip2Task::run()
 			     (unsigned int)NSCam::NSImgStream::EWPE_MVMAP | NSCam::NSImgStream::EWPE_IROI);
 
 	HW_DIP_F0.setCostLevel();
-	HW_DIP_F0.setImg4oCrop(tncCrop);
+	HW_DIP_F0.setImg4oCrop(tncCropAlign);
 
 	requestHelper_.queueRequest(sdRequest);
 }
