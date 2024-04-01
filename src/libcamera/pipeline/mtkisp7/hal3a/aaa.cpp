@@ -67,7 +67,12 @@ void FocusController::set(int32_t position, int64_t timestamp)
 		cameraLens_->setFocusPosition(
 			position == 0 ? 1 : position - 1);
 	}
+
 	cameraLens_->setFocusPosition(position);
+
+	// Do not update moving timestamp if the target position is unchanged
+	if (position == focusPosition_)
+		return;
 
 	previousFocusPosition_ = focusPosition_;
 	previousMovingTimestamp_ = movingTimestamp_;

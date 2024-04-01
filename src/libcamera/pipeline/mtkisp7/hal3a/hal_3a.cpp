@@ -600,7 +600,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.awb_default_pregain1 = 0;
 	//TODO, seperate the config for differnt module (geralt, ciri)
 	if (sensor_idx_ == 0) { // back camera
-		r_3a_param.af_mode = 4;
+		r_3a_param.af_mode = 3;
 	} else { // front camera
 		r_3a_param.af_mode = 0;
 	}
