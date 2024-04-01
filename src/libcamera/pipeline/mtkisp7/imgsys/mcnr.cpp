@@ -1163,7 +1163,7 @@ void Dip2Task::run()
 	Rectangle tncCropAlign = tncCrop;
 	tncCropAlign.y = tncCropAlign.y / 16 * 16;
 
-	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, Size{tncCrop.width, tncCrop.height});
+	HW_DIP_F0.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, tncCropAlign);
 	HW_DIP_F0.output(out.img4oF0->get(), IMG_PORT_IMG4O, 0, tncCropAlign);
 	HW_DIP_F0.output(out.dipTnrwo[0]->get(), IMG_PORT_TNRWO, 0, tncCropAlign);
 	HW_DIP_F0.output(out.dipTnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
