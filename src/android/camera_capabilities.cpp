@@ -708,10 +708,16 @@ int CameraCapabilities::initializeStreamConfigurations()
 			minFrameDuration = 1e9 / calculateFps(minFrameDuration);
 			maxFrameDuration = 1e9 / calculateFps(maxFrameDuration);
 
-			streamConfigurations_.push_back({
-				res, androidFormat, minFrameDuration, maxFrameDuration,
-			});
-
+			//Todo, read resolution and frame duration from table
+			if (res == maxRes){
+				streamConfigurations_.push_back({
+					res, androidFormat, minFrameDuration * 3 / 2, maxFrameDuration,
+				});
+			} else {
+				streamConfigurations_.push_back({
+					res, androidFormat, minFrameDuration, maxFrameDuration,
+				});
+			}
 			/*
 			 * If the format is HAL_PIXEL_FORMAT_YCbCr_420_888
 			 * from which JPEG is produced, add an entry for
@@ -730,10 +736,18 @@ int CameraCapabilities::initializeStreamConfigurations()
 			 * the YUV/RGB streams.
 			 */
 			if (androidFormat == HAL_PIXEL_FORMAT_YCbCr_420_888) {
-				streamConfigurations_.push_back({
-					res, HAL_PIXEL_FORMAT_BLOB,
-					minFrameDuration, maxFrameDuration,
-				});
+				//Todo, read resolution and frame duration from table
+				if (res == maxRes){
+					streamConfigurations_.push_back({
+						res, HAL_PIXEL_FORMAT_BLOB,
+						minFrameDuration * 3 / 2, maxFrameDuration,
+					});
+				} else {
+					streamConfigurations_.push_back({
+						res, HAL_PIXEL_FORMAT_BLOB,
+						minFrameDuration, maxFrameDuration,
+					});
+				}
 				maxJpegSize = std::max(maxJpegSize, res);
 			}
 
@@ -1436,6 +1450,11 @@ int CameraCapabilities::initializeStaticMetadata()
 	availableStreamConfigurations.reserve(streamConfigurations_.size() * 4);
 	minFrameDurations.reserve(streamConfigurations_.size() * 4);
 
+	std::unique_ptr<CameraConfiguration> cameraConfig =
+		camera_->generateConfiguration({ StreamRole::StillCapture });
+	const Size maxRes = cameraConfig->at(0).size;
+
+	std::set<int32_t> availableFps;
 	for (const auto &entry : streamConfigurations_) {
 		/*
 		 * Filter out YUV streams not capable of running at 30 FPS.
@@ -1448,9 +1467,11 @@ int CameraCapabilities::initializeStaticMetadata()
 		 */
 		int fps = calculateFps(entry.minFrameDurationNsec);
 
-		if (entry.androidFormat != HAL_PIXEL_FORMAT_BLOB && fps < 30)
+		if (entry.androidFormat != HAL_PIXEL_FORMAT_BLOB && fps < 30
+		     && entry.resolution != maxRes)
 			continue;
 
+		availableFps.insert(fps);
 		/*
 		 * Collect the FPS of the maximum YUV output size to populate
 		 * AE_AVAILABLE_TARGET_FPS_RANGE
@@ -1458,7 +1479,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		if (entry.androidFormat == HAL_PIXEL_FORMAT_YCbCr_420_888 &&
 		    entry.resolution > maxYUVSize) {
 			maxYUVSize = entry.resolution;
-			maxYUVFps = fps;
+			maxYUVFps = std::max(fps, maxYUVFps);
 		}
 
 		/* Stream configuration map. */
@@ -1492,9 +1513,20 @@ int CameraCapabilities::initializeStaticMetadata()
 	 * the globally minimum frame rate.
 	 */
 	int32_t minFps = calculateFps(maxFrameDuration_);
-	int32_t availableAeFpsTarget[] = {
-		minFps, maxYUVFps, maxYUVFps, maxYUVFps,
-	};
+	std::vector<int32_t> availableAeFpsTarget = {
+		minFps, maxYUVFps, maxYUVFps, maxYUVFps};
+	LOG(HAL, Debug) << "Add fps range: " << minFps << ":" << maxYUVFps;
+	LOG(HAL, Debug) << "Add constant fps range: " << maxYUVFps << ":" << maxYUVFps;
+	for (auto fps: availableFps){
+		if (fps != maxYUVFps){
+			availableAeFpsTarget.push_back(minFps);
+			availableAeFpsTarget.push_back(fps);
+			LOG(HAL, Debug) << "Add fps range: " << fps << ":" << fps;
+			availableAeFpsTarget.push_back(fps);
+			availableAeFpsTarget.push_back(fps);
+			LOG(HAL, Debug) << "Add constant fps range: " << fps << ":" << fps;
+		}
+	}
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
 				  availableAeFpsTarget);
 
