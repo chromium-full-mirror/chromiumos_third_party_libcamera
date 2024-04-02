@@ -1454,7 +1454,6 @@ int CameraCapabilities::initializeStaticMetadata()
 		camera_->generateConfiguration({ StreamRole::StillCapture });
 	const Size maxRes = cameraConfig->at(0).size;
 
-	std::set<int32_t> availableFps;
 	for (const auto &entry : streamConfigurations_) {
 		/*
 		 * Filter out YUV streams not capable of running at 30 FPS.
@@ -1471,7 +1470,6 @@ int CameraCapabilities::initializeStaticMetadata()
 		     && entry.resolution != maxRes)
 			continue;
 
-		availableFps.insert(fps);
 		/*
 		 * Collect the FPS of the maximum YUV output size to populate
 		 * AE_AVAILABLE_TARGET_FPS_RANGE
@@ -1517,16 +1515,6 @@ int CameraCapabilities::initializeStaticMetadata()
 		minFps, maxYUVFps, maxYUVFps, maxYUVFps};
 	LOG(HAL, Debug) << "Add fps range: " << minFps << ":" << maxYUVFps;
 	LOG(HAL, Debug) << "Add constant fps range: " << maxYUVFps << ":" << maxYUVFps;
-	for (auto fps: availableFps){
-		if (fps != maxYUVFps){
-			availableAeFpsTarget.push_back(minFps);
-			availableAeFpsTarget.push_back(fps);
-			LOG(HAL, Debug) << "Add fps range: " << fps << ":" << fps;
-			availableAeFpsTarget.push_back(fps);
-			availableAeFpsTarget.push_back(fps);
-			LOG(HAL, Debug) << "Add constant fps range: " << fps << ":" << fps;
-		}
-	}
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
 				  availableAeFpsTarget);
 

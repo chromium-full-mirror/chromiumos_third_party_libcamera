@@ -161,8 +161,8 @@ void Hal3A::getInitialInfo()
 	// Replace m_meta_helper.convertToConfigRequest
 	config.ae_target_mode = 0;
 	config.isp_fus_num = 0;
-	config.ae_sensor_min_fps = 0;
-	config.ae_sensor_max_fps = 0;
+	config.ae_sensor_min_fps = 5000;
+	config.ae_sensor_max_fps = 30000;
 	config.multiexp_hdr_mode = 0;
 	config.ae_valid_exp = 0;
 	config.tuning_feature = 0;
@@ -247,8 +247,8 @@ void Hal3A::config()
 	// Replace m_meta_helper.convertToConfigRequest
 	config.ae_target_mode = 0;
 	config.isp_fus_num = 0;
-	config.ae_sensor_min_fps = 0;
-	config.ae_sensor_max_fps = 0;
+	config.ae_sensor_min_fps = 5000;
+	config.ae_sensor_max_fps = 30000;
 	config.multiexp_hdr_mode = 0;
 	config.ae_valid_exp = 0;
 	config.tuning_feature = 0;
@@ -552,6 +552,14 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.awb_lock = controls_opt->get(controls::AwbLocked).value_or(0);
 		r_3a_param.awb_mode = controls_opt->get(controls::AwbMode).value_or(1);
 		r_3a_param.ae_anti_banding_mode = controls_opt->get(controls::AeAntiBandingMode).value_or(3);
+		std::array<int64_t, 2> defaultFrameLimites = { 33'333, 66'666 };
+		const auto &frameDurationLimits = controls_opt->get(controls::FrameDurationLimits).value_or(defaultFrameLimites);
+		int32_t minFps = 1'000'000 / static_cast<int32_t>(frameDurationLimits[1]);
+		int32_t maxFps = 1'000'000 / static_cast<int32_t>(frameDurationLimits[0]);
+		r_3a_param.ae_sensor_min_fps = minFps * 1000;
+		r_3a_param.ae_sensor_max_fps = maxFps * 1000;
+		r_3a_param.ae_min_fps = minFps * 1000;
+		r_3a_param.ae_max_fps = maxFps * 1000;
 	} else {
 		r_3a_param.ae_mode = 1;
 		r_3a_param.ae_lock = 0;
@@ -562,12 +570,14 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.awb_lock = 0;
 		r_3a_param.awb_mode = 1;
 		r_3a_param.ae_anti_banding_mode = 3;
+		r_3a_param.ae_sensor_min_fps = 5000;
+		r_3a_param.ae_sensor_max_fps = 30000;
+		r_3a_param.ae_min_fps = 5000;
+		r_3a_param.ae_max_fps = 30000;
 	}
 
 	r_3a_param.ae_exp_index = 0;
 	r_3a_param.ae_exp_step = 0.500000;
-	r_3a_param.ae_min_fps = 5000;
-	r_3a_param.ae_max_fps = 30000;
 	r_3a_param.ae_region.count = 1;
 	r_3a_param.black_level_lock = 0;
 	r_3a_param.set_converge = 0;
@@ -706,8 +716,6 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.custom_param.end_frame_index = 0;
 	r_3a_param.ae_valid_exp = 0;
 	r_3a_param.denoise_mode = 0;
-	r_3a_param.ae_sensor_min_fps = 5000;
-	r_3a_param.ae_sensor_max_fps = 30000;
 	r_3a_param.ae_hal_exp_index = 0;
 	r_3a_param.manual_ev_ctrl.frame_count = 0;
 	r_3a_param.manual_ev_ctrl.frame_index = 0;

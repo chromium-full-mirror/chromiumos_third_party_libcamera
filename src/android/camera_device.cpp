@@ -1042,9 +1042,15 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
-		controls.set(controls::AeAntiBandingMode, static_cast<bool>(data[0]));
+		controls.set(controls::AeAntiBandingMode, static_cast<int32_t>(data[0]));
 	}
 
+	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)){
+		const int32_t *data = entry.data.i32;
+		int64_t maxFrameDuration = 1'000'000 / static_cast<int64_t>(data[0]);
+		int64_t minFrameDuration = 1'000'000 / static_cast<int64_t>(data[1]);
+		controls.set(controls::FrameDurationLimits, {minFrameDuration, maxFrameDuration});
+	}
 	return 0;
 }
 
@@ -2209,6 +2215,10 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 
 	if (settings.getEntry(ANDROID_TONEMAP_CURVE_BLUE, &entry)) {
 		resultMetadata->addEntry(ANDROID_TONEMAP_CURVE_BLUE, entry.data.f, entry.count);
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)){
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, entry.data.i32, 2);
 	}
 
 	/*
