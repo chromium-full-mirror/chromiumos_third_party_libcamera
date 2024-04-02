@@ -422,7 +422,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kPreview;
 
 	r_3a_request.buf_info.request_id = camSysMetaRequestId;
-	r_3a_request.buf_info.sof_timestamp = timestamp;
+	r_3a_request.buf_info.sof_timestamp = timestamp / 1000; // Need ms
 	if (internalRequestIdApplied) {
 		onDeviceTuner_->tune3ARequest(internalRequestIdApplied.value(),
 					      r_3a_request,
@@ -495,7 +495,7 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 	// TODO: Check when to use kAFTrigger.
 	r_af_request.scenario = mtk::hal3a::Mtk3AScenario::kAFNormal;
 	r_af_request.buf_info.request_id = camSysMetaRequestId;
-	r_af_request.buf_info.sof_timestamp = timestamp;
+	r_af_request.buf_info.sof_timestamp = timestamp / 1000;
 
 	r_af_request.focus_info = vcmFocusInfo;
 
