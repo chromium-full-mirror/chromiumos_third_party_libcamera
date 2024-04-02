@@ -1421,69 +1421,21 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::AWB_ENABLE,
 		controls::AWB_LOCKED,
 		controls::AE_ANTI_BANDING_MODE,
+		controls::FRAME_DURATION,
+		controls::FRAME_DURATION_LIMITS,
 	};
 
 	for (auto id : checkList) {
-		auto control = controls::controls.at(id);
-		auto type = control->type();
-		switch (type) {
-		case ControlTypeBool: {
-			auto bool_control = static_cast<Control<bool> *>(const_cast<ControlId *>(control));
-			bool value = static_cast<bool>(
-				controls_cur->get(*bool_control).value_or(false));
-			bool value_cache = static_cast<bool>(
-				controls_cache->get(*bool_control).value_or(false));
+		if (controls_cur->contains(id) && controls_cache->contains(id)) {
+			auto value = controls_cur->get(id);
+			auto value_cache = controls_cache->get(id);
 			if (value != value_cache) {
-				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << "(new) : " << value_cache << "(old)";
+				LOG(MtkISP7, Debug) << "id:" << controls::controls.at(id) << " value changed!! ";
 				return true;
 			}
-			break;
-		}
-		case ControlTypeByte:
-			break;
-		case ControlTypeUnsigned16:
-			break;
-		case ControlTypeUnsigned32:
-			break;
-		case ControlTypeInteger32: {
-			auto int32_control = static_cast<Control<int32_t> *>(const_cast<ControlId *>(control));
-			int32_t value = static_cast<int32_t>(
-				controls_cur->get(*int32_control).value_or(0));
-			int32_t value_cache = static_cast<int32_t>(
-				controls_cache->get(*int32_control).value_or(0));
-			if (value != value_cache) {
-				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << "(new) : " << value_cache << "(old)";
-				return true;
-			}
-			break;
-		}
-		case ControlTypeInteger64:
-			break;
-		case ControlTypeFloat: {
-			auto float_control = static_cast<Control<float> *>(const_cast<ControlId *>(control));
-			float value = static_cast<float>(
-				controls_cur->get(*float_control).value_or(0));
-			float value_cache = static_cast<float>(
-				controls_cache->get(*float_control).value_or(0));
-			if (value != value_cache) {
-				LOG(MtkISP7, Debug) << "id:" << control->id() << " value changed!! " << value << "(new) : " << value_cache << "(old)";
-				return true;
-			}
-			break;
-		}
-		case ControlTypeRectangle:
-			break;
-		case ControlTypeSize:
-			break;
-		case ControlTypePoint:
-			break;
-		case ControlTypeNone:
-			break;
-		case ControlTypeString:
-			break;
-			break;
-		default:
-			break;
+		} else if (controls_cur->contains(id) || controls_cache->contains(id)) {
+			LOG(MtkISP7, Debug) << "id:" << controls::controls.at(id) << " value changed!! ";
+			return true;
 		}
 	}
 
