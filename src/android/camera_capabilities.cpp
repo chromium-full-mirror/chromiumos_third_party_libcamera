@@ -1446,6 +1446,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	std::vector<int64_t> minFrameDurations;
 	int maxYUVFps = 0;
 	Size maxYUVSize;
+	std::set<int> availableFps;
 
 	availableStreamConfigurations.reserve(streamConfigurations_.size() * 4);
 	minFrameDurations.reserve(streamConfigurations_.size() * 4);
@@ -1470,6 +1471,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		     && entry.resolution != maxRes)
 			continue;
 
+		availableFps.insert(fps);
 		/*
 		 * Collect the FPS of the maximum YUV output size to populate
 		 * AE_AVAILABLE_TARGET_FPS_RANGE
@@ -1511,10 +1513,19 @@ int CameraCapabilities::initializeStaticMetadata()
 	 * the globally minimum frame rate.
 	 */
 	int32_t minFps = calculateFps(maxFrameDuration_);
-	std::vector<int32_t> availableAeFpsTarget = {
-		minFps, maxYUVFps, maxYUVFps, maxYUVFps};
-	LOG(HAL, Debug) << "Add fps range: " << minFps << ":" << maxYUVFps;
-	LOG(HAL, Debug) << "Add constant fps range: " << maxYUVFps << ":" << maxYUVFps;
+	std::vector<int32_t> availableAeFpsTarget;
+	std::vector<int32_t> sortedFps(availableFps.begin(),availableFps.end());
+	std::sort(sortedFps.begin(),sortedFps.end());
+	for (auto fps:sortedFps){
+		availableAeFpsTarget.push_back(minFps);
+		availableAeFpsTarget.push_back(fps);
+		LOG(HAL, Debug) << "Add fps range: " << minFps << ":" << fps;
+		if (fps != minFps){
+			availableAeFpsTarget.push_back(fps);
+			availableAeFpsTarget.push_back(fps);
+			LOG(HAL, Debug) << "Add fixed fps range: " << fps << ":" << fps;
+		}
+	}
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
 				  availableAeFpsTarget);
 
