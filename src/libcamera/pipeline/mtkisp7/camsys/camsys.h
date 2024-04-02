@@ -60,6 +60,7 @@ public:
 
 	int setTestPattern(controls::draft::TestPatternModeEnum mode);
 	int setExposureGain(uint32_t exposure, uint32_t gain);
+	int setVBlank(uint32_t vblank);
 
 	unsigned int getIndex() { return index_; }
 

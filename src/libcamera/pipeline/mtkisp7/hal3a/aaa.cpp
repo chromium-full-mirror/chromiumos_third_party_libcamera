@@ -215,7 +215,7 @@ void AATask::run()
 			LOG(MtkISP7, Error) << "Gyro not found";
 	}
 
-	std::pair<uint32_t, uint32_t> exposureAndGain;
+	SensorSetting exposureAndGain;
 	hal3A_->doCalculation(captureFrames_.statistics0->get().buffer(),
 			      captureFrames_.timestamp->get(),
 			      internalRequestId_, camSysMetaRequestId_,
@@ -228,10 +228,7 @@ void AATask::run()
 			      internalRequestIdApplied_,
 			      featureApplied_,
 				  perFrameControl_.controls);
-	captureFrames_.exposureAndGainOutput->put(
-		std::move(exposureAndGain),
-		[]([[maybe_unused]] std::pair<uint32_t, uint32_t>
-			   &exposureAndGain) {});
+	captureFrames_.exposureAndGainOutput->put(std::move(exposureAndGain), nullptr);
 
 	if (internalRequestIdApplied_) {
 		ASSERT(featureApplied_);

@@ -43,8 +43,8 @@ struct CaptureFrames {
 
 	SharedMailBox<uint64_t> timestamp;
 
-	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGain; // input
-	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGainOutput; // output
+	SharedMailBox<SensorSetting> exposureAndGain; // input
+	SharedMailBox<SensorSetting> exposureAndGainOutput; // output
 
 	SharedMailBox<AaaIspExchange> aaaIspExchange;
 

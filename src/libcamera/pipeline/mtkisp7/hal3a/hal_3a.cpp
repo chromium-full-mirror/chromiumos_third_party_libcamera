@@ -18,6 +18,7 @@
 #include "libcamera/internal/mapped_framebuffer.h"
 
 #include "../halisp/hal_isp.h"
+#include "../camsys/capture.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -365,7 +366,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			  bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			  MtkCameraFaceMetadata *faceMetadata, GyroSensor::SensorSample gyroSample,
-			  std::pair<uint32_t, uint32_t> *exposureAndGain,
+			  SensorSetting *exposureAndGain,
 			  AaaIspExchange *aaaIspExchange,
 			  std::optional<uint32_t> internalRequestIdApplied,
 			  std::optional<Feature> featureApplied,
@@ -848,7 +849,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 }
 
 void Hal3A::getExposureAndGain(
-	std::pair<uint32_t, uint32_t> *exposureAndGain, uint32_t &exposureTimeMs)
+	SensorSetting *exposureAndGain, uint32_t &exposureTimeMs)
 {
 	ae_exposure_setting_table ae_table = r3AResult_.ae_result.ae_exp_table;
 	if (ae_table.cnt == 0)
@@ -881,9 +882,50 @@ void Hal3A::getExposureAndGain(
 		uint32_t gain = pHalSensor->convert_gain(dev_idx, ae_table.table[exp].afe_gain);
 		uint32_t ex = ae_table.table[exp].exposure_line;
 		exposureTimeMs = ae_table.table[exp].exposure_ns / 1000;
-		*exposureAndGain = std::make_pair(ex, gain);
+		exposureAndGain->exposure = ex;
+		exposureAndGain->gain = gain;
 		break;
 	}
+
+	// Todo: Move the the static information to sensor capability.
+	[[maybe_unused]] uint32_t grabWidth;
+	uint32_t grabHeight;
+	[[maybe_unused]] uint32_t linelength;
+	uint32_t framelength;
+	uint32_t margin;
+
+	switch (sensor_id_) {
+	case GC08A3_SENSOR_ID:
+		grabWidth = 3264;
+		grabHeight = 2448;
+		linelength = 3640;
+		framelength = 2548;
+		margin = 16;
+		break;
+	case GC05A2_SENSOR_ID:
+		grabWidth = 2592;
+		grabHeight = 1944;
+		linelength = 3664;
+		framelength = 2032;
+		margin = 16;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		grabWidth = 2592;
+		grabHeight = 1944;
+		linelength = 3640;
+		framelength = 2548;
+		margin = 16;
+		break;
+	}
+
+	uint32_t length;
+	if ((exposureAndGain->exposure + margin) >= framelength)
+		length = exposureAndGain->exposure + margin;
+	else
+		length = framelength;
+
+	exposureAndGain->vblank = length - grabHeight;
 
 	pHalSensor->destroyInstance("pipemgrPerframeSet");
 }
