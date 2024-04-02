@@ -309,6 +309,14 @@ int CamSysDevice::claimCompletedRequest(Request *request)
 	return -EINVAL;
 }
 
+int CamSysDevice::setVBlank(uint32_t vblank)
+{
+	ControlList ctrl(sensor_->controls());
+	ctrl.set(V4L2_CID_VBLANK, (int32_t)vblank);
+
+	return sensor_->device()->setControls(&ctrl);
+}
+
 int CamSysDevice::setExposureGain(uint32_t exposure, uint32_t gain)
 {
 	ControlList ctrl(sensor_->controls());

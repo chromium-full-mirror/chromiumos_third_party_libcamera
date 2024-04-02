@@ -105,7 +105,7 @@ void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
 	captureFrames.statistics1 = makeMailBox<InfoFrame>();
 
 	captureFrames.timestamp = makeMailBox<uint64_t>();
-	captureFrames.exposureAndGainOutput = makeMailBox<std::pair<uint32_t, uint32_t>>();
+	captureFrames.exposureAndGainOutput = makeMailBox<SensorSetting>();
 
 	captureFrames.aaaIspExchange = makeMailBox<AaaIspExchange>();
 
@@ -160,10 +160,13 @@ void SofTask::trigger()
 		if (!data_->frames.exposureAndGain->valid()) {
 			LOG(MtkISP7, Fatal) << "No exposureAndGain despite SofTask being run";
 		} else {
-			auto [exposure, gain] = data_->frames.exposureAndGain->get();
-			if (exposure != 0) // Assuming it couldn't be zero.
-				camSys_->setExposureGain(exposure, gain);
-			LOG(MtkISP7, Debug) << "exposure: " << exposure << ", gain: " << gain;
+			auto sensorSetting = data_->frames.exposureAndGain->get();
+			if (sensorSetting.exposure != 0) {  // Assuming it couldn't be zero.
+				camSys_->setVBlank(sensorSetting.vblank);
+				camSys_->setExposureGain(sensorSetting.exposure, sensorSetting.gain);
+			}
+			LOG(MtkISP7, Debug) << "exposure: " << sensorSetting.exposure
+					    << ", gain: " << sensorSetting.gain;
 		}
 	} else {
 		LOG(MtkISP7, Error) << "SharedMailBox exposureAndGain not "

@@ -27,6 +27,12 @@ namespace libcamera {
 class HalIsp;
 struct AaaIspExchange;
 
+struct SensorSetting {
+	uint32_t exposure;
+	uint32_t gain;
+	uint32_t vblank;
+};
+
 class Hal3A
 {
 public:
@@ -42,7 +48,7 @@ public:
 			   bool isStillCapture, int rawMetaFd, unsigned char *rawMetaBuffer,
 			   MtkCameraFaceMetadata *metadata,
 			   GyroSensor::SensorSample gyroSample,
-			   std::pair<uint32_t, uint32_t> *exposureAndGain,
+			   SensorSetting *exposureAndGain,
 			   AaaIspExchange *aaaIspExchange,
 			   std::optional<uint32_t> internalRequestIdApplied,
 			   std::optional<Feature> featureApplied,
@@ -70,7 +76,7 @@ private:
 						  bool isStillCapture,
 						  std::optional<ControlList> controls_opt);
 
-	void getExposureAndGain(std::pair<uint32_t, uint32_t> *exposureAndGain, uint32_t &exposureTimeMs);
+	void getExposureAndGain(SensorSetting *exposureAndGain, uint32_t &exposureTimeMs);
 
 	const uint32_t sensor_idx_;
 	int sensor_id_;

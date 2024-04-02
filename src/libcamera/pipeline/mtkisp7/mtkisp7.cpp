@@ -194,7 +194,7 @@ CompleteRequestTask::CompleteRequestTask(
 
 struct CaptureResult {
 	SharedMailBox<InfoFrame> tuningOutput;
-	SharedMailBox<std::pair<uint32_t, uint32_t>> exposureAndGainOutput;
+	SharedMailBox<SensorSetting> exposureAndGainOutput;
 	SharedMailBox<AaaIspExchange> aaaIspExchange;
 };
 
@@ -832,8 +832,8 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 		CaptureResult *aaCaptureResult = captureResult_.query(aaRequestId);
 		captureFrames.exposureAndGain = aaCaptureResult->exposureAndGainOutput;
 	} else {
-		captureFrames.exposureAndGain = makeMailBox<std::pair<uint32_t, uint32_t>>();
-		captureFrames.exposureAndGain->put(std::make_pair(0, 0), nullptr);
+		captureFrames.exposureAndGain = makeMailBox<SensorSetting>();
+		captureFrames.exposureAndGain->put(SensorSetting{}, nullptr);
 	}
 
 	uint32_t camSysMetaRequestId = 0;
