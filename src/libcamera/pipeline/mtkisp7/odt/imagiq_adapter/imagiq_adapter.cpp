@@ -84,7 +84,7 @@ std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
 
 void ImagiqAdapter::configureScenarioRecorder(
 	int requestNumber, int timestamp,
-	bool enforceLowIso, bool isStillCapture)
+	bool highIsoMode, bool isStillCapture)
 {
 	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
 	if (!IScenarioRecorder::getInstance()->isScenarioRecorderOn()) {
@@ -108,7 +108,9 @@ void ImagiqAdapter::configureScenarioRecorder(
 	if (isStillCapture) {
 		// todo(yerlandinata): If MFNR is enabled, adjust the feature ID here.
 		ss << kFeatureStrMap.at(Feature::Capture_lpnr);
-		if (enforceLowIso) {
+		if (highIsoMode) {
+			ss << ", mode: high iso";
+		} else {
 			ss << ", mode: low iso";
 		}
 		resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_CAPTURE;

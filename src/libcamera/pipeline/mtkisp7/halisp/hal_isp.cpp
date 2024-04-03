@@ -417,13 +417,19 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 
 	mtk::hal3a::v1_0::mtk_3a_result *aaaResult = hal3A_->resultHistory_.query(aaaFrmId);
 
+	int32_t threshold = getLpnrIsoThreshold(*tuning_param_p1.cam_info);
+	int32_t sensorSensitivity = aaaResult->ae_result.sensor_sensitivity;
+
+	aaaIspExchange->highIsoMode = (sensorSensitivity > threshold);
+
 	bool shouldDump = false;
 	if (internalRequestIdApplied && featureApplied) {
 		// Not dummy frame
 		shouldDump = onDeviceTuner_->tuneCamsysHalIsp(
 			internalRequestIdApplied.value(),
 			tuning_param_p1, result_p1, *aaaResult,
-			featureApplied.value());
+			featureApplied.value(),
+			aaaIspExchange->highIsoMode);
 	}
 
 	m_pHalisp->getCamSysMetaTuning(&tuning_param_p1, &result_p1);
@@ -441,11 +447,6 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	}
 
 	addHistory(frmId, *tuning_param_p1.cam_info, *tuning_param_p1.cam_info_3a);
-
-	int32_t threshold = getLpnrIsoThreshold(*tuning_param_p1.cam_info);
-	int32_t sensorSensitivity = aaaResult->ae_result.sensor_sensitivity;
-
-	aaaIspExchange->highIsoMode = (sensorSensitivity > threshold);
 
 	std::shared_ptr<mtk::isphal::v1::isp_mfnrthres_Param> mfnrThresParam = getIspMfnrThresParam();
 	aaaIspExchange->mfnrMode = (sensorSensitivity > mfnrThresParam->iso_th);
