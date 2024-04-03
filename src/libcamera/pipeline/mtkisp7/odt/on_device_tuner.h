@@ -61,11 +61,6 @@ public:
 	void notifyRequestBegin(int requestNumber);
 	void notifyRequestEnd(int requestNumber);
 
-	// Tuning tools need to know if there is a still capture in
-	// the request or not.
-	void notifyVideoOnly(int requestNumber);
-	void notifyStillCapture(int requestNumber);
-
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
 	void fillCamsysDebugFrame(uint32_t internalRequestId,
@@ -78,7 +73,7 @@ public:
 		mtk::isphal::v1_0::TuningParamP1 &tuningParam,
 		mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
 		mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
-		Feature feature);
+		Feature feature, bool highIsoMode);
 	void tuneImgsysHalIsp(
 		uint32_t internalRequestId,
 		uint32_t frameNumber,

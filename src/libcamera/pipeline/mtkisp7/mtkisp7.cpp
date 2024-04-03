@@ -1261,11 +1261,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	bool hasStillCapture = still1Buffer || still2Buffer;
 
-	if (!hasStillCapture) {
-		onDeviceTuner_->notifyVideoOnly(internalRequestId);
-	} else {
+	if (hasStillCapture) {
 		if (useMfnr && !useLpnr) {
-			onDeviceTuner_->notifyStillCapture(internalRequestId);
 			MFNRFrames mfnr;
 			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
 
@@ -1371,7 +1368,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 			Scheduler::precede(mfnrAfbldTask, completeTask);
 		} else {
-			onDeviceTuner_->notifyStillCapture(internalRequestId);
 			LPNRFrames lpnr;
 			lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 

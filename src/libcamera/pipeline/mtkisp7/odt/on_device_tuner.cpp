@@ -293,22 +293,6 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 	mtkMetadata_.erase(requestNumber);
 }
 
-void OnDeviceTuner::notifyStillCapture(int requestNumber)
-{
-	LOG(MtkISP7, Debug) << "notifyStillCapture: " << requestNumber;
-	// todo(yerlandinata): configureScenarioRecorder for MFNR
-	ImagiqAdapter::configureScenarioRecorder(requestNumber,
-						 sessionTimestamp_,
-						 enforceLowIsoLpnr_, true);
-}
-
-void OnDeviceTuner::notifyVideoOnly(int requestNumber)
-{
-	ImagiqAdapter::configureScenarioRecorder(
-		requestNumber, sessionTimestamp_,
-		false, false);
-}
-
 bool OnDeviceTuner::parseHalIspNdd(
 	uint32_t internalRequestId,
 	uint32_t frameNumber,
@@ -491,7 +475,7 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	mtk::isphal::v1_0::TuningParamP1 &tuningParam,
 	mtk::isphal::v1_0::ReturnParamP1 &tuningResult,
 	mtk::hal3a::v1_0::mtk_3a_result &mtk3AResult,
-	Feature feature)
+	Feature feature, bool highIsoMode)
 {
 	if (!enabled_) {
 		return false;
@@ -502,6 +486,11 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	tuningParam.is_need_exif = 1;
 	tuningResult.exif.valid = true;
 	std::memcpy(tuningResult.exif.data, reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info), sizeof(AAA_DEBUG_INFO2_T));
+
+	ImagiqAdapter::configureScenarioRecorder(
+		internalRequestId, sessionTimestamp_,
+		highIsoMode && !enforceLowIsoLpnr_,
+		isStillCaptureFeature(feature));
 
 	ImagiqAdapter::writeScenarioRecorderSettings(
 		tuningParam.cam_info->sr_para, getMtkMetadata(internalRequestId),

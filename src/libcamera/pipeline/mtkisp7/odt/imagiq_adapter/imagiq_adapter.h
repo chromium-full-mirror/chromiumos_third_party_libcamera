@@ -37,7 +37,7 @@ public:
 
 	static void configureScenarioRecorder(
 		int requestNumber, int timestamp,
-		bool enforceLowIso, bool isStillCapture);
+		bool highIsoMode, bool isStillCapture);
 
 	static int enableMtkTuningTool(std::filesystem::path workDir);
 
