@@ -871,6 +871,21 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 	if (stream_list->session_parameters)
 		sessionSettings_ = stream_list->session_parameters;
 
+	/* CCA uses the Target AE FPS to differentiate Video or Still usecase */
+	camera_metadata_ro_entry_t entry;
+	if (sessionSettings_.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)) {
+		const int32_t *data = entry.data.i32;
+		int32_t minFps = data[0];
+		int32_t maxFps = data[1];
+
+		if (minFps == 15 && maxFps == 30)
+			config->captureIntent = libcamera::CameraConfiguration::StillCapture;
+		else if (minFps == 30 && maxFps == 30)
+			config->captureIntent = libcamera::CameraConfiguration::Video;
+		else
+			config->captureIntent = libcamera::CameraConfiguration::Unknown;
+	}
+
 	/*
 	 * Once the CameraConfiguration has been adjusted/validated
 	 * it can be applied to the camera.
