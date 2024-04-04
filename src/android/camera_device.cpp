@@ -619,7 +619,7 @@ int CameraDevice::open(const hw_module_t *hardwareModule)
 
 	/* Initialize the hw_device_t in the instance camera3_module_t. */
 	camera3Device_.common.tag = HARDWARE_DEVICE_TAG;
-	camera3Device_.common.version = CAMERA_DEVICE_API_VERSION_3_3;
+	camera3Device_.common.version = CAMERA_DEVICE_API_VERSION_3_5;
 	camera3Device_.common.module = (hw_module_t *)hardwareModule;
 	camera3Device_.common.close = hal_dev_close;
 
@@ -866,6 +866,10 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 		LOG(HAL, Info) << "Camera configuration invalid";
 		return -EINVAL;
 	}
+
+	sessionSettings_ = CameraMetadata();
+	if (stream_list->session_parameters)
+		sessionSettings_ = stream_list->session_parameters;
 
 	/*
 	 * Once the CameraConfiguration has been adjusted/validated

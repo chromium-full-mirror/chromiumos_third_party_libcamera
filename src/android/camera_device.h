@@ -145,4 +145,5 @@ private:
 	int orientation_;
 
 	CameraMetadata lastSettings_;
+	CameraMetadata sessionSettings_;
 };
