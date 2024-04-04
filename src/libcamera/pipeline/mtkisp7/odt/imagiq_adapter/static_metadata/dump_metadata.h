@@ -2133,6 +2133,69 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .action = Action::Capture,
 		  .version = 2000,
 	  } },
+	// LPNR Dip: P2_MS_F0_H
+	{ Dump::Id::P2_MS_F0_H_IMGI_D1,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F0_H,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMGI_D1,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::P2_MS_F0_H_RECI_D1,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F0_H,
+		  .moduleId = NSCam::TuningUtils::eModule::kRECI_D1,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::P2_MS_F0_H_IMG3O,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F0_H,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::P2_MS_F0_H_META_P2,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F0_H,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
+	// LPNR Dip: P2_Y2Y_PQ_DIP
+	{
+		Dump::Id::P2_Y2Y_PQ_DIP_WROTO,
+		{
+			.featureId = Feature::Capture_lpnr,
+			.stage = Stage::P2_Y2Y_PQ_DIP,
+			.moduleId = NSCam::TuningUtils::eModule::kWROTO,
+			.category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		} },
+	{ Dump::Id::P2_Y2Y_PQ_DIP_WDMAO,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_Y2Y_PQ_DIP,
+		  .moduleId = NSCam::TuningUtils::eModule::kWDMAO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::P2_Y2Y_PQ_DIP_IMG3O,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_Y2Y_PQ_DIP,
+		  .moduleId = NSCam::TuningUtils::eModule::kIMG3O,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+	  } },
+	{ Dump::Id::P2_Y2Y_PQ_DIP_META_P2,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_Y2Y_PQ_DIP,
+		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+		  .version = 2000,
+	  } },
 	// ISPINFO / exif: MCNR
 	{
 		Dump::Id::LTR_ME_L1_ISPINFO,
