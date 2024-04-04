@@ -949,6 +949,10 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_TONEMAP_CURVE_GREEN,
 	};
 
+	availableSessionKeys_ = {
+		ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+	};
+
 	/* Color correction static metadata. */
 	{
 		std::vector<uint8_t> data;
@@ -1646,6 +1650,10 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
 				  std::vector<int32_t>(availableResultKeys_.begin(),
 						       availableResultKeys_.end()));
+
+	staticMetadata_->addEntry(ANDROID_REQUEST_AVAILABLE_SESSION_KEYS,
+				  std::vector<int32_t>(availableSessionKeys_.begin(),
+						       availableSessionKeys_.end()));
 
 	if (!staticMetadata_->isValid()) {
 		LOG(HAL, Error) << "Failed to construct static metadata";

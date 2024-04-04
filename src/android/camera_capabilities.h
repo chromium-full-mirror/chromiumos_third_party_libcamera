@@ -83,6 +83,7 @@ private:
 	unsigned int maxJpegBufferSize_;
 
 	std::set<int32_t> availableCharacteristicsKeys_;
+	std::set<int32_t> availableSessionKeys_;
 	std::set<int32_t> availableRequestKeys_;
 	std::set<int32_t> availableResultKeys_;
 };
