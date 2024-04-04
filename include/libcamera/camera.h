@@ -65,6 +65,12 @@ public:
 		Invalid,
 	};
 
+	enum CaptureIntent {
+		Unknown,
+		Video,
+		StillCapture,
+	};
+
 	using iterator = std::vector<StreamConfiguration>::iterator;
 	using const_iterator = std::vector<StreamConfiguration>::const_iterator;
 
@@ -94,6 +100,8 @@ public:
 
 	std::optional<SensorConfiguration> sensorConfig;
 	Transform transform;
+
+	CaptureIntent captureIntent = Unknown;
 
 protected:
 	CameraConfiguration();
