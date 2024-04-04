@@ -1045,6 +1045,24 @@ void OnDeviceTuner::tuneLpnrDip(Request *request, uint32_t internalRequestId,
 		}
 
 		namedFrames.push_back({ Dump::Id::P2_MS_F0_PQ_DIP_META_P2, frames.in.dipTunPq->get() });
+	} else {
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_H_IMGI_D1, frames.in.dipImgi[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_H_RECI_D1, reci[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_H_IMG3O, dipImg3o[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_MS_F0_H_META_P2, frames.in.dipTun[0]->get() });
+
+		if (still1Output) {
+			InfoFrame still1Frame = getFrameInfoFromRequest(request, still1Output);
+			namedFrames.push_back({ Dump::Id::P2_Y2Y_PQ_DIP_WDMAO, still1Frame });
+		}
+
+		if (still2Output) {
+			InfoFrame still2Frame = getFrameInfoFromRequest(request, still2Output);
+			namedFrames.push_back({ Dump::Id::P2_Y2Y_PQ_DIP_WDMAO, still2Frame });
+		}
+
+		namedFrames.push_back({ Dump::Id::P2_Y2Y_PQ_DIP_IMG3O, dipImg3o[0]->get() });
+		namedFrames.push_back({ Dump::Id::P2_Y2Y_PQ_DIP_META_P2, frames.in.dipTunY2YPq->get() });
 	}
 
 	tune(internalRequestId, namedFrames, true);
