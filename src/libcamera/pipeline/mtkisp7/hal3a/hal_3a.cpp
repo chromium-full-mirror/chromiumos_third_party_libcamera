@@ -893,6 +893,7 @@ void Hal3A::getExposureAndGain(
 	[[maybe_unused]] uint32_t linelength;
 	uint32_t framelength;
 	uint32_t margin;
+	uint32_t lineTime;
 
 	switch (sensor_id_) {
 	case GC08A3_SENSOR_ID:
@@ -900,6 +901,7 @@ void Hal3A::getExposureAndGain(
 		grabHeight = 2448;
 		linelength = 3640;
 		framelength = 2548;
+		lineTime = 13000;
 		margin = 16;
 		break;
 	case GC05A2_SENSOR_ID:
@@ -907,23 +909,24 @@ void Hal3A::getExposureAndGain(
 		grabHeight = 1944;
 		linelength = 3664;
 		framelength = 2032;
+		lineTime = 16358;
 		margin = 16;
 		break;
 	default:
 		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
-		grabWidth = 2592;
-		grabHeight = 1944;
+		grabWidth = 3264;
+		grabHeight = 2448;
 		linelength = 3640;
 		framelength = 2548;
+		lineTime = 13000;
 		margin = 16;
 		break;
 	}
 
-	uint32_t length;
-	if ((exposureAndGain->exposure + margin) >= framelength)
-		length = exposureAndGain->exposure + margin;
-	else
-		length = framelength;
+	int64_t mtk_frame_duration = static_cast<int64_t>(r3AResult_.ae_result.sensor_frame_duration);
+	uint32_t length = framelength;
+	if ((mtk_frame_duration / lineTime + margin) >= framelength)
+		length = mtk_frame_duration / lineTime + margin;
 
 	exposureAndGain->vblank = length - grabHeight;
 
