@@ -23,6 +23,14 @@ namespace {
 
 static constexpr Size kMetaSize = Size{ Hal3A::kRawMetaSize, 1 };
 
+// Todo: Move the funtion to common utils
+uint64_t getMonotonicTimestamp() {
+	struct timespec t;
+	t.tv_sec = t.tv_nsec = 0;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (uint64_t)((t.tv_sec) * 1000000000LL + t.tv_nsec);
+}
+
 } // namespace
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -283,7 +291,8 @@ void AFTask::run()
 				focusController_->getFocusInfo(),
 				faces, gyroSample, &position);
 
-	focusController_->set(position, captureFrames_.timestamp->get());
+	uint64_t timestamp = getMonotonicTimestamp();
+	focusController_->set(position, timestamp / 1000);
 
 	notifyDone();
 }
