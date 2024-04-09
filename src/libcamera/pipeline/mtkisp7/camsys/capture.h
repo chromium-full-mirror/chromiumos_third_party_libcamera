@@ -89,6 +89,7 @@ public:
 private:
 	friend QueueTask;
 	friend DequeueTask;
+	friend SofTask;
 
 	Size rawFrameSize_;
 	Size yuvFrameSize_;
@@ -115,9 +116,10 @@ class SofTask : public Task
 public:
 	SofTask(Scheduler *scheduler, const std::string &id,
 		Request *request, uint32_t internalRequestId,
-		std::shared_ptr<CaptureData> &data, CamSysDevice *camSys)
+		std::shared_ptr<CaptureData> &data, CamSysDevice *camSys,
+		CaptureTasksManager *manager)
 		: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId),
-		  data_(data), camSys_(camSys) {}
+		  data_(data), camSys_(camSys), manager_(manager) {}
 
 	virtual void run() override final;
 	void trigger();
@@ -128,6 +130,7 @@ public:
 	std::shared_ptr<CaptureData> data_;
 
 	CamSysDevice *camSys_;
+	CaptureTasksManager *manager_;
 
 	bool run_ = false;
 	bool trigger_ = false;
