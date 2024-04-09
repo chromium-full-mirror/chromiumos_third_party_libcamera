@@ -34,6 +34,14 @@ static constexpr Size kFdSize = Size{ 640, 480 };
 static constexpr Size kStatSize0 = Size{ 1081344, 1 };
 static constexpr Size kStatSize1 = Size{ 528384, 1 };
 
+// Todo: Move the funtion to common utils
+uint64_t getMonotonicTimestamp() {
+	struct timespec t;
+	t.tv_sec = t.tv_nsec = 0;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (uint64_t)((t.tv_sec) * 1000000000LL + t.tv_nsec);
+}
+
 } // namespace
 
 CaptureTasksManager::CaptureTasksManager(OnDeviceTuner *odt)
@@ -132,7 +140,7 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 
 	SofTask *sofTask = new SofTask(
 			scheduler, "Sof " + sequence, request,
-			internalRequestId, data, camSys_);
+			internalRequestId, data, camSys_, this);
 
 	QueueTask *qTask = new QueueTask(
 			this, scheduler, "Queue " + sequence, request,
@@ -156,6 +164,8 @@ void SofTask::run()
 
 void SofTask::trigger()
 {
+	uint64_t timestamp = getMonotonicTimestamp();
+
 	if (run_) { // Avoid race condition of AATask (in another thread) and SofTask.
 		if (!data_->frames.exposureAndGain->valid()) {
 			LOG(MtkISP7, Fatal) << "No exposureAndGain despite SofTask being run";
@@ -171,6 +181,15 @@ void SofTask::trigger()
 	} else {
 		LOG(MtkISP7, Error) << "SharedMailBox exposureAndGain not "
 				    << "set yet. Skip setting exposure and gain.";
+	}
+
+	data_->frames.timestamp->put(timestamp,
+				     []([[maybe_unused]] uint64_t &timestamp) {});
+
+	if (request_) {
+		ControlList metadata;
+		metadata.set(controls::SensorTimestamp, timestamp);
+		manager_->pipe_->completeMetadata(request_, metadata);
 	}
 
 	trigger_ = true;
@@ -263,19 +282,8 @@ void DequeueTask::requestReady(CamSysDevice::Request *request)
 
 void DequeueTask::done()
 {
-	FrameBuffer *buffer = (data_->request.main) ? data_->request.main : data_->request.yuvo1;
-	uint64_t timestamp = buffer->metadata().timestamp;
-
-	data_->frames.timestamp->put(buffer->metadata().timestamp,
-				     []([[maybe_unused]] uint64_t &timestamp) {});
-
-	if (request_) {
-		ControlList metadata;
-		metadata.set(controls::SensorTimestamp, timestamp);
-
-		manager_->pipe_->completeMetadata(request_, metadata);
+	if (request_)
 		manager_->onDeviceTuner_->tuneCamsys(internalRequestId_, data_->frames);
-	}
 
 	notifyDone();
 }
