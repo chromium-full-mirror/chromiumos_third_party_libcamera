@@ -28,7 +28,7 @@ int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
 		     const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray)
 {
 	PlatformUtils::setWithModelName(model);
-	CamCalHelper::getInstance()->setEepromData(eeprom);
+	CamCalHelper::getInstance(sensorIdx)->setEepromData(eeprom);
 
 	if (PlatformUtils::platform_ == PlatformUtils::MtkISP7Platform::NONE)
 		LOG(MtkISP7, Fatal) << "Invalid model: " << model;

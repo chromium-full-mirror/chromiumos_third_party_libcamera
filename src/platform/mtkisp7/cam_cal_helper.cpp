@@ -33,14 +33,17 @@
 #define LOG_VRB(...)
 #define LOG_DBG(...)
 
-CAM_CAL_DATA_STRUCT CamCalHelper::StCamCalCaldata;
+constexpr uint32_t MAX_CAL_HELPER_INFO_COUNT = 10;
+std::shared_ptr<CamCalHelper> camCalHelpers_[MAX_CAL_HELPER_INFO_COUNT] = {
+	nullptr
+};
 
-std::shared_ptr<CamCalHelper> CamCalHelper::getInstance()
+std::shared_ptr<CamCalHelper> CamCalHelper::getInstance(uint32_t sensorIndex)
 {
-	static std::shared_ptr<CamCalHelper> instance =
-		std::make_shared<CamCalHelper>();
-
-	return instance;
+	if (!camCalHelpers_[sensorIndex]) {
+		camCalHelpers_[sensorIndex].reset(new CamCalHelper());
+	}
+	return camCalHelpers_[sensorIndex];
 }
 
 int CamCalHelper::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,

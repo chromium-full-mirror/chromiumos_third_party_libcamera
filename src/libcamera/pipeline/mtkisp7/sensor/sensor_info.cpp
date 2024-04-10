@@ -129,7 +129,8 @@ void SensorInfo::get_sensor_perframe_dynamic_info(
 int SensorInfo::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
 			     void *a_pCamCalData)
 {
-	return CamCalHelper::getInstance()->get_cal_data(cal_enum, m_sensor_id, m_sensor_dev, a_pCamCalData);
+	return CamCalHelper::getInstance(m_sensor_index)->get_cal_data(
+			cal_enum, m_sensor_id, m_sensor_dev, a_pCamCalData);
 }
 
 bool SensorInfo::is_af_support()
