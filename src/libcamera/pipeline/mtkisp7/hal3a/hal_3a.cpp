@@ -122,6 +122,11 @@ void Hal3A::init()
 		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_SHADING_TABLE, &init.cal_lsc);
 		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_PDAF, &init.cal_pdaf);
 		init.is_vcm_support = sensor_info_->is_af_support();
+
+		LOG(MtkISP7, Info) << "AF Caliberation data checker "
+			<< " inf position " << (int32_t)init.cal_aa.Single2A.S2aAf[0]
+			<< " macro position " << (int32_t)init.cal_aa.Single2A.S2aAf[1];
+
 	} else {
 		LOG(MtkISP7, Info) << "sensor_info_ is null";
 	}
