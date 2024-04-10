@@ -364,14 +364,6 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 	}
 }
 
-void OnDeviceTuner::notifyStillCapture(int requestNumber)
-{
-	if (isIpa_) {
-		ImagiqAdapter::configureScenarioRecorder(requestNumber, sessionTimestamp_,
-							 enforceLowIsoLpnr_, true);
-	}
-}
-
 void OnDeviceTuner::notifyVideoOnly(int requestNumber)
 {
 	if (!isIpa_)

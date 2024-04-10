@@ -401,6 +401,10 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 
 	aaaIspExchange->highIsoMode = (sensorSensitivity > threshold);
 
+	if (onDeviceTuner_->isLowIsoLpnrEnforced()) {
+		aaaIspExchange->highIsoMode = false;
+	}
+
 	bool shouldDump = false;
 	if (internalRequestIdApplied && featureApplied) {
 		// Not dummy frame

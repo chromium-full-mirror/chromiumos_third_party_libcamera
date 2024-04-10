@@ -179,6 +179,10 @@ const std::map<NSIspTuning::EStage_T, Dump::Id> kLpnrExifDumpIdMap{
 	  Dump::Id::P2_MS_F1_ISPINFO_LPNR },
 	{ NSIspTuning::EStage_T::EStage_P2_MS_F0_PQ_DIP,
 	  Dump::Id::P2_MS_F0_PQ_DIP_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_P2_MS_F0_H,
+	  Dump::Id::P2_MS_F0_H_ISPINFO },
+	{ NSIspTuning::EStage_T::EStage_P2_Y2Y_PQ_DIP,
+	  Dump::Id::P2_Y2Y_PQ_DIP_ISPINFO },
 };
 
 const std::map<NSIspTuning::EStage_T, Dump::Id> kMfnrExifDumpIdMap{
@@ -2364,6 +2368,22 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 	  {
 		  .featureId = Feature::Capture_lpnr,
 		  .stage = Stage::P2_MS_F0_PQ_DIP,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+	  } },
+	{ Dump::Id::P2_MS_F0_H_ISPINFO,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_MS_F0_H,
+		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
+		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
+		  .action = Action::Capture,
+	  } },
+	{ Dump::Id::P2_Y2Y_PQ_DIP_ISPINFO,
+	  {
+		  .featureId = Feature::Capture_lpnr,
+		  .stage = Stage::P2_Y2Y_PQ_DIP,
 		  .moduleId = NSCam::TuningUtils::eModule::kISPINFO,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
