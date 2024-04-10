@@ -393,6 +393,12 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param = get3AParam(
 		internalRequestId, metadata, gyroSample, isStillCapture, controls);
+
+	r_3a_param.active_items =
+          (mtk::hal3a::Mtk3AActiveItem::kAE | mtk::hal3a::Mtk3AActiveItem::kAWB |
+           mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
+           mtk::hal3a::Mtk3AActiveItem::kShading);
+
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -459,6 +465,8 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param =
 		get3AParam(internalRequestId, metadata, gyroSample, false, std::nullopt);
+	r_3a_param.active_items = (mtk::hal3a::Mtk3AActiveItem::kAF);
+
 	m_hal3a_->SetParamAF(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_af_request r_af_request = {};
@@ -504,8 +512,11 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 
 	// TODO: get parameters for SetParam properly
 	r_3a_param.request_id = internalRequestId;
-	// TODO: Track the right source in mtk's hal. 4 or 59.
-	r_3a_param.active_items = 59;
+	r_3a_param.active_items =
+          (mtk::hal3a::Mtk3AActiveItem::kAE | mtk::hal3a::Mtk3AActiveItem::kAWB |
+           mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
+           mtk::hal3a::Mtk3AActiveItem::kShading);
+
 	// TODO: check if we need false when no 2A / FD is updated.
 	r_3a_param.updated = true;
 	r_3a_param.is_dummy_request = false;
