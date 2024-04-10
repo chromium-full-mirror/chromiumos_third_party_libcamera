@@ -199,11 +199,8 @@ void IPAMtkISP7::notifyRequestBegin(const uint32_t frame,
 {
 	onDeviceTuner_.notifyRequestBegin(frame);
 
-	if (hasStillCapture) {
-		onDeviceTuner_.notifyStillCapture(frame);
-	} else {
+	if (!hasStillCapture)
 		onDeviceTuner_.notifyVideoOnly(frame);
-	}
 }
 
 void IPAMtkISP7::notifyRequestEnd(const uint32_t frame)

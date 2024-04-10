@@ -78,7 +78,6 @@ public:
 	// Tuning tools need to know if there is a still capture in
 	// the request or not.
 	void notifyVideoOnly(int requestNumber);
-	void notifyStillCapture(int requestNumber);
 
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
