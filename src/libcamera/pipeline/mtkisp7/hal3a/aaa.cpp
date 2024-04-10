@@ -78,7 +78,9 @@ void FocusController::set(int32_t position, int64_t timestamp)
 			position == 0 ? 1 : position - 1);
 	}
 
-	cameraLens_->setFocusPosition(position);
+	ASSERT(cameraLens_);
+	if (cameraLens_)
+		cameraLens_->setFocusPosition(position);
 
 	// Do not update moving timestamp if the target position is unchanged
 	if (position == focusPosition_)
@@ -122,7 +124,8 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 
 int Hal3AManager::start(int32_t lens_position)
 {
-	focusController_.set(lens_position, 0);
+	if (hasAF())
+		focusController_.set(lens_position, 0);
 
 	return 0;
 }
