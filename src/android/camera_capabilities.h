@@ -86,4 +86,6 @@ private:
 	std::set<int32_t> availableSessionKeys_;
 	std::set<int32_t> availableRequestKeys_;
 	std::set<int32_t> availableResultKeys_;
+
+	bool isAfSupported_ = false;
 };

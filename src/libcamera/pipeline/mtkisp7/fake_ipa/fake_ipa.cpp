@@ -90,9 +90,10 @@ int IPAMtkISP7::start(const uint32_t rawMetaBufferId)
 	aaManager_ = std::make_unique<AAManager>(this);
 	aaManager_->moveToThread(&aaThread_);
 
-	afThread_.start();
+	// TODO, merge afManager into aaManager
+	//afThread_.start();
 	afManager_ = std::make_unique<AFManager>(this);
-	afManager_->moveToThread(&afThread_);
+	afManager_->moveToThread(&aaThread_);
 
 	ispThread_.start();
 	ispManager_ = std::make_unique<IspManager>(this);
@@ -292,6 +293,27 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 	sample.z_value = gyroSample.z_value;
 	sample.timestamp = gyroSample.timestamp;
 
+	if (stat1BufferId){
+		// TODO: use another thread.
+		::VcmFocusInformation vcm;
+		vcm.focus_position = vcmFocusInfo.focus_position;
+		vcm.previous_focus_position = vcmFocusInfo.previous_focus_position;
+		vcm.moving_timestamp = vcmFocusInfo.moving_timestamp;
+		vcm.previous_moving_timestamp = vcmFocusInfo.previous_moving_timestamp;
+
+		auto itStat1 = buffers_.find(stat1BufferId);
+		if (itStat1 == buffers_.end()) {
+			LOG(IPAMtkISP7, Error) << "Could not find stat1 buffer!";
+			return;
+		}
+		// TODO: merge doCalculationAF into aaManager
+		afManager_->invokeMethod(
+			&IPAMtkISP7::AFManager::doCalculationAF, ConnectionTypeQueued,
+			&itStat1->second.buffer, timestamp, frame,
+			afCamSysMetaRequestId, vcm,
+			latestFaceMetadata_, sample, controls);
+	}
+
 	ControlList aaaMetadata;
 	aaManager_->invokeMethod(
 		&IPAMtkISP7::AAManager::doCalculation, ConnectionTypeQueued,
@@ -302,27 +324,6 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 		latestFaceMetadata_, sample, internalRequestIdApplied,
 		controls, featureEnum);
 
-	if (stat1BufferId == 0)
-		return;
-
-	// TODO: use another thread.
-	::VcmFocusInformation vcm;
-	vcm.focus_position = vcmFocusInfo.focus_position;
-	vcm.previous_focus_position = vcmFocusInfo.previous_focus_position;
-	vcm.moving_timestamp = vcmFocusInfo.moving_timestamp;
-	vcm.previous_moving_timestamp = vcmFocusInfo.previous_moving_timestamp;
-
-	auto itStat1 = buffers_.find(stat1BufferId);
-	if (itStat1 == buffers_.end()) {
-		LOG(IPAMtkISP7, Error) << "Could not find stat1 buffer!";
-		return;
-	}
-
-	afManager_->invokeMethod(
-		&IPAMtkISP7::AFManager::doCalculationAF, ConnectionTypeQueued,
-		&itStat1->second.buffer, timestamp, frame,
-		afCamSysMetaRequestId, vcm,
-		latestFaceMetadata_, sample);
 }
 
 IPAMtkISP7::IPAMappedBuffer *
@@ -473,12 +474,13 @@ void IPAMtkISP7::AFManager::doCalculationAF(FrameBuffer *statistics1, uint64_t t
 					    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 					    ::VcmFocusInformation vcmFocusInfo,
 					    std::optional<MtkCameraFaceMetadata> metadata,
-					    GyroSensor::SensorSample gyroSample)
+					    GyroSensor::SensorSample gyroSample,
+						const ControlList &controls)
 {
 	int32_t position = -1;
 	ipa_->hal3A_->doCalculationAF(statistics1, timestamp, internalRequestId,
 				      camSysMetaRequestId, vcmFocusInfo,
-				      metadata, gyroSample, &position);
+				      metadata, gyroSample, &position, controls);
 	ipa_->AFResultReady.emit(internalRequestId, position);
 }
 

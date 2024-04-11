@@ -47,6 +47,7 @@ public:
 	struct JpegExifMetadata {
 		int64_t sensorExposureTime;
 		int32_t sensorSensitivityISO;
+		float lensFocalLength;
 	};
 
 	CameraStream *stream;

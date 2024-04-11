@@ -774,7 +774,7 @@ int CameraCapabilities::initializeStreamConfigurations()
 
 int CameraCapabilities::initializeStaticMetadata()
 {
-	staticMetadata_ = std::make_unique<CameraMetadata>(64, 1024);
+	staticMetadata_ = std::make_unique<CameraMetadata>(64, 4096);
 	if (!staticMetadata_->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate static metadata";
 		staticMetadata_.reset();
@@ -869,6 +869,8 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_JPEG_THUMBNAIL_QUALITY,
 		ANDROID_JPEG_THUMBNAIL_SIZE,
 		ANDROID_LENS_APERTURE,
+		ANDROID_LENS_FOCUS_DISTANCE,
+		ANDROID_LENS_FOCAL_LENGTH,
 		ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 		ANDROID_EDGE_MODE,
 		ANDROID_NOISE_REDUCTION_MODE,
@@ -922,6 +924,8 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_JPEG_THUMBNAIL_SIZE,
 		ANDROID_LENS_APERTURE,
 		ANDROID_LENS_FOCAL_LENGTH,
+		ANDROID_LENS_FILTER_DENSITY,
+		ANDROID_LENS_FOCUS_DISTANCE,
 		ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 		ANDROID_LENS_STATE,
 		ANDROID_EDGE_MODE,
@@ -996,12 +1000,6 @@ int CameraCapabilities::initializeStaticMetadata()
 	};
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_COMPENSATION_STEP,
 				  aeCompensationStep);
-
-	std::vector<uint8_t> availableAfModes = {
-		ANDROID_CONTROL_AF_MODE_OFF,
-	};
-	staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
-				  availableAfModes);
 
 	std::vector<uint8_t> availableEffects = {
 		ANDROID_CONTROL_EFFECT_MODE_OFF,
@@ -1385,11 +1383,17 @@ int CameraCapabilities::initializeStaticMetadata()
 	}
 	staticMetadata_->addEntry(ANDROID_LENS_FACING, lensFacing);
 
-	std::vector<float> lensFocalLengths = {
-		1,
-	};
-	staticMetadata_->addEntry(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-				  lensFocalLengths);
+	auto lensFocalLengthsIter =
+		camera_->controls().find(controls::LensFocalLength.id());
+	if (lensFocalLengthsIter != camera_->controls().end()) {
+		const ControlInfo &lensFocalLengthInfo = lensFocalLengthsIter->second;
+		std::vector<float> lensFocalLengths;
+		for (const auto &value : lensFocalLengthInfo.values()) {
+			lensFocalLengths.push_back(value.get<float>());
+		}
+		staticMetadata_->addEntry(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
+			lensFocalLengths);
+	}
 
 	std::vector<uint8_t> opticalStabilizations = {
 		ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF,
@@ -1401,9 +1405,58 @@ int CameraCapabilities::initializeStaticMetadata()
 	staticMetadata_->addEntry(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
 				  hypeFocalDistance);
 
-	float minFocusDistance = 0;
-	staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-				  minFocusDistance);
+	uint8_t availableFocusDistanceCalibration[] = {
+		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED,
+		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_APPROXIMATE,
+		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_CALIBRATED,
+	};
+
+	auto lensPositionIter =
+		camera_->controls().find(controls::LensPosition.id());
+	if (lensPositionIter != camera_->controls().end()) {
+		const ControlInfo &lensPositionRange = lensPositionIter->second;
+		auto minFocusDistance = lensPositionRange.min().get<float>();
+		staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
+					minFocusDistance);
+		if (minFocusDistance != 0.0f){
+			staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
+				availableFocusDistanceCalibration[2]);
+			isAfSupported_ = true;
+			// TODO, update real hyperfocal distance from camera static metadata
+			// Note hyperFocalDistance should be in the range (0, minFocusDistance)
+			float hyperFocalDistance = minFocusDistance / 2;
+			staticMetadata_->updateEntry(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
+						hyperFocalDistance);
+		} else {
+			staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
+				availableFocusDistanceCalibration[0]);
+		}
+	} else {
+		float minFocusDistance = 0;
+		staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
+					minFocusDistance);
+		staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
+			availableFocusDistanceCalibration[0]);
+	}
+
+	if (isAfSupported_){
+		std::vector<uint8_t> availableAfModes = {
+			ANDROID_CONTROL_AF_MODE_OFF,
+			ANDROID_CONTROL_AF_MODE_AUTO,
+			//ANDROID_CONTROL_AF_MODE_MACRO,
+			ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO,
+			ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE,
+			//ANDROID_CONTROL_AF_MODE_EDOF,
+		};
+		staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
+					availableAfModes);
+	} else {
+		std::vector<uint8_t> availableAfModes = {
+			ANDROID_CONTROL_AF_MODE_OFF,
+		};
+		staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
+					availableAfModes);
+	}
 
 	/* Noise reduction modes. */
 	{
@@ -1595,13 +1648,6 @@ int CameraCapabilities::initializeStaticMetadata()
 	};
 	staticMetadata_->addEntry(ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES, availableFilterDensities);
 
-	float availableFocusDistanceCalibration[] = {
-		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED,
-		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_APPROXIMATE,
-		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_CALIBRATED,
-	};
-	staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
-		availableFocusDistanceCalibration);
 
 	uint8_t shadingAvailableModes[] = {
 		ANDROID_SHADING_MODE_OFF,
@@ -1704,6 +1750,9 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateManual() cons
 	uint8_t awbmode = ANDROID_CONTROL_AWB_MODE_OFF;
 	manualTemplate->updateEntry(ANDROID_CONTROL_AWB_MODE, awbmode);
 
+	uint8_t afMode = ANDROID_CONTROL_AF_MODE_OFF;
+	manualTemplate->updateEntry(ANDROID_CONTROL_AF_MODE, afMode);
+
 	return manualTemplate;
 }
 
@@ -1766,7 +1815,7 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	requestTemplate->addEntry(ANDROID_CONTROL_AE_ANTIBANDING_MODE,
 				  aeAntibandingMode);
 
-	uint8_t afMode = ANDROID_CONTROL_AF_MODE_OFF;
+	uint8_t afMode = (isAfSupported_) ? ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE : ANDROID_CONTROL_AF_MODE_OFF;
 	requestTemplate->addEntry(ANDROID_CONTROL_AF_MODE, afMode);
 
 	uint8_t afTrigger = ANDROID_CONTROL_AF_TRIGGER_IDLE;
@@ -1883,6 +1932,12 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_GREEN,green);
 	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_BLUE,blue);
 
+	float lensFocalLength = 1.0f;
+	if (staticMetadata_->getEntry(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, &entry)){
+		lensFocalLength = entry.data.f[0];
+	};
+	requestTemplate->addEntry(ANDROID_LENS_FOCAL_LENGTH, lensFocalLength);
+
 	return requestTemplate;
 }
 
@@ -1912,6 +1967,9 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateStill() const
 	uint8_t toneMapMode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
 	stillTemplate->updateEntry(ANDROID_TONEMAP_MODE, toneMapMode);
 
+	uint8_t afMode = (isAfSupported_) ? ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE : ANDROID_CONTROL_AF_MODE_OFF;
+	stillTemplate->updateEntry(ANDROID_CONTROL_AF_MODE, afMode);
+
 	return stillTemplate;
 }
 
@@ -1935,6 +1993,9 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateVideo() const
 	 */
 	previewTemplate->updateEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
 				     entry.data.i32 + 2, 2);
+
+	uint8_t afMode = (isAfSupported_) ? ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO : ANDROID_CONTROL_AF_MODE_OFF;
+	previewTemplate->updateEntry(ANDROID_CONTROL_AF_MODE, afMode);
 
 	return previewTemplate;
 }
