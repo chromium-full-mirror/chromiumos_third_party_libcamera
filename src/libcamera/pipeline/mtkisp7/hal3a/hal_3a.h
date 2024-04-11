@@ -53,7 +53,8 @@ public:
 			     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 			     VcmFocusInformation vcmFocusInfo,
 			     std::optional<MtkCameraFaceMetadata> metadata,
-			     GyroSensor::SensorSample gyroSample, int32_t *position);
+			     GyroSensor::SensorSample gyroSample, int32_t *position,
+				 ControlList controls);
 
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 

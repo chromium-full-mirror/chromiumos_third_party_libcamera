@@ -473,7 +473,7 @@ void PostProcessorJpeg::process(StreamBuffer *streamBuffer)
 	exif.setFlash(Exif::Flash::FlashNotPresent);
 	exif.setWhiteBalance(Exif::WhiteBalance::Auto);
 
-	exif.setFocalLength(1.0);
+	exif.setFocalLength(jpegExifMetadata->lensFocalLength);
 
 	ret = requestMetadata.getEntry(ANDROID_JPEG_GPS_TIMESTAMP, &entry);
 	if (ret) {

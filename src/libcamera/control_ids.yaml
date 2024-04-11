@@ -467,63 +467,47 @@ controls:
   - AfMode:
       type: int32_t
       description: |
-        Control to set the mode of the AF (autofocus) algorithm.
-
-        An implementation may choose not to implement all the modes.
-
+       Automatic Focus(AF) is the process by which the camera adjusts the
+       lens position to achieve sharp focus on a subject.
+       (See ANDROID_CONTROL_AF_MODE)
       enum:
-        - name: AfModeManual
+        - name: AfModeOff
           value: 0
           description: |
-            The AF algorithm is in manual mode. In this mode it will never
-            perform any action nor move the lens of its own accord, but an
-            application can specify the desired lens position using the
-            LensPosition control.
-
-            In this mode the AfState will always report AfStateIdle.
-
-            If the camera is started in AfModeManual, it will move the focus
-            lens to the position specified by the LensPosition control.
-
-            This mode is the recommended default value for the AfMode control.
-            External cameras (as reported by the Location property set to
-            CameraLocationExternal) may use a different default value.
+           Disables autofocus. The lens position remains fixed.
+           (See AF_MODE_OFF)
         - name: AfModeAuto
           value: 1
           description: |
-            The AF algorithm is in auto mode. This means that the algorithm
-            will never move the lens or change state unless the AfTrigger
-            control is used. The AfTrigger control can be used to initiate a
-            focus scan, the results of which will be reported by AfState.
-
-            If the autofocus algorithm is moved from AfModeAuto to another
-            mode while a scan is in progress, the scan is cancelled
-            immediately, without waiting for the scan to finish.
-
-            When first entering this mode the AfState will report
-            AfStateIdle. When a trigger control is sent, AfState will
-            report AfStateScanning for a period before spontaneously
-            changing to AfStateFocused or AfStateFailed, depending on
-            the outcome of the scan. It will remain in this state until
-            another scan is initiated by the AfTrigger control. If a scan is
-            cancelled (without changing to another mode), AfState will return
-            to AfStateIdle.
-        - name: AfModeContinuous
+           Standard autofocus mode. The camera automatically adjusts the lens
+           position to achieve focus on the subject.
+           This is the default mode in most situations.
+           (See AF_MODE_AUTO)
+        - name: AfModeMacro
           value: 2
           description: |
-            The AF algorithm is in continuous mode. This means that the lens can
-            re-start a scan spontaneously at any moment, without any user
-            intervention. The AfState still reports whether the algorithm is
-            currently scanning or not, though the application has no ability to
-            initiate or cancel scans, nor to move the lens for itself.
-
-            However, applications can pause the AF algorithm from continuously
-            scanning by using the AfPause control. This allows video or still
-            images to be captured whilst guaranteeing that the focus is fixed.
-
-            When set to AfModeContinuous, the system will immediately initiate a
-            scan so AfState will report AfStateScanning, and will settle on one
-            of AfStateFocused or AfStateFailed, depending on the scan result.
+           Focuses the camera on close-up objects. Ideal for taking pictures
+           of small objects or flowers.
+           (See AF_MODE_MACRO)
+        - name: AfModeContinuosVideo
+          value: 3
+          description: |
+           Maintains continuous focus while recording video.
+           The camera constantly adjusts the lens position to keep the subject
+           in focus as it moves.
+           (See AF_MODE_CONTINUOUS_VIDEO)
+        - name: AfModeContinuosPicture
+          value: 4
+          description: |
+           Similar to AF_MODE_CONTINUOUS_VIDEO, but optimized for taking pictures.
+           The camera continuously adjusts focus until the moment of capture.
+           (See AF_MODE_CONTINUOUS_PICTURE)
+        - name: AfModeEdof
+          value: 5
+          description: |
+           mploys an extended depth of field technique. Useful for capturing images
+           where multiple objects at different distances need to be in focus.
+           (See AF_MODE_EDOF)
 
   - AfRange:
       type: int32_t
@@ -616,11 +600,14 @@ controls:
         It is ignored if AfMode is set to AfModeManual or AfModeContinuous.
 
       enum:
-        - name: AfTriggerStart
+        - name: AfTriggerIdle
           value: 0
+          description: The autofocus trigger is inactive.
+        - name: AfTriggerStart
+          value: 1
           description: Start an AF scan. Ignored if a scan is in progress.
         - name: AfTriggerCancel
-          value: 1
+          value: 2
           description: Cancel an AF scan. This does not cause the lens to move
             anywhere else. Ignored if no scan is in progress.
 
@@ -1194,4 +1181,21 @@ controls:
            of the ambient light and apply the appropriate anti-banding
            adjustments (either 50Hz or 60Hz).
            (SEE ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO)
+
+  - AvailableLensFocalLength:
+      type: float
+      description: |
+        AvailableLensFocalLength provides an array of floating-point numbers
+        representing the different focal lengths supported by a camera lens
+        on an Android device.
+        (See ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+      size: [n]
+
+  - LensFocalLength:
+      type: float
+      description: |
+        LensFocalLength represents the current focal length of your
+        device's camera lens. This value is essential for understanding your
+        camera's field of view and other optical properties.
+        (See ANDROID_LENS_FOCAL_LENGTH)
 ...

@@ -134,7 +134,8 @@ private:
 				     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 				     ::VcmFocusInformation vcmFocusInfo,
 				     std::optional<MtkCameraFaceMetadata> metadata,
-				     GyroSensor::SensorSample gyroSample);
+				     GyroSensor::SensorSample gyroSample,
+					 const ControlList &controls);
 
 	private:
 		IPAMtkISP7 *ipa_;

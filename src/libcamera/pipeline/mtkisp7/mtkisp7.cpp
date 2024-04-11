@@ -405,6 +405,10 @@ void CompleteRequestTask::run()
 		metadata.set(controls::ExposureTime, (int64_t)66'666);
 	}
 
+	if (!metadata.contains(controls::AF_STATE)) {
+		metadata.set(controls::AfState, 0);
+	}
+
 	pipe_->completeMetadata(request_, metadata);
 
 	for (auto it : request_->buffers()) {
@@ -759,6 +763,19 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			static_cast<int64_t>(33'333'333),
 			static_cast<int64_t>(66'333'333),
 			static_cast<int64_t>(33'333'333));
+
+		controls[&controls::AfMode] = ControlInfo(controls::AfModeValues);
+		controls[&controls::AfTrigger] = ControlInfo(controls::AfTriggerValues);
+		std::vector<ControlValue> availableFocalLength = {
+			4.71f,
+		};
+		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
+
+		if (camSysDev_[i].getCameraLens()) {
+			controls[&controls::LensPosition] = ControlInfo(0.1f, 100.0f, 1.0f);
+		} else {
+			controls[&controls::LensPosition] = ControlInfo(0.0f, 100.0f, 0.0f);
+		}
 
 		// For now these two controls are ignored.
 		// However, because MTK 3A algo is configured to prioritize
@@ -1703,6 +1720,8 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::AE_ANTI_BANDING_MODE,
 		controls::FRAME_DURATION,
 		controls::FRAME_DURATION_LIMITS,
+		controls::AF_MODE,
+		controls::AF_TRIGGER,
 	};
 
 	for (auto id : checkList) {

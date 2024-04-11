@@ -17,6 +17,7 @@
 
 #include "libcamera/internal/mapped_framebuffer.h"
 
+#include "../camsys/capture.h"
 #include "../halisp/hal_isp.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
@@ -136,8 +137,8 @@ void Hal3A::init()
 		init.is_vcm_support = sensor_info_->is_af_support();
 
 		LOG(MtkISP7, Info) << "AF Caliberation data checker "
-			<< " inf position " << (int32_t)init.cal_aa.Single2A.S2aAf[0]
-			<< " macro position " << (int32_t)init.cal_aa.Single2A.S2aAf[1];
+				   << " inf position " << (int32_t)init.cal_aa.Single2A.S2aAf[0]
+				   << " macro position " << (int32_t)init.cal_aa.Single2A.S2aAf[1];
 
 	} else {
 		LOG(MtkISP7, Info) << "sensor_info_ is null";
@@ -477,6 +478,10 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	aaaIspExchange->aaaMetadata.set(controls::draft::AeState, mtk_ae_state);
 	aaaIspExchange->aaaMetadata.set(controls::draft::AwbState, mtk_awb_state);
 	aaaIspExchange->aaaMetadata.set(controls::FrameDuration, mtk_frame_duration);
+	uint8_t mtk_af_state = static_cast<uint8_t>(r3AResult_.af_result.af_state);
+	aaaIspExchange->aaaMetadata.set(controls::AfState, mtk_af_state);
+	float mtk_lens_focus_distance = static_cast<float>(r3AResult_.af_result.lens_focus_distance);
+	aaaIspExchange->aaaMetadata.set(controls::LensPosition, mtk_lens_focus_distance);
 }
 
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
@@ -484,10 +489,11 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 			    VcmFocusInformation vcmFocusInfo,
 			    std::optional<MtkCameraFaceMetadata> metadata,
 			    GyroSensor::SensorSample gyroSample,
-			    int32_t *position)
+			    int32_t *position,
+			    ControlList controls)
 {
 	mtk::hal3a::v1_0::mtk_3a_param r_3a_param =
-		get3AParam(internalRequestId, metadata, gyroSample, false, std::nullopt);
+		get3AParam(internalRequestId, metadata, gyroSample, false, controls);
 	r_3a_param.active_items = (mtk::hal3a::Mtk3AActiveItem::kAF);
 
 	m_hal3a_->SetParamAF(r_3a_param);
@@ -539,9 +545,9 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	// TODO: get parameters for SetParam properly
 	r_3a_param.request_id = internalRequestId;
 	r_3a_param.active_items =
-          (mtk::hal3a::Mtk3AActiveItem::kAE | mtk::hal3a::Mtk3AActiveItem::kAWB |
-           mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
-           mtk::hal3a::Mtk3AActiveItem::kShading);
+		(mtk::hal3a::Mtk3AActiveItem::kAE | mtk::hal3a::Mtk3AActiveItem::kAWB |
+		 mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
+		 mtk::hal3a::Mtk3AActiveItem::kShading);
 
 	// TODO: check if we need false when no 2A / FD is updated.
 	r_3a_param.updated = true;
@@ -573,6 +579,13 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.ae_sensor_max_fps = maxFps * 1000;
 		r_3a_param.ae_min_fps = minFps * 1000;
 		r_3a_param.ae_max_fps = maxFps * 1000;
+		//TODO, seperate the config for differnt module (geralt, ciri)
+		if (sensor_idx_ == 0) { // back camera
+			r_3a_param.af_mode = controls_opt->get(controls::AfMode).value_or(3);
+		} else { // front camera
+			r_3a_param.af_mode = 0;
+		}
+		r_3a_param.af_trigger = controls_opt->get(controls::AfTrigger).value_or(0);
 	} else {
 		r_3a_param.ae_mode = 1;
 		r_3a_param.ae_lock = 0;
@@ -587,6 +600,14 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.ae_sensor_max_fps = 30000;
 		r_3a_param.ae_min_fps = 5000;
 		r_3a_param.ae_max_fps = 30000;
+		//TODO, seperate the config for differnt module (geralt, ciri)
+		if (sensor_idx_ == 0) { // back camera
+			r_3a_param.af_mode = 3;
+		} else { // front camera
+			r_3a_param.af_mode = 0;
+		}
+		// TODO: Check when to use kAFTrigger.
+		r_3a_param.af_trigger = 0;
 	}
 
 	r_3a_param.ae_exp_index = 0;
@@ -611,13 +632,6 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		}
 	}
 	r_3a_param.awb_default_pregain1 = 0;
-	//TODO, seperate the config for differnt module (geralt, ciri)
-	if (sensor_idx_ == 0) { // back camera
-		r_3a_param.af_mode = 3;
-	} else { // front camera
-		r_3a_param.af_mode = 0;
-	}
-	r_3a_param.af_trigger = 0;
 	r_3a_param.af_focus_distance = 0.000000;
 	r_3a_param.af_zoom_ratio = 0;
 	r_3a_param.af_zoom_stop = 0;

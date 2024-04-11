@@ -27,6 +27,7 @@
 #include <libcamera/property_ids.h>
 
 #include <system/camera_metadata.h>
+#include "android/metadata/system/camera_metadata.h"
 
 #include "camera_buffer.h"
 #include "camera_capabilities.h"
@@ -1070,6 +1071,17 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		int64_t minFrameDuration = 1'000'000 / static_cast<int64_t>(data[1]);
 		controls.set(controls::FrameDurationLimits, {minFrameDuration, maxFrameDuration});
 	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AF_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::AfMode, static_cast<int>(data[0]));
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AF_TRIGGER, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::AfTrigger, static_cast<uint8_t>(data[0]));
+	}
+
 	return 0;
 }
 
@@ -1872,6 +1884,10 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_STATE, aeState.value_or(0));
 	}
 
+	if (metadata.contains(controls::AF_STATE)) {
+		const auto &afState = metadata.get(controls::AfState);
+		resultMetadata->addEntry(ANDROID_CONTROL_AF_STATE, afState.value_or(0));
+	}
 
 	if (metadata.contains(controls::ANALOGUE_GAIN)) {
 		const auto &sensorSensitivity = metadata.get(controls::AnalogueGain).value_or(100);
@@ -1995,6 +2011,13 @@ void CameraDevice::generateJpegExifMetadata(Camera3RequestDescriptor *request,
 	int32_t intIso = static_cast<int32_t>(
 		metadata.get(controls::AnalogueGain).value_or(100));
 	jpegExifMetadata->sensorSensitivityISO = intIso;
+
+	camera_metadata_ro_entry_t entry;
+	if (request->settings_.getEntry(ANDROID_LENS_FOCAL_LENGTH, &entry)) {
+		jpegExifMetadata->lensFocalLength = *entry.data.f;
+	} else {
+		jpegExifMetadata->lensFocalLength = 1.0f;
+	}
 }
 
 /*
@@ -2084,14 +2107,11 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	value = found ? *entry.data.u8 : (uint8_t)ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
 	resultMetadata->addEntry(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, value);
 
-	value = ANDROID_CONTROL_AF_MODE_OFF;
-	resultMetadata->addEntry(ANDROID_CONTROL_AF_MODE, value);
-
-	value = ANDROID_CONTROL_AF_STATE_INACTIVE;
-	resultMetadata->addEntry(ANDROID_CONTROL_AF_STATE, value);
-
-	value = ANDROID_CONTROL_AF_TRIGGER_IDLE;
-	resultMetadata->addEntry(ANDROID_CONTROL_AF_TRIGGER, value);
+	if (settings.getEntry(ANDROID_CONTROL_AF_MODE, &entry)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_AF_MODE, *entry.data.u8);
+	} else {
+		resultMetadata->addEntry(ANDROID_CONTROL_AF_MODE, ANDROID_CONTROL_AF_MODE_OFF);
+	}
 
 	if (settings.getEntry(ANDROID_CONTROL_AWB_MODE, &entry)) {
 		resultMetadata->addEntry(ANDROID_CONTROL_AWB_MODE, *entry.data.u8);
@@ -2138,9 +2158,6 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 
 	if (settings.getEntry(ANDROID_LENS_APERTURE, &entry))
 		resultMetadata->addEntry(ANDROID_LENS_APERTURE, entry.data.f, 1);
-
-	float focal_length = 1.0;
-	resultMetadata->addEntry(ANDROID_LENS_FOCAL_LENGTH, focal_length);
 
 	value = ANDROID_LENS_STATE_STATIONARY;
 	resultMetadata->addEntry(ANDROID_LENS_STATE, value);
@@ -2238,6 +2255,19 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 
 	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)){
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, entry.data.i32, 2);
+	}
+
+	if (settings.getEntry(ANDROID_CONTROL_AF_TRIGGER, &entry)) {
+		resultMetadata->addEntry(ANDROID_CONTROL_AF_TRIGGER, *entry.data.u8);
+	} else {
+		resultMetadata->addEntry(ANDROID_CONTROL_AF_TRIGGER, ANDROID_CONTROL_AF_TRIGGER_IDLE);
+	}
+
+	if (settings.getEntry(ANDROID_LENS_FOCAL_LENGTH, &entry)) {
+		resultMetadata->addEntry(ANDROID_LENS_FOCAL_LENGTH, *entry.data.f);
+	} else {
+		float lensFocalLength = 1.0f;
+		resultMetadata->addEntry(ANDROID_LENS_FOCAL_LENGTH, lensFocalLength);
 	}
 
 	/*
