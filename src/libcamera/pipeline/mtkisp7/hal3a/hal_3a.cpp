@@ -41,14 +41,26 @@ void Hal3A::configure(Size camsysYuvSize, bool isVideo)
 {
 	camsysYuvSize_ = camsysYuvSize;
 	isVideo_ = isVideo;
-}
 
-void Hal3A::start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer)
-{
+	if (inited_) {
+		mtk::hal3a::v1_0::mtk_3a_stop stop = {};
+
+		m_hal3a_->Stop(stop);
+		mtk::hal3a::v1_0::mtk_3a_uninit uinit = {};
+
+		m_hal3a_->Uninit(uinit);
+	}
+
 	init();
 	getInitialInfo();
 	config();
 	startInternal();
+
+	inited_ = true;
+}
+
+void Hal3A::start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer)
+{
 
 	*rawMetaBuffer = r3AResult_.raw_meta;
 }

@@ -35,6 +35,8 @@ namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
+std::shared_ptr<mtk::isphal::v1::IHalIsp> HalIsp::m_pHalisp;
+
 HalIsp::HalIsp(OnDeviceTuner *odt)
 	: onDeviceTuner_(odt)
 {
@@ -103,10 +105,6 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 	m_P1CamInfo.user_id = sensorDev;
 
 	NvBufUtil::initSensorInfo(sensorIdx_, _sensorIdxInfo);
-	m_pHalisp = mtk::isphal::v1::IHalIsp::createInstance(sensorDev, sensorIdx, m_P1CamInfo.user_id);
-
-	mtk_isp_buf_info bufferInfo;
-	m_pHalisp->queryISPBufferInfo(&bufferInfo);
 
 	//TODO, seperate the config for differnt module (geralt, ciri)
 	switch (sensorId_) {
@@ -162,6 +160,16 @@ void HalIsp::configure(const Size &maxVideoSize,
 
 	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r2_ds = 2;
 	m_P1CamInfo.yuvo_ds_mode_info.yuvo_r4_ds = 0;
+
+	m_P1CamInfo.user_id = sensorDev_;
+
+	if (m_pHalisp)
+		m_pHalisp.reset();
+
+	m_pHalisp = mtk::isphal::v1::IHalIsp::createInstance(
+			sensorDev_, sensorIdx_, m_P1CamInfo.user_id);
+	mtk_isp_buf_info bufferInfo;
+	m_pHalisp->queryISPBufferInfo(&bufferInfo);
 }
 
 uint32_t HalIsp::getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info)

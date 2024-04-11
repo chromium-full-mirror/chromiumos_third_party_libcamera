@@ -116,7 +116,7 @@ private:
 	Size maxStillStreamSize_;
 	bool isVideo_ = false;
 
-	std::shared_ptr<mtk::isphal::v1::IHalIsp> m_pHalisp;
+	static std::shared_ptr<mtk::isphal::v1::IHalIsp> m_pHalisp;
 	mtk::isphal::v1_0::IspPerframeControl m_P1CamInfo;
 	mtk::isphal::v1_0::IspReadOnlyControl m_P1CamInfo_3a;
 	mtk::isphal::v1_0::IspPerframeControl m_BackupCamInfo; // for p2
