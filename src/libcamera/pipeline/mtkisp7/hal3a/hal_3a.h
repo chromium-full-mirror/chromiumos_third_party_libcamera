@@ -81,6 +81,7 @@ private:
 
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;
 	HalIsp *halIsp_ = nullptr;
+	bool inited_ = false;
 
 	mtk::hal3a::v1_0::mtk_hw_initial_setting initialSetting_ = {};
 
