@@ -47,12 +47,12 @@ int LpnrTasksManager::configure(const Size &bayerInputSize,
 	}
 
 	/* Allocate buffer pools */
-	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4, DmaHeap::CMA);
+	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 8, DmaHeap::CMA);
 
 	/* Level 0 uses NV12_10P_MTISP */
-	lpnr_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, lpnrSizes[0], 4);
+	lpnr_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, lpnrSizes[0], 8);
 	for (unsigned int i = 1; i < lpnr_.size(); i++) {
-		lpnr_[i].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, lpnrSizes[i], 4);
+		lpnr_[i].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, lpnrSizes[i], 8);
 	}
 
 	for (auto &pool : poolsWritenByCpu_)

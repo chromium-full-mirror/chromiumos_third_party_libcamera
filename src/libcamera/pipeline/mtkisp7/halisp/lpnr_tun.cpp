@@ -105,7 +105,7 @@ LpnrTunTasksManager::LpnrTunTasksManager(
 
 void LpnrTunTasksManager::allocateBuffers()
 {
-	lpnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 12, DmaHeap::CMA);
+	lpnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 16, DmaHeap::CMA);
 	lpnrTun_.mmap();
 }
 
