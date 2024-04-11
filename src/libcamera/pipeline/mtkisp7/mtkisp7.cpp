@@ -1668,6 +1668,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 			Scheduler::precede(taskDQBuf, taskXtr);
 			scheduler->succeedPrevTaskByStep(XtrGroup, 0, taskXtr);
+			scheduler->succeedPrevTaskByStep(LpnrTunDipTaskGroup, 2, taskXtr);
 			scheduler->queueTask(taskXtr, XtrGroup);
 
 			Scheduler::precede(taskXtr, taskLpnrDip);
