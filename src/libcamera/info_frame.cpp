@@ -160,6 +160,7 @@ int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
 				 unsigned int count, DmaHeap::Type type,
 				 unsigned int strideAlign, unsigned scanAlign)
 {
+	release();
 	const PixelFormatInfo &info = PixelFormatInfo::info(format);
 	uint32_t bufferSize = 0;
 	for (unsigned int i = 0; i < info.numPlanes(); i++)
