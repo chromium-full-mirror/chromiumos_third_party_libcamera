@@ -20,6 +20,7 @@
 #include "../camsys/capture.h"
 #include "../halisp/hal_isp.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
+#include "pipeline/mtkisp7/hal3a/utils_3a.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/kernel-headers/kd_imgsensor.h"
@@ -82,9 +83,6 @@ void Hal3A::start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer)
 
 void Hal3A::init()
 {
-	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
-	pHalSensorList->searchSensors();
-
 	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
 
 	switch (PlatformUtils::platform_) {
@@ -142,9 +140,9 @@ void Hal3A::init()
 	sensor_info_ = SensorInfo::getInstance(sensor_idx_);
 
 	if (sensor_info_) {
-		sensor_info_->init(_sensorIdxInfo.sensorDev, _sensorIdxInfo.sensorId, _sensorIdxInfo.moduleId);
+		sensor_info_->init(sensor_dev_, sensor_id_);
 		sensor_info_->get_sensor_static_info(&init.sensor_static_info_array);
-		sensor_info_->get_sensor_initial_dynamic_info(&init.sensor_init_dynamic_info);
+		getInitialDynamicInfo(sensor_idx_, init.sensor_init_dynamic_info);
 		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_MODULE_VERSION, &init.cal_data);
 		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_3A_GAIN, &init.cal_aa);
 		sensor_info_->get_cal_data(CAMERA_CAM_CAL_DATA_SHADING_TABLE, &init.cal_lsc);
@@ -170,10 +168,10 @@ void Hal3A::getInitialInfo()
 
 	if (sensor_info_) {
 		sensor_info_->get_sensor_static_info(&config.sensor_static_info_array);
-		sensor_info_->get_sensor_initial_dynamic_info(&config.sensor_init_dynamic_info);
 	} else {
 		LOG(MtkISP7, Info) << "sensor_info_ is null";
 	}
+	getInitialDynamicInfo(sensor_idx_, config.sensor_init_dynamic_info);
 
 	// Replace m_meta_helper.convertToConfigRequest
 	config.ae_target_mode = 0;
@@ -250,10 +248,12 @@ void Hal3A::getInitialInfo()
 void Hal3A::config()
 {
 	mtk::hal3a::v1_0::mtk_3a_config config = {};
-	if (sensor_info_) {
-		sensor_info_->get_sensor_perframe_dynamic_info(&config.sensor_perframe_dynamic_info);
+	if (sensor_idx_ == 0) {
+		config.sensor_perframe_dynamic_info.period = 166989368;
+		config.sensor_perframe_dynamic_info.pixels_in_line = 166989368;
 	} else {
-		LOG(MtkISP7, Error) << "sensor_info_ is null";
+		config.sensor_perframe_dynamic_info.period = 133172816;
+		config.sensor_perframe_dynamic_info.pixels_in_line = 133172816;
 	}
 
 	// Replace m_meta_helper.convertToConfigRequest

@@ -14,7 +14,6 @@
 #include <libcamera/base/log.h>
 
 #include "platform/mtkisp7/cam_cal_helper.h"
-#include "platform/mtkisp7/halsensor_helper.h"
 #include "platform/mtkisp7/imgsensor_info_helper.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/imgsensor_src/imgsensor_info_custom.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/camera_custom_imgsensor_cfg.h"
@@ -43,16 +42,14 @@ std::map<int, int> sensorId_idx_map_ciri = { { 0, 0 }, { 1, 2 } };
 SensorInfo::SensorInfo(int sensor_idx)
 	: m_sensor_index(sensor_idx),
 	  m_sensor_dev(0),
-	  m_sensor_id(0),
-	  m_module_id(0)
+	  m_sensor_id(0)
 {
 }
 
-void SensorInfo::init(int sensor_dev, int sensor_id, int module_id)
+void SensorInfo::init(int sensor_dev, int sensor_id)
 {
 	m_sensor_dev = sensor_dev;
 	m_sensor_id = sensor_id;
-	m_module_id = module_id;
 }
 
 std::shared_ptr<SensorInfo> SensorInfo::getInstance(int sensor_idx)
@@ -108,29 +105,10 @@ void SensorInfo::get_sensor_static_info(
 			<< nscam_sensor_static_info_array->at(i).orientation;
 	}
 }
-void SensorInfo::get_sensor_initial_dynamic_info(
-	mtk::hal3a::SensorInitialDynamicInfo *sensor_dynamic_info)
-{
-	std::shared_ptr<HalSensorHelper> hal_sensor_helper =
-		HalSensorHelper::getInstance();
-	hal_sensor_helper->get_sensor_initial_dynamic_info(
-		m_sensor_index, m_sensor_dev, sensor_dynamic_info);
-}
-
-void SensorInfo::get_sensor_perframe_dynamic_info(
-	mtk::hal3a::SensorPerframeDynamicInfo *sensor_perframe_dynamic_info)
-{
-	std::shared_ptr<HalSensorHelper> hal_sensor_helper =
-		HalSensorHelper::getInstance();
-	hal_sensor_helper->get_sensor_perframe_dynamic_info(
-		m_sensor_index, m_sensor_dev, sensor_perframe_dynamic_info);
-}
-
 int SensorInfo::get_cal_data(ENUM_CAMERA_CAM_CAL_TYPE_ENUM cal_enum,
 			     void *a_pCamCalData)
 {
-	return CamCalHelper::getInstance(m_sensor_index)->get_cal_data(
-			cal_enum, m_sensor_id, m_sensor_dev, a_pCamCalData);
+	return CamCalHelper::getInstance(m_sensor_index)->get_cal_data(cal_enum, m_sensor_id, m_sensor_dev, a_pCamCalData);
 }
 
 bool SensorInfo::is_af_support()

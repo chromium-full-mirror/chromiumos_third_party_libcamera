@@ -875,6 +875,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 	}
 	SensorInfo::add_sensor(dataArray);
 
+	// TODO(chenghaoyang): Check if this is necessary. Theoretically
+	// libcamera doesn't depend on this API anymore.
+	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
+	pHalSensorList->searchSensors();
+
 	return true;
 }
 

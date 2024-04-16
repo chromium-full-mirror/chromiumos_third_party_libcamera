@@ -41,6 +41,7 @@ libcamera_sources += files([
     'fake_ipa/fake_ipa.cpp',
     'hal3a/aaa.cpp',
     'hal3a/hal_3a.cpp',
+    'hal3a/utils_3a.cpp',
     'halisp/hal_isp.cpp',
     'halisp/imgsys_task.cpp',
     'halisp/lpnr_tun.cpp',

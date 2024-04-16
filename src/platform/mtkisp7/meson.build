@@ -4,7 +4,6 @@ mtkisp7_platform_sources = files([
   'single_device_helper.cpp',
   'Tuning_Helper.cpp',
   'imgsensor_info_helper.cpp',
-  'halsensor_helper.cpp',
   'cam_cal_func.cpp',
   'cam_cal_helper.cpp',
   'platform_utils.cpp'
