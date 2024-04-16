@@ -996,7 +996,6 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 			NSCam::MSize(fullDipSize.width, fullDipSize.height);
 
 		tuning_param_p2.cam_info.ISP_3A_result_id = tuning_param_p2.cam_info.u8Id;
-		tuning_param_p2.cam_info.u8Id = internalRequestId;
 
 		auto &shading = aaaResult->shading_result;
 		int32_t lsc_data_size = shading.lsc_data.size();
