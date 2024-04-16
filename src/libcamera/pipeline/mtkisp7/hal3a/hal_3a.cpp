@@ -29,6 +29,10 @@
 
 namespace libcamera {
 
+namespace {
+constexpr uint32_t kAeBaseGain = 1024;
+} // namespace
+
 LOG_DECLARE_CATEGORY(MtkISP7)
 
 Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt)
@@ -947,31 +951,13 @@ void Hal3A::getExposureAndGain(
 	if (ae_table.cnt == 0)
 		return;
 
-	auto *const pSensorList = NSCam::IHalSensorList::get();
-
-	if (!pSensorList) {
-		LOG(MtkISP7, Error)
-			<< "Get exposure and gain: No IHalSensorList";
-		return;
-	}
-
-	auto dev_idx = pSensorList->querySensorDevIdx(sensor_idx_);
-	auto *const pHalSensor = pSensorList->createSensor("pipemgrPerframeSet", sensor_idx_);
-
-	if (!pHalSensor) {
-		LOG(MtkISP7, Error) << "Get exposure and gain: "
-				    << "Failed to create pipemgrPerframeSet with id: "
-				    << sensor_idx_;
-		return;
-	}
-
 	for (int exp = 0; exp < AE_EXP_MODE_MAX_T; ++exp) {
 		if (ae_table.table[exp].mode <= 0)
 			continue;
 
 		// exp should be 4: AE_EXP_MODE_NE_T
 
-		uint32_t gain = pHalSensor->convert_gain(dev_idx, ae_table.table[exp].afe_gain);
+		uint32_t gain = convertGain(ae_table.table[exp].afe_gain);
 		uint32_t ex = ae_table.table[exp].exposure_line;
 		exposureTimeMs = ae_table.table[exp].exposure_ns / 1000;
 		exposureAndGain->exposure = ex;
@@ -1021,8 +1007,24 @@ void Hal3A::getExposureAndGain(
 		length = mtk_frame_duration / lineTime + margin;
 
 	exposureAndGain->vblank = length - grabHeight;
+}
 
-	pHalSensor->destroyInstance("pipemgrPerframeSet");
+uint32_t Hal3A::convertGain(uint32_t aeGain)
+{
+	aeGain = std::max(aeGain, kAeBaseGain);
+	aeGain = std::min(aeGain, 16 * kAeBaseGain);
+	switch (sensor_id_) {
+	case GC08A3_SENSOR_ID:
+	case GC05A2_SENSOR_ID:
+		return aeGain * 0x400 / kAeBaseGain;
+		break;
+	case HI1339_SENSOR_ID:
+		return (aeGain - kAeBaseGain) * 16 / kAeBaseGain;
+		break;
+	default:
+		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
+		return 0;
+	}
 }
 
 } /* namespace libcamera */

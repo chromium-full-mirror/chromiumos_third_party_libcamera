@@ -77,6 +77,8 @@ private:
 						  bool isStillCapture,
 						  std::optional<ControlList> controls_opt);
 
+	uint32_t convertGain(uint32_t aeGain);
+
 	const uint32_t sensor_idx_;
 	int sensor_id_;
 	Size camsysYuvSize_;
