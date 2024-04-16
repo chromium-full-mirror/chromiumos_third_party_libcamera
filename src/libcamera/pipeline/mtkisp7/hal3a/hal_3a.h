@@ -81,6 +81,7 @@ private:
 
 	const uint32_t sensor_idx_;
 	int sensor_id_;
+	uint32_t sensor_dev_;
 	Size camsysYuvSize_;
 	bool isVideo_ = false;
 

@@ -94,7 +94,7 @@ void Hal3A::init()
 
 	case PlatformUtils::MtkISP7Platform::GOOGLE:
 		if (sensor_idx_ == 0) { // back camera
-			_sensorIdxInfo.sensorDev = 1;
+			sensor_dev_ = 1;
 			_sensorIdxInfo.sensorId = 4921;
 			_sensorIdxInfo.facing = 0;
 			_sensorIdxInfo.moduleId = 0;
@@ -102,7 +102,7 @@ void Hal3A::init()
 			sensor_id_ = HI1339_SENSOR_ID;
 
 		} else { // front camera
-			_sensorIdxInfo.sensorDev = 2;
+			sensor_dev_ = 2;
 			_sensorIdxInfo.sensorId = 2211;
 			_sensorIdxInfo.facing = 1;
 			_sensorIdxInfo.moduleId = 0;
@@ -113,14 +113,14 @@ void Hal3A::init()
 
 	case PlatformUtils::MtkISP7Platform::LENOVO:
 		if (sensor_idx_ == 0) { // back camera
-			_sensorIdxInfo.sensorDev = 1;
+			sensor_dev_ = 1;
 			_sensorIdxInfo.sensorId = 2211;
 			_sensorIdxInfo.facing = 0;
 			_sensorIdxInfo.moduleId = 0;
 			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
 			sensor_id_ = GC08A3_SENSOR_ID;
 		} else { // front camera
-			_sensorIdxInfo.sensorDev = 2;
+			sensor_dev_ = 2;
 			_sensorIdxInfo.sensorId = 1442;
 			_sensorIdxInfo.facing = 1;
 			_sensorIdxInfo.moduleId = 0;
@@ -129,6 +129,7 @@ void Hal3A::init()
 		}
 		break;
 	}
+	_sensorIdxInfo.sensorDev = sensor_dev_;
 
 	NvBufUtil::initSensorInfo(sensor_idx_, _sensorIdxInfo);
 
@@ -208,12 +209,7 @@ void Hal3A::getInitialInfo()
 	config.focal_length = 2.420000;
 	config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 
-	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
-	if (!pHalSensorList) {
-		LOG(MtkISP7, Fatal) << "Couldn't get IHalSensorList";
-		return;
-	}
-	config.control_config.sensor_dev = pHalSensorList->querySensorDevIdx(sensor_idx_);
+	config.control_config.sensor_dev = sensor_dev_;
 	//TODO, seperate the config for differnt module (geralt, ciri)
 	config.orientation.sensor_orientation = 0;
 	config.orientation.facing = (sensor_idx_ == 0) ? 0 : 1;
@@ -294,13 +290,7 @@ void Hal3A::config()
 	config.control_config.sensor_id = (sensor_idx_ == 0) ? 0 : 1;
 	config.control_config.bit_mode = 1;
 
-	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
-	if (!pHalSensorList) {
-		LOG(MtkISP7, Fatal) << "Couldn't get IHalSensorList";
-		return;
-	}
-
-	config.control_config.sensor_dev = pHalSensorList->querySensorDevIdx(sensor_idx_);
+	config.control_config.sensor_dev = sensor_dev_;
 	//TODO, seperate the config for differnt module (geralt, ciri)
 
 	switch (sensor_id_) {
