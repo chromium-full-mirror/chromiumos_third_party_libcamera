@@ -562,6 +562,8 @@ int CameraCapabilities::initializeStreamConfigurations()
 	 * metadata.
 	 */
 	Size maxJpegSize;
+	int64_t maxFrameDurationForBurstCapture = 100'000'000;
+	maxFrameDuration_ = std::max(maxFrameDuration_, maxFrameDurationForBurstCapture);
 	for (const auto &format : camera3FormatsMap) {
 		int androidFormat = format.first;
 		const Camera3Format &camera3Format = format.second;
@@ -711,7 +713,7 @@ int CameraCapabilities::initializeStreamConfigurations()
 			//Todo, read resolution and frame duration from table
 			if (res == maxRes){
 				streamConfigurations_.push_back({
-					res, androidFormat, minFrameDuration * 3 / 2, maxFrameDuration,
+					res, androidFormat, maxFrameDurationForBurstCapture, maxFrameDurationForBurstCapture,
 				});
 			} else {
 				streamConfigurations_.push_back({
@@ -740,7 +742,7 @@ int CameraCapabilities::initializeStreamConfigurations()
 				if (res == maxRes){
 					streamConfigurations_.push_back({
 						res, HAL_PIXEL_FORMAT_BLOB,
-						minFrameDuration * 3 / 2, maxFrameDuration,
+						maxFrameDurationForBurstCapture, maxFrameDurationForBurstCapture,
 					});
 				} else {
 					streamConfigurations_.push_back({
@@ -1569,10 +1571,10 @@ int CameraCapabilities::initializeStaticMetadata()
 	 * 'max' being the larger YUV stream maximum frame rate and 'min' being
 	 * the globally minimum frame rate.
 	 */
-	int32_t minFps = calculateFps(maxFrameDuration_);
 	std::vector<int32_t> availableAeFpsTarget;
 	std::vector<int32_t> sortedFps(availableFps.begin(),availableFps.end());
 	std::sort(sortedFps.begin(),sortedFps.end());
+	int32_t minFps = sortedFps[0];
 	for (auto fps:sortedFps){
 		availableAeFpsTarget.push_back(minFps);
 		availableAeFpsTarget.push_back(fps);
@@ -1780,12 +1782,24 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 		return nullptr;
 	}
 
-	/*
-	 * Assume the AE_AVAILABLE_TARGET_FPS_RANGE static metadata
-	 * has been assembled as {{min, max} {max, max}}.
-	 */
-	requestTemplate->addEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
-				  entry.data.i32, 2);
+	std::vector<int> previewFpsRange;
+	bool findPreviewFpsRange = false;
+	for (int i = 0; i < static_cast<int>(entry.count); i++){
+		int minFps = *(entry.data.i32 + i * 2);
+		int maxFps = *(entry.data.i32 + i * 2 + 1);
+		// Max fps should be at least 20
+		if (maxFps >= 20 ){
+			findPreviewFpsRange = true;
+			previewFpsRange.push_back(minFps);
+			previewFpsRange.push_back(maxFps);
+			break;
+		}
+	}
+	if (!findPreviewFpsRange){
+		previewFpsRange.push_back(15);
+		previewFpsRange.push_back(30);
+	}
+	requestTemplate->addEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, previewFpsRange);
 
 	/*
 	 * Get thumbnail sizes from static metadata and add the first non-zero
@@ -1987,12 +2001,24 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateVideo() const
 	staticMetadata_->getEntry(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
 				  &entry);
 
-	/*
-	 * Assume the AE_AVAILABLE_TARGET_FPS_RANGE static metadata
-	 * has been assembled as {{min, max} {max, max}}.
-	 */
-	previewTemplate->updateEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
-				     entry.data.i32 + 2, 2);
+	std::vector<int> videoFpsRange;
+	bool findVideoFpsRange = false;
+	for (int i = 0; i < static_cast<int>(entry.count); i++){
+		int minFps = *(entry.data.i32 + i * 2);
+		int maxFps = *(entry.data.i32 + i * 2 + 1);
+		// Video recording frame rate should be fixed
+		if (minFps == maxFps && maxFps >= 20 ){
+			findVideoFpsRange = true;
+			videoFpsRange.push_back(minFps);
+			videoFpsRange.push_back(maxFps);
+			break;
+		}
+	}
+	if (!findVideoFpsRange){
+		videoFpsRange.push_back(20);
+		videoFpsRange.push_back(20);
+	}
+	previewTemplate->updateEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, videoFpsRange.data(), 2);
 
 	uint8_t afMode = (isAfSupported_) ? ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO : ANDROID_CONTROL_AF_MODE_OFF;
 	previewTemplate->updateEntry(ANDROID_CONTROL_AF_MODE, afMode);
