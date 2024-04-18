@@ -1020,8 +1020,15 @@ int CameraCapabilities::initializeStaticMetadata()
 	 * AWB modes. Default to AUTO as CTS tests require it.
 	 */
 	std::vector<uint8_t> availableAwbModes = {
-		ANDROID_CONTROL_AWB_MODE_AUTO,
 		ANDROID_CONTROL_AWB_MODE_OFF,
+		ANDROID_CONTROL_AWB_MODE_AUTO,
+		ANDROID_CONTROL_AWB_MODE_INCANDESCENT,
+		ANDROID_CONTROL_AWB_MODE_FLUORESCENT,
+		ANDROID_CONTROL_AWB_MODE_WARM_FLUORESCENT,
+		ANDROID_CONTROL_AWB_MODE_DAYLIGHT,
+		ANDROID_CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
+		ANDROID_CONTROL_AWB_MODE_TWILIGHT,
+		ANDROID_CONTROL_AWB_MODE_SHADE,
 	};
 	staticMetadata_->addEntry(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
 				  availableAwbModes);
@@ -1907,7 +1914,7 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	float lensFilterDensity = 1.0f;
 	requestTemplate->addEntry(ANDROID_LENS_FILTER_DENSITY, lensFilterDensity);
 
-	float lensFocusDistance = 0.0f;
+	float lensFocusDistance = 1.0f;
 	requestTemplate->addEntry(ANDROID_LENS_FOCUS_DISTANCE, lensFocusDistance);
 
 	float lensFocusRange[] = {
