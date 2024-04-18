@@ -437,6 +437,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 			&tuning_param_p1, &result_p1);
 	}
 
+	tuning_param_p1.cam_info->ae_info.isp_data.bAEStable &= aaaResult->awb_result.awb_stable;
 	addHistory(frmId, *tuning_param_p1.cam_info, *tuning_param_p1.cam_info_3a);
 
 	std::shared_ptr<mtk::isphal::v1::isp_mfnrthres_Param> mfnrThresParam = getIspMfnrThresParam();
