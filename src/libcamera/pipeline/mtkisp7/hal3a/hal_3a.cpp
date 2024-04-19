@@ -171,11 +171,13 @@ void Hal3A::getInitialInfo()
 	config.tuning_feature_cap = 0;
 	config.target_size_w = 0;
 	config.target_size_h = 0;
-	config.capture_feature = 5316725;
+	config.capture_feature = 0;
 	config.ae_min_fps = 5000;
 	config.ae_max_fps = 30000;
 	config.zoom_ratio = 100;
-	config.capture_intent = 1;
+	config.capture_intent = (isVideo_) ?
+		MTK_CONTROL_CAPTURE_INTENT_VIDEO_RECORD : MTK_CONTROL_CAPTURE_INTENT_PREVIEW;
+
 	config.aov_enable = 0;
 	config.custom_feature = 0;
 	config.custom_feature_cap = 0;
@@ -186,7 +188,7 @@ void Hal3A::getInitialInfo()
 	config.control_config.subsample_count = 1;
 	config.control_config.request_count = 1;
 	config.control_config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
-	config.control_config.sensor_id = 0;
+	config.control_config.sensor_id = (sensor_idx_ == 0) ? 0 : 1;;
 	config.control_config.bit_mode = 1;
 
 	config.fno = 1.790000;
@@ -200,8 +202,8 @@ void Hal3A::getInitialInfo()
 	}
 	config.control_config.sensor_dev = pHalSensorList->querySensorDevIdx(sensor_idx_);
 	//TODO, seperate the config for differnt module (geralt, ciri)
-	config.orientation.sensor_orientation = (sensor_idx_ == 0) ? 0 : 270;
-	config.orientation.facing = (sensor_idx_ == 0) ? 1 : 0;
+	config.orientation.sensor_orientation = 0;
+	config.orientation.facing = (sensor_idx_ == 0) ? 0 : 1;
 	LOG(MtkISP7, Error) << "sensor_id: " << sensor_id_;
 	switch (sensor_id_) {
 	case HI1339_SENSOR_ID:
@@ -256,11 +258,12 @@ void Hal3A::config()
 	config.tuning_feature_cap = 0;
 	config.target_size_w = 0;
 	config.target_size_h = 0;
-	config.capture_feature = 5316725;
+	config.capture_feature = 0;
 	config.ae_min_fps = 5000;
 	config.ae_max_fps = 30000;
 	config.zoom_ratio = 100;
-	config.capture_intent = 1;
+	config.capture_intent = (isVideo_) ?
+		MTK_CONTROL_CAPTURE_INTENT_VIDEO_RECORD : MTK_CONTROL_CAPTURE_INTENT_PREVIEW;
 	config.aov_enable = 0;
 	config.custom_feature = 0;
 	config.custom_feature_cap = 0;
@@ -276,7 +279,7 @@ void Hal3A::config()
 	config.control_config.subsample_count = 1;
 	config.control_config.request_count = 1;
 	config.control_config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
-	config.control_config.sensor_id = 0;
+	config.control_config.sensor_id = (sensor_idx_ == 0) ? 0 : 1;
 	config.control_config.bit_mode = 1;
 
 	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
@@ -310,9 +313,9 @@ void Hal3A::config()
 
 	config.sensor_idx = sensor_idx_;
 
-	config.sub_flash_enable = (sensor_idx_ == 0) ? 0 : 1;
-	config.orientation.facing = (sensor_idx_ == 0) ? 1 : 0;
-	config.orientation.sensor_orientation = (sensor_idx_ == 0) ? 0 : 0;
+	config.sub_flash_enable = 0;
+	config.orientation.facing = (sensor_idx_ == 0) ? 0 : 1;
+	config.orientation.sensor_orientation = 0;
 	switch (sensor_id_) {
 	case HI1339_SENSOR_ID:
 		config.tg_width = 4208;
@@ -412,9 +415,12 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		internalRequestId, metadata, gyroSample, isStillCapture, controls);
 
 	r_3a_param.active_items =
-          (mtk::hal3a::Mtk3AActiveItem::kAE | mtk::hal3a::Mtk3AActiveItem::kAWB |
-           mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
-           mtk::hal3a::Mtk3AActiveItem::kShading);
+		(mtk::hal3a::Mtk3AActiveItem::kAE | mtk::hal3a::Mtk3AActiveItem::kAWB |
+		mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
+		mtk::hal3a::Mtk3AActiveItem::kShading);
+
+	if (!resultHistory_.contain(camSysMetaRequestId))
+		r_3a_param.is_dummy_request = true;
 
 	m_hal3a_->SetParam(r_3a_param);
 
@@ -492,6 +498,9 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 		return;
 	}
 
+	if (!resultHistory_.contain(camSysMetaRequestId))
+		r_3a_param.is_dummy_request = true;
+
 	// TODO: Check when to use kAFTrigger.
 	r_af_request.scenario = mtk::hal3a::Mtk3AScenario::kAFNormal;
 	r_af_request.buf_info.request_id = camSysMetaRequestId;
@@ -556,7 +565,8 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.awb_mode = controls_opt->get(controls::AwbMode).value_or(1);
 		r_3a_param.ae_anti_banding_mode = controls_opt->get(controls::AeAntiBandingMode).value_or(3);
 		std::array<int64_t, 2> defaultFrameLimites = { 33'333, 66'666 };
-		const auto &frameDurationLimits = controls_opt->get(controls::FrameDurationLimits).value_or(defaultFrameLimites);
+		const auto &frameDurationLimits =
+			controls_opt->get(controls::FrameDurationLimits).value_or(defaultFrameLimites);
 		int32_t minFps = 1'000'000 / static_cast<int32_t>(frameDurationLimits[1]);
 		int32_t maxFps = 1'000'000 / static_cast<int32_t>(frameDurationLimits[0]);
 		r_3a_param.ae_sensor_min_fps = minFps * 1000;

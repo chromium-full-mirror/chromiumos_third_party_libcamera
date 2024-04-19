@@ -53,6 +53,18 @@ public:
 		return &resultHistory_.back().second;
 	}
 
+	bool contain(uint32_t id)
+	{
+		MutexLocker locker(lock_);
+
+		for (auto &[resultId, result] : resultHistory_) {
+			if (id == resultId)
+				return true;
+		}
+
+		return false;
+	}
+
 	void release()
 	{
 		MutexLocker locker(lock_);
