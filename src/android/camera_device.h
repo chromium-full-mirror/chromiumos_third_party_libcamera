@@ -9,10 +9,7 @@
 
 #include <map>
 #include <memory>
-#include <queue>
 #include <vector>
-
-#include <hardware/camera3.h>
 
 #include <libcamera/base/class.h>
 #include <libcamera/base/log.h>
@@ -27,11 +24,15 @@
 #include <libcamera/request.h>
 #include <libcamera/stream.h>
 
+#include <hardware/camera3.h>
+#include <queue>
+
+#include "jpeg/encoder.h"
+
 #include "camera_capabilities.h"
 #include "camera_metadata.h"
 #include "camera_stream.h"
 #include "hal_framebuffer.h"
-#include "jpeg/encoder.h"
 
 class Camera3RequestDescriptor;
 struct CameraConfigData;
@@ -71,7 +72,7 @@ public:
 	void streamProcessingCompleteDelegate(StreamBuffer *bufferStream,
 					      StreamBuffer::Status status);
 	void streamProcessingComplete(StreamBuffer *bufferStream,
-				       StreamBuffer::Status status);
+				      StreamBuffer::Status status);
 
 protected:
 	std::string logPrefix() const override;
@@ -111,6 +112,8 @@ private:
 		const libcamera::ControlList &metadata) const;
 	std::unique_ptr<CameraMetadata> getFinalResultMetadata(
 		const CameraMetadata &settings) const;
+
+	void cameraDisconnected();
 
 	unsigned int id_;
 	camera3_device_t camera3Device_;

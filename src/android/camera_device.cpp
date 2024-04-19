@@ -502,6 +502,7 @@ CameraDevice::CameraDevice(unsigned int id, std::shared_ptr<Camera> camera)
 
 	camera_->requestCompleted.connect(this, &CameraDevice::requestComplete);
 	camera_->partialResultCompleted.connect(this, &CameraDevice::partialResultComplete);
+	camera_->disconnected.connect(this, &CameraDevice::cameraDisconnected);
 
 	maker_ = "libcamera";
 	model_ = "cameraModel";
@@ -1002,11 +1003,10 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		std::vector<Rectangle> afWindows;
 		for (size_t i = 0; i < entry.count; i++) {
 			size_t j = i * 5;
-			afWindows.push_back(Rectangle {
+			afWindows.push_back(Rectangle{
 				data[j], data[j + 1],
 				static_cast<unsigned int>(data[j + 2] - data[j]),
-				static_cast<unsigned int>(data[j + 3] - data[j + 1])
-			});
+				static_cast<unsigned int>(data[j + 3] - data[j + 1]) });
 		}
 		controls.set(controls::AfWindows, afWindows);
 	}
@@ -1072,7 +1072,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_SENSOR_EXPOSURE_TIME, &entry)) {
 		const int64_t *data = entry.data.i64;
-		controls.set(controls::ExposureTime, static_cast<int32_t>(data[0]/1000));
+		controls.set(controls::ExposureTime, static_cast<int32_t>(data[0] / 1000));
 	}
 
 	if (settings.getEntry(ANDROID_SENSOR_SENSITIVITY, &entry)) {
@@ -1989,7 +1989,6 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_REQUEST_PIPELINE_DEPTH,
 					 *pipelineDepth);
 
-
 	if (metadata.contains(controls::EXPOSURE_TIME)) {
 		const auto &exposureTime = metadata.get(controls::ExposureTime);
 		int64_t exposure_time = static_cast<int64_t>(exposureTime.value_or(33'333));
@@ -2373,7 +2372,7 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 		resultMetadata->addEntry(ANDROID_TONEMAP_CURVE_BLUE, entry.data.f, entry.count);
 	}
 
-	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)){
+	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)) {
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, entry.data.i32, 2);
 	}
 
@@ -2397,7 +2396,7 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	// Todo, update this with real lens shading map from calbration data
 	if (settings.getEntry(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &entry) && *entry.data.u8) {
 		std::vector<float> lensShadingMap(4 * 17 * 17, 1.0f);
-		resultMetadata->addEntry(ANDROID_STATISTICS_LENS_SHADING_MAP,lensShadingMap);
+		resultMetadata->addEntry(ANDROID_STATISTICS_LENS_SHADING_MAP, lensShadingMap);
 	}
 
 	/*
@@ -2416,4 +2415,9 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	}
 
 	return resultMetadata;
+}
+
+void CameraDevice::cameraDisconnected()
+{
+	notifyError(0, nullptr, CAMERA3_MSG_ERROR_DEVICE);
 }
