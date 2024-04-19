@@ -5,7 +5,7 @@
  * camera.cpp - Camera device
  */
 
-#include <libcamera/camera.h>
+#include "libcamera/internal/camera.h"
 
 #include <array>
 #include <atomic>
@@ -14,12 +14,12 @@
 #include <libcamera/base/log.h>
 #include <libcamera/base/thread.h>
 
+#include <libcamera/camera.h>
 #include <libcamera/color_space.h>
 #include <libcamera/framebuffer_allocator.h>
 #include <libcamera/request.h>
 #include <libcamera/stream.h>
 
-#include "libcamera/internal/camera.h"
 #include "libcamera/internal/camera_controls.h"
 #include "libcamera/internal/formats.h"
 #include "libcamera/internal/pipeline_handler.h"
@@ -739,6 +739,12 @@ void Camera::Private::setRequestCompletionMode(RequestCompletionMode mode)
 Camera::RequestCompletionMode Camera::Private::requestCompletionMode() const
 {
 	return requestCompletionMode_;
+}
+
+void Camera::Private::notifyDisconnection()
+{
+	Camera *o = LIBCAMERA_O_PTR();
+	o->disconnected.emit();
 }
 
 /**

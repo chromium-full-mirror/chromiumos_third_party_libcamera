@@ -30,7 +30,7 @@ public:
 	~IPCUnixSocket();
 
 	UniqueFD create();
-	bool connectRemote(const std::string& socketName);
+	bool connectRemote(const std::string &socketName);
 	int bind(UniqueFD fd);
 	void close();
 	bool isBound() const;
@@ -40,6 +40,8 @@ public:
 
 	Signal<> readyRead;
 	EventNotifier *notifier_;
+
+	Signal<> disconnected;
 
 private:
 	struct Header {

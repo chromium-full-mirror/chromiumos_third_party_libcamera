@@ -108,6 +108,14 @@ namespace {{ns}} {
 	}
 }
 
+Signal<> *{{proxy_name}}::disconnected()
+{
+	if (ipc_)
+		return ipc_->disconnected();
+
+	return nullptr;
+}
+
 {% if interface_event.methods|length > 0 %}
 void {{proxy_name}}::recvMessage(std::shared_ptr<IPCMessage> &data)
 {

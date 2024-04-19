@@ -35,6 +35,7 @@ public:
 
 	void setRequestCompletionMode(RequestCompletionMode mode);
 	RequestCompletionMode requestCompletionMode() const;
+	void notifyDisconnection();
 
 	std::list<Request *> queuedRequests_;
 	ControlInfoMap controlInfo_;

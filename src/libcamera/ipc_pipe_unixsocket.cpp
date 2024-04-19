@@ -104,6 +104,14 @@ int IPCPipeUnixSocket::sendAsync(const IPCMessage &data)
 	return 0;
 }
 
+Signal<> *IPCPipeUnixSocket::disconnected()
+{
+	if (socket_)
+		return &socket_->disconnected;
+
+	return nullptr;
+}
+
 void IPCPipeUnixSocket::readyRead()
 {
 	IPCUnixSocket::Payload payload;

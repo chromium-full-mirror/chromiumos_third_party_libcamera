@@ -52,6 +52,8 @@ public:
 > {{method.mojom_name}};
 {% endfor %}
 
+	Signal<> *disconnected();
+
 private:
 	void recvMessage(std::shared_ptr<IPCMessage> &data);
 
