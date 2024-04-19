@@ -1341,8 +1341,6 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 		mfnrTunManager.configure(sensorFullSize_, still1, still2, swme, bss);
 	}
 
-	requestCount_ = 0;
-
 	return 0;
 }
 
