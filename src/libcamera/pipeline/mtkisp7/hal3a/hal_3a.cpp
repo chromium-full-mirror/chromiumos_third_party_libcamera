@@ -582,6 +582,9 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		//TODO, seperate the config for differnt module (geralt, ciri)
 		if (sensor_idx_ == 0) { // back camera
 			r_3a_param.af_mode = controls_opt->get(controls::AfMode).value_or(3);
+			// TODO, This is a workaround for android.hardware.camera2.cts.RobustnessTest#testSimultaneousTriggers.
+			// AF can not converge when af_mode == 4, so change afMode to 3 for now.
+			r_3a_param.af_mode = (r_3a_param.af_mode == 4) ? 3 : r_3a_param.af_mode;
 		} else { // front camera
 			r_3a_param.af_mode = 0;
 		}
