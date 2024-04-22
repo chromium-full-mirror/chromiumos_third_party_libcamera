@@ -966,6 +966,20 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		}
 	}
 
+	if (settings.getEntry(ANDROID_CONTROL_AF_REGIONS, &entry)) {
+		const int32_t *data = entry.data.i32;
+		std::vector<Rectangle> afWindows;
+		for (size_t i = 0; i < entry.count; i++) {
+			size_t j = i * 5;
+			afWindows.push_back(Rectangle {
+				data[j], data[j + 1],
+				static_cast<unsigned int>(data[j + 2] - data[j]),
+				static_cast<unsigned int>(data[j + 3] - data[j + 1])
+			});
+		}
+		controls.set(controls::AfWindows, afWindows);
+	}
+
 	if (settings.getEntry(ANDROID_CONTROL_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
 		controls.set(controls::Mode3A, data[0]);
