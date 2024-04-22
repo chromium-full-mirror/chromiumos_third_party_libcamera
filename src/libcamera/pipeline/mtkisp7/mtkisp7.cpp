@@ -1723,6 +1723,7 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::FRAME_DURATION_LIMITS,
 		controls::AF_MODE,
 		controls::AF_TRIGGER,
+		controls::AF_WINDOWS,
 	};
 
 	for (auto id : checkList) {
