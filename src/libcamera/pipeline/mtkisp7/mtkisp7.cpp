@@ -968,6 +968,13 @@ bool MtkISP7CameraData::loadIPA()
 		return false;
 	}
 
+	auto *signalDisconnected = ipa->disconnected();
+	if (signalDisconnected) {
+		signalDisconnected->connect((Camera::Private *)this, &Camera::Private::notifyDisconnection);
+	} else {
+		LOG(MtkISP7, Error) << "Couldn't get signal disconnected";
+	}
+
 	if (ipa_->init(std::move(ipa), PlatformUtils::model_, sensor_idx_,
 		       buffer, pipeline->camSysDataArray_)) {
 		LOG(MtkISP7, Error) << "IPA init failed";
