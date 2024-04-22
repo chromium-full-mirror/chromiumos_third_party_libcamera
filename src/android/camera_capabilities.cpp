@@ -1034,7 +1034,7 @@ int CameraCapabilities::initializeStaticMetadata()
 				  availableAwbModes);
 
 	std::vector<int32_t> availableMaxRegions = {
-		0, 0, 0,
+		0, 0, 1,
 	};
 	staticMetadata_->addEntry(ANDROID_CONTROL_MAX_REGIONS,
 				  availableMaxRegions);

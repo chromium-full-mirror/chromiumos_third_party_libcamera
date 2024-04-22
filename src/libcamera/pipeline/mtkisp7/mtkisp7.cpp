@@ -770,6 +770,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			4.71f,
 		};
 		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
+		controls[&controls::AfWindows] = ControlInfo(Rectangle{}, Rectangle{}, Rectangle{});
 
 		if (camSysDev_[i].getCameraLens()) {
 			controls[&controls::LensPosition] = ControlInfo(0.1f, 100.0f, 1.0f);

@@ -589,6 +589,19 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 			r_3a_param.af_mode = 0;
 		}
 		r_3a_param.af_trigger = controls_opt->get(controls::AfTrigger).value_or(0);
+
+		std::memset(&r_3a_param.af_region, 0, sizeof(r_3a_param.af_region));
+
+		auto afWindows = controls_opt->get(controls::AfWindows);
+		if (afWindows) {
+			r_3a_param.af_region.count = 1;
+			Rectangle window = afWindows->data()[0];
+			r_3a_param.af_region.areas[0].left = window.x;
+			r_3a_param.af_region.areas[0].top = window.y;
+			r_3a_param.af_region.areas[0].right = window.x + window.width;
+			r_3a_param.af_region.areas[0].bottom = window.y + window.height;
+			r_3a_param.af_region.areas[0].weight = 1;
+		}
 	} else {
 		r_3a_param.ae_mode = 1;
 		r_3a_param.ae_lock = 0;
@@ -611,6 +624,8 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		}
 		// TODO: Check when to use kAFTrigger.
 		r_3a_param.af_trigger = 0;
+
+		std::memset(&r_3a_param.af_region, 0, sizeof(r_3a_param.af_region));
 	}
 
 	r_3a_param.ae_exp_index = 0;
