@@ -366,8 +366,7 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 		streamConfig.config.pixelFormat = format;
 
 		if (isJpegStream(stream)) {
-			streamConfig.streams = { { stream, CameraStream::Type::Internal } };
-			streamConfig.config.role = StreamRole::StillCapture;
+			continue;
 		} else if (isYuvSnapshotStream(stream)) {
 			streamConfig.streams = { { stream, CameraStream::Type::Direct } };
 			streamConfig.config.role = StreamRole::StillCapture;
@@ -384,6 +383,36 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 		streamConfigs.push_back(std::move(streamConfig));
 	}
 
+	for (unsigned int i = 0; i < stream_list->num_streams; ++i) {
+		camera3_stream_t *stream = stream_list->streams[i];
+		Size size(stream->width, stream->height);
+
+		PixelFormat format = capabilities.toPixelFormat(stream->format);
+
+		if (!isJpegStream(stream))
+			continue;
+
+		bool found = false;
+		for (auto &cfg : streamConfigs) {
+			if (cfg.config.role == StreamRole::StillCapture &&
+			    cfg.streams[0].stream->width == size.width &&
+			    cfg.streams[0].stream->height == size.height) {
+				cfg.streams.push_back({ stream, CameraStream::Type::Mapped });
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			Camera3StreamConfig streamConfig;
+			streamConfig.config.size = size;
+			streamConfig.config.pixelFormat = format;
+			streamConfig.streams = { { stream, CameraStream::Type::Internal } };
+			streamConfig.config.role = StreamRole::StillCapture;
+			streamConfigs.push_back(std::move(streamConfig));
+		}
+	}
+
 	/*
 	Hardware support maxium 2 video + 2 still capture strem, when still capture
 	stream is higher than 2, move the rest to video stream.
@@ -396,7 +425,8 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 	}
 	if (stillCnt > 2) {
 		for (auto &streamCfg : streamConfigs) {
-			if (streamCfg.config.role == StreamRole::StillCapture && streamCfg.streams[0].stream->format != HAL_PIXEL_FORMAT_BLOB) {
+			if (streamCfg.config.role == StreamRole::StillCapture &&
+			    streamCfg.streams[0].stream->format != HAL_PIXEL_FORMAT_BLOB) {
 				streamCfg.config.role = StreamRole::Viewfinder;
 				stillCnt -= 1;
 				if (stillCnt == 2) {
