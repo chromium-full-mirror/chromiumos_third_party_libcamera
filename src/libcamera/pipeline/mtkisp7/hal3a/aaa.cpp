@@ -22,6 +22,7 @@ namespace libcamera {
 namespace {
 
 static constexpr Size kMetaSize = Size{ kHal3ARawMetaSize, 1 };
+static constexpr uint32_t kDummyMetaRequestId = 0xFFF12345;
 
 // Todo: Move the funtion to common utils
 uint64_t getMonotonicTimestamp()
@@ -119,7 +120,7 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 		tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8,
 					  DmaHeap::CMA);
 
-	dummyMetaRequestId_ = 0;
+	dummyMetaRequestId_ = kDummyMetaRequestId;
 
 	dummyTuning_ = makeMailBox<InfoFrame>();
 	fetchTuningBuffer(dummyTuning_);
