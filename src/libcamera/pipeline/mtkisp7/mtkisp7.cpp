@@ -1724,6 +1724,7 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::AF_MODE,
 		controls::AF_TRIGGER,
 		controls::AF_WINDOWS,
+		controls::LENS_POSITION,
 	};
 
 	for (auto id : checkList) {

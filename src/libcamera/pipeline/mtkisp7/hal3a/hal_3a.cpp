@@ -589,6 +589,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 			r_3a_param.af_mode = 0;
 		}
 		r_3a_param.af_trigger = controls_opt->get(controls::AfTrigger).value_or(0);
+		r_3a_param.af_focus_distance = controls_opt->get(controls::LensPosition).value_or(0);
 
 		r_3a_param.af_region.count = 0;
 		std::memset(&r_3a_param.af_region, 0, sizeof(r_3a_param.af_region));
@@ -625,6 +626,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		}
 		// TODO: Check when to use kAFTrigger.
 		r_3a_param.af_trigger = 0;
+		r_3a_param.af_focus_distance = 0.000000;
 		r_3a_param.af_region.count = 0;
 
 		std::memset(&r_3a_param.af_region, 0, sizeof(r_3a_param.af_region));
@@ -652,7 +654,6 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		}
 	}
 	r_3a_param.awb_default_pregain1 = 0;
-	r_3a_param.af_focus_distance = 0.000000;
 	r_3a_param.af_zoom_ratio = 0;
 	r_3a_param.af_zoom_stop = 0;
 	r_3a_param.lens_ois_mode = 0;
