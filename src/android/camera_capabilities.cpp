@@ -1842,6 +1842,19 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	uint8_t afTrigger = ANDROID_CONTROL_AF_TRIGGER_IDLE;
 	requestTemplate->addEntry(ANDROID_CONTROL_AF_TRIGGER, afTrigger);
 
+	const ControlList &properties = camera_->properties();
+	const Span<const Rectangle> &rects =
+		properties.get(properties::PixelArrayActiveAreas).value_or(Span<const Rectangle>{});
+
+	std::vector<int32_t> data{
+		static_cast<int32_t>(rects[0].x),
+		static_cast<int32_t>(rects[0].y),
+		static_cast<int32_t>(rects[0].width - 1),
+		static_cast<int32_t>(rects[0].height - 1),
+		static_cast<int32_t>(0),
+	};
+	requestTemplate->addEntry(ANDROID_CONTROL_AF_REGIONS, data);
+
 	uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
 	requestTemplate->addEntry(ANDROID_CONTROL_AWB_MODE, awbMode);
 
