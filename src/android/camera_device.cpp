@@ -1096,6 +1096,11 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::AfTrigger, static_cast<uint8_t>(data[0]));
 	}
 
+	if (settings.getEntry(ANDROID_LENS_FOCUS_DISTANCE, &entry)) {
+		const float *data = entry.data.f;
+		controls.set(controls::LENS_POSITION, static_cast<float>(data[0]));
+	}
+
 	return 0;
 }
 
