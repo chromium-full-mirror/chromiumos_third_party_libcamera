@@ -2289,16 +2289,6 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 
 	if (settings.getEntry(ANDROID_CONTROL_AF_REGIONS, &entry)) {
 		resultMetadata->addEntry(ANDROID_CONTROL_AF_REGIONS, entry.data.i32, entry.count);
-	} else {
-		capabilities_.staticMetadata()->getEntry(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, &entry);
-		std::vector<int32_t> data{
-			static_cast<int32_t>(entry.data.i32[0]),
-			static_cast<int32_t>(entry.data.i32[1]),
-			static_cast<int32_t>(entry.data.i32[2] - 1),
-			static_cast<int32_t>(entry.data.i32[3] - 1),
-			static_cast<int32_t>(0),
-		};
-		resultMetadata->addEntry(ANDROID_CONTROL_AF_REGIONS, data);
 	}
 
 	if (settings.getEntry(ANDROID_LENS_FOCAL_LENGTH, &entry)) {

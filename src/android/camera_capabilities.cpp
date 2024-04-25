@@ -1034,8 +1034,14 @@ int CameraCapabilities::initializeStaticMetadata()
 				  availableAwbModes);
 
 	std::vector<int32_t> availableMaxRegions = {
-		0, 0, 1,
+		0, 0, 0,
 	};
+
+	const auto &lensInfoMap = controlsInfo.find(&controls::LensPosition);
+	if (lensInfoMap != controlsInfo.end()) {
+		availableMaxRegions[2] = 1;
+	}
+
 	staticMetadata_->addEntry(ANDROID_CONTROL_MAX_REGIONS,
 				  availableMaxRegions);
 
@@ -1459,6 +1465,9 @@ int CameraCapabilities::initializeStaticMetadata()
 		};
 		staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
 					availableAfModes);
+
+		availableResultKeys_.insert(ANDROID_CONTROL_AF_REGIONS);
+		availableRequestKeys_.insert(ANDROID_CONTROL_AF_REGIONS);
 	} else {
 		std::vector<uint8_t> availableAfModes = {
 			ANDROID_CONTROL_AF_MODE_OFF,
@@ -1842,18 +1851,20 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	uint8_t afTrigger = ANDROID_CONTROL_AF_TRIGGER_IDLE;
 	requestTemplate->addEntry(ANDROID_CONTROL_AF_TRIGGER, afTrigger);
 
-	const ControlList &properties = camera_->properties();
-	const Span<const Rectangle> &rects =
-		properties.get(properties::PixelArrayActiveAreas).value_or(Span<const Rectangle>{});
+	if (isAfSupported_) {
+		const ControlList &properties = camera_->properties();
+		const Span<const Rectangle> &rects =
+			properties.get(properties::PixelArrayActiveAreas).value_or(Span<const Rectangle>{});
 
-	std::vector<int32_t> data{
-		static_cast<int32_t>(rects[0].x),
-		static_cast<int32_t>(rects[0].y),
-		static_cast<int32_t>(rects[0].width - 1),
-		static_cast<int32_t>(rects[0].height - 1),
-		static_cast<int32_t>(0),
-	};
-	requestTemplate->addEntry(ANDROID_CONTROL_AF_REGIONS, data);
+		std::vector<int32_t> data{
+			static_cast<int32_t>(rects[0].x),
+			static_cast<int32_t>(rects[0].y),
+			static_cast<int32_t>(rects[0].width - 1),
+			static_cast<int32_t>(rects[0].height - 1),
+			static_cast<int32_t>(0),
+		};
+		requestTemplate->addEntry(ANDROID_CONTROL_AF_REGIONS, data);
+	}
 
 	uint8_t awbMode = ANDROID_CONTROL_AWB_MODE_AUTO;
 	requestTemplate->addEntry(ANDROID_CONTROL_AWB_MODE, awbMode);
