@@ -65,6 +65,8 @@ static const ControlInfoMap::Map MtkISP7Controls = {
 	{ &controls::draft::NoiseReductionMode, ControlInfo(controls::draft::NoiseReductionModeValues) },
 };
 
+// TODO(chenghaoyang): Set a big core according to models.
+// Ciri's big cores are CPU 6 and 7.
 static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
 
 //TODO implement strategy to choose between mfnr and lpnr

@@ -20,6 +20,13 @@ LOG_DEFINE_CATEGORY(IPAMtkISP7)
 
 namespace ipa::mtkisp7 {
 
+namespace {
+// TODO(chenghaoyang): Set a big core according to models.
+// Ciri's big cores are CPU 6 and 7.
+static const std::vector<int> k3AThreadCpuAffinity{ 6, 7 };
+static const std::vector<int> kIspThreadCpuAffinity{ 6, 7 };
+} // namespace
+
 IPAMtkISP7::IPAMtkISP7()
 {
 }
@@ -91,6 +98,7 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 		rawMetaBuffer->mapped->planes()[0].data()));
 
 	aaThread_.start();
+	aaThread_.setThreadAffinity(k3AThreadCpuAffinity);
 	aaManager_ = std::make_unique<AAManager>(this);
 	aaManager_->moveToThread(&aaThread_);
 
@@ -100,6 +108,7 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 	afManager_->moveToThread(&aaThread_);
 
 	ispThread_.start();
+	ispThread_.setThreadAffinity(kIspThreadCpuAffinity);
 	ispManager_ = std::make_unique<IspManager>(this);
 	ispManager_->moveToThread(&ispThread_);
 
