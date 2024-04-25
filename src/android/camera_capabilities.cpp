@@ -840,6 +840,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_EDGE_AVAILABLE_EDGE_MODES,
 		ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES,
 		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
+		ANDROID_LENS_INFO_SHADING_MAP_SIZE,
 		ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
 		ANDROID_SENSOR_INFO_WHITE_LEVEL,
 		ANDROID_SENSOR_MAX_ANALOG_SENSITIVITY,
@@ -939,6 +940,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_SENSOR_TIMESTAMP,
 		ANDROID_STATISTICS_FACE_DETECT_MODE,
 		ANDROID_STATISTICS_LENS_SHADING_MAP_MODE,
+		ANDROID_STATISTICS_LENS_SHADING_MAP,
 		ANDROID_STATISTICS_HOT_PIXEL_MAP_MODE,
 		ANDROID_STATISTICS_SCENE_FLICKER,
 		ANDROID_TONEMAP_MODE,
@@ -1699,6 +1701,10 @@ int CameraCapabilities::initializeStaticMetadata()
 
 	staticMetadata_->addEntry(ANDROID_TONEMAP_MAX_CURVE_POINTS,
 		toneMapMaxCurvePoints);
+
+	// Todo, update this with real lens shading map from calbration data
+	std::vector<int> shadingMapSize = {17, 17};
+	staticMetadata_->addEntry(ANDROID_LENS_INFO_SHADING_MAP_SIZE, shadingMapSize);
 
 	LOG(HAL, Info)
 		<< "Hardware level: " << hwLevelStrings.find(hwLevel_)->second;

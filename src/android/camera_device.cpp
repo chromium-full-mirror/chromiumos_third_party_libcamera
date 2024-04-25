@@ -2097,7 +2097,7 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	 * Total bytes: 16
 	 */
 	std::unique_ptr<CameraMetadata> resultMetadata =
-		std::make_unique<CameraMetadata>(64, 512);
+		std::make_unique<CameraMetadata>(64, 8192);
 	if (!resultMetadata->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate result metadata";
 		return nullptr;
@@ -2326,6 +2326,12 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	} else {
 		float lensFocalLength = 1.0f;
 		resultMetadata->addEntry(ANDROID_LENS_FOCAL_LENGTH, lensFocalLength);
+	}
+
+	// Todo, update this with real lens shading map from calbration data
+	if (settings.getEntry(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &entry) && *entry.data.u8) {
+		std::vector<float> lensShadingMap(4 * 17 * 17, 1.0f);
+		resultMetadata->addEntry(ANDROID_STATISTICS_LENS_SHADING_MAP,lensShadingMap);
 	}
 
 	/*
