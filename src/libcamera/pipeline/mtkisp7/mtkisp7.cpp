@@ -772,11 +772,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
 		controls[&controls::AfWindows] = ControlInfo(Rectangle{}, Rectangle{}, Rectangle{});
 
-		if (camSysDev_[i].getCameraLens()) {
+		if (camSysDev_[i].getCameraLens())
 			controls[&controls::LensPosition] = ControlInfo(0.1f, 100.0f, 1.0f);
-		} else {
-			controls[&controls::LensPosition] = ControlInfo(0.0f, 100.0f, 0.0f);
-		}
 
 		// For now these two controls are ignored.
 		// However, because MTK 3A algo is configured to prioritize
