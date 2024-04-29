@@ -58,6 +58,8 @@ Any consts or #defines should be moved to the mojom file.
 class {{interface_name}} : public IPAInterface
 {
 public:
+	virtual ~{{interface_name}}() = default;
+
 {% for method in interface_main.methods %}
 	virtual {{method|method_return_value}} {{method.mojom_name}}(
 {%- for param in method|method_parameters %}
