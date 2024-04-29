@@ -102,8 +102,6 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 	aaManager_ = std::make_unique<AAManager>(this);
 	aaManager_->moveToThread(&aaThread_);
 
-	// TODO, merge afManager into aaManager
-	//afThread_.start();
 	afManager_ = std::make_unique<AFManager>(this);
 	afManager_->moveToThread(&aaThread_);
 
@@ -123,12 +121,9 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 void IPAMtkISP7::stop()
 {
 	aaManager_.reset();
+	afManager_.reset();
 	aaThread_.exit();
 	aaThread_.wait();
-
-	afManager_.reset();
-	afThread_.exit();
-	afThread_.wait();
 
 	ispManager_.reset();
 	ispThread_.exit();

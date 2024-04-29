@@ -194,7 +194,6 @@ private:
 	Thread aaThread_;
 	std::unique_ptr<AAManager> aaManager_;
 
-	Thread afThread_;
 	std::unique_ptr<AFManager> afManager_;
 
 	Thread ispThread_;
