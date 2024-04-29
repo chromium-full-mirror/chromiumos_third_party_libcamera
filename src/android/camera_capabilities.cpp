@@ -871,7 +871,6 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_JPEG_THUMBNAIL_QUALITY,
 		ANDROID_JPEG_THUMBNAIL_SIZE,
 		ANDROID_LENS_APERTURE,
-		ANDROID_LENS_FOCUS_DISTANCE,
 		ANDROID_LENS_FOCAL_LENGTH,
 		ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 		ANDROID_EDGE_MODE,
@@ -927,7 +926,6 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_LENS_APERTURE,
 		ANDROID_LENS_FOCAL_LENGTH,
 		ANDROID_LENS_FILTER_DENSITY,
-		ANDROID_LENS_FOCUS_DISTANCE,
 		ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 		ANDROID_LENS_STATE,
 		ANDROID_EDGE_MODE,
@@ -1032,18 +1030,6 @@ int CameraCapabilities::initializeStaticMetadata()
 	};
 	staticMetadata_->addEntry(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
 				  availableAwbModes);
-
-	std::vector<int32_t> availableMaxRegions = {
-		0, 0, 0,
-	};
-
-	const auto &lensInfoMap = controlsInfo.find(&controls::LensPosition);
-	if (lensInfoMap != controlsInfo.end()) {
-		availableMaxRegions[2] = 1;
-	}
-
-	staticMetadata_->addEntry(ANDROID_CONTROL_MAX_REGIONS,
-				  availableMaxRegions);
 
 	uint8_t aeLockAvailable = ANDROID_CONTROL_AE_LOCK_AVAILABLE_TRUE;
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_LOCK_AVAILABLE,
@@ -1466,7 +1452,10 @@ int CameraCapabilities::initializeStaticMetadata()
 		staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
 					availableAfModes);
 
+		availableResultKeys_.insert(ANDROID_LENS_FOCUS_DISTANCE);
 		availableResultKeys_.insert(ANDROID_CONTROL_AF_REGIONS);
+
+		availableRequestKeys_.insert(ANDROID_LENS_FOCUS_DISTANCE);
 		availableRequestKeys_.insert(ANDROID_CONTROL_AF_REGIONS);
 	} else {
 		std::vector<uint8_t> availableAfModes = {
@@ -1475,6 +1464,17 @@ int CameraCapabilities::initializeStaticMetadata()
 		staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
 					availableAfModes);
 	}
+
+	std::vector<int32_t> availableMaxRegions = {
+		0, 0, 0,
+	};
+
+	if (isAfSupported_) {
+		availableMaxRegions[2] = 1;
+	}
+
+	staticMetadata_->addEntry(ANDROID_CONTROL_MAX_REGIONS,
+				  availableMaxRegions);
 
 	/* Noise reduction modes. */
 	{
@@ -1938,14 +1938,15 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	float lensFilterDensity = 1.0f;
 	requestTemplate->addEntry(ANDROID_LENS_FILTER_DENSITY, lensFilterDensity);
 
-	float lensFocusDistance = 1.0f;
-	requestTemplate->addEntry(ANDROID_LENS_FOCUS_DISTANCE, lensFocusDistance);
+	if (isAfSupported_) {
+		float lensFocusDistance = 1.0f;
+		requestTemplate->addEntry(ANDROID_LENS_FOCUS_DISTANCE, lensFocusDistance);
+	}
 
 	float lensFocusRange[] = {
 		0.0f, 100.0f
 	};
-	requestTemplate->addEntry(ANDROID_LENS_FOCUS_RANGE,
-				  lensFocusRange);
+	requestTemplate->addEntry(ANDROID_LENS_FOCUS_RANGE, lensFocusRange);
 
 	uint8_t shadingMode = ANDROID_SHADING_MODE_FAST;
 	requestTemplate->addEntry(ANDROID_SHADING_MODE, shadingMode);
