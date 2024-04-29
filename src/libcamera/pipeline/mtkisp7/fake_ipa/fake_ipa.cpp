@@ -31,6 +31,11 @@ IPAMtkISP7::IPAMtkISP7()
 {
 }
 
+IPAMtkISP7::~IPAMtkISP7()
+{
+	stop();
+}
+
 int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
 		     const std::vector<uint8_t> &eeprom,
 		     const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray)
@@ -122,12 +127,18 @@ void IPAMtkISP7::stop()
 {
 	aaManager_.reset();
 	afManager_.reset();
-	aaThread_.exit();
-	aaThread_.wait();
+
+	if (aaThread_.isRunning()) {
+		aaThread_.exit();
+		aaThread_.wait();
+	}
 
 	ispManager_.reset();
-	ispThread_.exit();
-	ispThread_.wait();
+
+	if (ispThread_.isRunning()) {
+		ispThread_.exit();
+		ispThread_.wait();
+	}
 }
 
 /**
