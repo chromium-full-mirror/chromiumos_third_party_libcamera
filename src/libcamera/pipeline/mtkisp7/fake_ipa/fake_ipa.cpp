@@ -452,7 +452,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 			Hal3A::kRawMetaSize, isStillCapture,
 			metadata ? &metadata.value() : nullptr,
 			internalRequestIdApplied, featureApplied,
-			&aaaIspExchange);
+			&aaaIspExchange, controls);
 	}
 
 	ipa_->AAResultReady.emit(internalRequestId, exposureAndGain, aaaIspExchange);

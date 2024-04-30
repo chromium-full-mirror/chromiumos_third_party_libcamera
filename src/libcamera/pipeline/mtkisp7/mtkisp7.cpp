@@ -771,6 +771,9 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		};
 		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
 		controls[&controls::AfWindows] = ControlInfo(Rectangle{}, Rectangle{}, Rectangle{});
+		controls[&controls::ColorCorrectionGains] = ControlInfo(0.0f, 100.0f);
+		controls[&controls::ColourCorrectionMatrix] = ControlInfo(-100.0f, 100.0f);
+		controls[&controls::ColorCorrectionMode] = ControlInfo(controls::ColorCorrectionModeValues);
 
 		if (camSysDev_[i].getCameraLens())
 			controls[&controls::LensPosition] = ControlInfo(0.1f, 100.0f, 1.0f);
@@ -780,6 +783,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		// human face, ignoring any combination of these two controls
 		// does not violate Android Camera API specs.
 		std::vector<ControlValue> supported3AModes{
+			static_cast<uint8_t>(controls::Mode3AOff),
 			static_cast<uint8_t>(controls::Mode3AAuto),
 			static_cast<uint8_t>(controls::Mode3AUseSceneMode),
 		};
@@ -1727,6 +1731,9 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::AF_TRIGGER,
 		controls::AF_WINDOWS,
 		controls::LENS_POSITION,
+		controls::COLOR_CORRECTION_MODE,
+		controls::COLOR_CORRECTION_GAINS,
+		controls::COLOUR_CORRECTION_MATRIX,
 	};
 
 	for (auto id : checkList) {
