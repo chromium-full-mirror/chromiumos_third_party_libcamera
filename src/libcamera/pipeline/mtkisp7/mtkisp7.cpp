@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -303,6 +304,8 @@ private:
 	std::shared_ptr<ControlList> control_cache_;
 	std::vector<unsigned int> ipaBufferIds_;
 	uint32_t ipaBufferCnt_;
+
+	ipa::mtkisp7::SensorSetting initSensorSetting_;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -972,8 +975,10 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	allocateIPABuffers();
 	int ret;
 
-	int32_t lens_position = ipa_->start(
-		hal3AManager_.getDummyTuning().second->get().buffer()->cookie());
+	int32_t lens_position;
+	ipa_->start(
+		hal3AManager_.getDummyTuning().second->get().buffer()->cookie(),
+		&initSensorSetting_, &lens_position);
 	if (lens_position < 0)
 		return -EINVAL;
 
@@ -1001,7 +1006,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 		captureFrames.exposureAndGain = aaCaptureResult->exposureAndGainOutput;
 	} else {
 		captureFrames.exposureAndGain = makeMailBox<ipa::mtkisp7::SensorSetting>();
-		captureFrames.exposureAndGain->put(ipa::mtkisp7::SensorSetting{}, nullptr);
+		captureFrames.exposureAndGain->put(initSensorSetting_, nullptr);
 	}
 
 	uint32_t camSysMetaRequestId = 0;

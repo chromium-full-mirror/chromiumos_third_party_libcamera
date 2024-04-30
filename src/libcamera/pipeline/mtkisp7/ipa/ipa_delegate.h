@@ -25,7 +25,9 @@ public:
 		 const std::vector<uint8_t> &eeprom,
 		 const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray);
 
-	int start(const uint32_t rawMetaBufferId);
+	void start(const uint32_t rawMetaBufferId,
+		   ipa::mtkisp7::SensorSetting *sensorSetting,
+		   int32_t *lens_position);
 	void stop();
 
 	int configure(const Size &camsysYuvSize, FaceDetector *faceDetector,

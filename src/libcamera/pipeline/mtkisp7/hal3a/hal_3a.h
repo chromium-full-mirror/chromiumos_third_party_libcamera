@@ -58,6 +58,9 @@ public:
 			     GyroSensor::SensorSample gyroSample, int32_t *position,
 			     ControlList controls);
 
+	void getExposureAndGain(ipa::mtkisp7::SensorSetting *exposureAndGain,
+				uint32_t &exposureTimeMs);
+
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 
 	History<mtk::hal3a::v1_0::mtk_3a_result> resultHistory_;
@@ -73,9 +76,6 @@ private:
 						  GyroSensor::SensorSample gyroSample,
 						  bool isStillCapture,
 						  std::optional<ControlList> controls_opt);
-
-	void getExposureAndGain(ipa::mtkisp7::SensorSetting *exposureAndGain,
-				uint32_t &exposureTimeMs);
 
 	const uint32_t sensor_idx_;
 	int sensor_id_;

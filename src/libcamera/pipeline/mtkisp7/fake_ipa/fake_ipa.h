@@ -40,7 +40,9 @@ public:
 		 const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray)
 		override;
 
-	int start(const uint32_t rawMetaBufferId) override;
+	void start(const uint32_t rawMetaBufferId,
+		   SensorSetting *sensorSetting,
+		   int32_t *lens_position) override;
 	void stop() override;
 
 	int configure(const Size &camsysYuvSize, const Size &maxVideoSize,
@@ -137,7 +139,7 @@ private:
 				     ::VcmFocusInformation vcmFocusInfo,
 				     std::optional<MtkCameraFaceMetadata> metadata,
 				     GyroSensor::SensorSample gyroSample,
-					 const ControlList &controls);
+				     const ControlList &controls);
 
 	private:
 		IPAMtkISP7 *ipa_;
