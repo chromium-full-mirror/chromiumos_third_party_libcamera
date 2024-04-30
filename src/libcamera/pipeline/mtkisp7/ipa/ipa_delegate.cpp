@@ -37,10 +37,13 @@ int IPADelegate::init(const std::string &model, const int32_t sensorIdx,
 				 eeprom, camSysDataArray);
 }
 
-int IPADelegate::start(const uint32_t rawMetaBufferId)
+void IPADelegate::start(const uint32_t rawMetaBufferId,
+			ipa::mtkisp7::SensorSetting *sensorSetting,
+			int32_t *lens_position)
 {
 	return ipa_.invokeMethod(&ipa::mtkisp7::IPAMtkISP7::start,
-				 ConnectionTypeBlocking, rawMetaBufferId);
+				 ConnectionTypeBlocking, rawMetaBufferId,
+				 sensorSetting, lens_position);
 }
 
 void IPADelegate::stop()

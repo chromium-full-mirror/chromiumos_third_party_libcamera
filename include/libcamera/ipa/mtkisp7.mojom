@@ -80,7 +80,8 @@ struct ImgMetaRequestData {
 interface IPAMtkISP7Interface {
 	init(string model, int32 sensorIdx, array<uint8> eeprom,
              array<CamSysData> camSysDataArray) => (int32 ret);
-	start(uint32 rawMetaBufferId) => (int32 lens_position);
+	start(uint32 rawMetaBufferId) => (SensorSetting sensorSetting,
+					  int32 lens_position);
 	stop();
 
 	configure(libcamera.Size camsysYuvSize, libcamera.Size maxVideoSize,

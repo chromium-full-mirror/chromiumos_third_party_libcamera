@@ -74,12 +74,15 @@ int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
 /**
  * \brief Perform any processing required before the first frame
  */
-int IPAMtkISP7::start(const uint32_t rawMetaBufferId)
+void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
+		       SensorSetting *sensorSetting,
+		       int32_t *lens_position)
 {
 	IPAMappedBuffer *rawMetaBuffer = getMappedBufferIter(rawMetaBufferId);
 	if (!rawMetaBuffer) {
 		LOG(IPAMtkISP7, Error) << "Could not find rawMeta buffer!";
-		return -1;
+		*lens_position = -1;
+		return;
 	}
 	MappedFrameBuffer mappedRawMeta(&rawMetaBuffer->buffer,
 					MappedFrameBuffer::MapFlag::ReadWrite);
@@ -100,7 +103,9 @@ int IPAMtkISP7::start(const uint32_t rawMetaBufferId)
 	ispManager_ = std::make_unique<IspManager>(this);
 	ispManager_->moveToThread(&ispThread_);
 
-	return hal3A_->r3AResult_.af_result.lens_position;
+	uint32_t exposureTimeMs;
+	hal3A_->getExposureAndGain(sensorSetting, exposureTimeMs);
+	*lens_position = hal3A_->r3AResult_.af_result.lens_position;
 }
 
 /**
