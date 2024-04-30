@@ -623,6 +623,31 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 			r_3a_param.af_region.areas[0].bottom = window.y + window.height;
 			r_3a_param.af_region.areas[0].weight = 1;
 		}
+
+		if (isStillCapture) {
+			r_3a_param.color_correct_mode = controls_opt->get(controls::ColorCorrectionMode).value_or(2);
+		} else {
+			r_3a_param.color_correct_mode = controls_opt->get(controls::ColorCorrectionMode).value_or(1);
+		}
+		const float defaultColorCorrectionGains[4] = { 1.0f,
+							       1.0f,
+							       1.0f };
+		const auto &colorCorrectionGains = controls_opt->get(controls::ColorCorrectionGains).value_or(defaultColorCorrectionGains);
+		for (unsigned int i = 0; i < kMaxColorGainsCount; i++) {
+			r_3a_param.color_correct_gain[i] = colorCorrectionGains[i];
+		}
+		const float defaultColorCorrectionMatrix[9] = {
+			1.0f, 0.0f, 0.0f,
+			0.0f, 1.0f, 0.0f,
+			0.0f, 0.0f, 1.0f
+		};
+		// TODO, Remove color_correct_mat if color_correct_mat is not used in 3a
+		const auto &colorCorrectionMatrix = controls_opt->get(controls::ColourCorrectionMatrix).value_or(defaultColorCorrectionMatrix);
+		for (unsigned int i = 0; i < 3; i++) {
+			for (unsigned int j = 0; j < 3; j++) {
+				r_3a_param.color_correct_mat[i * 3 + j] = colorCorrectionMatrix[i * 3 + j];
+			}
+		}
 	} else {
 		r_3a_param.control_mode = 1;
 		r_3a_param.ae_mode = 1;
@@ -648,8 +673,24 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 		r_3a_param.af_trigger = 0;
 		r_3a_param.af_focus_distance = 0.000000;
 		r_3a_param.af_region.count = 0;
-
 		std::memset(&r_3a_param.af_region, 0, sizeof(r_3a_param.af_region));
+
+		if (isStillCapture) {
+			r_3a_param.color_correct_mode = 2;
+		} else {
+			r_3a_param.color_correct_mode = 1;
+		}
+		for (unsigned int i = 0; i < kMaxColorGainsCount; i++) {
+			r_3a_param.color_correct_gain[i] = 1.0;
+		}
+		for (unsigned int i = 0; i < 3; i++) {
+			for (unsigned int j = 0; j < 3; j++) {
+				if (i != j)
+					continue;
+
+				r_3a_param.color_correct_mat[i * 3 + j] = 1.0;
+			}
+		}
 	}
 
 	r_3a_param.ae_exp_index = 0;
@@ -657,22 +698,6 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	r_3a_param.ae_region.count = 1;
 	r_3a_param.black_level_lock = 0;
 	r_3a_param.set_converge = 0;
-	if (isStillCapture) {
-		r_3a_param.color_correct_mode = 2;
-	} else {
-		r_3a_param.color_correct_mode = 1;
-	}
-	for (unsigned int i = 0; i < kMaxColorGainsCount; i++) {
-		r_3a_param.color_correct_gain[i] = 1.0;
-	}
-	for (unsigned int i = 0; i < 3; i++) {
-		for (unsigned int j = 0; j < 3; j++) {
-			if (i != j)
-				continue;
-
-			r_3a_param.color_correct_mat[i * 3 + j] = 1.0;
-		}
-	}
 	r_3a_param.awb_default_pregain1 = 0;
 	r_3a_param.af_zoom_ratio = 0;
 	r_3a_param.af_zoom_stop = 0;

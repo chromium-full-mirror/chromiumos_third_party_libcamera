@@ -74,7 +74,8 @@ public:
 				MtkCameraFaceMetadata *faces,
 				std::optional<uint32_t> internalRequestIdApplied,
 				std::optional<Feature> featureApplied,
-				ipa::mtkisp7::AaaIspExchange *aaaIspExchange);
+				ipa::mtkisp7::AaaIspExchange *aaaIspExchange,
+				const ControlList &controls_opt);
 
 	int getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,

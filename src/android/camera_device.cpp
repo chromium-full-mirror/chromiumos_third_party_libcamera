@@ -27,6 +27,7 @@
 #include <libcamera/property_ids.h>
 
 #include <system/camera_metadata.h>
+
 #include "android/metadata/system/camera_metadata.h"
 
 #include "camera_buffer.h"
@@ -1109,11 +1110,11 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::AeAntiBandingMode, static_cast<int32_t>(data[0]));
 	}
 
-	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)){
+	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry)) {
 		const int32_t *data = entry.data.i32;
 		int64_t maxFrameDuration = 1'000'000 / static_cast<int64_t>(data[0]);
 		int64_t minFrameDuration = 1'000'000 / static_cast<int64_t>(data[1]);
-		controls.set(controls::FrameDurationLimits, {minFrameDuration, maxFrameDuration});
+		controls.set(controls::FrameDurationLimits, { minFrameDuration, maxFrameDuration });
 	}
 
 	if (settings.getEntry(ANDROID_CONTROL_AF_MODE, &entry)) {
@@ -1129,6 +1130,34 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 	if (settings.getEntry(ANDROID_LENS_FOCUS_DISTANCE, &entry)) {
 		const float *data = entry.data.f;
 		controls.set(controls::LENS_POSITION, static_cast<float>(data[0]));
+	}
+
+	if (settings.getEntry(ANDROID_COLOR_CORRECTION_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::ColorCorrectionMode, static_cast<int>(data[0]));
+	}
+
+	if (settings.getEntry(ANDROID_COLOR_CORRECTION_TRANSFORM, &entry)) {
+		std::array<float, 9> correctionMatrix;
+		for (int i = 0; i < 9; i++) {
+			const camera_metadata_rational_t *data_r = entry.data.r + i;
+			int32_t numerator = data_r->numerator;
+			int32_t denominator = data_r->denominator;
+			if (denominator)
+				correctionMatrix[i] = static_cast<float>(numerator) / static_cast<float>(denominator);
+			else
+				correctionMatrix[i] = 0.0f;
+		}
+		controls.set(controls::ColourCorrectionMatrix, correctionMatrix);
+	}
+
+	if (settings.getEntry(ANDROID_COLOR_CORRECTION_GAINS, &entry)) {
+		std::array<float, 4> correctionGains;
+		for (int i = 0; i < 4; i++) {
+			const float *data_f = entry.data.f + i;
+			correctionGains[i] = *data_f;
+		}
+		controls.set(controls::ColorCorrectionGains, correctionGains);
 	}
 
 	return 0;

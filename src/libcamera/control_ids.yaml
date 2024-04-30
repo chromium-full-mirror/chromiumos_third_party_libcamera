@@ -1198,4 +1198,42 @@ controls:
         device's camera lens. This value is essential for understanding your
         camera's field of view and other optical properties.
         (See ANDROID_LENS_FOCAL_LENGTH)
+
+  - ColorCorrectionMode:
+      type: int32_t
+      description: |
+        The mode control selects how the image data is converted from the
+        sensor's native color into linear sRGB color.
+        \sa ANDROID_COLOR_CORRECTION_MODE
+      enum:
+        - name: ColorCorrectionModeTransfromMatrix
+          value: 0
+          description: |
+            Indicates that color correction should be performed using
+            a color transform matrix. This matrix is specified using the
+            ANDROID_COLOR_CORRECTION_TRANSFORM tag.
+            \sa ANDROID_COLOR_CORRECTION_MODE_TRANSFORM_MATRIX
+        - name: ColorCorrectionModeFast
+          value: 1
+          description: |
+            Enables a simplified, potentially less accurate, but
+            computationally faster color correction method.
+            \sa ANDROID_COLOR_CORRECTION_MODE_FAST
+        - name: ColorCorrectionModeHighQuality
+          value: 2
+          description: |
+            Enables a more comprehensive and accurate color correction
+            algorithm, often at the cost of slightly slower processing.
+            \sa ANDROID_COLOR_CORRECTION_MODE_HIGH_QUALITY
+
+  - ColorCorrectionGains:
+      type: float
+      description: |
+        ColorCorrectionGains fine-tune the color balance of images captured
+        by the camera. It provides precise control over the amplification of
+        individual color channels (red, green, blue).
+
+        \sa ANDROID_COLOR_CORRECTION_GAINS
+      size: [4]
+
 ...

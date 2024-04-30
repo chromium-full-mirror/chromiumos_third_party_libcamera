@@ -21,6 +21,7 @@
 #include "../hal3a/hal_3a.h"
 #include "debug_exif/aaa/dbg_aaa_param.h"
 #include "halisp/ITuningDataProvider.h"
+#include "halisp/IspControls.h"
 #include "halisp/utils/Size.h"
 #include "libcamera/request.h"
 #include "mtkcam-interfaces/utils/ndd/ndd_autogen_def.h"
@@ -167,7 +168,7 @@ void HalIsp::configure(const Size &maxVideoSize,
 		m_pHalisp.reset();
 
 	m_pHalisp = mtk::isphal::v1::IHalIsp::createInstance(
-			sensorDev_, sensorIdx_, m_P1CamInfo.user_id);
+		sensorDev_, sensorIdx_, m_P1CamInfo.user_id);
 	mtk_isp_buf_info bufferInfo;
 	m_pHalisp->queryISPBufferInfo(&bufferInfo);
 }
@@ -328,7 +329,8 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 				MtkCameraFaceMetadata *faces,
 				std::optional<uint32_t> internalRequestIdApplied,
 				std::optional<Feature> featureApplied,
-				ipa::mtkisp7::AaaIspExchange *aaaIspExchange)
+				ipa::mtkisp7::AaaIspExchange *aaaIspExchange,
+				const ControlList &controls_opt)
 {
 	ASSERT(aaaIspExchange);
 
@@ -356,8 +358,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 
 	tuning_param_p1.is_need_exif = true;
 
-	tuning_param_p1.cam_info->rMapping_Info.eFeature
-		= (isVideo_) ? NSIspTuning::EFeature_Video : NSIspTuning::EFeature_Preview;
+	tuning_param_p1.cam_info->rMapping_Info.eFeature = (isVideo_) ? NSIspTuning::EFeature_Video : NSIspTuning::EFeature_Preview;
 
 	tuning_param_p1.cam_info->rMapping_Info.eStage = NSIspTuning::EStage_P1;
 	tuning_param_p1.cam_info->rMapping_Info.eSensorFeature = NSIspTuning::ESensorFeature_OFF;
@@ -372,13 +373,45 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 
 	tuning_param_p1.cam_info->control_mode = mtk::isphal::v1_0::kControlModeOn;
 	tuning_param_p1.capture_mode = mtk::isphal::v1_0::kCaptureModeNone;
-	tuning_param_p1.cam_info->color_correction_mode = mtk::isphal::v1_0::kColorCorrectionModeAuto;
+
+	uint8_t android_color_correction_mode = 1;
+
+	android_color_correction_mode = controls_opt.get(controls::ColorCorrectionMode).value_or(1);
+
+	tuning_param_p1.cam_info->color_correction_mode =
+		(android_color_correction_mode) ? mtk::isphal::v1_0::kColorCorrectionModeAuto : mtk::isphal::v1_0::kColorCorrectionModeManual;
 	tuning_param_p1.cam_info->sensor_test_pattern_mode = mtk::isphal::v1_0::kSensorTestPatternModeOff;
 
 	float mat[9] = { 1.0f, 0.0f, 0.0f,
 			 0.0f, 1.0f, 0.0f,
 			 0.0f, 0.0f, 1.0f };
-	memcpy(tuning_param_p1.cam_info->color_correction_transform.mat, mat, sizeof(mat));
+
+	const auto &colorCorrectionMatrix =
+		controls_opt.get(controls::ColourCorrectionMatrix).value_or(mat);
+
+	memcpy(tuning_param_p1.cam_info->color_correction_transform.mat,
+	       colorCorrectionMatrix.data(), colorCorrectionMatrix.size() * sizeof(float));
+
+	// TODO, update tone_map_mode and curve from Android control API
+	tuning_param_p1.cam_info->tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
+	tuning_param_p1.cam_info->tone_map_curve.red_Cnt = 2;
+	tuning_param_p1.cam_info->tone_map_curve.red_X[0] = 0.0f;
+	tuning_param_p1.cam_info->tone_map_curve.red_Y[0] = 0.0f;
+	tuning_param_p1.cam_info->tone_map_curve.red_X[1] = 1.0f;
+	tuning_param_p1.cam_info->tone_map_curve.red_Y[1] = 1.0f;
+
+	tuning_param_p1.cam_info->tone_map_curve.green_Cnt = 2;
+	tuning_param_p1.cam_info->tone_map_curve.green_X[0] = 0.0f;
+	tuning_param_p1.cam_info->tone_map_curve.green_Y[0] = 0.0f;
+	tuning_param_p1.cam_info->tone_map_curve.green_X[1] = 1.0f;
+	tuning_param_p1.cam_info->tone_map_curve.green_Y[1] = 1.0f;
+
+	tuning_param_p1.cam_info->tone_map_curve.blue_Cnt = 2;
+	tuning_param_p1.cam_info->tone_map_curve.blue_X[0] = 0.0f;
+	tuning_param_p1.cam_info->tone_map_curve.blue_Y[0] = 0.0f;
+	tuning_param_p1.cam_info->tone_map_curve.blue_X[1] = 1.0f;
+	tuning_param_p1.cam_info->tone_map_curve.blue_Y[1] = 1.0f;
+
 	tuning_param_p1.cam_info->hdr10_enable = false;
 
 	tuning_param_p1.cam_info->rMapping_Info.eCustomFeature = NSIspTuning::ECustomFeature_OFF;
@@ -1013,12 +1046,28 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		if (is_capture)
 			tuning_param_p2.cam_info.rMapping_Info.eFeature = (is_mfnr) ? NSIspTuning::EFeature_Capture_mfnr : NSIspTuning::EFeature_Capture_lpnr;
 		else
-			tuning_param_p2.cam_info.rMapping_Info.eFeature
-				= (isVideo_) ? NSIspTuning::EFeature_Video : NSIspTuning::EFeature_Preview;
+			tuning_param_p2.cam_info.rMapping_Info.eFeature = (isVideo_) ? NSIspTuning::EFeature_Video : NSIspTuning::EFeature_Preview;
 
 		tuning_param_p2.cam_info.rMapping_Info.eCustomFeature = NSIspTuning::ECustomFeature_OFF;
 
-		tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeAuto;
+		// TODO, update tone_map_mode and curve from Android control API
+		tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
+		tuning_param_p2.cam_info.tone_map_curve.red_Cnt = 2;
+		tuning_param_p2.cam_info.tone_map_curve.red_X[0] = 0.0f;
+		tuning_param_p2.cam_info.tone_map_curve.red_Y[0] = 0.0f;
+		tuning_param_p2.cam_info.tone_map_curve.red_X[1] = 1.0f;
+		tuning_param_p2.cam_info.tone_map_curve.red_Y[1] = 1.0f;
+		tuning_param_p2.cam_info.tone_map_curve.green_Cnt = 2;
+		tuning_param_p2.cam_info.tone_map_curve.green_X[0] = 0.0f;
+		tuning_param_p2.cam_info.tone_map_curve.green_Y[0] = 0.0f;
+		tuning_param_p2.cam_info.tone_map_curve.green_X[1] = 1.0f;
+		tuning_param_p2.cam_info.tone_map_curve.green_Y[1] = 1.0f;
+		tuning_param_p2.cam_info.tone_map_curve.blue_Cnt = 2;
+		tuning_param_p2.cam_info.tone_map_curve.blue_X[0] = 0.0f;
+		tuning_param_p2.cam_info.tone_map_curve.blue_Y[0] = 0.0f;
+		tuning_param_p2.cam_info.tone_map_curve.blue_X[1] = 1.0f;
+		tuning_param_p2.cam_info.tone_map_curve.blue_Y[1] = 1.0f;
+
 		tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOn;
 
 		if (is_capture) {
