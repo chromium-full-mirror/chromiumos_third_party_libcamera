@@ -9,6 +9,7 @@
 
 #include "libcamera/base/bound_method.h"
 #include "libcamera/base/log.h"
+#include "libcamera/controls.h"
 #include "pipeline/mtkisp7/halisp/hal_isp.h"
 #include "platform/mtkisp7/cam_cal_helper.h"
 #include "platform/mtkisp7/platform_utils.h"
@@ -346,7 +347,8 @@ void IPAMtkISP7::getImgSysMetaTuning(
 	const uint64_t cookie, const uint32_t camSysMetaRequestId,
 	const uint32_t frame, const bool needCropTNC16x9,
 	const uint32_t featureEnum,
-	const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests)
+	const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
+	const ControlList &controls)
 {
 	std::vector<IPAMtkISP7::IspManager::DataMappedBuffers>
 		dataMappedBuffersList(imgMetaRequests.size());
@@ -407,7 +409,8 @@ void IPAMtkISP7::getImgSysMetaTuning(
 		ConnectionTypeQueued,
 		cookie, camSysMetaRequestId, frame, needCropTNC16x9,
 		static_cast<Feature>(featureEnum),
-		imgMetaRequests, std::move(dataMappedBuffersList));
+		imgMetaRequests, std::move(dataMappedBuffersList),
+		controls);
 }
 
 IPAMtkISP7::AAManager::AAManager(IPAMtkISP7 *ipa)
@@ -494,7 +497,8 @@ void IPAMtkISP7::IspManager::getImgSysMetaTuning(
 	const uint32_t frame, const bool needCropTNC16x9,
 	const Feature feature,
 	const std::vector<ipa::mtkisp7::ImgMetaRequestData> imgMetaRequests,
-	const std::vector<DataMappedBuffers> dataMappedBuffersList)
+	const std::vector<DataMappedBuffers> dataMappedBuffersList,
+	const ControlList &controls)
 {
 	for (uint32_t i = 0; i < imgMetaRequests.size(); ++i) {
 		const auto &requestData = imgMetaRequests[i];
@@ -593,7 +597,7 @@ void IPAMtkISP7::IspManager::getImgSysMetaTuning(
 			requestData.hasFrameNumber
 				? requestData.frameNumber
 				: frame,
-			needCropTNC16x9, feature);
+			needCropTNC16x9, feature, controls);
 	}
 
 	ipa_->ImgSysMetaTuningDone.emit(cookie);

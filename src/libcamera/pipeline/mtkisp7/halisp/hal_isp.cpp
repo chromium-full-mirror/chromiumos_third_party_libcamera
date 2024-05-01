@@ -32,6 +32,8 @@
 #include "platform/mtkisp7/platform_utils.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
+#include "control_ids.h"
+
 namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -392,25 +394,33 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	memcpy(tuning_param_p1.cam_info->color_correction_transform.mat,
 	       colorCorrectionMatrix.data(), colorCorrectionMatrix.size() * sizeof(float));
 
-	// TODO, update tone_map_mode and curve from Android control API
-	tuning_param_p1.cam_info->tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
-	tuning_param_p1.cam_info->tone_map_curve.red_Cnt = 2;
-	tuning_param_p1.cam_info->tone_map_curve.red_X[0] = 0.0f;
-	tuning_param_p1.cam_info->tone_map_curve.red_Y[0] = 0.0f;
-	tuning_param_p1.cam_info->tone_map_curve.red_X[1] = 1.0f;
-	tuning_param_p1.cam_info->tone_map_curve.red_Y[1] = 1.0f;
-
-	tuning_param_p1.cam_info->tone_map_curve.green_Cnt = 2;
-	tuning_param_p1.cam_info->tone_map_curve.green_X[0] = 0.0f;
-	tuning_param_p1.cam_info->tone_map_curve.green_Y[0] = 0.0f;
-	tuning_param_p1.cam_info->tone_map_curve.green_X[1] = 1.0f;
-	tuning_param_p1.cam_info->tone_map_curve.green_Y[1] = 1.0f;
-
-	tuning_param_p1.cam_info->tone_map_curve.blue_Cnt = 2;
-	tuning_param_p1.cam_info->tone_map_curve.blue_X[0] = 0.0f;
-	tuning_param_p1.cam_info->tone_map_curve.blue_Y[0] = 0.0f;
-	tuning_param_p1.cam_info->tone_map_curve.blue_X[1] = 1.0f;
-	tuning_param_p1.cam_info->tone_map_curve.blue_Y[1] = 1.0f;
+	uint8_t android_tonemap_mode = controls_opt.get(controls::TonemapMode).value_or(1);
+	if (android_tonemap_mode == 0) {
+		tuning_param_p1.cam_info->tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
+		std::vector<float> default_tonemap_curve_red = { 0.0f, 0.0f, 1.0f, 1.0f };
+		std::vector<float> default_tonemap_curve_green = { 0.0f, 0.0f, 1.0f, 1.0f };
+		std::vector<float> default_tonemap_curve_blue = { 0.0f, 0.0f, 1.0f, 1.0f };
+		auto tonemap_curve_red = controls_opt.get(controls::TonemapCurveRed).value_or(default_tonemap_curve_red);
+		auto tonemap_curve_green = controls_opt.get(controls::TonemapCurveGreen).value_or(default_tonemap_curve_blue);
+		auto tonemap_curve_blue = controls_opt.get(controls::TonemapCurveBlue).value_or(default_tonemap_curve_green);
+		tuning_param_p1.cam_info->tone_map_curve.red_Cnt = tonemap_curve_red.size() / 2;
+		for (auto i = 0; i < (int)tonemap_curve_red.size() / 2; i++) {
+			tuning_param_p1.cam_info->tone_map_curve.red_X[i] = tonemap_curve_red[i * 2];
+			tuning_param_p1.cam_info->tone_map_curve.red_Y[i] = tonemap_curve_red[i * 2 + 1];
+		}
+		tuning_param_p1.cam_info->tone_map_curve.green_Cnt = tonemap_curve_green.size() / 2;
+		for (auto i = 0; i < (int)tonemap_curve_green.size() / 2; i++) {
+			tuning_param_p1.cam_info->tone_map_curve.green_X[i] = tonemap_curve_green[i * 2];
+			tuning_param_p1.cam_info->tone_map_curve.green_Y[i] = tonemap_curve_green[i * 2 + 1];
+		}
+		tuning_param_p1.cam_info->tone_map_curve.blue_Cnt = tonemap_curve_blue.size() / 2;
+		for (auto i = 0; i < (int)tonemap_curve_blue.size() / 2; i++) {
+			tuning_param_p1.cam_info->tone_map_curve.blue_X[i] = tonemap_curve_blue[i * 2];
+			tuning_param_p1.cam_info->tone_map_curve.blue_Y[i] = tonemap_curve_blue[i * 2 + 1];
+		}
+	} else {
+		tuning_param_p1.cam_info->tone_map_mode = mtk::isphal::v1_0::kToneMapModeAuto;
+	}
 
 	tuning_param_p1.cam_info->hdr10_enable = false;
 
@@ -915,11 +925,12 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				bool needCropTNC16x9,
-				Feature feature)
+				Feature feature,
+				const ControlList &controls_opt)
 {
 	return getImgSysMetaTuning(camSysMetaRequestId, imgMetaRequest,
 				   internalRequestId, internalRequestId,
-				   needCropTNC16x9, feature);
+				   needCropTNC16x9, feature, controls_opt);
 }
 
 int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
@@ -927,7 +938,8 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				uint32_t internalRequestId,
 				uint32_t frameNumber,
 				bool needCropTNC16x9,
-				Feature feature)
+				Feature feature,
+				const ControlList &controls_opt)
 {
 	bool is_capture = imgMetaRequest.isCapture;
 	bool is_mfnr = imgMetaRequest.isMfnr;
@@ -1050,23 +1062,34 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 
 		tuning_param_p2.cam_info.rMapping_Info.eCustomFeature = NSIspTuning::ECustomFeature_OFF;
 
-		// TODO, update tone_map_mode and curve from Android control API
-		tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
-		tuning_param_p2.cam_info.tone_map_curve.red_Cnt = 2;
-		tuning_param_p2.cam_info.tone_map_curve.red_X[0] = 0.0f;
-		tuning_param_p2.cam_info.tone_map_curve.red_Y[0] = 0.0f;
-		tuning_param_p2.cam_info.tone_map_curve.red_X[1] = 1.0f;
-		tuning_param_p2.cam_info.tone_map_curve.red_Y[1] = 1.0f;
-		tuning_param_p2.cam_info.tone_map_curve.green_Cnt = 2;
-		tuning_param_p2.cam_info.tone_map_curve.green_X[0] = 0.0f;
-		tuning_param_p2.cam_info.tone_map_curve.green_Y[0] = 0.0f;
-		tuning_param_p2.cam_info.tone_map_curve.green_X[1] = 1.0f;
-		tuning_param_p2.cam_info.tone_map_curve.green_Y[1] = 1.0f;
-		tuning_param_p2.cam_info.tone_map_curve.blue_Cnt = 2;
-		tuning_param_p2.cam_info.tone_map_curve.blue_X[0] = 0.0f;
-		tuning_param_p2.cam_info.tone_map_curve.blue_Y[0] = 0.0f;
-		tuning_param_p2.cam_info.tone_map_curve.blue_X[1] = 1.0f;
-		tuning_param_p2.cam_info.tone_map_curve.blue_Y[1] = 1.0f;
+		uint8_t android_tonemap_mode = controls_opt.get(controls::TonemapMode).value_or(1);
+		if (android_tonemap_mode == 0) {
+			tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeMaual;
+			std::vector<float> default_tonemap_curve_red = { 0.0f, 0.0f, 1.0f, 1.0f };
+			std::vector<float> default_tonemap_curve_green = { 0.0f, 0.0f, 1.0f, 1.0f };
+			std::vector<float> default_tonemap_curve_blue = { 0.0f, 0.0f, 1.0f, 1.0f };
+			auto tonemap_curve_red = controls_opt.get(controls::TonemapCurveRed).value_or(default_tonemap_curve_red);
+			auto tonemap_curve_green = controls_opt.get(controls::TonemapCurveGreen).value_or(default_tonemap_curve_blue);
+			auto tonemap_curve_blue = controls_opt.get(controls::TonemapCurveBlue).value_or(default_tonemap_curve_green);
+			tuning_param_p2.cam_info.tone_map_curve.red_Cnt = tonemap_curve_red.size() / 2;
+			for (auto i = 0; i < (int)tonemap_curve_red.size() / 2; i++) {
+				tuning_param_p2.cam_info.tone_map_curve.red_X[i] = tonemap_curve_red[i * 2];
+				tuning_param_p2.cam_info.tone_map_curve.red_Y[i] = tonemap_curve_red[i * 2 + 1];
+			}
+			tuning_param_p2.cam_info.tone_map_curve.green_Cnt = tonemap_curve_green.size() / 2;
+			for (auto i = 0; i < (int)tonemap_curve_green.size() / 2; i++) {
+				tuning_param_p2.cam_info.tone_map_curve.green_X[i] = tonemap_curve_green[i * 2];
+				tuning_param_p2.cam_info.tone_map_curve.green_Y[i] = tonemap_curve_green[i * 2 + 1];
+			}
+			tuning_param_p2.cam_info.tone_map_curve.blue_Cnt = tonemap_curve_blue.size() / 2;
+			for (auto i = 0; i < (int)tonemap_curve_blue.size() / 2; i++) {
+				tuning_param_p2.cam_info.tone_map_curve.blue_X[i] = tonemap_curve_blue[i * 2];
+				tuning_param_p2.cam_info.tone_map_curve.blue_Y[i] = tonemap_curve_blue[i * 2 + 1];
+			}
+		} else {
+			tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeAuto;
+
+		}
 
 		tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOn;
 

@@ -81,7 +81,8 @@ public:
 		const uint32_t frame,
 		const bool needCropTNC16x9,
 		const Feature feature,
-		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests);
+		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
+		const ControlList &controls);
 
 private:
 	friend MtkISP7CameraData;
