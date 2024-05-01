@@ -485,12 +485,19 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	aaaIspExchange->aaaMetadata.set(controls::ExposureTime, exposureTimeMs);
 
 	uint8_t mtk_ae_state = static_cast<uint8_t>(r3AResult_.ae_result.ae_state);
+	if (r_3a_param.ae_mode == 0){
+	    // hack ae_state to INACTIVE if ae_mode is OFF
+		mtk_ae_state = 0;
+	}
 	uint8_t mtk_awb_state = static_cast<uint32_t>(r3AResult_.awb_result.awb_state);
 	int64_t mtk_frame_duration = static_cast<int64_t>(r3AResult_.ae_result.sensor_frame_duration);
 	aaaIspExchange->aaaMetadata.set(controls::draft::AeState, mtk_ae_state);
 	aaaIspExchange->aaaMetadata.set(controls::draft::AwbState, mtk_awb_state);
 	aaaIspExchange->aaaMetadata.set(controls::FrameDuration, mtk_frame_duration);
 	uint8_t mtk_af_state = static_cast<uint8_t>(r3AResult_.af_result.af_state);
+	// hack af_state from AF_STATE_NOT_FOCUSED_LOCKED to AF_STATE_FOCUSED_LOCKED
+	if (mtk_af_state == 5)
+		mtk_af_state = 4;
 	aaaIspExchange->aaaMetadata.set(controls::AfState, mtk_af_state);
 	float mtk_lens_focus_distance = static_cast<float>(r3AResult_.af_result.lens_focus_distance);
 	aaaIspExchange->aaaMetadata.set(controls::LensPosition, mtk_lens_focus_distance);
@@ -564,7 +571,6 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	// TODO: check if we need false when no 2A / FD is updated.
 	r_3a_param.updated = true;
 	r_3a_param.is_dummy_request = false;
-	r_3a_param.control_mode = 1;
 	r_3a_param.scene_mode = 0;
 	if (isStillCapture) {
 		r_3a_param.capture_intent = 2;
@@ -573,6 +579,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	}
 	r_3a_param.inflight_capture = 0;
 	if (controls_opt) {
+		r_3a_param.control_mode = controls_opt->get(controls::Mode3A).value_or(1);
 		r_3a_param.ae_mode = controls_opt->get(controls::AeMode).value_or(1);
 		r_3a_param.ae_lock = controls_opt->get(controls::AeLocked).value_or(0);
 		r_3a_param.ae_precap_trigger = controls_opt->get(controls::draft::AePrecaptureTrigger).value_or(0);
@@ -617,6 +624,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 			r_3a_param.af_region.areas[0].weight = 1;
 		}
 	} else {
+		r_3a_param.control_mode = 1;
 		r_3a_param.ae_mode = 1;
 		r_3a_param.ae_lock = 0;
 		r_3a_param.ae_precap_trigger = 0;
