@@ -1088,7 +1088,6 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 			}
 		} else {
 			tuning_param_p2.cam_info.tone_map_mode = mtk::isphal::v1_0::kToneMapModeAuto;
-
 		}
 
 		tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOn;
@@ -1158,7 +1157,13 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		imgsys_info.srcimg_descriptor.p2_in_img_fmg = 0;
 		imgsys_info.srcimg_descriptor.format = mtk::isphal::kImageFormatMtkRawBayer;
 
-		imgsys_info.nr_mode = mtk::isphal::v1_0::kNoiseReductionModeOn;
+		uint8_t android_nr_mode = controls_opt.get(controls::draft::NoiseReductionMode).value_or(0);
+		if ((android_nr_mode == MTK_NOISE_REDUCTION_MODE_OFF) ||
+		    (android_nr_mode == MTK_NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG) ||
+		    (android_nr_mode == MTK_NOISE_REDUCTION_MODE_MINIMAL))
+			imgsys_info.nr_mode = mtk::isphal::v1_0::kNoiseReductionModeOff;
+		else
+			imgsys_info.nr_mode = mtk::isphal::v1_0::kNoiseReductionModeOn;
 
 		// copy caminfo
 		imgsys_info.rMapping_Info = cam_info.rMapping_Info;
