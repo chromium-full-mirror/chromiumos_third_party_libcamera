@@ -1160,6 +1160,35 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::ColorCorrectionGains, correctionGains);
 	}
 
+	if (settings.getEntry(ANDROID_TONEMAP_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::TonemapMode, static_cast<int>(data[0]));
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_CURVE_RED, &entry)) {
+		std::vector<float> tonemapCurveRed;
+		for (int i = 0; i < (int)entry.count; i++) {
+			tonemapCurveRed.push_back(*(entry.data.f + i));
+		}
+		controls.set(controls::TonemapCurveRed, tonemapCurveRed);
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_CURVE_GREEN, &entry)) {
+		std::vector<float> tonemapCurveGreen;
+		for (int i = 0; i < (int)entry.count; i++) {
+			tonemapCurveGreen.push_back(*(entry.data.f + i));
+		}
+		controls.set(controls::TonemapCurveGreen, tonemapCurveGreen);
+	}
+
+	if (settings.getEntry(ANDROID_TONEMAP_CURVE_BLUE, &entry)) {
+		std::vector<float> tonemapCurveBlue;
+		for (int i = 0; i < (int)entry.count; i++) {
+			tonemapCurveBlue.push_back(*(entry.data.f + i));
+		}
+		controls.set(controls::TonemapCurveBlue, tonemapCurveBlue);
+	}
+
 	return 0;
 }
 

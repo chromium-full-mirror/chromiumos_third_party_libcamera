@@ -775,6 +775,11 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::ColourCorrectionMatrix] = ControlInfo(-100.0f, 100.0f);
 		controls[&controls::ColorCorrectionMode] = ControlInfo(controls::ColorCorrectionModeValues);
 
+		controls[&controls::TonemapMode] = ControlInfo(controls::TonemapModeValues);
+		controls[&controls::TonemapCurveRed] = ControlInfo(0.0f, 1.0f);
+		controls[&controls::TonemapCurveGreen] = ControlInfo(0.0f, 1.0f);
+		controls[&controls::TonemapCurveBlue] = ControlInfo(0.0f, 1.0f);
+
 		if (camSysDev_[i].getCameraLens())
 			controls[&controls::LensPosition] = ControlInfo(0.1f, 100.0f, 1.0f);
 

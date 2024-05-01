@@ -117,7 +117,8 @@ interface IPAMtkISP7Interface {
 	[async] getImgSysMetaTuning(uint64 cookie,
 	                            uint32 camSysMetaRequestId, uint32 frame,
 	                            bool needCropTNC16x9, uint32 featureEnum,
-	                            array<ImgMetaRequestData> imgMetaRequests);
+	                            array<ImgMetaRequestData> imgMetaRequests,
+                                    libcamera.ControlList controls);
 };
 
 interface IPAMtkISP7EventInterface {

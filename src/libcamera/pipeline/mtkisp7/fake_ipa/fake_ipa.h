@@ -13,6 +13,7 @@
 #include "libcamera/internal/mapped_framebuffer.h"
 
 #include "../hal3a/hal_3a.h"
+#include "libcamera/controls.h"
 #include "libfdft_lib/faces.h"
 
 // Workarounds
@@ -93,7 +94,8 @@ public:
 		const uint32_t frame,
 		const bool needCropTNC16x9,
 		const uint32_t featureEnum,
-		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests) override;
+		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
+		const ControlList &controls) override;
 
 private:
 	friend IPADelegate;
@@ -161,7 +163,8 @@ private:
 			const bool needCropTNC16x9,
 			const Feature feature,
 			const std::vector<ipa::mtkisp7::ImgMetaRequestData> imgMetaRequests,
-			const std::vector<DataMappedBuffers> dataMappedBuffersList);
+			const std::vector<DataMappedBuffers> dataMappedBuffersList,
+			const ControlList &controls);
 
 	private:
 		IPAMtkISP7 *ipa_;

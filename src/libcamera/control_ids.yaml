@@ -1236,4 +1236,67 @@ controls:
         \sa ANDROID_COLOR_CORRECTION_GAINS
       size: [4]
 
+  - TonemapMode:
+      type: int32_t
+      description: |
+        control the captured image's tonal range to achieve different visual styles or effects.
+      enum:
+        - name: ToneMapModeContrastCurve
+          value: 0
+          description: |
+            Applies a contrast curve (a mathematical function) to adjust the image's tones.
+            This curve can enhance contrast and detail in the shadows and highlights.
+
+            \sa ANDROID_TONEMAP_MODE_CONTRAST_CURVE
+        - name: TonemapModeFast
+          value: 1
+          description: |
+            This is a faster tone-mapping algorithm. It might sacrifice some image quality
+            for speed, making it suitable for real-time camera previews or application
+            where processing speed is important.
+
+            \sa ANDROID_TONEMAP_MODE_FAST
+        - name: TonemapModeHighQuality
+          value: 2
+          description: |
+            This mode aims to provide the highest image quality possible, using more
+            sophisticated algorithms. It might take longer to process but can produce
+            visually pleasing results for final images.
+
+            \sa ANDROID_TONEMAP_MODE_HIGH_QUALITY
+        - name: TonemapModeGammaValue
+          value: 3
+          description: |
+            Directly specify a gamma value to adjust the image's brightness and contrast.
+            Gamma is a nonlinear correction that affects how the image's mid-tones are displayed.
+
+            \sa ANDROID_TONEMAP_MODE_GAMMA_VALUE
+        - name: TonemapModePresetCurve
+          value: 4
+          description: |
+            Use a preset tone curve defined by the camera manufacturer or the Android framework.
+            These preset curves can offer different visual styles.
+
+            \sa ANDROID_TONEMAP_MODE_PRESET_CURVE
+
+  - TonemapCurveRed:
+      type: float
+      description: |
+        Tonemap control over the tone mapping process for red channel.
+
+      size: [n]
+
+  - TonemapCurveGreen:
+      type: float
+      description: |
+        Tonemap control over the tone mapping process for green channel.
+
+      size: [n]
+
+  - TonemapCurveBlue:
+      type: float
+      description: |
+        Tonemap control over the tone mapping process for blue channel.
+
+      size: [n]
 ...

@@ -82,13 +82,15 @@ public:
 				uint32_t internalRequestId,
 				uint32_t frameNumber,
 				bool needCropTNC16x9,
-				Feature feature);
+				Feature feature,
+				const ControlList &controls_opt);
 
 	int getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 				ImgMetaRequest &imgMetaRequest,
 				uint32_t internalRequestId,
 				bool needCropTNC16x9,
-				Feature feature);
+				Feature feature,
+				const ControlList &controls_opt);
 
 	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> getIspSwmeParam();
 	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> getIspBssParam();

@@ -245,7 +245,7 @@ MfnrTunBfbldTask::MfnrTunBfbldTask(MFNRFrames &mfnr,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_mfnr, manager->ipa_),
+		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	bfbldTun_ = mfnr.bfbldFrames.in.tunbufi;
@@ -285,7 +285,7 @@ MfnrTunBfmeTask::MfnrTunBfmeTask(MFNRFrames &mfnr,
 				 const std::string &id, Request *request, MfnrTunManager *manager,
 				 uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_mfnr, manager->ipa_),
+		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	bfmeTun_ = mfnr.bfmeFrames.in.tunbufi;
@@ -344,7 +344,7 @@ MfnrTunDsTask::MfnrTunDsTask(MFNRFrames &mfnr,
 			     const std::string &id, Request *request, MfnrTunManager *manager,
 			     uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_mfnr, manager->ipa_),
+		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	dsTun = mfnr.dsFrames.in.tunbufi;
@@ -382,7 +382,7 @@ MfnrTunMcdsF1Task::MfnrTunMcdsF1Task(MFNRFrames &mfnr,
 				     const std::string &id, Request *request, MfnrTunManager *manager,
 				     uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_mfnr, manager->ipa_),
+		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	mcdsF1Tun_.resize(kInputRawCount - 1);
@@ -422,7 +422,7 @@ MfnrTunDsVbiTask::MfnrTunDsVbiTask(MFNRFrames &mfnr,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_mfnr, manager->ipa_),
+		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	// 0 for BFBLD_BASE Task
@@ -472,7 +472,7 @@ MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_mfnr, manager->ipa_),
+		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	msbldF0Tun_.resize(kInputRawCount - 2);
@@ -544,7 +544,7 @@ MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
 				   uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_mfnr, manager->ipa_),
+		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	afbldF0Tun_.resize(1);

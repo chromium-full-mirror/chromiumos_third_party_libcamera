@@ -168,7 +168,8 @@ void IPADelegate::getImgSysMetaTuning(
 	const uint32_t frame,
 	const bool needCropTNC16x9,
 	const Feature feature,
-	const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests)
+	const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
+	const ControlList &controls)
 {
 	uint64_t cookie = imgSysCookieCounter_++;
 	imgSysTasks_.emplace(cookie, imgSysTask);
@@ -177,7 +178,7 @@ void IPADelegate::getImgSysMetaTuning(
 			  ConnectionTypeQueued,
 			  cookie, camSysMetaRequestId, frame,
 			  needCropTNC16x9, static_cast<uint32_t>(feature),
-			  imgMetaRequests);
+			  imgMetaRequests, controls);
 }
 
 void IPADelegate::AieParseResultReady(

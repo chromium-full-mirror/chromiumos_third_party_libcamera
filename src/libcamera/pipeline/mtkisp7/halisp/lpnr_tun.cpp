@@ -168,7 +168,7 @@ LpnrTunXtrTask::LpnrTunXtrTask(LPNRFrames &lpnr,
 			       const std::string &id, Request *request, LpnrTunTasksManager *manager,
 			       uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_lpnr, manager->ipa_),
+		     Feature::Capture_lpnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	xtrTun_ = lpnr.xtrFrames.in.xtrTun;
@@ -195,7 +195,7 @@ LpnrTunDipTask::LpnrTunDipTask(LPNRFrames &lpnr,
 			       const std::string &id, Request *request, LpnrTunTasksManager *manager,
 			       uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Capture_lpnr, manager->ipa_),
+		     Feature::Capture_lpnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	highIsoMode_ = lpnr.lpnrDipFrames.in.highIsoMode;

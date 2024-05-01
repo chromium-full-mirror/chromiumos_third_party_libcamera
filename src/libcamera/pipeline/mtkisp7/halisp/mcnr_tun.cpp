@@ -240,7 +240,7 @@ McnrMeATask::McnrMeATask(MCNRFrames &mcnr,
 			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Preview, manager->ipa_),
+		     Feature::Preview, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	(void)mcnr;
@@ -299,7 +299,7 @@ McnrMeBTask::McnrMeBTask(MCNRFrames &mcnr,
 			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Preview, manager->ipa_),
+		     Feature::Preview, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	meBTun = mcnr.meFrames.in.meBTun;
@@ -364,7 +364,7 @@ McnrTrTask::McnrTrTask(MCNRFrames &mcnr,
 		       const std::string &id, Request *request, McnrTunManager *manager,
 		       uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Preview, manager->ipa_),
+		     Feature::Preview, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	trTunF1 = mcnr.trFrames.in.trTunF1;
@@ -405,7 +405,7 @@ McnrDipTask::McnrDipTask(MCNRFrames &mcnr,
 			 const std::string &id, Request *request, McnrTunManager *manager,
 			 uint32_t internalRequestId)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
-		     Feature::Preview, manager->ipa_),
+		     Feature::Preview, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
 	fwMeFst = mcnr.meFrames.in.fwMeFst;
