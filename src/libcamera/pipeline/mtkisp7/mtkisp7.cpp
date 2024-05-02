@@ -800,6 +800,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		};
 		controls[&controls::SceneMode] = ControlInfo(supportedSceneModes);
 
+		controls[&controls::EdgeMode] = ControlInfo(controls::EdgeModeValues);
 		// Create CameraData
 		std::unique_ptr<MtkISP7CameraData> data =
 			std::make_unique<MtkISP7CameraData>(

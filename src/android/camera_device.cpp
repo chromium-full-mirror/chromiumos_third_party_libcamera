@@ -1194,6 +1194,11 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::draft::NoiseReductionMode, static_cast<int>(data[0]));
 	}
 
+	if (settings.getEntry(ANDROID_EDGE_MODE, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::EdgeMode, static_cast<int>(data[0]));
+	}
+
 	return 0;
 }
 
