@@ -22,13 +22,12 @@
 namespace libcamera {
 
 class AATask;
-class AFTask;
 class MtkISP7CameraData;
 
 class FocusController
 {
 public:
-	void configure(CameraLens *cameraLens);
+	FocusController(CameraLens *cameraLens);
 
 	VcmFocusInformation getFocusInfo();
 	ipa::mtkisp7::LensPositionInfo getLensPositionInfo()
@@ -74,7 +73,7 @@ public:
 
 	void releaseBuffers();
 
-	std::tuple<AATask *, AFTask *>
+	std::tuple<AATask *>
 	make3ATasks(Scheduler *scheduler, Request *request,
 		    CaptureFrames &captureFrames,
 		    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
@@ -111,7 +110,7 @@ private:
 
 	GyroSensor *gyroSensor_;
 
-	FocusController focusController_;
+	std::unique_ptr<FocusController> focusController_;
 
 	InfoFramePool tuningPool_;
 
@@ -125,6 +124,8 @@ private:
 class AATask : public Task
 {
 public:
+	constexpr static uint32_t kLensDelay = 3;
+
 	struct PerFrameControl {
 		int delayIdx = 0;
 		bool isStillCapture = false;
@@ -133,13 +134,13 @@ public:
 
 	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
 	       CaptureFrames &captureFrames, GyroSensor *gyroSensor,
-	       IPADelegate *ipa, AFTask *afTask,
+	       IPADelegate *ipa,
 	       FocusController *focusController,
 	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 	       FaceDetector *faceDetector)
 		: Task(scheduler, id), request_(nullptr), manager_(manager),
 		  captureFrames_(captureFrames), gyroSensor_(gyroSensor),
-		  ipa_(ipa), afTask_(afTask), focusController_(focusController),
+		  ipa_(ipa), focusController_(focusController),
 		  internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId), faceDetector_(faceDetector)
 	{
@@ -167,7 +168,6 @@ public:
 	GyroSensor *gyroSensor_;
 
 	IPADelegate *ipa_;
-	AFTask *afTask_;
 	FocusController *focusController_;
 
 	uint32_t internalRequestId_;
@@ -176,41 +176,6 @@ public:
 	FaceDetector *faceDetector_;
 
 	PerFrameControl perFrameControl_;
-};
-
-class AFTask : public Task
-{
-public:
-	constexpr static uint32_t kLensDelay = 3;
-
-	AFTask(Scheduler *scheduler, const std::string &id,
-	       CaptureFrames &captureFrames,
-	       GyroSensor *gyroSensor, IPADelegate *ipa,
-	       uint32_t internalRequestId,
-	       FocusController *focusController, FaceDetector *faceDetector)
-		: Task(scheduler, id), captureFrames_(captureFrames),
-		  gyroSensor_(gyroSensor), ipa_(ipa), internalRequestId_(internalRequestId),
-		  focusController_(focusController), faceDetector_(faceDetector)
-	{
-	}
-
-	void AFResultReady(int32_t position);
-
-	void run() override final;
-
-	CaptureFrames captureFrames_;
-
-	GyroSensor *gyroSensor_;
-
-	IPADelegate *ipa_;
-
-	uint32_t internalRequestId_;
-
-	FocusController *focusController_;
-	FaceDetector *faceDetector_;
-
-	bool run_ = false;
-	bool executed_ = false;
 };
 
 } // namespace libcamera

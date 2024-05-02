@@ -32,7 +32,6 @@ int IPADelegate::init(std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy,
 					       &IPADelegate::AieParseResultReady);
 
 	ipaProxy_->AAResultReady.connect(this, &IPADelegate::AAResultReady);
-	ipaProxy_->AFResultReady.connect(this, &IPADelegate::AFResultReady);
 
 	ipaProxy_->ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
 	int ret = ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::init,
@@ -146,7 +145,7 @@ void IPADelegate::aieParse(
 }
 
 void IPADelegate::doCalculation3A(
-	AATask *aaTask, AFTask *afTask,
+	AATask *aaTask,
 	const uint32_t frame,
 	const uint32_t stat0BufferId, const uint32_t stat1BufferId,
 	const uint64_t timestamp, const uint32_t camSysMetaRequestId,
@@ -159,8 +158,6 @@ void IPADelegate::doCalculation3A(
 	const ControlList &controls)
 {
 	aaTasks_.emplace(frame, aaTask);
-	if (afTask)
-		afTasks_.emplace(frame, afTask);
 
 	int32_t featureEnum = -1;
 	if (featureApplied.has_value())
@@ -217,19 +214,6 @@ void IPADelegate::AAResultReady(uint32_t id,
 	it->second->AAResultReady(sensorSetting, aaaIspExchange, lensPositionInfo);
 
 	aaTasks_.erase(it);
-}
-
-void IPADelegate::AFResultReady(uint32_t id, int32_t position)
-{
-	auto it = afTasks_.find(id);
-	if (it == afTasks_.end()) {
-		LOG(IPADelegateMtkISP7, Fatal)
-			<< "AFResultReady: couldn't find task with id: " << id;
-		return;
-	}
-	it->second->AFResultReady(position);
-
-	afTasks_.erase(it);
 }
 
 void IPADelegate::ImgSysMetaTuningDone(uint64_t cookie)

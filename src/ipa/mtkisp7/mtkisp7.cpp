@@ -114,9 +114,6 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 	aaManager_ = std::make_unique<AAManager>(this);
 	aaManager_->moveToThread(&aaThread_);
 
-	afManager_ = std::make_unique<AFManager>(this);
-	afManager_->moveToThread(&aaThread_);
-
 	ispThread_.start();
 	ispThread_.setThreadAffinity(kIspThreadCpuAffinity);
 	ispManager_ = std::make_unique<IspManager>(this);
@@ -133,7 +130,6 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 void IPAMtkISP7::stop()
 {
 	aaManager_.reset();
-	afManager_.reset();
 
 	if (aaThread_.isRunning()) {
 		aaThread_.exit();
@@ -363,9 +359,10 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 	sample.z_value = gyroSample.z_value;
 	sample.timestamp = gyroSample.timestamp;
 
+	FrameBuffer *statistics1 = nullptr;
+	::VcmFocusInformation vcm;
 	if (stat1BufferId) {
 		// TODO: use another thread.
-		::VcmFocusInformation vcm;
 		vcm.focus_position = vcmFocusInfo.focus_position;
 		vcm.previous_focus_position = vcmFocusInfo.previous_focus_position;
 		vcm.moving_timestamp = vcmFocusInfo.moving_timestamp;
@@ -376,21 +373,15 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 			LOG(IPAMtkISP7, Error) << "Could not find stat1 buffer!";
 			return;
 		}
-		// TODO: merge doCalculationAF into aaManager
-		afManager_->invokeMethod(
-			&IPAMtkISP7::AFManager::doCalculationAF, ConnectionTypeQueued,
-			&itStat1->second.buffer, timestamp, frame,
-			afCamSysMetaRequestId, vcm,
-			latestFaceMetadata_, sample, controls);
+		statistics1 = &itStat1->second.buffer;
 	}
 
-	ControlList aaaMetadata;
 	aaManager_->invokeMethod(
 		&IPAMtkISP7::AAManager::doCalculation, ConnectionTypeQueued,
-		&itStat0->second.buffer, timestamp, frame,
-		camSysMetaRequestId, isStillCapture,
+		&itStat0->second.buffer, statistics1, timestamp, frame,
+		camSysMetaRequestId, afCamSysMetaRequestId, isStillCapture,
 		rawMetaBuffer->buffer.planes()[0].fd.get(),
-		rawMetaBuffer->mapped->planes()[0].data(),
+		rawMetaBuffer->mapped->planes()[0].data(), vcm,
 		latestFaceMetadata_, sample, internalRequestIdApplied,
 		controls, featureEnum);
 }
@@ -488,11 +479,6 @@ void IPAMtkISP7::doAAResultReady(uint32_t frame, SensorSetting sensorSetting,
 	AAResultReady.emit(frame, sensorSetting, aaaIspExchange, lensPositionInfo);
 }
 
-void IPAMtkISP7::doAFResultReady(uint32_t frame, int32_t position)
-{
-	AFResultReady.emit(frame, position);
-}
-
 void IPAMtkISP7::doImgSysMetaTuningDone(uint64_t taskCounter)
 {
 	ImgSysMetaTuningDone.emit(taskCounter);
@@ -503,18 +489,26 @@ IPAMtkISP7::AAManager::AAManager(IPAMtkISP7 *ipa)
 {
 }
 
-void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
+void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, FrameBuffer *statistics1,
+					  uint64_t timestamp,
 					  uint32_t internalRequestId,
 					  uint32_t camSysMetaRequestId,
+					  const uint32_t afCamSysMetaRequestId,
 					  bool isStillCapture, int rawMetaFd,
 					  unsigned char *rawMetaBuffer,
+					  ::VcmFocusInformation vcmFocusInfo,
 					  std::optional<MtkCameraFaceMetadata> metadata,
 					  GyroSensor::SensorSample gyroSample,
-					  uint32_t internalRequestIdApplied,
+					  const uint32_t internalRequestIdApplied,
 					  const ControlList &controls,
 					  const int32_t featureEnum)
 {
-	SensorSetting exposureAndGain;
+	SensorSetting sensorSetting;
+	if (statistics1) {
+		ipa_->hal3A_->doCalculationAF(statistics1, timestamp, internalRequestId,
+					      afCamSysMetaRequestId, vcmFocusInfo,
+					      metadata, gyroSample, &sensorSetting.position, controls);
+	}
 	AaaIspExchange aaaIspExchange;
 	aaaIspExchange.aaaMetadata = controls::controls;
 	LensPositionInfo lensPositionInfo;
@@ -532,7 +526,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 					    camSysMetaRequestId, isStillCapture,
 					    rawMetaBuffer,
 					    metadata, gyroSample,
-					    &exposureAndGain, &aaaIspExchange,
+					    &sensorSetting, &aaaIspExchange,
 					    idApplied, featureApplied,
 					    &lensPositionInfo, controls);
 
@@ -547,7 +541,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 
 	ipa_->invokeMethod(
 		&IPAMtkISP7::doAAResultReady, ConnectionTypeQueued,
-		internalRequestId, exposureAndGain, aaaIspExchange,
+		internalRequestId, sensorSetting, aaaIspExchange,
 		lensPositionInfo);
 
 	if (idApplied) {
@@ -555,28 +549,6 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 			internalRequestIdApplied,
 			statistics0, &ipa_->hal3A_->r3AResult_);
 	}
-}
-
-IPAMtkISP7::AFManager::AFManager(IPAMtkISP7 *ipa)
-	: ipa_(ipa)
-{
-}
-
-void IPAMtkISP7::AFManager::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
-					    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-					    ::VcmFocusInformation vcmFocusInfo,
-					    std::optional<MtkCameraFaceMetadata> metadata,
-					    GyroSensor::SensorSample gyroSample,
-					    const ControlList &controls)
-{
-	int32_t position = -1;
-	ipa_->hal3A_->doCalculationAF(statistics1, timestamp, internalRequestId,
-				      camSysMetaRequestId, vcmFocusInfo,
-				      metadata, gyroSample, &position, controls);
-	ipa_->invokeMethod(
-		&IPAMtkISP7::doAFResultReady,
-		ConnectionTypeQueued,
-		internalRequestId, position);
 }
 
 IPAMtkISP7::IspManager::IspManager(IPAMtkISP7 *ipa)

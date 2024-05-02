@@ -101,8 +101,6 @@ private:
 			     const AaaIspExchange &aaaIspExchange,
 			     LensPositionInfo lensPositionInfo);
 
-	void doAFResultReady(uint32_t frame, int32_t position);
-
 	void doImgSysMetaTuningDone(uint64_t taskCounter);
 
 	void adjustRLimit();
@@ -119,31 +117,19 @@ private:
 	{
 	public:
 		AAManager(IPAMtkISP7 *ipa);
-		void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
+		void doCalculation(FrameBuffer *statistics0, FrameBuffer *statistics1,
+				   uint64_t timestamp,
 				   uint32_t internalRequestId,
 				   uint32_t camSysMetaRequestId,
+				   const uint32_t afCamSysMetaRequestId,
 				   bool isStillCapture, int rawMetaFd,
 				   unsigned char *rawMetaBuffer,
+				   ::VcmFocusInformation vcmFocusInfo,
 				   std::optional<MtkCameraFaceMetadata> metadata,
 				   GyroSensor::SensorSample gyroSample,
 				   const uint32_t internalRequestIdApplied,
 				   const ControlList &controls,
 				   const int32_t featureEnum);
-
-	private:
-		IPAMtkISP7 *ipa_;
-	};
-
-	class AFManager : public Object
-	{
-	public:
-		AFManager(IPAMtkISP7 *ipa);
-		void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
-				     uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-				     ::VcmFocusInformation vcmFocusInfo,
-				     std::optional<MtkCameraFaceMetadata> metadata,
-				     GyroSensor::SensorSample gyroSample,
-				     const ControlList &controls);
 
 	private:
 		IPAMtkISP7 *ipa_;
@@ -177,7 +163,6 @@ private:
 	};
 
 	friend AAManager;
-	friend AFManager;
 	friend IspManager;
 
 	IPAMappedBuffer *getMappedBufferIter(unsigned int bufferId);
@@ -197,8 +182,6 @@ private:
 
 	Thread aaThread_;
 	std::unique_ptr<AAManager> aaManager_;
-
-	std::unique_ptr<AFManager> afManager_;
 
 	Thread ispThread_;
 	std::unique_ptr<IspManager> ispManager_;

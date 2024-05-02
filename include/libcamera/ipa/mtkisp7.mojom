@@ -12,6 +12,7 @@ struct SensorSetting {
 	uint32 exposure;
 	uint32 gain;
 	uint32 vblank;
+	int32 position;
 };
 
 struct CamSysData {
@@ -133,7 +134,6 @@ interface IPAMtkISP7EventInterface {
         AAResultReady(uint32 frame, SensorSetting sensorSetting,
                       AaaIspExchange aaaIspExchange,
                       LensPositionInfo lensPositionInfo);
-        AFResultReady(uint32 frame, int32 position);
 
         ImgSysMetaTuningDone(uint64 taskCounter);
 };

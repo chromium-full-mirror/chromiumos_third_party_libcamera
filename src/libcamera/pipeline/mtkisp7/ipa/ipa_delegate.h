@@ -15,7 +15,6 @@
 namespace libcamera {
 
 class AATask;
-class AFTask;
 class MtkISP7CameraData;
 class ImgSysTask;
 
@@ -70,7 +69,7 @@ public:
 		const uint32_t camSysMetaRequestId);
 
 	void doCalculation3A(
-		AATask *aaTask, AFTask *afTask,
+		AATask *aaTask,
 		const uint32_t frame,
 		const uint32_t stat0BufferId, const uint32_t stat1BufferId,
 		const uint64_t timestamp, const uint32_t camSysMetaRequestId,
@@ -112,7 +111,6 @@ private:
 	FaceDetector *faceDetector_;
 
 	std::unordered_map<uint32_t, AATask *> aaTasks_;
-	std::unordered_map<uint32_t, AFTask *> afTasks_;
 
 	uint64_t imgSysCookieCounter_ = 1;
 	std::unordered_map<uint64_t, ImgSysTask *> imgSysTasks_;

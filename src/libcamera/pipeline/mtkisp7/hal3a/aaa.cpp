@@ -37,7 +37,7 @@ uint64_t getMonotonicTimestamp()
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-void FocusController::configure(CameraLens *cameraLens)
+FocusController::FocusController(CameraLens *cameraLens)
 {
 	cameraLens_ = cameraLens;
 	reset();
@@ -114,7 +114,8 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 	gyroSensor_ = gyroSensor;
 	ipa_ = ipa;
 
-	focusController_.configure(camSys_->getCameraLens());
+	if (hasAF())
+		focusController_ = std::make_unique<FocusController>(camSys_->getCameraLens());
 
 	if (tuningPool_.size() == 0)
 		tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8,
@@ -129,7 +130,7 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 int Hal3AManager::start(int32_t lens_position)
 {
 	if (hasAF())
-		focusController_.set(lens_position, 0);
+		focusController_->set(lens_position, 0);
 
 	return 0;
 }
@@ -151,15 +152,21 @@ bool Hal3AManager::hasAF() const
 
 bool Hal3AManager::isLensMoving()
 {
-	return focusController_.isLensMoving();
+	if (!focusController_)
+		return false;
+
+	return focusController_->isLensMoving();
 }
 
 float Hal3AManager::getLensFocusDistance()
 {
-	return focusController_.getLensPositionInfo().focusDistance;
+	if (!focusController_)
+		return 0.0;
+
+	return focusController_->getLensPositionInfo().focusDistance;
 }
 
-std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
+std::tuple<AATask *> Hal3AManager::make3ATasks(
 	Scheduler *scheduler, Request *request,
 	CaptureFrames &captureFrames, uint32_t internalRequestId,
 	uint32_t camSysMetaRequestId,
@@ -173,20 +180,13 @@ std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
 	dummyMetaRequestId_ = camSysMetaRequestId;
 	dummyTuning_ = captureFrames.tuning;
 
-	AFTask *afTask = nullptr;
-	if (hasAF()) {
-		afTask = new AFTask(scheduler, "AF " + sequence, captureFrames,
-				    gyroSensor_, ipa_, internalRequestId,
-				    &focusController_, faceDetector);
-	}
-
 	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
 				    captureFrames, gyroSensor_,
-				    ipa_, afTask, &focusController_,
+				    ipa_, focusController_.get(),
 				    internalRequestId, camSysMetaRequestId,
 				    faceDetector);
 
-	return std::make_tuple(aaTask, afTask);
+	return std::make_tuple(aaTask);
 }
 
 std::pair<uint32_t, SharedMailBox<InfoFrame>> Hal3AManager::getDummyTuning()
@@ -222,16 +222,19 @@ void AATask::run()
 
 	ipa::mtkisp7::VcmFocusInformation vcm;
 
-	vcm.focus_position = focusController_->getFocusInfo().focus_position;
-	vcm.previous_focus_position = focusController_->getFocusInfo().previous_focus_position;
-	vcm.moving_timestamp = focusController_->getFocusInfo().moving_timestamp;
-	vcm.previous_moving_timestamp = focusController_->getFocusInfo().previous_moving_timestamp;
+	if (focusController_) {
+		vcm.focus_position = focusController_->getFocusInfo().focus_position;
+		vcm.previous_focus_position = focusController_->getFocusInfo().previous_focus_position;
+		vcm.moving_timestamp = focusController_->getFocusInfo().moving_timestamp;
+		vcm.previous_moving_timestamp = focusController_->getFocusInfo().previous_moving_timestamp;
+	}
+
 	ipa_->doCalculation3A(
-		this, afTask_, internalRequestId_,
+		this, internalRequestId_,
 		captureFrames_.statistics0->get().buffer()->cookie(),
-		afTask_ ? captureFrames_.statistics1->get().buffer()->cookie() : 0,
+		focusController_ ? captureFrames_.statistics1->get().buffer()->cookie() : 0,
 		captureFrames_.timestamp->get(), camSysMetaRequestId_,
-		internalRequestId_ - AFTask::kLensDelay,
+		internalRequestId_ - kLensDelay,
 		perFrameControl_.isStillCapture,
 		captureFrames_.tuningOutput->get().buffer()->cookie(),
 		gyroSample, internalRequestIdApplied_.value_or(0),
@@ -243,11 +246,16 @@ void AATask::AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
 			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
 			   const ipa::mtkisp7::LensPositionInfo &lensPositionInfo)
 {
+	uint64_t timestamp = getMonotonicTimestamp();
+	if (focusController_) {
+		focusController_->set(exposureAndGain.position, timestamp / 1000);
+		focusController_->setLensPositionInfo(lensPositionInfo);
+	}
+
 	captureFrames_.exposureAndGainOutput->put(exposureAndGain, nullptr);
 
 	manager_->setMfnrMode(aaaIspExchange.mfnrMode);
 	captureFrames_.aaaIspExchange->put(aaaIspExchange, nullptr);
-	focusController_->setLensPositionInfo(lensPositionInfo);
 
 	notifyDone();
 }
@@ -281,23 +289,6 @@ void AATask::setInternalRequestIdApplied(uint32_t internalRequestIdApplied)
 void AATask::setFeatureApplied(Feature featureApplied)
 {
 	featureApplied_ = featureApplied;
-}
-
-void AFTask::run()
-{
-	run_ = true;
-	if (executed_)
-		notifyDone();
-}
-
-void AFTask::AFResultReady(int32_t position)
-{
-	uint64_t timestamp = getMonotonicTimestamp();
-	focusController_->set(position, timestamp / 1000);
-
-	executed_ = true;
-	if (run_)
-		notifyDone();
 }
 
 } // namespace libcamera
