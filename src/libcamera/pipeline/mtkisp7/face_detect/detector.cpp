@@ -131,7 +131,8 @@ void FaceDetector::AieParseResultReady(bool success,
 
 	setLatestFaceControls(out);
 
-	triggerNextRequest();
+	this->invokeMethod(&FaceDetector::triggerNextRequest,
+			   ConnectionTypeQueued);
 }
 
 void FaceDetector::triggerParse()
