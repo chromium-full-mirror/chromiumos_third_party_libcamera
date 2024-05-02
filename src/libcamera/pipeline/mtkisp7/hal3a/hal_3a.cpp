@@ -204,8 +204,8 @@ void Hal3A::getInitialInfo()
 	config.control_config.sensor_id = (sensor_idx_ == 0) ? 0 : 1;;
 	config.control_config.bit_mode = 1;
 
-	config.fno = 1.790000;
-	config.focal_length = 4.710000;
+	config.fno = 2.000000;
+	config.focal_length = 2.420000;
 	config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 
 	NSCam::IHalSensorList *const pHalSensorList = NSCam::IHalSensorList::get();
@@ -333,24 +333,24 @@ void Hal3A::config()
 	case HI1339_SENSOR_ID:
 		config.tg_width = 4208;
 		config.tg_height = 3120;
-		config.fno = 1.790000;
-		config.focal_length = 4.710000;
+		config.fno = 2.000000;
+		config.focal_length = 2.420000;
 		config.feature_mode = 0;
 		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
 	case GC08A3_SENSOR_ID:
 		config.tg_width = 3264;
 		config.tg_height = 2448;
-		config.fno = 1.790000;
-		config.focal_length = 4.710000;
+		config.fno = 2.000000;
+		config.focal_length = 2.420000;
 		config.feature_mode = 0;
 		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
 	case GC05A2_SENSOR_ID:
 		config.tg_width = 2592;
 		config.tg_height = 1944;
-		config.fno = 1.790000;
-		config.focal_length = 4.710000;
+		config.fno = 2.000000;
+		config.focal_length = 2.420000;
 		config.feature_mode = 0;
 		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
@@ -358,8 +358,8 @@ void Hal3A::config()
 		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
 		config.tg_width = 2592;
 		config.tg_height = 1944;
-		config.fno = 1.790000;
-		config.focal_length = 4.710000;
+		config.fno = 2.000000;
+		config.focal_length = 2.420000;
 		config.feature_mode = 0;
 		config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
 		break;
