@@ -767,7 +767,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::AfMode] = ControlInfo(controls::AfModeValues);
 		controls[&controls::AfTrigger] = ControlInfo(controls::AfTriggerValues);
 		std::vector<ControlValue> availableFocalLength = {
-			4.71f,
+			2.42f,
 		};
 		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
 		controls[&controls::AfWindows] = ControlInfo(Rectangle{}, Rectangle{}, Rectangle{});
@@ -780,8 +780,13 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::TonemapCurveGreen] = ControlInfo(0.0f, 1.0f);
 		controls[&controls::TonemapCurveBlue] = ControlInfo(0.0f, 1.0f);
 
-		if (camSysDev_[i].getCameraLens())
-			controls[&controls::LensPosition] = ControlInfo(0.1f, 100.0f, 1.0f);
+		if (camSysDev_[i].getCameraLens()) {
+			// TODO, update minimum focus distance from real lens setting.cd
+			float infiniteFocusDistance = 0.1f;
+			float minimumFocusDistance = 1.0f / 0.05f; // 1 / 0.05(m) = 20 diopters
+			controls[&controls::LensPosition] =
+				ControlInfo(infiniteFocusDistance, minimumFocusDistance, 1.0f);
+		}
 
 		// For now these two controls are ignored.
 		// However, because MTK 3A algo is configured to prioritize

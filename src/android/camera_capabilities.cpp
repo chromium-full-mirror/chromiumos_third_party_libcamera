@@ -1419,7 +1419,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		camera_->controls().find(controls::LensPosition.id());
 	if (lensPositionIter != camera_->controls().end()) {
 		const ControlInfo &lensPositionRange = lensPositionIter->second;
-		auto minFocusDistance = lensPositionRange.min().get<float>();
+		auto minFocusDistance = lensPositionRange.max().get<float>();
 		staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
 					minFocusDistance);
 		if (minFocusDistance != 0.0f){
