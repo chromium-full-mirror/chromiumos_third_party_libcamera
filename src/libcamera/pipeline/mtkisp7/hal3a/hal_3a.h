@@ -34,6 +34,7 @@ public:
 	static const uint32_t kRawMetaSize = 113664;
 
 	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt);
+	~Hal3A();
 
 	void configure(Size camsysYuvSize, bool isVideo);
 	void start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer);

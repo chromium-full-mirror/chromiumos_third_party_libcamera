@@ -38,6 +38,18 @@ Hal3A::Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt)
 	halIsp_ = halIsp;
 }
 
+Hal3A::~Hal3A()
+{
+	if (inited_) {
+		mtk::hal3a::v1_0::mtk_3a_stop stop = {};
+
+		m_hal3a_->Stop(stop);
+		mtk::hal3a::v1_0::mtk_3a_uninit uinit = {};
+
+		m_hal3a_->Uninit(uinit);
+	}
+}
+
 void Hal3A::configure(Size camsysYuvSize, bool isVideo)
 {
 	camsysYuvSize_ = camsysYuvSize;
