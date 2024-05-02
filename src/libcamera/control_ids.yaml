@@ -1299,4 +1299,36 @@ controls:
         Tonemap control over the tone mapping process for blue channel.
 
       size: [n]
+
+  - EdgeMode:
+      type: int32_t
+      description: |
+        Operation mode for edge enhancement.
+      enum:
+        - name: EdgeModeOff
+          value: 0
+          description: |
+            No edge enhancement is applied.
+
+            \sa ANDROID_EDGE_MODE_OFF
+        - name: EdgeModeFast
+          value: 1
+          description: |
+            Apply edge enhancement at a quality level that does not slow down frame rate
+            relative to sensor output. It may be the same as OFF if edge enhancement will
+            slow down frame rate relative to sensor.
+
+            \sa ANDROID_TONEMAP_MODE_FAST
+        - name: EdgeModeHighQuality
+          value: 2
+          description: |
+            Apply high-quality edge enhancement, at a cost of possibly reduced output frame rate.
+
+            \sa ANDROID_TONEMAP_MODE_HIGH_QUALITY
+        - name: EdgeModeZeroShutterLag
+          value: 3
+          description: |
+            Apply edge enhancement and minimizes shutter lag, often sacrificing some image quality
+
+            \sa ANDROID_EDGE_MODE_ZERO_SHUTTER_LAG
 ...

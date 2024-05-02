@@ -1091,6 +1091,10 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		}
 
 		tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOn;
+		uint8_t android_edge_mode = controls_opt.get(controls::EdgeMode).value_or(1);
+		if ((android_edge_mode == MTK_EDGE_MODE_OFF) ||
+		    (android_edge_mode == MTK_EDGE_MODE_ZERO_SHUTTER_LAG))
+			tuning_param_p2.cam_info.edge_mode = mtk::isphal::v1_0::kEdgeModeOff;
 
 		if (is_capture) {
 			tuning_param_p2.camsys_history.tone_map_mode = MTK_TONEMAP_MODE_HIGH_QUALITY;
