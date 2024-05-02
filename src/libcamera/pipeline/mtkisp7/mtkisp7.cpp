@@ -812,7 +812,25 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			LOG(MtkISP7, Error) << "Failed to loadIPA, index: " << i;
 			continue;
 		}
-
+		Rectangle cropRegion = Rectangle{ pixelArraySize };
+		switch (PlatformUtils::platform_) {
+		case PlatformUtils::MtkISP7Platform::NONE:
+			LOG(MtkISP7, Fatal) << "Platform unconfigured";
+			break;
+		case PlatformUtils::MtkISP7Platform::GOOGLE:
+			if (i == 0)
+				cropRegion = Rectangle{ Size{ 4208, 3102 } };
+			else
+				cropRegion = Rectangle{ Size{ 3264, 2448 } };
+			break;
+		case PlatformUtils::MtkISP7Platform::LENOVO:
+			if (i == 0)
+				cropRegion = Rectangle{ Size{ 3264, 2448 } };
+			else
+				cropRegion = Rectangle{ Size{ 2592, 1944 } };
+			break;
+		}
+		properties.set(controls::ScalerCrop, cropRegion);
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
 					       &data->still1Stream_ };
