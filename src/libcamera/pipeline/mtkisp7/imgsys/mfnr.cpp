@@ -29,7 +29,6 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/task_scheduler.h"
 
-#include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/imgsys/bss.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
@@ -165,7 +164,7 @@ MfnrTasksManager::MfnrTasksManager(
 int MfnrTasksManager::configure(const Size &bayerInputSize,
 				const Size &yuvOutputSize1, const Size &yuvOutputSize2,
 				const Size &videoOutputSize1, const Size &videoOutputSize2,
-				FaceDetector *faceDetector_, int sensor_idx)
+				int sensor_idx)
 {
 	yuvOutputSize1_ = yuvOutputSize1;
 	yuvOutputSize2_ = yuvOutputSize2;
@@ -210,7 +209,7 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 	confMapSize_ = swmeWrapper_[0]->getConfMapSize();
 	//LOG(MtkISP7, Info) << "wrappingMapSize_ = " << wrappingMapSize_;
 	//LOG(MtkISP7, Info) << "confMapSize_ = " << confMapSize_;
-	bssWrapper_ = std::make_shared<BssWrapper>(sensor_idx_, faceDetector_);
+	bssWrapper_ = std::make_shared<BssWrapper>(sensor_idx_);
 	bssWrapper_->bssInit();
 
 	configureBuffers();

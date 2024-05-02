@@ -220,7 +220,6 @@ public:
 		      const Size &yuvOutputSize2,
 		      const Size &videoOutputSize1,
 		      const Size &videoOutputSize2,
-		      FaceDetector *faceDetector_,
 		      int sensor_idx);
 
 	int start();
