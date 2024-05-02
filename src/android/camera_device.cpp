@@ -1189,7 +1189,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 		controls.set(controls::TonemapCurveBlue, tonemapCurveBlue);
 	}
 
-	if (settings.getEntry(ANDROID_NOISE_REDUCTION_MODE, &entry)){
+	if (settings.getEntry(ANDROID_NOISE_REDUCTION_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
 		controls.set(controls::draft::NoiseReductionMode, static_cast<int>(data[0]));
 	}
@@ -1968,7 +1968,7 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 	 * \todo Calculate the entries and capacity by the input ControlList.
 	 */
 	std::unique_ptr<CameraMetadata> resultMetadata =
-		std::make_unique<CameraMetadata>(14, 112);
+		std::make_unique<CameraMetadata>(14, 224);
 	if (!resultMetadata->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate result metadata";
 		return nullptr;

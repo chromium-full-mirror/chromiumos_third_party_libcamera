@@ -1908,11 +1908,18 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	requestTemplate->addEntry(ANDROID_CONTROL_CAPTURE_INTENT,
 				  captureIntent);
 
-	std::vector<int32_t> cropRegion = {
-		0, 0, 0, 0,
-	};
-	requestTemplate->addEntry(ANDROID_SCALER_CROP_REGION,
-				  cropRegion);
+	{
+		const ControlList &properties = camera_->properties();
+		const Rectangle &rect =
+				properties.get(controls::ScalerCrop).value_or(Rectangle{0,0,0,0});
+		std::vector<int32_t> data{
+			static_cast<int32_t>(rect.x),
+			static_cast<int32_t>(rect.y),
+			static_cast<int32_t>(rect.width),
+			static_cast<int32_t>(rect.height)
+		};
+		requestTemplate->addEntry(ANDROID_SCALER_CROP_REGION, data);
+	}
 
 	uint8_t blackLevelLock = ANDROID_BLACK_LEVEL_LOCK_OFF;
 	requestTemplate->addEntry(ANDROID_BLACK_LEVEL_LOCK,
