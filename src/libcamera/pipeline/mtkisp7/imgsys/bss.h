@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "libcamera/internal/info_frame.h"
+#include "libcamera/internal/mapped_framebuffer.h"
 
-#include "../sensor/sensor_info.h"
+#include "mtkcam-interfaces/utils/hw/faces.h"
 #include "mtkcam-interfaces/utils/odt/IOnDeviceTuning.h"
-#include "pipeline/mtkisp7/face_detect/detector.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera/mt8188/include/libmfnr/MTKBss.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libBssWrapper/MTKBssHeader/EMTKBss.h"
@@ -218,24 +218,26 @@ struct IBSS_OUTPUT_DATA {
 };
 
 struct MTKFDContainerInfo {
-  MtkCameraFaceMetadata facedata;
-  MINT32 sensorId = -1;
-  MTKFDContainerInfo() { memset(&facedata, 0, sizeof(MtkCameraFaceMetadata)); }
-  ~MTKFDContainerInfo() {}
+	MtkCameraFaceMetadata facedata;
+	MINT32 sensorId = -1;
+	MTKFDContainerInfo() { memset(&facedata, 0, sizeof(MtkCameraFaceMetadata)); }
+	~MTKFDContainerInfo() {}
 
-  void clone(MTKFDContainerInfo* cloneInfo) {
-    if (cloneInfo)
-      *cloneInfo = *this;
-  }
+	void clone(MTKFDContainerInfo *cloneInfo)
+	{
+		if (cloneInfo)
+			*cloneInfo = *this;
+	}
 };
 #define FD_DATATYPE MTKFDContainerInfo
 
 struct MTKBSSFDInfo {
-  IBssFaceMetadata facedata;
-  IBssFace faces[15];
-  IBssFaceInfo posInfo[15];
-  MTKBSSFDInfo() : facedata{}, faces{}, posInfo{} {}
-  ~MTKBSSFDInfo() {}
+	IBssFaceMetadata facedata;
+	IBssFace faces[15];
+	IBssFaceInfo posInfo[15];
+	MTKBSSFDInfo()
+		: facedata{}, faces{}, posInfo{} {}
+	~MTKBSSFDInfo() {}
 };
 
 struct BssFrames {
@@ -261,7 +263,7 @@ struct BssFrames {
 class BssWrapper
 {
 public:
-	BssWrapper(int sensorIndex, FaceDetector *faceDetctor);
+	BssWrapper(int sensorIndex);
 	~BssWrapper();
 	MRESULT bssInit();
 	MRESULT bssMain(IBSS_PROC_ENUM ProcId, void *pParaIn, void *pParaOut);
@@ -305,7 +307,6 @@ private:
 
 	ZipOutData mZipData;
 	uint32_t sensorIndex_;
-	FaceDetector *faceDetector_;
 	bool mEnableBSSOrdering = true;
 
 	IPass_BSS_WB_STRUCT m_BSSWBParse;

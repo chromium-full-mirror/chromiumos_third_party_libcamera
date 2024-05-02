@@ -1388,7 +1388,6 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 		mfnrManager.configure(sensorFullSize_,
 				      still1, still2,
 				      video1, video2,
-				      faceDetector_,
 				      sensor_idx_);
 		mfnrTunManager.configure(sensorFullSize_, still1, still2, swme, bss);
 	}

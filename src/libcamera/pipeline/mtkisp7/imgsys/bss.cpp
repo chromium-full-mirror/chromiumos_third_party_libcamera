@@ -14,7 +14,6 @@
 #include "libcamera/framebuffer.h"
 #include "mtkcam-halif/def/UITypes.h"
 #include "mtkcam-interfaces/def/ImageFormat.h"
-#include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/debug_exif/cam/dbg_cam_param.h"
 
@@ -31,8 +30,8 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 static const int MF_BSS_ROI_PERCENTAGE = 95;
 static const int MF_BSS_ON = 1;
 
-BssWrapper::BssWrapper(int sensorIndex, FaceDetector *faceDetector)
-	: sensorIndex_(sensorIndex), faceDetector_(faceDetector)
+BssWrapper::BssWrapper(int sensorIndex)
+	: sensorIndex_(sensorIndex)
 {
 	mOdtUtils = NSCam::TuningUtils::IOdtUtils::getInstance(sensorIndex);
 }
@@ -575,7 +574,8 @@ loadBinaryFromOdt(reinterpret_cast<void*>(mDbParam.get()),
 
 	LOG(MtkISP7, Info) << "======= updateBssProcInfo start ======";
 
-	LOG(MtkISP7, Info) << "ON(" << (MINT32)bss_param->BSS_ON << ") VER(" << ") ROI("
+	LOG(MtkISP7, Info) << "ON(" << (MINT32)bss_param->BSS_ON << ") VER("
+			   << ") ROI("
 			   << bss_param->BSS_ROI_X0 << "," << bss_param->BSS_ROI_Y0 << ", "
 			   << bss_param->BSS_ROI_WIDTH << "x" << bss_param->BSS_ROI_HEIGHT << ")";
 
