@@ -48,6 +48,7 @@ public:
 			   ipa::mtkisp7::AaaIspExchange *aaaIspExchange,
 			   std::optional<uint32_t> internalRequestIdApplied,
 			   std::optional<Feature> featureApplied,
+			   ipa::mtkisp7::LensPositionInfo *lensPositionInfo,
 			   ControlList controls);
 
 	void doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
@@ -55,7 +56,7 @@ public:
 			     VcmFocusInformation vcmFocusInfo,
 			     std::optional<MtkCameraFaceMetadata> metadata,
 			     GyroSensor::SensorSample gyroSample, int32_t *position,
-				 ControlList controls);
+			     ControlList controls);
 
 	mtk::hal3a::v1_0::mtk_3a_result r3AResult_ = {};
 

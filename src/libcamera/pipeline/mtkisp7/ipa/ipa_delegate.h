@@ -94,7 +94,8 @@ private:
 
 	void AAResultReady(uint32_t id,
 			   const ipa::mtkisp7::SensorSetting &sensorSetting,
-			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange);
+			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
+			   const ipa::mtkisp7::LensPositionInfo &lensPositionInfo);
 	void AFResultReady(uint32_t id, int32_t position);
 
 	void ImgSysMetaTuningDone(uint64_t cookie);

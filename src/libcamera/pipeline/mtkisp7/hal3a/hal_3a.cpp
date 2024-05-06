@@ -54,7 +54,6 @@ void Hal3A::configure(Size camsysYuvSize, bool isVideo)
 {
 	camsysYuvSize_ = camsysYuvSize;
 	isVideo_ = isVideo;
-
 	if (inited_) {
 		mtk::hal3a::v1_0::mtk_3a_stop stop = {};
 
@@ -74,7 +73,6 @@ void Hal3A::configure(Size camsysYuvSize, bool isVideo)
 
 void Hal3A::start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer)
 {
-
 	*rawMetaBuffer = r3AResult_.raw_meta;
 }
 
@@ -151,7 +149,6 @@ void Hal3A::init()
 		LOG(MtkISP7, Info) << "AF Caliberation data checker "
 				   << " inf position " << (int32_t)init.cal_aa.Single2A.S2aAf[0]
 				   << " macro position " << (int32_t)init.cal_aa.Single2A.S2aAf[1];
-
 	} else {
 		LOG(MtkISP7, Info) << "sensor_info_ is null";
 	}
@@ -188,8 +185,7 @@ void Hal3A::getInitialInfo()
 	config.ae_min_fps = 5000;
 	config.ae_max_fps = 30000;
 	config.zoom_ratio = 100;
-	config.capture_intent = (isVideo_) ?
-		MTK_CONTROL_CAPTURE_INTENT_VIDEO_RECORD : MTK_CONTROL_CAPTURE_INTENT_PREVIEW;
+	config.capture_intent = (isVideo_) ? MTK_CONTROL_CAPTURE_INTENT_VIDEO_RECORD : MTK_CONTROL_CAPTURE_INTENT_PREVIEW;
 
 	config.aov_enable = 0;
 	config.custom_feature = 0;
@@ -201,7 +197,7 @@ void Hal3A::getInitialInfo()
 	config.control_config.subsample_count = 1;
 	config.control_config.request_count = 1;
 	config.control_config.sensor_mode = (isVideo_) ? ESensorMode_Video : ESensorMode_Preview;
-	config.control_config.sensor_id = (sensor_idx_ == 0) ? 0 : 1;;
+	config.control_config.sensor_id = (sensor_idx_ == 0) ? 0 : 1;
 	config.control_config.bit_mode = 1;
 
 	config.fno = 2.000000;
@@ -275,8 +271,7 @@ void Hal3A::config()
 	config.ae_min_fps = 5000;
 	config.ae_max_fps = 30000;
 	config.zoom_ratio = 100;
-	config.capture_intent = (isVideo_) ?
-		MTK_CONTROL_CAPTURE_INTENT_VIDEO_RECORD : MTK_CONTROL_CAPTURE_INTENT_PREVIEW;
+	config.capture_intent = (isVideo_) ? MTK_CONTROL_CAPTURE_INTENT_VIDEO_RECORD : MTK_CONTROL_CAPTURE_INTENT_PREVIEW;
 	config.aov_enable = 0;
 	config.custom_feature = 0;
 	config.custom_feature_cap = 0;
@@ -387,6 +382,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 			  ipa::mtkisp7::AaaIspExchange *aaaIspExchange,
 			  std::optional<uint32_t> internalRequestIdApplied,
 			  std::optional<Feature> featureApplied,
+			  ipa::mtkisp7::LensPositionInfo *lensPositionInfo,
 			  ControlList controls)
 {
 	mtk::hal3a::mtk_camsys_info camSysInfo = {};
@@ -429,8 +425,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 
 	r_3a_param.active_items =
 		(mtk::hal3a::Mtk3AActiveItem::kAE | mtk::hal3a::Mtk3AActiveItem::kAWB |
-		mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
-		mtk::hal3a::Mtk3AActiveItem::kShading);
+		 mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
+		 mtk::hal3a::Mtk3AActiveItem::kShading);
 
 	if (!resultHistory_.contain(camSysMetaRequestId))
 		r_3a_param.is_dummy_request = true;
@@ -485,8 +481,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	aaaIspExchange->aaaMetadata.set(controls::ExposureTime, exposureTimeMs);
 
 	uint8_t mtk_ae_state = static_cast<uint8_t>(r3AResult_.ae_result.ae_state);
-	if (r_3a_param.ae_mode == 0){
-	    // hack ae_state to INACTIVE if ae_mode is OFF
+	if (r_3a_param.ae_mode == 0) {
+		// hack ae_state to INACTIVE if ae_mode is OFF
 		mtk_ae_state = 0;
 	}
 	uint8_t mtk_awb_state = static_cast<uint32_t>(r3AResult_.awb_result.awb_state);
@@ -500,7 +496,12 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		mtk_af_state = 4;
 	aaaIspExchange->aaaMetadata.set(controls::AfState, mtk_af_state);
 	float mtk_lens_focus_distance = static_cast<float>(r3AResult_.af_result.lens_focus_distance);
-	aaaIspExchange->aaaMetadata.set(controls::LensPosition, mtk_lens_focus_distance);
+	int mtk_lens_position = r3AResult_.af_result.lens_position;
+	aaaIspExchange->aaaMetadata.set(controls::LensPosition, static_cast<float>(mtk_lens_position));
+
+	lensPositionInfo->focusDistance = mtk_lens_focus_distance;
+
+	LOG(MtkISP7, Debug) << "focusDistance: " << lensPositionInfo->focusDistance;
 }
 
 void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
@@ -608,7 +609,7 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 			r_3a_param.af_mode = 0;
 		}
 		r_3a_param.af_trigger = controls_opt->get(controls::AfTrigger).value_or(0);
-		r_3a_param.af_focus_distance = controls_opt->get(controls::LensPosition).value_or(0);
+		r_3a_param.af_focus_distance = controls_opt->get(controls::LensFocusDistance).value_or(0);
 
 		r_3a_param.af_region.count = 0;
 		std::memset(&r_3a_param.af_region, 0, sizeof(r_3a_param.af_region));

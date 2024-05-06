@@ -1331,4 +1331,29 @@ controls:
             Apply edge enhancement and minimizes shutter lag, often sacrificing some image quality
 
             \sa ANDROID_EDGE_MODE_ZERO_SHUTTER_LAG
+
+  - LensFocusDistance:
+      type: float
+      description: |
+        Current lens focus distance (diopter)
+
+        \sa ANDROID_LENS_FOCUS_DISTANCE
+
+  - LensState:
+      type: int32_t
+      description: |
+        Current lens status.
+      enum:
+        - name: LensStateStationary
+          value: 0
+          description: |
+            The lens position is not chaning
+
+            \sa ANDROID_LENS_STATE_STATIONARY
+        - name: LensStateMoving
+          value: 1
+          description: |
+            The lens position is chaning
+
+            \sa ANDROID_LENS_STATE_MOVING
 ...

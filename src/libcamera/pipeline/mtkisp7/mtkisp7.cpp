@@ -781,11 +781,12 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::TonemapCurveBlue] = ControlInfo(0.0f, 1.0f);
 
 		if (camSysDev_[i].getCameraLens()) {
-			// TODO, update minimum focus distance from real lens setting.cd
+			// TODO, update minimum focus distance from real lens setting.
 			float infiniteFocusDistance = 0.1f;
-			float minimumFocusDistance = 1.0f / 0.05f; // 1 / 0.05(m) = 20 diopters
-			controls[&controls::LensPosition] =
+			float minimumFocusDistance = 1.0f / 0.08f; // 1 / 0.08(m) = 12.5 diopters
+			controls[&controls::LensFocusDistance] =
 				ControlInfo(infiniteFocusDistance, minimumFocusDistance, 1.0f);
+			controls[&controls::LensPosition] = ControlInfo(0.0f, 1000.0f);
 		}
 
 		// For now these two controls are ignored.
@@ -1022,7 +1023,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	captureResult_.add(internalRequestId, captureResult);
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
-		scheduler, id, request, captureFrames, internalRequestId);
+		scheduler, id, request, captureFrames, internalRequestId, &hal3AManager_);
 
 	if (onDeviceTuner_->isEnabled()) {
 		onDeviceTuner_->notifyRequestBegin(internalRequestId);
@@ -1454,6 +1455,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 				prevAATask->setFeatureApplied(feature);
 				prevAATask->setPerFrameControl(
 					AATask::PerFrameControl{
+						.delayIdx = static_cast<int>(shift),
 						.isStillCapture = hasStillCapture,
 						.controls = request->controls() });
 				iter++;
@@ -1467,6 +1469,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		"Capture " + sequence, request, captureFrames, internalRequestId, hasStillCapture);
 	aaTask->setPerFrameControl(
 		AATask::PerFrameControl{
+			.delayIdx = 0,
 			.isStillCapture = hasStillCapture,
 			.controls = request->controls() });
 
@@ -1760,6 +1763,7 @@ bool MtkISP7CameraData::is3aControlChanged(std::shared_ptr<ControlList> controls
 		controls::AF_TRIGGER,
 		controls::AF_WINDOWS,
 		controls::LENS_POSITION,
+		controls::LENS_FOCUS_DISTANCE,
 		controls::COLOR_CORRECTION_MODE,
 		controls::COLOR_CORRECTION_GAINS,
 		controls::COLOUR_CORRECTION_MATRIX,

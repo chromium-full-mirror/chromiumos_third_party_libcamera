@@ -1129,7 +1129,7 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 
 	if (settings.getEntry(ANDROID_LENS_FOCUS_DISTANCE, &entry)) {
 		const float *data = entry.data.f;
-		controls.set(controls::LENS_POSITION, static_cast<float>(data[0]));
+		controls.set(controls::LensFocusDistance, static_cast<float>(data[0]));
 	}
 
 	if (settings.getEntry(ANDROID_COLOR_CORRECTION_MODE, &entry)) {
@@ -2006,9 +2006,9 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 		resultMetadata->addEntry(ANDROID_CONTROL_AF_STATE, afState.value_or(0));
 	}
 
-	if (metadata.contains(controls::LENS_POSITION)) {
-		const auto &lensPosition = metadata.get(controls::LensPosition);
-		resultMetadata->addEntry(ANDROID_LENS_FOCUS_DISTANCE, lensPosition.value_or(0));
+	if (metadata.contains(controls::LENS_FOCUS_DISTANCE)) {
+		const auto &lensFocusDistance = metadata.get(controls::LensFocusDistance);
+		resultMetadata->addEntry(ANDROID_LENS_FOCUS_DISTANCE, lensFocusDistance.value_or(0));
 	}
 
 	if (metadata.contains(controls::ANALOGUE_GAIN)) {
@@ -2024,6 +2024,11 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 	const auto &frameDuration = metadata.get(controls::FrameDuration);
 	if (metadata.contains(controls::FRAME_DURATION)) {
 		resultMetadata->addEntry(ANDROID_SENSOR_FRAME_DURATION, frameDuration.value_or(33'333'333));
+	}
+
+	const auto &lensState = metadata.get(controls::LensState);
+	if (metadata.contains(controls::LENS_STATE)) {
+		resultMetadata->addEntry(ANDROID_LENS_STATE, lensState.value_or(0));
 	}
 
 	const auto &faceDetectRectangles =
@@ -2281,9 +2286,6 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	if (settings.getEntry(ANDROID_LENS_APERTURE, &entry))
 		resultMetadata->addEntry(ANDROID_LENS_APERTURE, entry.data.f, 1);
 
-	value = ANDROID_LENS_STATE_STATIONARY;
-	resultMetadata->addEntry(ANDROID_LENS_STATE, value);
-
 	value = ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
 	resultMetadata->addEntry(ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
 				 value);
@@ -2337,10 +2339,6 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 
 	if (settings.getEntry(ANDROID_LENS_FILTER_DENSITY, &entry)) {
 		resultMetadata->addEntry(ANDROID_LENS_FILTER_DENSITY, entry.data.f, 1);
-	}
-
-	if (settings.getEntry(ANDROID_LENS_FOCUS_DISTANCE, &entry)) {
-		resultMetadata->addEntry(ANDROID_LENS_FOCUS_DISTANCE, entry.data.f, 1);
 	}
 
 	if (settings.getEntry(ANDROID_LENS_FOCUS_RANGE, &entry)) {
