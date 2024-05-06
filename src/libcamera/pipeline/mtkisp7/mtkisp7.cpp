@@ -961,8 +961,8 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	captureManager.makeCaptureFrames(captureFrames);
 
-	if (internalRequestId >= CaptureTasksManager::kExposureAndGainDelay) {
-		uint32_t aaRequestId = internalRequestId - CaptureTasksManager::kExposureAndGainDelay;
+	if (internalRequestId >= CaptureTasksManager::kAAToSofDelay) {
+		uint32_t aaRequestId = internalRequestId - CaptureTasksManager::kAAToSofDelay;
 		CaptureResult *aaCaptureResult = captureResult_.query(aaRequestId);
 		captureFrames.exposureAndGain = aaCaptureResult->exposureAndGainOutput;
 	} else {
@@ -1029,7 +1029,8 @@ void MtkISP7CameraData::setTasksDependencies(
 		scheduler->succeedPrevTaskByStep(AFGroup, 0, afTask);
 	}
 
-	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kExposureAndGainDelay - 1, sofTask);
+	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kAAToSofDelay - 1, sofTask);
+	scheduler->succeedPrevTaskByStep(SofGroup, CaptureTasksManager::kExposureAndGainDelay - 1, taskQBuf);
 	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kRawMetaDelay - 1, taskQBuf);
 
 	/* At most 5 request can be queued into CamSys */

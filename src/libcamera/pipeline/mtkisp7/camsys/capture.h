@@ -65,10 +65,12 @@ public:
 class CaptureTasksManager
 {
 public:
-	// TODO: Assume (k-2)th 3A task is done when kth Sof task is triggered by hardware.
+	// TODO: Currently fix the sensor exposure/gain delay as 2.
 	static const uint32_t kExposureAndGainDelay = 2;
 	// TODO: Currently fix (k-4)th 3A task to prepare for kth request's raw meta.
 	static const uint32_t kRawMetaDelay = 4;
+	// TODO: Assume the delay between 3A task and Sof task is kRawMetaDelay - kExposureAndGainDelay.
+	static const uint32_t kAAToSofDelay = kRawMetaDelay - kExposureAndGainDelay;
 
 	CaptureTasksManager(OnDeviceTuner *odt);
 	CaptureTasksManager() = default;
