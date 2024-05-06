@@ -1416,7 +1416,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	};
 
 	auto lensPositionIter =
-		camera_->controls().find(controls::LensPosition.id());
+		camera_->controls().find(controls::LensFocusDistance.id());
 	if (lensPositionIter != camera_->controls().end()) {
 		const ControlInfo &lensPositionRange = lensPositionIter->second;
 		auto minFocusDistance = lensPositionRange.max().get<float>();

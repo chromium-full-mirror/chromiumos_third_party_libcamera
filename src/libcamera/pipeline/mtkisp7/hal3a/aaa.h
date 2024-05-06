@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <sys/types.h>
+
 #include "libcamera/internal/dma_heaps.h"
 #include "libcamera/internal/gyro_sensor.h"
 #include "libcamera/internal/task_scheduler.h"
@@ -29,8 +32,22 @@ public:
 	void configure(CameraLens *cameraLens);
 
 	VcmFocusInformation getFocusInfo();
+	ipa::mtkisp7::LensPositionInfo getLensPositionInfo()
+	{
+		return this->lensPositionInfo_;
+	}
 
 	void set(int32_t position, int64_t timestamp);
+
+	void setLensPositionInfo(ipa::mtkisp7::LensPositionInfo lensPositionInfo)
+	{
+		this->lensPositionInfo_ = lensPositionInfo;
+	}
+
+	uint64_t isLensMoving()
+	{
+		return isLensMoving_;
+	}
 
 private:
 	void reset();
@@ -43,6 +60,9 @@ private:
 	int32_t previousFocusPosition_;
 	int64_t movingTimestamp_;
 	int64_t previousMovingTimestamp_;
+	bool isLensMoving_;
+
+	ipa::mtkisp7::LensPositionInfo lensPositionInfo_;
 };
 
 class Hal3AManager
@@ -77,6 +97,10 @@ public:
 		return mfnrMode_;
 	}
 
+	bool isLensMoving();
+	float getIntpolateDis();
+	float getLensFocusDistance();
+
 private:
 	friend MtkISP7CameraData;
 
@@ -103,6 +127,7 @@ class AATask : public Task
 {
 public:
 	struct PerFrameControl {
+		int delayIdx = 0;
 		bool isStillCapture = false;
 		ControlList controls;
 	};
@@ -121,13 +146,11 @@ public:
 	{
 	}
 
-	void setPerFrameControl(PerFrameControl perFrameControl)
-	{
-		perFrameControl_ = perFrameControl;
-	}
+	void setPerFrameControl(PerFrameControl perFrameControl);
 
 	void AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
-			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange);
+			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
+			   const ipa::mtkisp7::LensPositionInfo &lensPositionInfo);
 
 	void run() override final;
 

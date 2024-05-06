@@ -20,8 +20,10 @@
 #include <libcamera/internal/info_frame.h>
 
 #include "mt8188/mtk_cam_metabuf.h"
+#include "pipeline/mtkisp7/hal3a/aaa.h"
 
 #include "camsys.h"
+#include "control_ids.h"
 #include "mtk_cam_metabuf.h"
 
 namespace libcamera {
@@ -128,7 +130,8 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 				      const std::string &id,
 				      Request *request,
 				      CaptureFrames &captureFrames,
-				      uint32_t internalRequestId)
+				      uint32_t internalRequestId,
+				      Hal3AManager *hal3AManager)
 {
 	(void)id;
 
@@ -141,7 +144,7 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 
 	SofTask *sofTask = new SofTask(
 		scheduler, "Sof " + sequence, request,
-		internalRequestId, data, camSys_, this);
+		internalRequestId, data, camSys_, this, hal3AManager);
 
 	QueueTask *qTask = new QueueTask(
 		this, scheduler, "Queue " + sequence, request,
@@ -189,7 +192,16 @@ void SofTask::trigger()
 
 	if (request_) {
 		ControlList metadata;
+		auto lensFocusDistance = hal3AManager_->getLensFocusDistance();
 		metadata.set(controls::SensorTimestamp, timestamp);
+		if (hal3AManager_->isLensMoving()) {
+			metadata.set(controls::LensState, 1);
+			LOG(MtkISP7, Debug) << "Lens is moving: " << lensFocusDistance;
+		} else {
+			metadata.set(controls::LensState, 0);
+			LOG(MtkISP7, Debug) << "Lens is staionary: " << lensFocusDistance;
+		}
+		metadata.set(controls::LensFocusDistance, lensFocusDistance);
 		manager_->pipe_->completeMetadata(request_, metadata);
 	}
 

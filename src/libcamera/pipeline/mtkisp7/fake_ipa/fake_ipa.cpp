@@ -294,7 +294,7 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 	sample.z_value = gyroSample.z_value;
 	sample.timestamp = gyroSample.timestamp;
 
-	if (stat1BufferId){
+	if (stat1BufferId) {
 		// TODO: use another thread.
 		::VcmFocusInformation vcm;
 		vcm.focus_position = vcmFocusInfo.focus_position;
@@ -324,7 +324,6 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 		rawMetaBuffer->mapped->planes()[0].data(),
 		latestFaceMetadata_, sample, internalRequestIdApplied,
 		controls, featureEnum);
-
 }
 
 IPAMtkISP7::IPAMappedBuffer *
@@ -432,6 +431,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 	SensorSetting exposureAndGain;
 	AaaIspExchange aaaIspExchange;
 	aaaIspExchange.aaaMetadata = controls::controls;
+	LensPositionInfo lensPositionInfo;
 	std::optional<uint32_t> idApplied = std::nullopt;
 	if (internalRequestIdApplied != 0)
 		idApplied = internalRequestIdApplied;
@@ -447,7 +447,8 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 					    rawMetaBuffer,
 					    metadata, gyroSample,
 					    &exposureAndGain, &aaaIspExchange,
-					    idApplied, featureApplied, controls);
+					    idApplied, featureApplied,
+						&lensPositionInfo, controls);
 
 		ipa_->halIsp_->getCamSysMetaTuning(
 			internalRequestId, internalRequestId, rawMetaFd,
@@ -458,7 +459,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 			&aaaIspExchange, controls);
 	}
 
-	ipa_->AAResultReady.emit(internalRequestId, exposureAndGain, aaaIspExchange);
+	ipa_->AAResultReady.emit(internalRequestId, exposureAndGain, aaaIspExchange, lensPositionInfo);
 
 	if (idApplied && featureApplied) {
 		ipa_->onDeviceTuner_.tune3AState(
@@ -478,7 +479,7 @@ void IPAMtkISP7::AFManager::doCalculationAF(FrameBuffer *statistics1, uint64_t t
 					    ::VcmFocusInformation vcmFocusInfo,
 					    std::optional<MtkCameraFaceMetadata> metadata,
 					    GyroSensor::SensorSample gyroSample,
-						const ControlList &controls)
+					    const ControlList &controls)
 {
 	int32_t position = -1;
 	ipa_->hal3A_->doCalculationAF(statistics1, timestamp, internalRequestId,

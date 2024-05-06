@@ -33,6 +33,10 @@ struct VcmFocusInformation {
 	int64 previous_moving_timestamp;
 };
 
+struct LensPositionInfo {
+	float focusDistance;
+};
+
 struct PrimaryFaceData {
         uint32 x1;
         uint32 y1;
@@ -127,7 +131,8 @@ interface IPAMtkISP7EventInterface {
                             libcamera.ControlList faceControls);
 
         AAResultReady(uint32 frame, SensorSetting sensorSetting,
-                      AaaIspExchange aaaIspExchange);
+                      AaaIspExchange aaaIspExchange,
+                      LensPositionInfo lensPositionInfo);
         AFResultReady(uint32 frame, int32 position);
 
         ImgSysMetaTuningDone(uint64 taskCounter);

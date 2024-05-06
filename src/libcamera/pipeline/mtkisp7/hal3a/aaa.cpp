@@ -51,6 +51,7 @@ void FocusController::reset()
 	previousFocusPosition_ = 0;
 	movingTimestamp_ = 0;
 	previousMovingTimestamp_ = 0;
+	isLensMoving_ = false;
 }
 
 VcmFocusInformation FocusController::getFocusInfo()
@@ -70,8 +71,10 @@ VcmFocusInformation FocusController::getFocusInfo()
 
 void FocusController::set(int32_t position, int64_t timestamp)
 {
-	if (position < 0 || position == focusPosition_)
+	if (position < 0 || position == focusPosition_) {
+		isLensMoving_ = false;
 		return;
+	}
 
 	if (isFirstRun()) {
 		cameraLens_->setFocusPosition(
@@ -83,13 +86,16 @@ void FocusController::set(int32_t position, int64_t timestamp)
 		cameraLens_->setFocusPosition(position);
 
 	// Do not update moving timestamp if the target position is unchanged
-	if (position == focusPosition_)
+	if (position == focusPosition_) {
+		isLensMoving_ = false;
 		return;
+	}
 
 	previousFocusPosition_ = focusPosition_;
 	previousMovingTimestamp_ = movingTimestamp_;
 	focusPosition_ = position;
 	movingTimestamp_ = timestamp;
+	isLensMoving_ = true;
 }
 
 bool FocusController::isFirstRun()
@@ -141,6 +147,16 @@ bool Hal3AManager::hasAF() const
 		LOG(MtkISP7, Fatal) << "CamSysDevice hasn't been configured yet.";
 
 	return camSys_->getCameraLens();
+}
+
+bool Hal3AManager::isLensMoving()
+{
+	return focusController_.isLensMoving();
+}
+
+float Hal3AManager::getLensFocusDistance()
+{
+	return focusController_.getLensPositionInfo().focusDistance;
 }
 
 std::tuple<AATask *, AFTask *> Hal3AManager::make3ATasks(
@@ -224,14 +240,26 @@ void AATask::run()
 }
 
 void AATask::AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
-			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange)
+			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
+			   const ipa::mtkisp7::LensPositionInfo &lensPositionInfo)
 {
 	captureFrames_.exposureAndGainOutput->put(exposureAndGain, nullptr);
 
 	manager_->setMfnrMode(aaaIspExchange.mfnrMode);
 	captureFrames_.aaaIspExchange->put(aaaIspExchange, nullptr);
+	focusController_->setLensPositionInfo(lensPositionInfo);
 
 	notifyDone();
+}
+
+void AATask::setPerFrameControl(PerFrameControl perFrameControl)
+{
+	float oldFocusDistance = perFrameControl_.controls.get(controls::LensFocusDistance).value_or(0);
+	perFrameControl_ = perFrameControl;
+	if (perFrameControl.delayIdx >= static_cast<int>(CaptureTasksManager::kRawMetaDelay - 2)) {
+		// Lens change event is fast, delay it by 2 frames to synchroize with lens state.
+		perFrameControl_.controls.set(controls::LensFocusDistance, oldFocusDistance);
+	}
 }
 
 /**

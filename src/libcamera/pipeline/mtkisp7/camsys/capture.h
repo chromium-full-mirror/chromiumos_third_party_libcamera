@@ -30,6 +30,7 @@ class PipelineHandler;
 class QueueTask;
 class SofTask;
 class MtkISP7CameraData;
+class Hal3AManager;
 
 struct CaptureFrames {
 	SharedMailBox<InfoFrame> raw;
@@ -87,7 +88,7 @@ public:
 	std::tuple<QueueTask *, DequeueTask *, SofTask *>
 	makeCaptureTasks(Scheduler *scheduler, const std::string &id,
 			 Request *request, CaptureFrames &captureFrames,
-			 uint32_t internalRequestId);
+			 uint32_t internalRequestId, Hal3AManager *hal3AManager);
 
 private:
 	friend QueueTask;
@@ -121,9 +122,9 @@ public:
 	SofTask(Scheduler *scheduler, const std::string &id,
 		Request *request, uint32_t internalRequestId,
 		std::shared_ptr<CaptureData> &data, CamSysDevice *camSys,
-		CaptureTasksManager *manager)
+		CaptureTasksManager *manager, Hal3AManager *hal3AManager)
 		: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId),
-		  data_(data), camSys_(camSys), manager_(manager) {}
+		  data_(data), camSys_(camSys), manager_(manager), hal3AManager_(hal3AManager) {}
 
 	virtual void run() override final;
 	void trigger();
@@ -138,6 +139,8 @@ public:
 
 	bool run_ = false;
 	bool trigger_ = false;
+
+	Hal3AManager *hal3AManager_;
 };
 
 class QueueTask : public Task
