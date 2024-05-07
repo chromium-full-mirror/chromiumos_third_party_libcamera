@@ -7,7 +7,6 @@
 #include <memory>
 #include <vector>
 
-#include "../camsys/camsys.h"
 #include "linux/mtkisp7/cam_cal_format.h"
 #include "platform/mtkisp7/mtkcam-core/aaa/peripheralcontroller/include/PeripheralInfoDef.h"
 #include "platform/mtkisp7/mtkcam-interfaces/include/mtkcam-interfaces/hw/mem/cam_cal_drv.h"
