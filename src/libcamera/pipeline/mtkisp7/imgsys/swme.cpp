@@ -16,8 +16,7 @@ SwmeWrapper::SwmeWrapper()
 	  m_heightMe(0),
 	  m_widthMc(0)
 {
-	DRVMfbllObject_s Pass_DRVMfbllObject_s = DRV_MFBLL_OBJ_SW;
-	m_pMfbllDrv = (void *)MTKMfbll::createInstance(Pass_DRVMfbllObject_s);
+
 }
 
 SwmeWrapper::~SwmeWrapper()

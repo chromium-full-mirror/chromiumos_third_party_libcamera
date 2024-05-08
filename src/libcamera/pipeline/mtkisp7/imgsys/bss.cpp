@@ -34,9 +34,6 @@ static const int MF_BSS_ON = 1;
 BssWrapper::BssWrapper(int sensorIndex, FaceDetector *faceDetector)
 	: sensorIndex_(sensorIndex), faceDetector_(faceDetector)
 {
-	DRVBssObject_s Pass_DRVBssObject_s = DRV_BSS_OBJ_SW;
-	m_pBssDrv =
-		(void *)MTKBss::createInstance((DrvBssObject_e)Pass_DRVBssObject_s);
 	mOdtUtils = NSCam::TuningUtils::IOdtUtils::getInstance(sensorIndex);
 }
 BssWrapper::~BssWrapper()
