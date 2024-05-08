@@ -16,8 +16,10 @@
 #include "libcamera/internal/v4l2_subdevice.h"
 #include "libcamera/internal/v4l2_videodevice.h"
 
+#include "libcamera/base/class.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
+#include "ImgPortDef.h"
 #include "single_device.h"
 #include "single_device_helper.h"
 
@@ -27,15 +29,72 @@ class DmaHeap;
 class PipelineHandler;
 class ImgSysDevice;
 
+constexpr uint32_t UserIdMcnr = 1;
+constexpr uint32_t UserIdLpnr = 2;
+constexpr uint32_t UserIdMfnr = 3;
+
+// TODO: Re-design the ImgSysBufferCache and ImgsysVideoDevice to merge
+// the features introduced here to V4L2VideoDevice.
+class ImgSysBufferCache : public V4L2BufferCache
+{
+public:
+	~ImgSysBufferCache();
+
+	bool isEmpty() const override;
+	int get(const FrameBuffer &buffer, uint32_t userId) override;
+	void put(unsigned int offsetedIdx) override;
+
+	void setFormat(const V4L2DeviceFormat &format)
+	{ currentFormat_ = format; }
+
+	bool formatReady(V4L2DeviceFormat& fmt, uint32_t userId);
+	void addCurrentFormat(size_t count, uint64_t offset);
+	void addFormat(V4L2DeviceFormat& fmt, uint32_t userId, size_t count, uint64_t offset);
+
+	struct FormatCache
+	{
+	public:
+		FormatCache(const V4L2DeviceFormat &format,
+			    uint32_t userId, size_t count, uint64_t offset);
+		~FormatCache();
+
+		V4L2DeviceFormat format_;
+		uint32_t userId_;
+		uint64_t count_;
+		uint64_t offset_;
+		SimpleV4L2BufferCache *cache_;
+	};
+
+	std::optional<uint64_t> getFormatIdx(const V4L2DeviceFormat& fmt, uint32_t userId);
+
+	bool noCheckUserId_ = false;
+	V4L2DeviceFormat currentFormat_;
+	std::vector<FormatCache*> formatCaches_;
+};
+
 class ImgsysVideoDevice : public V4L2VideoDevice
 {
 public:
-	using V4L2VideoDevice::V4L2VideoDevice;
+	explicit ImgsysVideoDevice(const MediaEntity *entity);
+	int open();
 	int configure(V4L2DeviceFormat *fmt, int resizeRatio, Rectangle crop);
+	int allocateBuffers(
+		unsigned int count,
+		std::vector<std::unique_ptr<FrameBuffer>> *buffers) = delete;
+	int exportBuffers(
+		unsigned int count,
+		std::vector<std::unique_ptr<FrameBuffer>> *buffers) = delete;
+	int importBuffers(unsigned int count);
+	int importBuffersWithFormat(uint32_t userId, unsigned int count, V4L2DeviceFormat *fmt);
+	int releaseBuffers();
+	int setFormat(V4L2DeviceFormat *format);
+	int getFormat(V4L2DeviceFormat *format);
 
 private:
 	int resizeRatio_;
 	Rectangle crop_;
+
+	ImgSysBufferCache *getCache();
 };
 
 class ImgSysDevice
@@ -52,12 +111,15 @@ public:
 		SingleDeviceRequest *sdRequest;
 		size_t stage;
 		int buffers_count;
+		uint32_t userId;
 	};
 
 	ImgSysDevice(OnDeviceTuner *odt);
 
 	int init(MediaDevice *media, DmaHeap *dmaHeap);
-	int configure();
+	int configure(const Size sensorFullSize, const Size CamSysYuv,
+		      const Size video1, const Size video2,
+		      const Size still1, const Size still2);
 	int start();
 	int stop();
 
@@ -73,12 +135,28 @@ public:
 	TokenPool &syncPool() { return syncPool_; }
 
 private:
+	// 1 format x 1 port
+	struct PortBuffers {
+		NSCam::NSImgStream::IMG_PORT port;
+		PixelFormat pixelFmt;
+		Size size;
+		size_t count;
+		uint32_t strideAlign;
+		uint32_t scanAlign;
+	};
 	friend class ImgSysRequestHelper;
 
 	void bufferReady(std::pair<FrameBuffer *, int> pair);
 
+	int importBuffers(const Size sensorFullSize, const Size CamSysYuv,
+			  const Size video1, const Size video2,
+			  const Size still1, const Size still2);
+	void importBufferByList(std::vector<PortBuffers> &portBufs, uint32_t userId);
+
+	int releaseAllBuffers();
+
 	V4L2VideoDevice *sigdevNorm_;
-	V4L2VideoDevice *ctrlMeta_;
+	ImgsysVideoDevice *ctrlMeta_;
 	std::unique_ptr<V4L2Subdevice> mtkIspDip_;
 	std::unordered_map<
 		NSCam::NSImgStream::IMG_PORT,
@@ -117,7 +195,7 @@ public:
 	{
 	}
 
-	void queueRequest(SingleDeviceRequest &sdRequest);
+	void queueRequest(uint32_t userId, SingleDeviceRequest &sdRequest);
 	void requestReady(ImgSysDevice::Request *request);
 
 	Task *task_;

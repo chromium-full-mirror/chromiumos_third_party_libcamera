@@ -124,13 +124,22 @@ struct V4L2Capability final : v4l2_capability {
 class V4L2BufferCache
 {
 public:
-	V4L2BufferCache(unsigned int numEntries);
-	V4L2BufferCache(const std::vector<std::unique_ptr<FrameBuffer>> &buffers);
-	~V4L2BufferCache();
+	virtual bool isEmpty() const = 0;
+	virtual int get(const FrameBuffer &buffer, uint32_t userId) = 0;
+	virtual void put(unsigned int offsetedIdx) = 0;
+	virtual ~V4L2BufferCache() = default;
+};
 
-	bool isEmpty() const;
-	int get(const FrameBuffer &buffer);
-	void put(unsigned int index);
+class SimpleV4L2BufferCache : public V4L2BufferCache
+{
+public:
+	SimpleV4L2BufferCache(unsigned int numEntries, unsigned int offset = 0);
+	SimpleV4L2BufferCache(const std::vector<std::unique_ptr<FrameBuffer>> &buffers, unsigned int offset = 0);
+	~SimpleV4L2BufferCache();
+
+	bool isEmpty() const override;
+	int get(const FrameBuffer &buffer, uint32_t userId) override;
+	void put(unsigned int offsetedIdx) override;
 
 private:
 	class Entry
@@ -162,6 +171,7 @@ private:
 	std::vector<Entry> cache_;
 	/* \todo Expose the miss counter through an instrumentation API. */
 	unsigned int missCounter_;
+	unsigned int offset_;
 };
 
 class V4L2DeviceFormat
@@ -224,7 +234,7 @@ public:
 	int importBuffers(unsigned int count);
 	int releaseBuffers();
 
-	int queueBuffer(FrameBuffer *buffer, int requestFd = -1);
+	int queueBuffer(FrameBuffer *buffer, int requestFd = -1, uint32_t userId = 0);
 	Signal<FrameBuffer *> bufferReady;
 	Signal<std::pair<FrameBuffer *, int>> requestBufferReady;
 
@@ -243,7 +253,12 @@ public:
 
 protected:
 	std::string logPrefix() const override;
+	int requestBuffers(unsigned int count, enum v4l2_memory memoryType);
+
 	V4L2DeviceFormat format_;
+	enum v4l2_memory memoryType_;
+	enum v4l2_buf_type bufferType_;
+	V4L2BufferCache *cache_;
 
 private:
 	LIBCAMERA_DISABLE_COPY(V4L2VideoDevice)
@@ -272,7 +287,6 @@ private:
 	std::vector<V4L2PixelFormat> enumPixelformats(uint32_t code);
 	std::vector<SizeRange> enumSizes(V4L2PixelFormat pixelFormat);
 
-	int requestBuffers(unsigned int count, enum v4l2_memory memoryType);
 	int createBuffers(unsigned int count,
 			  std::vector<std::unique_ptr<FrameBuffer>> *buffers);
 	std::unique_ptr<FrameBuffer> createBuffer(unsigned int index);
@@ -289,11 +303,6 @@ private:
 	V4L2Capability caps_;
 	const PixelFormatInfo *formatInfo_;
 	std::unordered_set<V4L2PixelFormat> pixelFormats_;
-
-	enum v4l2_buf_type bufferType_;
-	enum v4l2_memory memoryType_;
-
-	V4L2BufferCache *cache_;
 	std::map<unsigned int, FrameBuffer *> queuedBuffers_;
 
 	EventNotifier *fdBufferNotifier_;

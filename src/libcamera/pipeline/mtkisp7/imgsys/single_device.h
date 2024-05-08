@@ -13,8 +13,10 @@
 #include <vector>
 
 #include "libcamera/internal/info_frame.h"
+#include "libcamera/internal/v4l2_pixelformat.h"
 
 #include "libcamera/framebuffer.h"
+#include "libcamera/pixel_format.h"
 #include "linux/mtkisp7/drv/7.1/common.h"
 #include "linux/mtkisp7/drv/7.1/hw_definition.h"
 #include "mtkcam-halif/def/BuiltinTypes.h"
@@ -27,6 +29,7 @@
 
 #define V4L2_STANDARD_MODE true
 
+libcamera::V4L2PixelFormat getImgSysV4L2PixelFormat(const libcamera::PixelFormat &fmt);
 NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &info);
 
 namespace libcamera {

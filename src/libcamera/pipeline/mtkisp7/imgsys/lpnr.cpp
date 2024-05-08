@@ -47,7 +47,7 @@ int LpnrTasksManager::configure(const Size &bayerInputSize,
 	}
 
 	/* Allocate buffer pools */
-	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 8, DmaHeap::CMA);
+	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 5, DmaHeap::CMA);
 
 	/* Level 0 uses NV12_10P_MTISP */
 	lpnr_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, lpnrSizes[0], 8);
@@ -205,7 +205,7 @@ void XTRTask::run()
 	TR_R2Y.output(out.dipImgi[3]->get(), IMG_PORT_TYUV4O, 1, lpnrSizes[2]);
 	TR_R2Y.output(out.xtrStt->get(), IMG_PORT_IMGSTATO, 0, lpnrSizes[0]);
 
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdLpnr, sdRequest);
 }
 
 LpnrDipTask::LpnrDipTask(Scheduler *scheduler, const std::string &id,
@@ -292,7 +292,7 @@ void LpnrDipTask::run()
 	else
 		LowIsoStages(sdRequest);
 
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdLpnr, sdRequest);
 }
 
 void LpnrDipTask::LowIsoStages(SingleDeviceRequest &sdRequest)

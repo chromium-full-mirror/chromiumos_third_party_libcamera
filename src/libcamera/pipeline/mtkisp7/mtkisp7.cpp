@@ -1338,11 +1338,13 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	memcpy(bss.get(), bssParam.data(),
 	       sizeof(mtk::isphal::v1::isp_bss_Param));
 
+	imgSysDev_->configure(sensorFullSize_, camsysYuvSize,
+			      video1, video2, still1, still2);
+
 	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
 	faceDetector_->configure(sensorFullSize_, ipa_.get());
 	hal3AManager_.configure(dmaHeap_, camSysDev_, gyroSensor_, ipa_.get());
 
-	imgSysDev_->configure();
 	mcnrManager.configure(camsysYuvSize, video1, video2);
 	lpnrManager.configure(sensorFullSize_, still1, still2);
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
@@ -1668,6 +1670,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			// to its corresponding consumer task as 2.
 			scheduler->succeedPrevTaskByStep(XtrGroup, 2, lpnrTunXtrTask);
 			scheduler->succeedPrevTaskByStep(LpnrDipGroup, 2, lpnrTunDipTask);
+
+			scheduler->succeedPrevTaskByStep(LpnrDipGroup, 4, taskXtr);
 
 			scheduler->succeedPrevTaskByStep(
 				AAGroup, CaptureTasksManager::kRawMetaDelay,
