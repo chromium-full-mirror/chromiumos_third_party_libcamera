@@ -163,20 +163,24 @@ MediaDevice *PipelineHandler::acquireMediaDevice(DeviceEnumerator *enumerator,
  * has already acquired it
  * \sa release()
  */
-bool PipelineHandler::acquire()
+bool PipelineHandler::acquire(Camera *camera)
 {
 	MutexLocker locker(lock_);
 
-	if (useCount_) {
-		++useCount_;
-		return true;
+	if (useCount_ == 0) {
+		for (std::shared_ptr<MediaDevice> &media : mediaDevices_) {
+			if (!media->lock()) {
+				unlockMediaDevices();
+				releaseDevice(camera);
+				return false;
+			}
+		}
 	}
 
-	for (std::shared_ptr<MediaDevice> &media : mediaDevices_) {
-		if (!media->lock()) {
+	if (!acquireDevice(camera)) {
+		if (useCount_ == 0)
 			unlockMediaDevices();
-			return false;
-		}
+		return false;
 	}
 
 	++useCount_;
@@ -210,6 +214,18 @@ void PipelineHandler::release(Camera *camera)
 	releaseDevice(camera);
 
 	--useCount_;
+}
+
+/**
+ * \brief Acquire resources associated with this camera
+ * \param[in] camera The camera for which to acquire resources
+ *
+ * Pipeline handlers may override this in order to perform initial operations
+ * when a camera is acquired, such as allocating memory or initialize ipa.
+ */
+bool PipelineHandler::acquireDevice([[maybe_unused]] Camera *camera)
+{
+	return true;
 }
 
 /**
@@ -689,8 +705,7 @@ std::string PipelineHandler::configurationFile(const std::string &subdir,
 			<< confPath << "'";
 	} else {
 		/* Else look in the system locations. */
-		confPath = std::string(LIBCAMERA_DATA_DIR)
-				+ "/pipeline/" + subdir + '/' + name;
+		confPath = std::string(LIBCAMERA_DATA_DIR) + "/pipeline/" + subdir + '/' + name;
 	}
 
 	ret = stat(confPath.c_str(), &statbuf);
