@@ -16,6 +16,7 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/task_scheduler.h"
 
+#include "pipeline/mtkisp7/imgsys/imgsys.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/IImgStreamDef.h"
 
@@ -219,7 +220,7 @@ int McnrTasksManager::configureBuffers()
 	img4oF0_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mcnrSizes[0], 8);
 	img4oF1_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mcnrSizes[1], 8);
 
-	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 12, DmaHeap::CMA);
+	trawStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 4, DmaHeap::CMA);
 
 	wt_[0].createBuffers(dmaHeap_, formats::GREY, wtSizes[0], 12, DmaHeap::System, 192, 192);
 	wt_[1].createBuffers(dmaHeap_, formats::GREY, wtSizes[1], 12, DmaHeap::System, 192, 192);
@@ -696,7 +697,7 @@ void MeATask::run()
 	/* Set wait fence for HW_ME_3PASS_MODE_0 from HW_TR_ME_L1 */
 	HW_ME_3PASS_MODE_0.addWait(syncLtrMeA_);
 
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
 }
 
 MeBTask::MeBTask(Scheduler *scheduler, const std::string &id,
@@ -756,7 +757,7 @@ void MeBTask::run()
 
 	HW_ME_3PASS_MODE_1.setMeInfo(NSCam::NSImgStream::EME_MODE_1);
 
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
 }
 
 TrTask::TrTask(Scheduler *scheduler, const std::string &id,
@@ -852,7 +853,7 @@ void TrTask::run()
 
 	HW_TR_CONF5.setMvFrame(mcnrSizes[0], kMeL0Size);
 
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
 }
 
 Dip1Task::Dip1Task(Scheduler *scheduler, const std::string &id,
@@ -1037,7 +1038,7 @@ void Dip1Task::run()
 	StageEx &HW_DIP_F1 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F1);
 	setDipParams(HW_DIP_F1, 1);
 
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
 }
 
 void Dip1Task::setWpeParams(StageEx &stage, unsigned int level)
@@ -1192,7 +1193,7 @@ void Dip2Task::run()
 	HW_DIP_F0.setCostLevel();
 	HW_DIP_F0.setImg4oCrop(tncCropAlign);
 
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
 }
 
 } /* namespace libcamera */

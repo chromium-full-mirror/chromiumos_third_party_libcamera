@@ -968,7 +968,7 @@ void BfbldTask::run()
 			BFBLD_REF.output(out.p2stto[i]->get(), IMG_PORT_IMGSTATO, 0, mfnrSizes_[0]);
 		}
 	}
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
 McdsF1Task::McdsF1Task(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1032,7 +1032,7 @@ void McdsF1Task::run()
 		//MCDS_F1.setWpeInfo(IMG_EXTRA_PARAM_ID_WPE_INFO, mfnrSizes_[0], NSCam::NSImgStream::EWPE_HW_LITE,
 		//		   (unsigned int)NSCam::NSImgStream::EWPE_MVMAP);
 	}
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
 BfmeTask::BfmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1081,7 +1081,7 @@ void BfmeTask::run()
 		BFME.output(out.img2o[i]->get(), IMG_PORT_IMG2O, 0, mfnrSizes_aligned16[2]);
 		BFME.setMultiScale(IMG_MULTI_SCALE_DOWN4, 1, 0);
 	}
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
 SwmeTask::SwmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1232,7 +1232,7 @@ void DsTask::run()
 			DS.output(out.ltyuv4o[i]->get(), IMG_PORT_LTYUV4O, 2, Size{ 0, 0 });
 		}
 	}
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
 DsVbiTask::DsVbiTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1299,7 +1299,7 @@ void DsVbiTask::run()
 
 		DS_VBI_V5.output(outV5.tyuv2o[i]->get(), IMG_PORT_TYUV2O, 2, Size{ 0, 0 });
 	}
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
 MsbldTask::MsbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1514,7 +1514,7 @@ void MsbldTask::run()
 		MSBLD_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
 		MSBLD_F0.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
 	}
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
 AfbldTask::AfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1745,7 +1745,7 @@ void AfbldTask::run()
 	}
 
 	AFBLD_F0.setPqInfo();
-	requestHelper_.queueRequest(sdRequest);
+	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
 } /* namespace libcamera */

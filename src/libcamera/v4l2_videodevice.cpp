@@ -172,8 +172,8 @@ LOG_DECLARE_CATEGORY(V4L2)
  * will be populated as the cache is used. This is typically used to implement
  * buffer import, with buffers added to the cache as they are queued.
  */
-V4L2BufferCache::V4L2BufferCache(unsigned int numEntries)
-	: lastUsedCounter_(1), missCounter_(0)
+SimpleV4L2BufferCache::SimpleV4L2BufferCache(unsigned int numEntries, unsigned int offset)
+	: lastUsedCounter_(1), missCounter_(0), offset_(offset)
 {
 	cache_.resize(numEntries);
 }
@@ -186,8 +186,10 @@ V4L2BufferCache::V4L2BufferCache(unsigned int numEntries)
  * implement buffer export, with all buffers added to the cache when they are
  * allocated.
  */
-V4L2BufferCache::V4L2BufferCache(const std::vector<std::unique_ptr<FrameBuffer>> &buffers)
-	: lastUsedCounter_(1), missCounter_(0)
+SimpleV4L2BufferCache::SimpleV4L2BufferCache(
+	const std::vector<std::unique_ptr<FrameBuffer>> &buffers,
+	unsigned int offset)
+	: lastUsedCounter_(1), missCounter_(0), offset_(offset)
 {
 	for (const std::unique_ptr<FrameBuffer> &buffer : buffers)
 		cache_.emplace_back(true,
@@ -195,7 +197,7 @@ V4L2BufferCache::V4L2BufferCache(const std::vector<std::unique_ptr<FrameBuffer>>
 				    *buffer.get());
 }
 
-V4L2BufferCache::~V4L2BufferCache()
+SimpleV4L2BufferCache::~SimpleV4L2BufferCache()
 {
 	if (missCounter_ > cache_.size())
 		LOG(V4L2, Debug) << "Cache misses: " << missCounter_;
@@ -204,7 +206,7 @@ V4L2BufferCache::~V4L2BufferCache()
 /**
  * \brief Check if all the entries in the cache are unused
  */
-bool V4L2BufferCache::isEmpty() const
+bool SimpleV4L2BufferCache::isEmpty() const
 {
 	for (auto const &entry : cache_) {
 		if (!entry.free_)
@@ -227,7 +229,7 @@ bool V4L2BufferCache::isEmpty() const
  * \return The index of the best V4L2 buffer, or -ENOENT if no free V4L2 buffer
  * is available
  */
-int V4L2BufferCache::get(const FrameBuffer &buffer)
+int SimpleV4L2BufferCache::get(const FrameBuffer &buffer, [[maybe_unused]] uint32_t userId)
 {
 	bool hit = false;
 	int use = -1;
@@ -252,8 +254,10 @@ int V4L2BufferCache::get(const FrameBuffer &buffer)
 		}
 	}
 
-	if (!hit)
+	if (!hit) {
+		//LOG(V4L2, Error) << "Miss " << format_;
 		missCounter_++;
+	}
 
 	if (use < 0)
 		return -ENOENT;
@@ -262,32 +266,33 @@ int V4L2BufferCache::get(const FrameBuffer &buffer)
 			    lastUsedCounter_.fetch_add(1, std::memory_order_acq_rel),
 			    buffer);
 
-	return use;
+	return use + offset_;
 }
 
 /**
  * \brief Mark buffer \a index as free in the cache
  * \param[in] index The V4L2 buffer index
  */
-void V4L2BufferCache::put(unsigned int index)
+void SimpleV4L2BufferCache::put(unsigned int offsetedIdx)
 {
+	unsigned int index = offsetedIdx - offset_;
 	ASSERT(index < cache_.size());
 	cache_[index].free_ = true;
 }
 
-V4L2BufferCache::Entry::Entry()
+SimpleV4L2BufferCache::Entry::Entry()
 	: free_(true), lastUsed_(0)
 {
 }
 
-V4L2BufferCache::Entry::Entry(bool free, uint64_t lastUsed, const FrameBuffer &buffer)
+SimpleV4L2BufferCache::Entry::Entry(bool free, uint64_t lastUsed, const FrameBuffer &buffer)
 	: free_(free), lastUsed_(lastUsed)
 {
 	for (const FrameBuffer::Plane &plane : buffer.planes())
 		planes_.emplace_back(plane);
 }
 
-bool V4L2BufferCache::Entry::operator==(const FrameBuffer &buffer) const
+bool SimpleV4L2BufferCache::Entry::operator==(const FrameBuffer &buffer) const
 {
 	const std::vector<FrameBuffer::Plane> &planes = buffer.planes();
 
@@ -551,7 +556,7 @@ std::ostream &operator<<(std::ostream &out, const V4L2DeviceFormat &f)
  * \param[in] deviceNode The file-system path to the video device node
  */
 V4L2VideoDevice::V4L2VideoDevice(const std::string &deviceNode)
-	: V4L2Device(deviceNode), formatInfo_(nullptr), cache_(nullptr),
+	: V4L2Device(deviceNode), cache_(nullptr), formatInfo_(nullptr),
 	  fdBufferNotifier_(nullptr), state_(State::Stopped),
 	  watchdogDuration_(0.0)
 {
@@ -1346,7 +1351,7 @@ int V4L2VideoDevice::allocateBuffers(unsigned int count,
 	if (ret < 0)
 		return ret;
 
-	cache_ = new V4L2BufferCache(*buffers);
+	cache_ = new SimpleV4L2BufferCache(*buffers);
 	memoryType_ = V4L2_MEMORY_MMAP;
 
 	return ret;
@@ -1571,7 +1576,7 @@ int V4L2VideoDevice::importBuffers(unsigned int count)
 	if (ret)
 		return ret;
 
-	cache_ = new V4L2BufferCache(count);
+	cache_ = new SimpleV4L2BufferCache(count);
 
 	LOG(V4L2, Debug) << "Prepared to import " << count << " buffers";
 
@@ -1602,6 +1607,8 @@ int V4L2VideoDevice::releaseBuffers()
 /**
  * \brief Queue a buffer to the video device
  * \param[in] buffer The buffer to be queued
+ * \param[in] requestFd FD of the request, if using Request API
+ * \param[in] userId of the request, if using mult-cache
  *
  * For capture video devices the \a buffer will be filled with data by the
  * device. For output video devices the \a buffer shall contain valid data and
@@ -1616,7 +1623,7 @@ int V4L2VideoDevice::releaseBuffers()
  *
  * \return 0 on success or a negative error code otherwise
  */
-int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
+int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd, uint32_t userId)
 {
 	struct v4l2_plane v4l2Planes[VIDEO_MAX_PLANES] = {};
 	struct v4l2_buffer buf = {};
@@ -1637,7 +1644,7 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
 		return -ENOENT;
 	}
 
-	ret = cache_->get(*buffer);
+	ret = cache_->get(*buffer, userId);
 	if (ret < 0)
 		return ret;
 
@@ -1728,8 +1735,8 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd)
 			 * V4L2 buffer is guaranteed to be equal at this point.
 			 */
 			for (auto [i, plane] : utils::enumerate(planes)) {
-				v4l2Planes[i].bytesused = metadata.planes()[i].bytesused;
-				v4l2Planes[i].length = plane.length;
+				v4l2Planes[i].bytesused = metadata.planes()[i].bytesused + v4l2Planes[i].data_offset;
+				v4l2Planes[i].length = plane.length + v4l2Planes[i].data_offset;
 			}
 		} else {
 			/*

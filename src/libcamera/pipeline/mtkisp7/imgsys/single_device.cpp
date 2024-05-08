@@ -23,68 +23,70 @@
 using namespace NSCam;
 using namespace NSCam::NSImgStream;
 
-NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &info)
+NSCam::EImageFormat toEImageFormat(const libcamera::PixelFormat &fmt)
 {
-	NSCam::NSImgStream::BufferProperty property;
-
-	switch (info.format()) {
+	switch (fmt) {
 	case libcamera::formats::SBGGR10_MTISP:
 	case libcamera::formats::SGBRG10_MTISP:
 	case libcamera::formats::SGRBG10_MTISP:
 	case libcamera::formats::SRGGB10_MTISP:
-		property.format = eImgFmt_BAYER10;
-		break;
+		return eImgFmt_BAYER10;
 	case libcamera::formats::NV12_10P_MTISP:
-		property.format = eImgFmt_MTK_YUV_P010;
-		break;
+		return eImgFmt_MTK_YUV_P010;
 	case libcamera::formats::NV12_12P_MTISP:
-		property.format = eImgFmt_MTK_YUV_P012;
-		break;
+		return eImgFmt_MTK_YUV_P012;
 	case libcamera::formats::NV12:
-		property.format = eImgFmt_NV12;
-		break;
+		return eImgFmt_NV12;
 	case libcamera::formats::NV21:
-		property.format = eImgFmt_NV21;
-		break;
+		return eImgFmt_NV21;
 	case libcamera::formats::GREY:
-		property.format = eImgFmt_Y8;
-		break;
+		return eImgFmt_Y8;
 	case libcamera::formats::Y8_MTISP:
-		property.format = eImgFmt_STA_BYTE;
-		break;
+		return eImgFmt_STA_BYTE;
 	case libcamera::formats::Y16_MTISP:
-		property.format = eImgFmt_STA_2BYTE;
-		break;
+		return eImgFmt_STA_2BYTE;
 	case libcamera::formats::Y32_MTISP:
-		property.format = eImgFmt_STA_4BYTE;
-		break;
+		return eImgFmt_STA_4BYTE;
 	case libcamera::formats::WARP2P_MTISP:
-		property.format = eImgFmt_WARP_2PLANE;
-		break;
+		return eImgFmt_WARP_2PLANE;
 	case libcamera::formats::MTFD_MTISP:
-		property.format = eImgFmt_ISP_TUNING;
-		break;
+		return eImgFmt_ISP_TUNING;
 	default:
 		printf("Unsupported format\n");
 		std::abort();
 	}
+}
 
-	switch (info.format()) {
+int32_t toColorArrangement(const libcamera::PixelFormat &fmt)
+{
+	switch (fmt) {
 	case libcamera::formats::SBGGR10_MTISP:
-		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_B;
-		break;
+		return SENSOR_FORMAT_ORDER_RAW_B;
 	case libcamera::formats::SGBRG10_MTISP:
-		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_Gb;
-		break;
+		return SENSOR_FORMAT_ORDER_RAW_Gb;
 	case libcamera::formats::SGRBG10_MTISP:
-		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_Gr;
-		break;
+		return SENSOR_FORMAT_ORDER_RAW_Gr;
 	case libcamera::formats::SRGGB10_MTISP:
-		property.ColorArrangeMent = SENSOR_FORMAT_ORDER_RAW_R;
-		break;
+		return SENSOR_FORMAT_ORDER_RAW_R;
 	default:
-		property.ColorArrangeMent = -1;
+		return -1;
 	}
+}
+
+libcamera::V4L2PixelFormat getImgSysV4L2PixelFormat(const libcamera::PixelFormat &fmt)
+{
+	NSCam::EImageFormat mtkFmt = toEImageFormat(fmt);
+	int32_t colorArrangement = toColorArrangement(fmt);
+
+	return libcamera::V4L2PixelFormat(getV4L2Fmt(mtkFmt, colorArrangement));
+}
+
+NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &info)
+{
+	NSCam::NSImgStream::BufferProperty property;
+
+	property.format = toEImageFormat(info.format());
+	property.ColorArrangeMent = toColorArrangement(info.format());
 
 	property.colorSpace = NSCam::eImgColorSpace_BT601_FULL;
 
