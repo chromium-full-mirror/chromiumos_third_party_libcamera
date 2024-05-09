@@ -62,6 +62,27 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 	}
 }
 
+static Rectangle cropNoisyBorder(const Rectangle &rect)
+{
+	// Crop out the noisy border by 5% due to MCNR limitation
+	float x = rect.x + (rect.width * (1.0f - 0.97)) / 2;
+	float y = rect.y + (rect.height * (1.0f - 0.97)) / 2;
+
+	float w = (rect.width * 0.97);
+	float h = (rect.height * 0.97);
+
+	Rectangle result;
+	result.x = x + 0.5;
+	result.y = y + 0.5;
+	result.width = w;
+	result.height = h;
+
+	result.width &= ~(0x01);
+	result.height &= ~(0x01);
+
+	return result;
+}
+
 } // namespace
 
 /* todo: hide the NSCam::NSImgStream namespace in the single device interface. */
@@ -1177,12 +1198,14 @@ void Dip2Task::run()
 	if (videoOut1) {
 		InfoFrame info(formats::NV12, manager_->videoOut1Size_, videoOut1, 64);
 		Rectangle crop = ImgSysDevice::getCrop(mcnrSizes[0], info.size());
+		crop = cropNoisyBorder(crop);
 		HW_DIP_F0.output(info, IMG_PORT_WDMAO, 0, crop);
 	}
 
 	if (videoOut2) {
 		InfoFrame info(formats::NV12, manager_->videoOut2Size_, videoOut2, 64);
 		Rectangle crop = ImgSysDevice::getCrop(mcnrSizes[0], info.size());
+		crop = cropNoisyBorder(crop);
 		HW_DIP_F0.output(info, IMG_PORT_WROTO, 0, crop);
 	}
 
