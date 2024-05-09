@@ -75,7 +75,7 @@ enum MtkISP7TaskGroup {
 	SofGroup = 0,
 	CaptureQueueGroup,
 	CaptureDequeueGroup,
-	AAGroup,
+	AAAGroup,
 	MeAGroup,
 	MeBGroup,
 	MeATunGroup,
@@ -117,7 +117,7 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ SofGroup, "SofGroup" },
 	{ CaptureQueueGroup, "CaptureQueueGroup" },
 	{ CaptureDequeueGroup, "CaptureDequeueGroup" },
-	{ AAGroup, "AAGroup" },
+	{ AAAGroup, "AAAGroup" },
 	{ MeAGroup, "MeAGroup" },
 	{ MeBGroup, "MeBGroup" },
 	{ MeATunGroup, "MeATunGroup" },
@@ -240,12 +240,12 @@ public:
 	bool is3aControlChanged(std::shared_ptr<ControlList> controls_cur, std::shared_ptr<ControlList> controls_cache);
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *,
-		   AATask *, uint32_t>
+		   AAATask *, uint32_t>
 	makeTasks(const std::string &id, Request *request,
 		  CaptureFrames &captureFrames, uint32_t internalRequestId,
 		  bool hasStillCapture = false);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
-				  SofTask *sofTask, AATask *aaTask);
+				  SofTask *sofTask, AAATask *aaaTask);
 
 	void allocateIPABuffers();
 	void registerIPABuffers(InfoFramePool *pool);
@@ -1023,7 +1023,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	return 0;
 }
 
-std::tuple<QueueTask *, DequeueTask *, SofTask *, AATask *, uint32_t>
+std::tuple<QueueTask *, DequeueTask *, SofTask *, AAATask *, uint32_t>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames,
 			     uint32_t internalRequestId, bool hasStillCapture)
@@ -1073,34 +1073,34 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 		ipa_->notifyRequestBegin(internalRequestId, hasStillCapture);
 	}
 
-	auto [aaTask] = hal3AManager_.make3ATasks(
+	auto *aaaTask = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
 		camSysMetaRequestId, faceDetector_);
 
-	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaTask);
+	setTasksDependencies(taskQBuf, taskDQBuf, sofTask, aaaTask);
 
 	return std::make_tuple(taskQBuf, taskDQBuf, sofTask,
-			       aaTask, camSysMetaRequestId);
+			       aaaTask, camSysMetaRequestId);
 }
 
 void MtkISP7CameraData::setTasksDependencies(
 	QueueTask *taskQBuf, DequeueTask *taskDQBuf, SofTask *sofTask,
-	AATask *aaTask)
+	AAATask *aaaTask)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 
 	Scheduler::precede(sofTask, taskDQBuf);
 	Scheduler::precede(taskQBuf, taskDQBuf);
-	Scheduler::precede(taskDQBuf, aaTask);
+	Scheduler::precede(taskDQBuf, aaaTask);
 
 	scheduler->succeedPrevTaskByStep(CaptureQueueGroup, 0, taskQBuf);
 	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 0, taskDQBuf);
-	scheduler->succeedPrevTaskByStep(AAGroup, 0, aaTask);
+	scheduler->succeedPrevTaskByStep(AAAGroup, 0, aaaTask);
 
-	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kAAToSofDelay - 1, sofTask);
+	scheduler->succeedPrevTaskByStep(AAAGroup, CaptureTasksManager::kAAToSofDelay - 1, sofTask);
 	scheduler->succeedPrevTaskByStep(SofGroup, CaptureTasksManager::kExposureAndGainDelay - 1, taskQBuf);
-	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kRawMetaDelay - 1, taskQBuf);
+	scheduler->succeedPrevTaskByStep(AAAGroup, CaptureTasksManager::kRawMetaDelay - 1, taskQBuf);
 
 	/* At most 5 request can be queued into CamSys */
 	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 4, taskQBuf);
@@ -1108,7 +1108,7 @@ void MtkISP7CameraData::setTasksDependencies(
 	scheduler->queueTask(sofTask, SofGroup);
 	scheduler->queueTask(taskQBuf, CaptureQueueGroup);
 	scheduler->queueTask(taskDQBuf, CaptureDequeueGroup);
-	scheduler->queueTask(aaTask, AAGroup);
+	scheduler->queueTask(aaaTask, AAAGroup);
 
 	pendingSofTasks_.push_back(sofTask);
 }
@@ -1476,7 +1476,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool nddEnabled = onDeviceTuner_->isEnabled();
 
 	if (requestCount_ == 0 || aaControlChanged || nddEnabled) {
-		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
+		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAAGroup);
 		size_t numberOfPending3ATasks = 0;
 		for (auto *task : capture3ATasks)
 			if (!task->isRunning())
@@ -1501,16 +1501,16 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	Feature feature = onlyStillCapture ? Feature::Capture_lpnr : Feature::Preview;
 
 	if (aaControlChanged || nddEnabled) {
-		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
+		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAAGroup);
 		if (capture3ATasks.size() >= CaptureTasksManager::kRawMetaDelay) {
 			auto iter = capture3ATasks.rbegin();
 			for (uint32_t shift = 0; shift < CaptureTasksManager::kRawMetaDelay; ++shift) {
-				auto *prevAATask = static_cast<AATask *>(*iter);
-				prevAATask->setRequest(request);
-				prevAATask->setInternalRequestIdApplied(internalRequestId);
-				prevAATask->setFeatureApplied(feature);
-				prevAATask->setPerFrameControl(
-					AATask::PerFrameControl{
+				auto *prevAAATask = static_cast<AAATask *>(*iter);
+				prevAAATask->setRequest(request);
+				prevAAATask->setInternalRequestIdApplied(internalRequestId);
+				prevAAATask->setFeatureApplied(feature);
+				prevAAATask->setPerFrameControl(
+					AAATask::PerFrameControl{
 						.delayIdx = static_cast<int>(shift),
 						// TODO: Rename the parameter to onlyStillCapture.
 						.isStillCapture = onlyStillCapture,
@@ -1522,10 +1522,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	CaptureFrames captureFrames;
 
-	auto [taskQBuf, taskDQBuf, sofTask, aaTask, camSysMetaRequestId] = makeTasks(
+	auto [taskQBuf, taskDQBuf, sofTask, aaaTask, camSysMetaRequestId] = makeTasks(
 		"Capture " + sequence, request, captureFrames, internalRequestId, hasStillCapture);
-	aaTask->setPerFrameControl(
-		AATask::PerFrameControl{
+	aaaTask->setPerFrameControl(
+		AAATask::PerFrameControl{
 			.delayIdx = 0,
 			.isStillCapture = hasStillCapture,
 			.controls = request->controls() });
@@ -1552,7 +1552,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
 		scheduler, request, captureFrames.faceDetection,
-		aaTask->camSysMetaRequestId_);
+		aaaTask->camSysMetaRequestId_);
 
 	Scheduler::precede(taskDQBuf, faceDetectTask);
 	Scheduler::precede(faceDetectTask, completeTask);
@@ -1766,7 +1766,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(LpnrDipGroup, 4, taskXtr);
 
 			scheduler->succeedPrevTaskByStep(
-				AAGroup, CaptureTasksManager::kRawMetaDelay,
+				AAAGroup, CaptureTasksManager::kRawMetaDelay,
 				lpnrTunXtrTask);
 
 			Scheduler::precede(lpnrTunXtrTask, taskXtr);

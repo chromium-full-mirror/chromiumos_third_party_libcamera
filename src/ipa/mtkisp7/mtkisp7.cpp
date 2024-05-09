@@ -111,8 +111,8 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 
 	aaThread_.start();
 	aaThread_.setThreadAffinity(k3AThreadCpuAffinity);
-	aaManager_ = std::make_unique<AAManager>(this);
-	aaManager_->moveToThread(&aaThread_);
+	aaaManager_ = std::make_unique<AAAManager>(this);
+	aaaManager_->moveToThread(&aaThread_);
 
 	ispThread_.start();
 	ispThread_.setThreadAffinity(kIspThreadCpuAffinity);
@@ -129,7 +129,7 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
  */
 void IPAMtkISP7::stop()
 {
-	aaManager_.reset();
+	aaaManager_.reset();
 
 	if (aaThread_.isRunning()) {
 		aaThread_.exit();
@@ -376,8 +376,8 @@ void IPAMtkISP7::doCalculation3A(const uint32_t frame,
 		statistics1 = &itStat1->second.buffer;
 	}
 
-	aaManager_->invokeMethod(
-		&IPAMtkISP7::AAManager::doCalculation, ConnectionTypeQueued,
+	aaaManager_->invokeMethod(
+		&IPAMtkISP7::AAAManager::doCalculation, ConnectionTypeQueued,
 		&itStat0->second.buffer, statistics1, timestamp, frame,
 		camSysMetaRequestId, afCamSysMetaRequestId, isStillCapture,
 		rawMetaBuffer->buffer.planes()[0].fd.get(),
@@ -472,11 +472,11 @@ void IPAMtkISP7::getImgSysMetaTuning(
 		controls);
 }
 
-void IPAMtkISP7::doAAResultReady(uint32_t frame, SensorSetting sensorSetting,
-				 const AaaIspExchange &aaaIspExchange,
-				 LensPositionInfo lensPositionInfo)
+void IPAMtkISP7::doAAAResultReady(uint32_t frame, SensorSetting sensorSetting,
+				  const AaaIspExchange &aaaIspExchange,
+				  LensPositionInfo lensPositionInfo)
 {
-	AAResultReady.emit(frame, sensorSetting, aaaIspExchange, lensPositionInfo);
+	AAAResultReady.emit(frame, sensorSetting, aaaIspExchange, lensPositionInfo);
 }
 
 void IPAMtkISP7::doImgSysMetaTuningDone(uint64_t taskCounter)
@@ -484,24 +484,24 @@ void IPAMtkISP7::doImgSysMetaTuningDone(uint64_t taskCounter)
 	ImgSysMetaTuningDone.emit(taskCounter);
 }
 
-IPAMtkISP7::AAManager::AAManager(IPAMtkISP7 *ipa)
+IPAMtkISP7::AAAManager::AAAManager(IPAMtkISP7 *ipa)
 	: ipa_(ipa)
 {
 }
 
-void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, FrameBuffer *statistics1,
-					  uint64_t timestamp,
-					  uint32_t internalRequestId,
-					  uint32_t camSysMetaRequestId,
-					  const uint32_t afCamSysMetaRequestId,
-					  bool isStillCapture, int rawMetaFd,
-					  unsigned char *rawMetaBuffer,
-					  ::VcmFocusInformation vcmFocusInfo,
-					  std::optional<MtkCameraFaceMetadata> metadata,
-					  GyroSensor::SensorSample gyroSample,
-					  const uint32_t internalRequestIdApplied,
-					  const ControlList &controls,
-					  const int32_t featureEnum)
+void IPAMtkISP7::AAAManager::doCalculation(FrameBuffer *statistics0, FrameBuffer *statistics1,
+					   uint64_t timestamp,
+					   uint32_t internalRequestId,
+					   uint32_t camSysMetaRequestId,
+					   const uint32_t afCamSysMetaRequestId,
+					   bool isStillCapture, int rawMetaFd,
+					   unsigned char *rawMetaBuffer,
+					   ::VcmFocusInformation vcmFocusInfo,
+					   std::optional<MtkCameraFaceMetadata> metadata,
+					   GyroSensor::SensorSample gyroSample,
+					   const uint32_t internalRequestIdApplied,
+					   const ControlList &controls,
+					   const int32_t featureEnum)
 {
 	SensorSetting sensorSetting;
 	if (statistics1) {
@@ -540,7 +540,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, FrameBuffer 
 	}
 
 	ipa_->invokeMethod(
-		&IPAMtkISP7::doAAResultReady, ConnectionTypeQueued,
+		&IPAMtkISP7::doAAAResultReady, ConnectionTypeQueued,
 		internalRequestId, sensorSetting, aaaIspExchange,
 		lensPositionInfo);
 

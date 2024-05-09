@@ -31,7 +31,7 @@ int IPADelegate::init(std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy,
 	ipaProxy_->AieParseResultReady.connect(this,
 					       &IPADelegate::AieParseResultReady);
 
-	ipaProxy_->AAResultReady.connect(this, &IPADelegate::AAResultReady);
+	ipaProxy_->AAAResultReady.connect(this, &IPADelegate::AAAResultReady);
 
 	ipaProxy_->ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
 	int ret = ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::init,
@@ -145,7 +145,7 @@ void IPADelegate::aieParse(
 }
 
 void IPADelegate::doCalculation3A(
-	AATask *aaTask,
+	AAATask *aaaTask,
 	const uint32_t frame,
 	const uint32_t stat0BufferId, const uint32_t stat1BufferId,
 	const uint64_t timestamp, const uint32_t camSysMetaRequestId,
@@ -157,7 +157,7 @@ void IPADelegate::doCalculation3A(
 	const ipa::mtkisp7::VcmFocusInformation &vcmFocusInfo,
 	const ControlList &controls)
 {
-	aaTasks_.emplace(frame, aaTask);
+	aaaTasks_.emplace(frame, aaaTask);
 
 	int32_t featureEnum = -1;
 	if (featureApplied.has_value())
@@ -200,20 +200,20 @@ void IPADelegate::AieParseResultReady(
 	faceDetector_->AieParseResultReady(success, primaryFace, faceControls);
 }
 
-void IPADelegate::AAResultReady(uint32_t id,
-				const ipa::mtkisp7::SensorSetting &sensorSetting,
-				const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
-				const ipa::mtkisp7::LensPositionInfo &lensPositionInfo)
+void IPADelegate::AAAResultReady(uint32_t id,
+				 const ipa::mtkisp7::SensorSetting &sensorSetting,
+				 const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
+				 const ipa::mtkisp7::LensPositionInfo &lensPositionInfo)
 {
-	auto it = aaTasks_.find(id);
-	if (it == aaTasks_.end()) {
+	auto it = aaaTasks_.find(id);
+	if (it == aaaTasks_.end()) {
 		LOG(IPADelegateMtkISP7, Fatal)
 			<< "AAResultReady: couldn't find task with id: " << id;
 		return;
 	}
-	it->second->AAResultReady(sensorSetting, aaaIspExchange, lensPositionInfo);
+	it->second->AAAResultReady(sensorSetting, aaaIspExchange, lensPositionInfo);
 
-	aaTasks_.erase(it);
+	aaaTasks_.erase(it);
 }
 
 void IPADelegate::ImgSysMetaTuningDone(uint64_t cookie)

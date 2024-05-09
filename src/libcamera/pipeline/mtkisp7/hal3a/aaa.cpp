@@ -166,7 +166,7 @@ float Hal3AManager::getLensFocusDistance()
 	return focusController_->getLensPositionInfo().focusDistance;
 }
 
-std::tuple<AATask *> Hal3AManager::make3ATasks(
+AAATask *Hal3AManager::make3ATasks(
 	Scheduler *scheduler, Request *request,
 	CaptureFrames &captureFrames, uint32_t internalRequestId,
 	uint32_t camSysMetaRequestId,
@@ -180,13 +180,11 @@ std::tuple<AATask *> Hal3AManager::make3ATasks(
 	dummyMetaRequestId_ = camSysMetaRequestId;
 	dummyTuning_ = captureFrames.tuning;
 
-	AATask *aaTask = new AATask(this, scheduler, "3A " + sequence,
-				    captureFrames, gyroSensor_,
-				    ipa_, focusController_.get(),
-				    internalRequestId, camSysMetaRequestId,
-				    faceDetector);
-
-	return std::make_tuple(aaTask);
+	return new AAATask(this, scheduler, "3A " + sequence,
+			   captureFrames, gyroSensor_,
+			   ipa_, focusController_.get(),
+			   internalRequestId, camSysMetaRequestId,
+			   faceDetector);
 }
 
 std::pair<uint32_t, SharedMailBox<InfoFrame>> Hal3AManager::getDummyTuning()
@@ -197,7 +195,7 @@ std::pair<uint32_t, SharedMailBox<InfoFrame>> Hal3AManager::getDummyTuning()
 	return std::make_pair(dummyMetaRequestId_, dummyTuning_);
 }
 
-void AATask::run()
+void AAATask::run()
 {
 	manager_->fetchTuningBuffer(captureFrames_.tuningOutput);
 
@@ -242,9 +240,9 @@ void AATask::run()
 		perFrameControl_.controls);
 }
 
-void AATask::AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
-			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
-			   const ipa::mtkisp7::LensPositionInfo &lensPositionInfo)
+void AAATask::AAAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
+			     const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
+			     const ipa::mtkisp7::LensPositionInfo &lensPositionInfo)
 {
 	uint64_t timestamp = getMonotonicTimestamp();
 	if (focusController_) {
@@ -260,7 +258,7 @@ void AATask::AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
 	notifyDone();
 }
 
-void AATask::setPerFrameControl(PerFrameControl perFrameControl)
+void AAATask::setPerFrameControl(PerFrameControl perFrameControl)
 {
 	float oldFocusDistance = perFrameControl_.controls.get(controls::LensFocusDistance).value_or(0);
 	perFrameControl_ = perFrameControl;
@@ -276,17 +274,17 @@ void AATask::setPerFrameControl(PerFrameControl perFrameControl)
  *
  * For dummy frames, this function will never be called.
  */
-void AATask::setRequest(Request *request)
+void AAATask::setRequest(Request *request)
 {
 	request_ = request;
 }
 
-void AATask::setInternalRequestIdApplied(uint32_t internalRequestIdApplied)
+void AAATask::setInternalRequestIdApplied(uint32_t internalRequestIdApplied)
 {
 	internalRequestIdApplied_ = internalRequestIdApplied;
 }
 
-void AATask::setFeatureApplied(Feature featureApplied)
+void AAATask::setFeatureApplied(Feature featureApplied)
 {
 	featureApplied_ = featureApplied;
 }

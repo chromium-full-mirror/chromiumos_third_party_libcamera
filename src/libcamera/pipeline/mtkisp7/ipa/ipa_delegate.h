@@ -14,7 +14,7 @@
 
 namespace libcamera {
 
-class AATask;
+class AAATask;
 class MtkISP7CameraData;
 class ImgSysTask;
 
@@ -69,7 +69,7 @@ public:
 		const uint32_t camSysMetaRequestId);
 
 	void doCalculation3A(
-		AATask *aaTask,
+		AAATask *aaaTask,
 		const uint32_t frame,
 		const uint32_t stat0BufferId, const uint32_t stat1BufferId,
 		const uint64_t timestamp, const uint32_t camSysMetaRequestId,
@@ -98,10 +98,10 @@ private:
 		const ipa::mtkisp7::PrimaryFaceData &primaryFace,
 		const ControlList &faceControls);
 
-	void AAResultReady(uint32_t id,
-			   const ipa::mtkisp7::SensorSetting &sensorSetting,
-			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
-			   const ipa::mtkisp7::LensPositionInfo &lensPositionInfo);
+	void AAAResultReady(uint32_t id,
+			    const ipa::mtkisp7::SensorSetting &sensorSetting,
+			    const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
+			    const ipa::mtkisp7::LensPositionInfo &lensPositionInfo);
 	void AFResultReady(uint32_t id, int32_t position);
 
 	void ImgSysMetaTuningDone(uint64_t cookie);
@@ -110,7 +110,7 @@ private:
 
 	FaceDetector *faceDetector_;
 
-	std::unordered_map<uint32_t, AATask *> aaTasks_;
+	std::unordered_map<uint32_t, AAATask *> aaaTasks_;
 
 	uint64_t imgSysCookieCounter_ = 1;
 	std::unordered_map<uint64_t, ImgSysTask *> imgSysTasks_;

@@ -97,9 +97,9 @@ public:
 		const ControlList &controls) override;
 
 private:
-	void doAAResultReady(uint32_t frame, SensorSetting sensorSetting,
-			     const AaaIspExchange &aaaIspExchange,
-			     LensPositionInfo lensPositionInfo);
+	void doAAAResultReady(uint32_t frame, SensorSetting sensorSetting,
+			      const AaaIspExchange &aaaIspExchange,
+			      LensPositionInfo lensPositionInfo);
 
 	void doImgSysMetaTuningDone(uint64_t taskCounter);
 
@@ -113,10 +113,10 @@ private:
 		std::unique_ptr<MappedFrameBuffer> mapped;
 	};
 
-	class AAManager : public Object
+	class AAAManager : public Object
 	{
 	public:
-		AAManager(IPAMtkISP7 *ipa);
+		AAAManager(IPAMtkISP7 *ipa);
 		void doCalculation(FrameBuffer *statistics0, FrameBuffer *statistics1,
 				   uint64_t timestamp,
 				   uint32_t internalRequestId,
@@ -162,7 +162,7 @@ private:
 		IPAMtkISP7 *ipa_;
 	};
 
-	friend AAManager;
+	friend AAAManager;
 	friend IspManager;
 
 	IPAMappedBuffer *getMappedBufferIter(unsigned int bufferId);
@@ -181,7 +181,7 @@ private:
 	std::unique_ptr<AieParser> aieParser_;
 
 	Thread aaThread_;
-	std::unique_ptr<AAManager> aaManager_;
+	std::unique_ptr<AAAManager> aaaManager_;
 
 	Thread ispThread_;
 	std::unique_ptr<IspManager> ispManager_;

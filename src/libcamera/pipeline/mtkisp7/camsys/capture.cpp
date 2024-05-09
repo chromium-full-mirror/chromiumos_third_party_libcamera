@@ -176,7 +176,7 @@ void SofTask::trigger()
 {
 	uint64_t timestamp = getMonotonicTimestamp();
 
-	if (run_) { // Avoid race condition of AATask (in another thread) and SofTask.
+	if (run_) { // Avoid race condition of AAATask (in another thread) and SofTask.
 		if (!data_->frames.exposureAndGain->valid()) {
 			LOG(MtkISP7, Fatal) << "No exposureAndGain despite SofTask being run";
 		} else {

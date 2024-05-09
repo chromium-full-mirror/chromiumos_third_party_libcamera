@@ -131,7 +131,7 @@ interface IPAMtkISP7EventInterface {
                             PrimaryFaceData faceToneConfig,
                             libcamera.ControlList faceControls);
 
-        AAResultReady(uint32 frame, SensorSetting sensorSetting,
+        AAAResultReady(uint32 frame, SensorSetting sensorSetting,
                       AaaIspExchange aaaIspExchange,
                       LensPositionInfo lensPositionInfo);
 

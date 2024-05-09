@@ -21,7 +21,7 @@
 
 namespace libcamera {
 
-class AATask;
+class AAATask;
 class MtkISP7CameraData;
 
 class FocusController
@@ -73,7 +73,7 @@ public:
 
 	void releaseBuffers();
 
-	std::tuple<AATask *>
+	AAATask *
 	make3ATasks(Scheduler *scheduler, Request *request,
 		    CaptureFrames &captureFrames,
 		    uint32_t internalRequestId, uint32_t camSysMetaRequestId,
@@ -120,8 +120,8 @@ private:
 	bool mfnrMode_;
 };
 
-// AE & AWB task.
-class AATask : public Task
+// AE & AWB & AF task.
+class AAATask : public Task
 {
 public:
 	constexpr static uint32_t kLensDelay = 3;
@@ -132,12 +132,12 @@ public:
 		ControlList controls;
 	};
 
-	AATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
-	       CaptureFrames &captureFrames, GyroSensor *gyroSensor,
-	       IPADelegate *ipa,
-	       FocusController *focusController,
-	       uint32_t internalRequestId, uint32_t camSysMetaRequestId,
-	       FaceDetector *faceDetector)
+	AAATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
+		CaptureFrames &captureFrames, GyroSensor *gyroSensor,
+		IPADelegate *ipa,
+		FocusController *focusController,
+		uint32_t internalRequestId, uint32_t camSysMetaRequestId,
+		FaceDetector *faceDetector)
 		: Task(scheduler, id), request_(nullptr), manager_(manager),
 		  captureFrames_(captureFrames), gyroSensor_(gyroSensor),
 		  ipa_(ipa), focusController_(focusController),
@@ -148,9 +148,9 @@ public:
 
 	void setPerFrameControl(PerFrameControl perFrameControl);
 
-	void AAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
-			   const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
-			   const ipa::mtkisp7::LensPositionInfo &lensPositionInfo);
+	void AAAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
+			    const ipa::mtkisp7::AaaIspExchange &aaaIspExchange,
+			    const ipa::mtkisp7::LensPositionInfo &lensPositionInfo);
 
 	void run() override final;
 
