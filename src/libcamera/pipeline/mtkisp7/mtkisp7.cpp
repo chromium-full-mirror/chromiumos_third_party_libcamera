@@ -371,6 +371,8 @@ private:
 	{
 		return static_cast<MtkISP7CameraData *>(camera->_d());
 	}
+
+	void loadModelName();
 };
 
 void CompleteRequestTask::run()
@@ -513,6 +515,24 @@ PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 	adjustRLimit();
 
 	thread()->setThreadAffinity(kMainThreadCpuAffinity);
+
+	loadModelName();
+}
+
+void PipelineHandlerMtkISP7::loadModelName()
+{
+	std::string model_name_path = "/run/chromeos-config/v1/name";
+	std::fstream model_name_file;
+	model_name_file.open(model_name_path, std::ios::in);
+	std::string model;
+	if (model_name_file.is_open()) {
+		getline(model_name_file, model);
+		model_name_file.close();
+	} else {
+		LOG(MtkISP7, Fatal) << "Unable to open file " << model_name_path;
+	}
+
+	PlatformUtils::setWithModelName(model);
 }
 
 std::unique_ptr<CameraConfiguration>
@@ -887,19 +907,6 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 int MtkISP7CameraData::loadIPA()
 {
-	std::string model_name_path = "/run/chromeos-config/v1/name";
-	std::fstream model_name_file;
-	model_name_file.open(model_name_path, std::ios::in);
-	std::string model;
-	if (model_name_file.is_open()) {
-		getline(model_name_file, model);
-		model_name_file.close();
-	} else {
-		LOG(MtkISP7, Fatal) << "Unable to open file " << model_name_path;
-	}
-
-	PlatformUtils::setWithModelName(model);
-
 	std::string eepromPath;
 
 	switch (PlatformUtils::platform_) {
@@ -949,7 +956,8 @@ int MtkISP7CameraData::loadIPA()
 
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
-	if (ipa_->init(model, sensor_idx_, buffer, pipeline->camSysDataArray_)) {
+	if (ipa_->init(PlatformUtils::model_, sensor_idx_, buffer,
+		       pipeline->camSysDataArray_)) {
 		LOG(MtkISP7, Error) << "IPA init failed";
 	}
 

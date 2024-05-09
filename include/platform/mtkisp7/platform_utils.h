@@ -23,6 +23,7 @@ public:
 	static std::string enumToString(MtkISP7Platform platform);
 
 	static MtkISP7Platform platform_;
+	static std::string model_;
 };
 
 } // namespace libcamera

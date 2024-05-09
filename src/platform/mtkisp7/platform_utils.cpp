@@ -11,13 +11,15 @@ namespace libcamera {
 
 // static
 PlatformUtils::MtkISP7Platform PlatformUtils::platform_ = PlatformUtils::MtkISP7Platform::NONE;
+std::string PlatformUtils::model_ = "";
 
 // static
 void PlatformUtils::setWithModelName(const std::string &model)
 {
-	if (!model.compare("geralt")) {
+	model_ = model;
+	if (!model_.compare("geralt")) {
 		platform_ = MtkISP7Platform::GOOGLE;
-	} else if (!model.compare("ciri")) {
+	} else if (!model_.compare("ciri")) {
 		platform_ = MtkISP7Platform::LENOVO;
 	}
 }
