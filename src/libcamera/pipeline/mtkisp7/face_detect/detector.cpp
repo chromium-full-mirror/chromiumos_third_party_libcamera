@@ -338,7 +338,6 @@ int FaceDetector::init(MediaDevice *media, DmaHeap *dmaHeap)
 
 	moveToThread(&threadFaceDetect_);
 	aieDev_->changeWorkingThread(&threadFaceDetect_);
-
 	threadFaceDetect_.start();
 
 	return 0;

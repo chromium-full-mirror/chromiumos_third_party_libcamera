@@ -103,7 +103,7 @@ private:
 	libcamera::ConditionVariable isProcessingCv_;
 
 	/* Indicate if a request is processing */
-	bool isProcessing_ LIBCAMERA_TSA_GUARDED_BY(isProcessingMutex_);
+	bool isProcessing_ LIBCAMERA_TSA_GUARDED_BY(isProcessingMutex_) = false;
 
 	/* Protects access to the latestFaceControls_. */
 	libcamera::Mutex faceControlMutex_;
