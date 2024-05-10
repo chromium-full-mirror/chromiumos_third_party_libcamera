@@ -39,7 +39,7 @@ FaceDetectTask::FaceDetectTask(Scheduler *scheduler, const std::string &id,
 
 void FaceDetectTask::run()
 {
-	if (detector_->shouldRun(camSysMetaRequestId_)) {
+	if (!detector_->shouldRun(camSysMetaRequestId_)) {
 		notifyDone();
 		return;
 	}
@@ -147,7 +147,7 @@ void FaceDetector::triggerParse()
 void FaceDetector::queueHardwareRequest(FrameBuffer *input, FrameBuffer *result,
 					int requestFd, FdDrv_input_struct &config)
 {
-	struct v4l2_ext_control extControl {
+	struct v4l2_ext_control extControl{
 		.id = aieDev_->inferenceParamControlId_,
 		.size = sizeof(FdDrv_input_struct),
 		.reserved2 = {},
