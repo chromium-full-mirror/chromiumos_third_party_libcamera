@@ -15,10 +15,6 @@
 #include <type_traits>
 #include <vector>
 
-#include <hardware/camera3.h>
-#include <system/camera_metadata.h>
-#include "android/metadata/system/camera_metadata.h"
-
 #include <libcamera/base/log.h>
 
 #include <libcamera/control_ids.h>
@@ -26,6 +22,11 @@
 #include <libcamera/property_ids.h>
 
 #include "libcamera/internal/formats.h"
+
+#include <hardware/camera3.h>
+#include <system/camera_metadata.h>
+
+#include "android/metadata/system/camera_metadata.h"
 
 using namespace libcamera;
 
@@ -51,7 +52,7 @@ const std::vector<Size> camera3Resolutions = {
 	{ 1280, 960 },
 	{ 1440, 1080 },
 	{ 1920, 1080 },
-	{ 1920, 1440},
+	{ 1920, 1440 },
 	{ 2560, 1440 },
 	{ 2560, 1920 },
 };
@@ -74,72 +75,29 @@ struct Camera3Format {
  * \brief Associate Android format code with ancillary data
  */
 const std::map<int, const Camera3Format> camera3FormatsMap = {
-	{
-		HAL_PIXEL_FORMAT_BLOB, {
-			{ formats::MJPEG },
-			true,
-			"BLOB"
-		}
-	}, {
-		HAL_PIXEL_FORMAT_YCbCr_420_888, {
-			{ formats::NV12, formats::NV21 },
-			true,
-			"YCbCr_420_888"
-		}
-	}, {
-		/*
+	{ HAL_PIXEL_FORMAT_BLOB, { { formats::MJPEG }, true, "BLOB" } },
+	{ HAL_PIXEL_FORMAT_YCbCr_420_888, { { formats::NV12, formats::NV21 }, true, "YCbCr_420_888" } },
+	{ /*
 		 * \todo Translate IMPLEMENTATION_DEFINED inspecting the gralloc
 		 * usage flag. For now, copy the YCbCr_420 configuration.
 		 */
-		HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, {
-			{ formats::NV12, formats::NV21 },
-			true,
-			"IMPLEMENTATION_DEFINED"
-		}
-	}, {
-		HAL_PIXEL_FORMAT_RAW10, {
-			{
-				formats::SBGGR10_CSI2P,
-				formats::SGBRG10_CSI2P,
-				formats::SGRBG10_CSI2P,
-				formats::SRGGB10_CSI2P
-			},
-			false,
-			"RAW10"
-		}
-	}, {
-		HAL_PIXEL_FORMAT_RAW12, {
-			{
-				formats::SBGGR12_CSI2P,
-				formats::SGBRG12_CSI2P,
-				formats::SGRBG12_CSI2P,
-				formats::SRGGB12_CSI2P
-			},
-			false,
-			"RAW12"
-		}
-	}, {
-		HAL_PIXEL_FORMAT_RAW16, {
-			{
-				formats::SBGGR16,
-				formats::SGBRG16,
-				formats::SGRBG16,
-				formats::SRGGB16
-			},
-			false,
-			"RAW16"
-		}
-	},
+	  HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
+	  { { formats::NV12, formats::NV21 },
+	    true,
+	    "IMPLEMENTATION_DEFINED" } },
+	{ HAL_PIXEL_FORMAT_RAW10, { { formats::SBGGR10_CSI2P, formats::SGBRG10_CSI2P, formats::SGRBG10_CSI2P, formats::SRGGB10_CSI2P }, false, "RAW10" } },
+	{ HAL_PIXEL_FORMAT_RAW12, { { formats::SBGGR12_CSI2P, formats::SGBRG12_CSI2P, formats::SGRBG12_CSI2P, formats::SRGGB12_CSI2P }, false, "RAW12" } },
+	{ HAL_PIXEL_FORMAT_RAW16, { { formats::SBGGR16, formats::SGBRG16, formats::SGRBG16, formats::SRGGB16 }, false, "RAW16" } },
 };
 
 const std::map<camera_metadata_enum_android_info_supported_hardware_level, std::string>
-hwLevelStrings = {
-	{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED,  "LIMITED" },
-	{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL,     "FULL" },
-	{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY,   "LEGACY" },
-	{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_3,        "LEVEL_3" },
-	{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL, "EXTERNAL" },
-};
+	hwLevelStrings = {
+		{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED, "LIMITED" },
+		{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL, "FULL" },
+		{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY, "LEGACY" },
+		{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_3, "LEVEL_3" },
+		{ ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL, "EXTERNAL" },
+	};
 
 enum class ControlRange {
 	Min,
@@ -370,7 +328,7 @@ CameraCapabilities::computeCapabilities()
 	capabilities.insert(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE);
 
 	// Todo, force switch to full mode for now.
-	// Need a clarify logic for making the selection. 
+	// Need a clarify logic for making the selection.
 	bool supportFullMode = true;
 	if (validateManualSensorCapability() || supportFullMode) {
 		capabilities.insert(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR);
@@ -592,7 +550,6 @@ int CameraCapabilities::initializeStreamConfigurations()
 		 */
 		PixelFormat mappedFormat;
 		for (const PixelFormat &pixelFormat : libcameraFormats) {
-
 			LOG(HAL, Debug) << "Testing " << pixelFormat;
 
 			/*
@@ -711,13 +668,19 @@ int CameraCapabilities::initializeStreamConfigurations()
 			maxFrameDuration = 1e9 / calculateFps(maxFrameDuration);
 
 			//Todo, read resolution and frame duration from table
-			if (res == maxRes){
+			if (res == maxRes) {
 				streamConfigurations_.push_back({
-					res, androidFormat, maxFrameDurationForBurstCapture, maxFrameDurationForBurstCapture,
+					res,
+					androidFormat,
+					maxFrameDurationForBurstCapture,
+					maxFrameDurationForBurstCapture,
 				});
 			} else {
 				streamConfigurations_.push_back({
-					res, androidFormat, minFrameDuration, maxFrameDuration,
+					res,
+					androidFormat,
+					minFrameDuration,
+					maxFrameDuration,
 				});
 			}
 			/*
@@ -739,15 +702,19 @@ int CameraCapabilities::initializeStreamConfigurations()
 			 */
 			if (androidFormat == HAL_PIXEL_FORMAT_YCbCr_420_888) {
 				//Todo, read resolution and frame duration from table
-				if (res == maxRes){
+				if (res == maxRes) {
 					streamConfigurations_.push_back({
-						res, HAL_PIXEL_FORMAT_BLOB,
-						maxFrameDurationForBurstCapture, maxFrameDurationForBurstCapture,
+						res,
+						HAL_PIXEL_FORMAT_BLOB,
+						maxFrameDurationForBurstCapture,
+						maxFrameDurationForBurstCapture,
 					});
 				} else {
 					streamConfigurations_.push_back({
-						res, HAL_PIXEL_FORMAT_BLOB,
-						minFrameDuration, maxFrameDuration,
+						res,
+						HAL_PIXEL_FORMAT_BLOB,
+						minFrameDuration,
+						maxFrameDuration,
 					});
 				}
 				maxJpegSize = std::max(maxJpegSize, res);
@@ -993,7 +960,8 @@ int CameraCapabilities::initializeStaticMetadata()
 				  aeAvailableModes);
 
 	std::vector<int32_t> aeCompensationRange = {
-		0, 0,
+		0,
+		0,
 	};
 	staticMetadata_->addEntry(ANDROID_CONTROL_AE_COMPENSATION_RANGE,
 				  aeCompensationRange);
@@ -1061,8 +1029,8 @@ int CameraCapabilities::initializeStaticMetadata()
 			continue;
 
 		Size thumbnailSize = maxJpegThumbnail
-				     .boundedToAspectRatio({ entry.resolution.width,
-							     entry.resolution.height });
+					     .boundedToAspectRatio({ entry.resolution.width,
+								     entry.resolution.height });
 		thumbnailSizes.push_back(thumbnailSize);
 	}
 
@@ -1122,7 +1090,8 @@ int CameraCapabilities::initializeStaticMetadata()
 		int32_t sensorMinAnalogSensitivity =
 			static_cast<int>(analogGain->second.min().get<float>());
 		int32_t sensitivityRange[] = {
-			sensorMinAnalogSensitivity, sensorMaxAnalogSensitivity,
+			sensorMinAnalogSensitivity,
+			sensorMaxAnalogSensitivity,
 		};
 		staticMetadata_->addEntry(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE,
 					  sensitivityRange);
@@ -1130,10 +1099,11 @@ int CameraCapabilities::initializeStaticMetadata()
 					  sensorMaxAnalogSensitivity);
 	} else {
 		int32_t sensitivityRange[] = {
-			32, 2400,
+			32,
+			2400,
 		};
 		staticMetadata_->addEntry(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE,
-					sensitivityRange);
+					  sensitivityRange);
 		staticMetadata_->addEntry(ANDROID_SENSOR_MAX_ANALOG_SENSITIVITY,
 					  2400);
 	}
@@ -1396,7 +1366,7 @@ int CameraCapabilities::initializeStaticMetadata()
 			lensFocalLengths.push_back(value.get<float>());
 		}
 		staticMetadata_->addEntry(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-			lensFocalLengths);
+					  lensFocalLengths);
 	}
 
 	std::vector<uint8_t> opticalStabilizations = {
@@ -1421,29 +1391,29 @@ int CameraCapabilities::initializeStaticMetadata()
 		const ControlInfo &lensPositionRange = lensPositionIter->second;
 		auto minFocusDistance = lensPositionRange.max().get<float>();
 		staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-					minFocusDistance);
-		if (minFocusDistance != 0.0f){
+					  minFocusDistance);
+		if (minFocusDistance != 0.0f) {
 			staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
-				availableFocusDistanceCalibration[2]);
+						  availableFocusDistanceCalibration[2]);
 			isAfSupported_ = true;
 			// TODO, update real hyperfocal distance from camera static metadata
 			// Note hyperFocalDistance should be in the range (0, minFocusDistance)
 			float hyperFocalDistance = minFocusDistance / 2;
 			staticMetadata_->updateEntry(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
-						hyperFocalDistance);
+						     hyperFocalDistance);
 		} else {
 			staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
-				availableFocusDistanceCalibration[0]);
+						  availableFocusDistanceCalibration[0]);
 		}
 	} else {
 		float minFocusDistance = 0;
 		staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-					minFocusDistance);
+					  minFocusDistance);
 		staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
-			availableFocusDistanceCalibration[0]);
+					  availableFocusDistanceCalibration[0]);
 	}
 
-	if (isAfSupported_){
+	if (isAfSupported_) {
 		std::vector<uint8_t> availableAfModes = {
 			ANDROID_CONTROL_AF_MODE_OFF,
 			ANDROID_CONTROL_AF_MODE_AUTO,
@@ -1453,7 +1423,7 @@ int CameraCapabilities::initializeStaticMetadata()
 			//ANDROID_CONTROL_AF_MODE_EDOF,
 		};
 		staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
-					availableAfModes);
+					  availableAfModes);
 
 		availableResultKeys_.insert(ANDROID_LENS_FOCUS_DISTANCE);
 		availableResultKeys_.insert(ANDROID_CONTROL_AF_REGIONS);
@@ -1465,11 +1435,13 @@ int CameraCapabilities::initializeStaticMetadata()
 			ANDROID_CONTROL_AF_MODE_OFF,
 		};
 		staticMetadata_->addEntry(ANDROID_CONTROL_AF_AVAILABLE_MODES,
-					availableAfModes);
+					  availableAfModes);
 	}
 
 	std::vector<int32_t> availableMaxRegions = {
-		0, 0, 0,
+		0,
+		0,
+		0,
 	};
 
 	if (isAfSupported_) {
@@ -1485,7 +1457,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		data.reserve(5);
 		const auto &infoMap = controlsInfo.find(&controls::draft::NoiseReductionMode);
 		if (infoMap != controlsInfo.end()) {
-			for (const auto &value : infoMap->second.values()){
+			for (const auto &value : infoMap->second.values()) {
 				if (value.get<int32_t>() != ANDROID_NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG)
 					data.push_back(value.get<int32_t>());
 			}
@@ -1545,8 +1517,7 @@ int CameraCapabilities::initializeStaticMetadata()
 		 */
 		int fps = calculateFps(entry.minFrameDurationNsec);
 
-		if (entry.androidFormat != HAL_PIXEL_FORMAT_BLOB && fps < 30
-		     && entry.resolution != maxRes)
+		if (entry.androidFormat != HAL_PIXEL_FORMAT_BLOB && fps < 30 && entry.resolution != maxRes)
 			continue;
 
 		availableFps.insert(fps);
@@ -1591,14 +1562,14 @@ int CameraCapabilities::initializeStaticMetadata()
 	 * the globally minimum frame rate.
 	 */
 	std::vector<int32_t> availableAeFpsTarget;
-	std::vector<int32_t> sortedFps(availableFps.begin(),availableFps.end());
-	std::sort(sortedFps.begin(),sortedFps.end());
+	std::vector<int32_t> sortedFps(availableFps.begin(), availableFps.end());
+	std::sort(sortedFps.begin(), sortedFps.end());
 	int32_t minFps = sortedFps[0];
-	for (auto fps:sortedFps){
+	for (auto fps : sortedFps) {
 		availableAeFpsTarget.push_back(minFps);
 		availableAeFpsTarget.push_back(fps);
 		LOG(HAL, Debug) << "Add fps range: " << minFps << ":" << fps;
-		if (fps != minFps){
+		if (fps != minFps) {
 			availableAeFpsTarget.push_back(fps);
 			availableAeFpsTarget.push_back(fps);
 			LOG(HAL, Debug) << "Add fixed fps range: " << fps << ":" << fps;
@@ -1669,24 +1640,26 @@ int CameraCapabilities::initializeStaticMetadata()
 	};
 	staticMetadata_->addEntry(ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES, availableFilterDensities);
 
-
 	uint8_t shadingAvailableModes[] = {
 		ANDROID_SHADING_MODE_OFF,
 		ANDROID_SHADING_MODE_FAST,
 		ANDROID_SHADING_MODE_HIGH_QUALITY,
 	};
 	staticMetadata_->addEntry(ANDROID_SHADING_AVAILABLE_MODES,
-		shadingAvailableModes);
+				  shadingAvailableModes);
 
 	int32_t sensorBlackLevelPattern[] = {
-		2, 4 ,3, 2,
+		2,
+		4,
+		3,
+		2,
 	};
 	staticMetadata_->addEntry(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
-		sensorBlackLevelPattern);
+				  sensorBlackLevelPattern);
 
 	int32_t sensorInfoWhiteLevel = 1023;
 	staticMetadata_->addEntry(ANDROID_SENSOR_INFO_WHITE_LEVEL,
-		sensorInfoWhiteLevel);
+				  sensorInfoWhiteLevel);
 
 	uint8_t availableToneMapModes[] = {
 		ANDROID_TONEMAP_MODE_CONTRAST_CURVE,
@@ -1696,15 +1669,15 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_TONEMAP_MODE_PRESET_CURVE,
 	};
 	staticMetadata_->addEntry(ANDROID_TONEMAP_AVAILABLE_TONE_MAP_MODES,
-		availableToneMapModes);
+				  availableToneMapModes);
 
 	int32_t toneMapMaxCurvePoints = 64;
 
 	staticMetadata_->addEntry(ANDROID_TONEMAP_MAX_CURVE_POINTS,
-		toneMapMaxCurvePoints);
+				  toneMapMaxCurvePoints);
 
 	// Todo, update this with real lens shading map from calbration data
-	std::vector<int> shadingMapSize = {17, 17};
+	std::vector<int> shadingMapSize = { 17, 17 };
 	staticMetadata_->addEntry(ANDROID_LENS_INFO_SHADING_MAP_SIZE, shadingMapSize);
 
 	LOG(HAL, Info)
@@ -1807,18 +1780,18 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 
 	std::vector<int> previewFpsRange;
 	bool findPreviewFpsRange = false;
-	for (int i = 0; i < static_cast<int>(entry.count); i++){
+	for (int i = 0; i < static_cast<int>(entry.count); i++) {
 		int minFps = *(entry.data.i32 + i * 2);
 		int maxFps = *(entry.data.i32 + i * 2 + 1);
 		// Max fps should be at least 20
-		if (maxFps >= 20 ){
+		if (maxFps >= 20) {
 			findPreviewFpsRange = true;
 			previewFpsRange.push_back(minFps);
 			previewFpsRange.push_back(maxFps);
 			break;
 		}
 	}
-	if (!findPreviewFpsRange){
+	if (!findPreviewFpsRange) {
 		previewFpsRange.push_back(15);
 		previewFpsRange.push_back(30);
 	}
@@ -1911,7 +1884,7 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 	{
 		const ControlList &properties = camera_->properties();
 		const Rectangle &rect =
-				properties.get(controls::ScalerCrop).value_or(Rectangle{0,0,0,0});
+			properties.get(controls::ScalerCrop).value_or(Rectangle{ 0, 0, 0, 0 });
 		std::vector<int32_t> data{
 			static_cast<int32_t>(rect.x),
 			static_cast<int32_t>(rect.y),
@@ -1930,15 +1903,24 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 				  colorCorrectionMode);
 
 	const camera_metadata_rational_t colorCorrectionTransform[] = {
-		{ 1, 1}, { 0, 1}, {0, 1},
-		{ 0, 1}, { 1, 1}, {0, 1},
-		{ 0, 1}, { 0, 1}, {1, 1},
+		{ 1, 1 },
+		{ 0, 1 },
+		{ 0, 1 },
+		{ 0, 1 },
+		{ 1, 1 },
+		{ 0, 1 },
+		{ 0, 1 },
+		{ 0, 1 },
+		{ 1, 1 },
 	};
 	requestTemplate->addEntry(ANDROID_COLOR_CORRECTION_TRANSFORM,
 				  colorCorrectionTransform);
 
 	float colorCorrectionGains[] = {
-		1.0f, 1.0f, 1.0f, 1.0f,
+		1.0f,
+		1.0f,
+		1.0f,
+		1.0f,
 	};
 	requestTemplate->addEntry(ANDROID_COLOR_CORRECTION_GAINS,
 				  colorCorrectionGains);
@@ -1982,18 +1964,18 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplatePreview() con
 
 	int32_t toneMapMaxCurvePoints = 64;
 	requestTemplate->addEntry(ANDROID_TONEMAP_MAX_CURVE_POINTS,
-		toneMapMaxCurvePoints);
+				  toneMapMaxCurvePoints);
 
-	float red[] = {0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f};
-	float green[] = {0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f};
-	float blue[] = {0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f};
+	float red[] = { 0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f };
+	float green[] = { 0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f };
+	float blue[] = { 0.0f, 0.0f, 0.3f, 0.5f, 0.7f, 0.9f, 1.0f, 1.0f };
 
-	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_RED,red);
-	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_GREEN,green);
-	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_BLUE,blue);
+	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_RED, red);
+	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_GREEN, green);
+	requestTemplate->addEntry(ANDROID_TONEMAP_CURVE_BLUE, blue);
 
 	float lensFocalLength = 1.0f;
-	if (staticMetadata_->getEntry(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, &entry)){
+	if (staticMetadata_->getEntry(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS, &entry)) {
 		lensFocalLength = entry.data.f[0];
 	};
 	requestTemplate->addEntry(ANDROID_LENS_FOCAL_LENGTH, lensFocalLength);
@@ -2009,11 +1991,11 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateStill() const
 
 	uint8_t noiseReductionMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
 	stillTemplate->updateEntry(ANDROID_NOISE_REDUCTION_MODE,
-				  noiseReductionMode);
+				   noiseReductionMode);
 
 	uint8_t colorCorrectionMode = ANDROID_COLOR_CORRECTION_MODE_HIGH_QUALITY;
 	stillTemplate->updateEntry(ANDROID_COLOR_CORRECTION_MODE,
-				  colorCorrectionMode);
+				   colorCorrectionMode);
 
 	uint8_t edgeMode = ANDROID_EDGE_MODE_HIGH_QUALITY;
 	stillTemplate->updateEntry(ANDROID_EDGE_MODE, edgeMode);
@@ -2049,18 +2031,18 @@ std::unique_ptr<CameraMetadata> CameraCapabilities::requestTemplateVideo() const
 
 	std::vector<int> videoFpsRange;
 	bool findVideoFpsRange = false;
-	for (int i = 0; i < static_cast<int>(entry.count); i++){
+	for (int i = 0; i < static_cast<int>(entry.count); i++) {
 		int minFps = *(entry.data.i32 + i * 2);
 		int maxFps = *(entry.data.i32 + i * 2 + 1);
 		// Video recording frame rate should be fixed
-		if (minFps == maxFps && maxFps >= 20 ){
+		if (minFps == maxFps && maxFps >= 20) {
 			findVideoFpsRange = true;
 			videoFpsRange.push_back(minFps);
 			videoFpsRange.push_back(maxFps);
 			break;
 		}
 	}
-	if (!findVideoFpsRange){
+	if (!findVideoFpsRange) {
 		videoFpsRange.push_back(20);
 		videoFpsRange.push_back(20);
 	}
