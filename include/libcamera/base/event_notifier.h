@@ -35,6 +35,7 @@ public:
 	void setEnabled(bool enable);
 
 	Signal<> activated;
+	Signal<> disconnected;
 
 protected:
 	void message(Message *msg) override;

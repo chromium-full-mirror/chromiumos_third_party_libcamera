@@ -292,6 +292,15 @@ void EventDispatcherPoll::processNotifiers(const std::vector<struct pollfd> &pol
 			if (!notifier)
 				continue;
 
+			if (pfd.revents & POLLHUP) {
+				LOG(Event, Warning) << "Got signal POLLHUP."
+						    << " Disconnecting IPC";
+
+				notifier->disconnected.emit();
+				unregisterEventNotifier(notifier);
+				continue;
+			}
+
 			/*
 			 * If the file descriptor is invalid, disable the
 			 * notifier immediately.
