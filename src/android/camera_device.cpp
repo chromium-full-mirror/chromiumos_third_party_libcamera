@@ -944,6 +944,26 @@ int CameraDevice::configureStreams(camera3_stream_configuration_t *stream_list)
 	}
 
 	config_ = std::move(config);
+
+	/*
+	 * camera_->start() includes several I/O operations and take some
+	 * time to process. The old process only triggered camera_->start()
+	 * at process_capture_request and cause frame delay at the first
+	 * request, the frame delay makes the cts test
+	 * "android.hardware.camera2.cts.RecordingTest#testVideoSnapshot"
+	 * easy to fail. Therefore, trigger camera_->start() earlier at
+	 * configure_streams stage to avoid such situation.
+	 */
+	MutexLocker stateLock(stateMutex_);
+	if (state_ == State::Stopped) {
+		ret = camera_->start();
+		if (ret) {
+			LOG(HAL, Error) << "Failed to start camera";
+			return ret;
+		}
+
+		state_ = State::Running;
+	}
 	return 0;
 }
 
