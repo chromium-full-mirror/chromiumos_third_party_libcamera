@@ -249,6 +249,15 @@ void CamSysDevice::close()
 	allVideoDevices_.clear();
 }
 
+int CamSysDevice::releaseAllBuffers()
+{
+	int ret = 0;
+	for (V4L2VideoDevice *device : allVideoDevices_)
+		ret |= device->releaseBuffers();
+
+	return ret;
+}
+
 int CamSysDevice::configure(const Size &rawFrameSize, const Size &yuvFrameSize)
 {
 	rawFrameSize_ = rawFrameSize;

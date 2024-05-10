@@ -81,6 +81,8 @@ public:
 	unsigned int mbusCode() { return mbusCode_; }
 	const std::string &model() { return sensor_->model(); }
 
+	int releaseAllBuffers();
+
 private:
 	int initSensor(MediaEntity *seninfEntity);
 

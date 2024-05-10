@@ -130,6 +130,8 @@ public:
 	int handleIova(FdCtrl fdHandle, InfoFramePool &pool);
 	int handleKva(FdCtrl fdHandle, InfoFramePool &pool);
 
+	int releaseAllBuffers();
+
 	Signal<Request *> requestCompleted;
 
 	TokenPool &syncPool() { return syncPool_; }
@@ -152,8 +154,6 @@ private:
 			  const Size video1, const Size video2,
 			  const Size still1, const Size still2);
 	void importBufferByList(std::vector<PortBuffers> &portBufs, uint32_t userId);
-
-	int releaseAllBuffers();
 
 	V4L2VideoDevice *sigdevNorm_;
 	ImgsysVideoDevice *ctrlMeta_;

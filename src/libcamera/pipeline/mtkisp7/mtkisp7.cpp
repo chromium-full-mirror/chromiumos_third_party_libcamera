@@ -1257,6 +1257,11 @@ void MtkISP7CameraData::stopDevice()
 
 void MtkISP7CameraData::releaseDevice()
 {
+	freeIPABuffers();
+
+	imgSysDev_->releaseAllBuffers();
+	camSysDev_->releaseAllBuffers();
+
 	/* Release the transient frames of MCNR */
 	mcnrPrev = {};
 
