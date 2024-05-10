@@ -53,6 +53,7 @@ private:
 	int recvData(void *buffer, size_t length, int32_t *fds, unsigned int num);
 
 	void dataNotifier();
+	void EventNotifierDisconnected();
 
 	UniqueFD fd_;
 	bool headerReceived_;

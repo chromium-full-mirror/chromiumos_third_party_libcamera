@@ -194,7 +194,15 @@ int IPCUnixSocket::bind(UniqueFD fd)
 	notifier_ = new EventNotifier(fd_.get(), EventNotifier::Read);
 	notifier_->activated.connect(this, &IPCUnixSocket::dataNotifier);
 
+	notifier_->disconnected.connect(
+		this, &IPCUnixSocket::EventNotifierDisconnected);
+
 	return 0;
+}
+
+void IPCUnixSocket::EventNotifierDisconnected()
+{
+	disconnected.emit();
 }
 
 /**
