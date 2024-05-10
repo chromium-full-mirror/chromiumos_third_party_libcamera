@@ -276,13 +276,18 @@ void IPAMtkISP7::aieParse(
 
 	PrimaryFaceData faceData;
 	ControlList faceControls(controls::controls);
-	aieParser_->doParse(inputBuffer, faceMetatBuffer, FTCMetadataFrameBuffer,
-			    currentSensorSize, camSysMetaRequestId,
-			    faceData, faceControls);
+	int ret = aieParser_->doParse(inputBuffer, faceMetatBuffer, FTCMetadataFrameBuffer,
+				      currentSensorSize, camSysMetaRequestId,
+				      faceData, faceControls);
+	if (ret) {
+		LOG(IPAMtkISP7, Error) << "Failed to run Aie Parse: " << ret;
+		AieParseResultReady.emit(false, faceData, faceControls);
+		return;
+	}
+
 	aieParser_->getLatestOutput(latestFaceMetadata_);
 
-	bool success = true;
-	AieParseResultReady.emit(success, faceData, faceControls);
+	AieParseResultReady.emit(true, faceData, faceControls);
 }
 
 void IPAMtkISP7::doCalculation3A(const uint32_t frame,
@@ -468,7 +473,7 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 					    metadata, gyroSample,
 					    &exposureAndGain, &aaaIspExchange,
 					    idApplied, featureApplied,
-						&lensPositionInfo, controls);
+					    &lensPositionInfo, controls);
 
 		ipa_->halIsp_->getCamSysMetaTuning(
 			internalRequestId, internalRequestId, rawMetaFd,
