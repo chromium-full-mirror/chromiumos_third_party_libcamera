@@ -26,55 +26,6 @@ namespace {
 
 static constexpr Size kTunSize{ 219348, 1 };
 
-/* Reserve the tuning Buffers for debug usage */
-class TuningBuffers
-{
-public:
-	TuningBuffers();
-	void readBuffer(uint8_t *dest, size_t length, const char *file);
-	void readAll();
-
-	uint8_t capture_TR_R2Y_tunbufi[219348];
-	uint8_t capture_P2_MS_F3_tunbufi[219348];
-	uint8_t capture_P2_MS_F2_tunbufi[219348];
-	uint8_t capture_P2_MS_F1_tunbufi[219348];
-	uint8_t capture_P2_MS_F0_H_tunbufi[219348];
-	uint8_t capture_P2_Y2Y_PQ_DIP_tunbufi[219348];
-	uint8_t capture_P2_MS_F0_PQ_DIP_tunbufi[219348];
-};
-
-TuningBuffers::TuningBuffers()
-{
-	readAll();
-}
-
-void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char *filename)
-{
-	FILE *file = nullptr;
-	std::string filePath = std::string("/etc/camera/back_settings/") + filename;
-	file = fopen(filePath.c_str(), "rb");
-
-	if (!file)
-		LOG(MtkISP7, Error) << "Fail to open file " << filePath;
-
-	size_t size = fread(dest, length, 1, file);
-	LOG(MtkISP7, Error) << "Read" << filename << " with size " << size;
-	fclose(file);
-}
-
-void TuningBuffers::readAll()
-{
-	readBuffer(capture_TR_R2Y_tunbufi, 219348, "capture_TR_R2Y_tunbufi.bin");
-	readBuffer(capture_P2_MS_F3_tunbufi, 219348, "capture_P2_MS_F3_tunbufi.bin");
-	readBuffer(capture_P2_MS_F2_tunbufi, 219348, "capture_P2_MS_F2_tunbufi.bin");
-	readBuffer(capture_P2_MS_F1_tunbufi, 219348, "capture_P2_MS_F1_tunbufi.bin");
-	readBuffer(capture_P2_MS_F0_H_tunbufi, 219348, "capture_P2_MS_F0_H_tunbufi.bin");
-	readBuffer(capture_P2_Y2Y_PQ_DIP_tunbufi, 219348, "capture_P2_Y2Y_PQ_DIP_tunbufi.bin");
-	readBuffer(capture_P2_MS_F0_PQ_DIP_tunbufi, 219348, "capture_P2_MS_F0_PQ_DIP_tunbufi.bin");
-}
-
-static TuningBuffers tuningBuffers;
-
 } //namespace
 
 [[maybe_unused]] static void fillTuning(SharedMailBox<InfoFrame> &mailBox, uint8_t *tuning)

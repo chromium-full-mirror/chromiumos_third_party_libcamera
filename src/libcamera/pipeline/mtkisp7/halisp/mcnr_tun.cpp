@@ -29,73 +29,6 @@ constexpr Size kMeL1Size{ 144, 108 };
 constexpr Size kTunSize{ 219348, 1 };
 constexpr Size kHistSize{ 11776, 1 };
 
-/* Reserve the tuning Buffers for debug usage */
-class TuningBuffers
-{
-public:
-	TuningBuffers();
-	void readBuffer(uint8_t *dest, size_t length, const char *file);
-	void readAll();
-
-	uint8_t HW_DIP_F0_tunbufi[219348];
-	uint8_t HW_DIP_F1_tunbufi[219348];
-	uint8_t HW_DIP_F2_tunbufi[219348];
-	uint8_t HW_DIP_F3_tunbufi[219348];
-	uint8_t HW_DIP_F4_tunbufi[219348];
-	uint8_t HW_DIP_IDI2_tunbufi[219348];
-	uint8_t HW_DIP_IDI_tunbufi[219348];
-	uint8_t HW_LTR_F1_tunbufi[219348];
-	uint8_t HW_LTR_F4_tunbufi[219348];
-	uint8_t HW_LTR_VBI_tunbufi[219348];
-	uint8_t HW_WPE_W_F0_tunbufi[219348];
-	uint8_t HW_ME_3PASS_MODE_0_tunbufi[219348];
-	uint8_t HW_ME_3PASS_MODE_1_tunbufi[219348];
-	uint8_t HW_ME_3PASS_MODE_1_me_mili[15552];
-	uint8_t HW_TR_F1_tunbufi[219348];
-	uint8_t HW_TR_F4_tunbufi[219348];
-	uint8_t HW_LTR_ME_L1_tunbufi[219348];
-};
-
-TuningBuffers::TuningBuffers()
-{
-	readAll();
-}
-
-void TuningBuffers::readBuffer(uint8_t *dest, size_t length, const char *filename)
-{
-	FILE *file = nullptr;
-	std::string filePath = std::string("/etc/camera/back_settings/") + filename;
-	file = fopen(filePath.c_str(), "rb");
-
-	if (!file)
-		LOG(MtkISP7, Error) << "Fail to open file " << filePath;
-
-	size_t size = fread(dest, length, 1, file);
-	LOG(MtkISP7, Error) << "Read" << filename << " with size " << size;
-	fclose(file);
-}
-
-void TuningBuffers::readAll()
-{
-	readBuffer(HW_DIP_F0_tunbufi, 219348, "HW_DIP_F0_tunbufi.bin");
-	readBuffer(HW_DIP_F1_tunbufi, 219348, "HW_DIP_F1_tunbufi.bin");
-	readBuffer(HW_DIP_F2_tunbufi, 219348, "HW_DIP_F2_tunbufi.bin");
-	readBuffer(HW_DIP_F3_tunbufi, 219348, "HW_DIP_F3_tunbufi.bin");
-	readBuffer(HW_DIP_F4_tunbufi, 219348, "HW_DIP_F4_tunbufi.bin");
-	readBuffer(HW_DIP_IDI2_tunbufi, 219348, "HW_DIP_IDI2_tunbufi.bin");
-	readBuffer(HW_DIP_IDI_tunbufi, 219348, "HW_DIP_IDI_tunbufi.bin");
-	readBuffer(HW_LTR_F1_tunbufi, 219348, "HW_LTR_F1_tunbufi.bin");
-	readBuffer(HW_LTR_F4_tunbufi, 219348, "HW_LTR_F4_tunbufi.bin");
-	readBuffer(HW_LTR_VBI_tunbufi, 219348, "HW_LTR_VBI_tunbufi.bin");
-	readBuffer(HW_WPE_W_F0_tunbufi, 219348, "HW_WPE_W_F0_tunbufi.bin");
-	readBuffer(HW_ME_3PASS_MODE_0_tunbufi, 219348, "HW_ME_3PASS_MODE_0_tunbufi.bin");
-	readBuffer(HW_ME_3PASS_MODE_1_me_mili, 15552, "HW_ME_3PASS_MODE_1_me_mili.bin");
-	readBuffer(HW_ME_3PASS_MODE_1_tunbufi, 219348, "HW_ME_3PASS_MODE_1_tunbufi.bin");
-	readBuffer(HW_TR_F1_tunbufi, 219348, "HW_TR_F1_tunbufi.bin");
-	readBuffer(HW_TR_F4_tunbufi, 219348, "HW_TR_F4_tunbufi.bin");
-	readBuffer(HW_LTR_ME_L1_tunbufi, 219348, "HW_LTR_ME_L1_tunbufi.bin");
-}
-
 static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
 	InfoFrame &info = mailBox->get();
@@ -111,8 +44,6 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 		memset(dest, 0, length);
 	}
 }
-
-static TuningBuffers tuningBuffers;
 
 } //namespace
 
