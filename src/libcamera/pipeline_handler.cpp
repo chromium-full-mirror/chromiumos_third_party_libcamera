@@ -177,7 +177,8 @@ bool PipelineHandler::acquire(Camera *camera)
 		}
 	}
 
-	if (!acquireDevice(camera)) {
+	if (!this->invokeMethod(&PipelineHandler::acquireDevice,
+				ConnectionTypeBlocking, camera)) {
 		if (useCount_ == 0)
 			unlockMediaDevices();
 		return false;
@@ -211,7 +212,8 @@ void PipelineHandler::release(Camera *camera)
 
 	unlockMediaDevices();
 
-	releaseDevice(camera);
+	this->invokeMethod(&PipelineHandler::releaseDevice,
+			   ConnectionTypeBlocking, camera);
 
 	--useCount_;
 }

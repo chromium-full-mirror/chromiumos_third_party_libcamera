@@ -1282,7 +1282,7 @@ bool MtkISP7CameraData::acquireDevice()
 
 void MtkISP7CameraData::releaseDevice()
 {
-	freeIPABuffers();
+	ipa_->releaseProxy();
 
 	imgSysDev_->releaseAllBuffers();
 	camSysDev_->releaseAllBuffers();
@@ -1302,12 +1302,6 @@ void MtkISP7CameraData::releaseDevice()
 		mfnrManager.releaseBuffers();
 		mfnrTunManager.releaseBuffers();
 	}
-
-	// TODO(chenghaoyang): Check with Han-lin. It will lose previous
-	// frames' info. 3A needs to re-converge.
-	// TODO(chenghaoyang): The third proxy seems to have issue when
-	// configuring. IPA took it as stop instead.
-	// ipa_->releaseProxy();
 }
 
 /*
