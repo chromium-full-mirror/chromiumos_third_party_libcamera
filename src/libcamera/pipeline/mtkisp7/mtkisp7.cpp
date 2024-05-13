@@ -257,6 +257,8 @@ public:
 	void registerIPABuffers(InfoFramePool *pool);
 	void freeIPABuffers();
 
+	void IPADisconnected();
+
 	Stream video1Stream_;
 	Stream video2Stream_;
 	Stream still1Stream_;
@@ -973,7 +975,7 @@ bool MtkISP7CameraData::loadIPA()
 
 	auto *signalDisconnected = ipa->disconnected();
 	if (signalDisconnected) {
-		signalDisconnected->connect((Camera::Private *)this, &Camera::Private::notifyDisconnection);
+		signalDisconnected->connect(this, &MtkISP7CameraData::IPADisconnected);
 	} else {
 		LOG(MtkISP7, Error) << "Couldn't get signal disconnected";
 	}
@@ -1245,6 +1247,14 @@ void MtkISP7CameraData::freeIPABuffers()
 {
 	ipa_->unmapBuffers(ipaBufferIds_);
 	ipaBufferIds_.clear();
+}
+
+void MtkISP7CameraData::IPADisconnected()
+{
+	ipa_->releaseProxy();
+
+	if (isAcquired())
+		notifyDisconnection();
 }
 
 void MtkISP7CameraData::stopDevice()
