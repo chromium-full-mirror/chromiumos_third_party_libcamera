@@ -45,6 +45,9 @@ public:
 
 	const CameraControlValidator *validator() const { return validator_.get(); }
 
+protected:
+	bool isAcquired() const;
+
 private:
 	enum State {
 		CameraAvailable,
@@ -54,7 +57,6 @@ private:
 		CameraRunning,
 	};
 
-	bool isAcquired() const;
 	bool isRunning() const;
 	int isAccessAllowed(State state, bool allowDisconnected = false,
 			    const char *from = __builtin_FUNCTION()) const;
