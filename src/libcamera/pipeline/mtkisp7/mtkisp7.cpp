@@ -1258,6 +1258,9 @@ void MtkISP7CameraData::IPADisconnected()
 
 void MtkISP7CameraData::stopDevice()
 {
+	captureResult_.release();
+	requestCount_ = 0;
+
 	camSysDev_->frameStart().disconnect(this);
 
 	captureRawQueue_idx = -1;
