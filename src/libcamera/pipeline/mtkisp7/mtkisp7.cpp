@@ -795,11 +795,8 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 		controls[&controls::AfMode] = ControlInfo(controls::AfModeValues);
 		controls[&controls::AfTrigger] = ControlInfo(controls::AfTriggerValues);
-		std::vector<ControlValue> availableFocalLength = {
-			2.42f,
-		};
-		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
 		controls[&controls::AfWindows] = ControlInfo(Rectangle{}, Rectangle{}, Rectangle{});
+
 		controls[&controls::ColorCorrectionGains] = ControlInfo(0.0f, 100.0f);
 		controls[&controls::ColourCorrectionMatrix] = ControlInfo(-100.0f, 100.0f);
 		controls[&controls::ColorCorrectionMode] = ControlInfo(controls::ColorCorrectionModeValues);
@@ -843,25 +840,34 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 				errGyro ? nullptr : &gyroSensor_,
 				&onDeviceTuner_, &faceDetector_,
 				dmaHeap_.get(), i);
-
+		std::vector<ControlValue> availableFocalLength;
 		Rectangle cropRegion = Rectangle{ pixelArraySize };
 		switch (PlatformUtils::platform_) {
 		case PlatformUtils::MtkISP7Platform::NONE:
 			LOG(MtkISP7, Fatal) << "Platform unconfigured";
 			break;
 		case PlatformUtils::MtkISP7Platform::GOOGLE:
-			if (i == 0)
+			if (i == 0) {
+				// TODO, focal length is not verified
+				availableFocalLength.push_back((2.42f));
 				cropRegion = Rectangle{ Size{ 4208, 3102 } };
-			else
+			} else {
+				// TODO, focal length is not verified
+				availableFocalLength.push_back((2.24f));
 				cropRegion = Rectangle{ Size{ 3264, 2448 } };
+			}
 			break;
 		case PlatformUtils::MtkISP7Platform::LENOVO:
-			if (i == 0)
+			if (i == 0) {
+				availableFocalLength.push_back((2.42f));
 				cropRegion = Rectangle{ Size{ 3264, 2448 } };
-			else
+			} else {
+				availableFocalLength.push_back((2.24f));
 				cropRegion = Rectangle{ Size{ 2592, 1944 } };
+			}
 			break;
 		}
+		controls[&controls::LensFocalLength] = ControlInfo(availableFocalLength);
 		properties.set(controls::ScalerCrop, cropRegion);
 		std::set<Stream *> streams = { &data->video1Stream_,
 					       &data->video2Stream_,
