@@ -272,7 +272,6 @@ public:
 	ImgSysDevice *imgSysDev_;
 	GyroSensor *gyroSensor_;
 
-	Thread ipaThread_;
 	std::unique_ptr<IPADelegate> ipa_;
 
 	CaptureTasksManager captureManager;
