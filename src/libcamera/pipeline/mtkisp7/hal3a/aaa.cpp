@@ -115,8 +115,6 @@ void Hal3AManager::configure(DmaHeap *dmaHeap, CamSysDevice *camSys,
 
 	focusController_.configure(camSys_->getCameraLens());
 
-	releaseBuffers();
-
 	if (tuningPool_.size() == 0)
 		tuningPool_.createBuffers(dmaHeap_, formats::MTFP_MTISP, kMetaSize, 8,
 					  DmaHeap::CMA);
@@ -138,6 +136,8 @@ int Hal3AManager::start(int32_t lens_position)
 void Hal3AManager::releaseBuffers()
 {
 	dummyTuning_.reset();
+
+	tuningPool_.release();
 }
 
 bool Hal3AManager::hasAF() const
