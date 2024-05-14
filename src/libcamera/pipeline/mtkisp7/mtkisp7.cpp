@@ -210,11 +210,11 @@ class MtkISP7CameraData : public Camera::Private
 {
 public:
 	MtkISP7CameraData(PipelineHandler *pipe, CamSysDevice *camSysDev,
-			  ImgSysDevice *imgSysDev, GyroSensor *gyroSensor, AieDevice *aieDev, OnDeviceTuner *odt,
+			  ImgSysDevice *imgSysDev, GyroSensor *gyroSensor, OnDeviceTuner *odt,
 			  FaceDetector *faceDetector, DmaHeap *dmaHeap,
 			  int32_t sensor_idx)
 		: Camera::Private(pipe), camSysDev_(camSysDev), imgSysDev_(imgSysDev),
-		  gyroSensor_(gyroSensor), aieDev_(aieDev),
+		  gyroSensor_(gyroSensor),
 		  ipa_(std::make_unique<IPADelegate>()),
 		  captureManager(odt), mcnrManager(imgSysDev, dmaHeap, odt),
 		  lpnrManager(imgSysDev, dmaHeap, odt),
@@ -269,8 +269,6 @@ public:
 	CamSysDevice *camSysDev_;
 	ImgSysDevice *imgSysDev_;
 	GyroSensor *gyroSensor_;
-
-	AieDevice *aieDev_;
 
 	Thread ipaThread_;
 	std::unique_ptr<IPADelegate> ipa_;
@@ -362,7 +360,6 @@ public:
 	ImgSysDevice imgSysDev_;
 
 	MediaDevice *aieMedia_;
-	AieDevice aieDev_;
 
 	FaceDetector faceDetector_;
 
@@ -509,7 +506,7 @@ CameraConfiguration::Status MtkISP7CameraConfiguration::validate()
 PipelineHandlerMtkISP7::PipelineHandlerMtkISP7(CameraManager *manager)
 	: PipelineHandler(manager),
 	  camSysDev_{ { &onDeviceTuner_ }, { &onDeviceTuner_ } },
-	  imgSysDev_(&onDeviceTuner_), faceDetector_(&aieDev_)
+	  imgSysDev_(&onDeviceTuner_)
 {
 	scheduler_ = std::make_unique<CategorizedScheduler<MtkISP7TaskGroup>>(kGroupName);
 	dmaHeap_ = std::make_unique<DmaHeap>();
@@ -843,7 +840,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		std::unique_ptr<MtkISP7CameraData> data =
 			std::make_unique<MtkISP7CameraData>(
 				this, &camSysDev_[i], &imgSysDev_,
-				errGyro ? nullptr : &gyroSensor_, &aieDev_,
+				errGyro ? nullptr : &gyroSensor_,
 				&onDeviceTuner_, &faceDetector_,
 				dmaHeap_.get(), i);
 
@@ -1006,7 +1003,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	if (gyroSensor_)
 		gyroSensor_->startReading(30); // Assume FPS == 30
 
-	// AieDev_ allocate buffers in `start()`;
+	// AieDev_ allocate buffers in `FaceDetector::start()`;
 	allocateIPABuffers();
 	int ret;
 

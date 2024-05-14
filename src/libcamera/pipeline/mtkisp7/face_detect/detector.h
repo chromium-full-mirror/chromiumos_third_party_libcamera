@@ -45,7 +45,7 @@ public:
 		int pending = 0;
 	};
 
-	FaceDetector(AieDevice *aieDev);
+	FaceDetector();
 	virtual ~FaceDetector();
 
 	int init(MediaDevice *media, DmaHeap *dmaHeap);
@@ -92,7 +92,7 @@ private:
 
 	IPADelegate *ipa_;
 
-	AieDevice *aieDev_;
+	AieDevice aieDev_;
 	const uint32_t period_;
 
 	SharedMailBox<FdDrv_input_struct> faceToneConfig_;
