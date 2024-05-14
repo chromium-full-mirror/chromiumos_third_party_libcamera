@@ -1284,6 +1284,8 @@ void MtkISP7CameraData::releaseDevice()
 {
 	ipa_->releaseProxy();
 
+	faceDetector_->releaseBuffers();
+
 	imgSysDev_->releaseAllBuffers();
 	camSysDev_->releaseAllBuffers();
 

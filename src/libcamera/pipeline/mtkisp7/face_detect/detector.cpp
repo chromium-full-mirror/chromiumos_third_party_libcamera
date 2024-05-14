@@ -296,6 +296,16 @@ int FaceDetector::configure(Size currentSensorSize, IPADelegate *ipa)
 	return 0;
 }
 
+void FaceDetector::releaseBuffers()
+{
+	if (Thread::current() != thread())
+		return this->invokeMethod(&FaceDetector::releaseBuffers,
+					  ConnectionTypeBlocking);
+
+	requestFDPool_.release();
+	resultMetadataPool_.release();
+}
+
 void FaceDetector::getLatestFaceControls(ControlList &latest)
 {
 	MutexLocker locker(faceControlMutex_);

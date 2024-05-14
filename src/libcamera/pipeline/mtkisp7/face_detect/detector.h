@@ -51,6 +51,8 @@ public:
 	int init(MediaDevice *media, DmaHeap *dmaHeap);
 	int configure(Size currentSensorSize, IPADelegate *ipa);
 
+	void releaseBuffers();
+
 	int start();
 	int stop();
 
