@@ -133,13 +133,23 @@ public:
 	};
 
 	AAATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
-		CaptureFrames &captureFrames, GyroSensor *gyroSensor,
+		SharedMailBox<InfoFrame> statistics0,
+		SharedMailBox<InfoFrame> statistics1,
+		SharedMailBox<InfoFrame> tuningOutput,
+		SharedMailBox<uint64_t> timestamp,
+		SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGainOutput,
+		SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
+		GyroSensor *gyroSensor,
 		IPADelegate *ipa,
 		FocusController *focusController,
 		uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 		FaceDetector *faceDetector)
 		: Task(scheduler, id), request_(nullptr), manager_(manager),
-		  captureFrames_(captureFrames), gyroSensor_(gyroSensor),
+		  statistics0_(statistics0), statistics1_(statistics1),
+		  tuningOutput_(tuningOutput), timestamp_(timestamp),
+		  exposureAndGainOutput_(exposureAndGainOutput),
+		  aaaIspExchange_(aaaIspExchange),
+		  gyroSensor_(gyroSensor),
 		  ipa_(ipa), focusController_(focusController),
 		  internalRequestId_(internalRequestId),
 		  camSysMetaRequestId_(camSysMetaRequestId), faceDetector_(faceDetector)
@@ -163,7 +173,13 @@ public:
 	std::optional<Feature> featureApplied_;
 
 	Hal3AManager *manager_;
-	CaptureFrames captureFrames_;
+
+	SharedMailBox<InfoFrame> statistics0_;
+	SharedMailBox<InfoFrame> statistics1_;
+	SharedMailBox<InfoFrame> tuningOutput_;
+	SharedMailBox<uint64_t> timestamp_;
+	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGainOutput_;
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
 
 	GyroSensor *gyroSensor_;
 

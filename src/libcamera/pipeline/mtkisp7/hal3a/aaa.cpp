@@ -181,7 +181,13 @@ AAATask *Hal3AManager::make3ATasks(
 	dummyTuning_ = captureFrames.tuning;
 
 	return new AAATask(this, scheduler, "3A " + sequence,
-			   captureFrames, gyroSensor_,
+			   captureFrames.statistics0,
+			   captureFrames.statistics1,
+			   captureFrames.tuningOutput,
+			   captureFrames.timestamp,
+			   captureFrames.exposureAndGainOutput,
+			   captureFrames.aaaIspExchange,
+			   gyroSensor_,
 			   ipa_, focusController_.get(),
 			   internalRequestId, camSysMetaRequestId,
 			   faceDetector);
@@ -197,9 +203,9 @@ std::pair<uint32_t, SharedMailBox<InfoFrame>> Hal3AManager::getDummyTuning()
 
 void AAATask::run()
 {
-	manager_->fetchTuningBuffer(captureFrames_.tuningOutput);
+	manager_->fetchTuningBuffer(tuningOutput_);
 
-	FrameBuffer *tuningBuffer = captureFrames_.tuningOutput->get().buffer();
+	FrameBuffer *tuningBuffer = tuningOutput_->get().buffer();
 	MappedFrameBuffer mappedBuffer(tuningBuffer,
 				       MappedFrameBuffer::MapFlag::ReadWrite);
 	tuningBuffer->_d()->metadata().planes()[0].bytesused =
@@ -229,12 +235,12 @@ void AAATask::run()
 
 	ipa_->doCalculation3A(
 		this, internalRequestId_,
-		captureFrames_.statistics0->get().buffer()->cookie(),
-		focusController_ ? captureFrames_.statistics1->get().buffer()->cookie() : 0,
-		captureFrames_.timestamp->get(), camSysMetaRequestId_,
+		statistics0_->get().buffer()->cookie(),
+		focusController_ ? statistics1_->get().buffer()->cookie() : 0,
+		timestamp_->get(), camSysMetaRequestId_,
 		internalRequestId_ - kLensDelay,
 		perFrameControl_.isStillCapture,
-		captureFrames_.tuningOutput->get().buffer()->cookie(),
+		tuningOutput_->get().buffer()->cookie(),
 		gyroSample, internalRequestIdApplied_.value_or(0),
 		featureApplied_, vcm,
 		perFrameControl_.controls);
@@ -250,10 +256,10 @@ void AAATask::AAAResultReady(ipa::mtkisp7::SensorSetting exposureAndGain,
 		focusController_->setLensPositionInfo(lensPositionInfo);
 	}
 
-	captureFrames_.exposureAndGainOutput->put(exposureAndGain, nullptr);
+	exposureAndGainOutput_->put(exposureAndGain, nullptr);
 
 	manager_->setMfnrMode(aaaIspExchange.mfnrMode);
-	captureFrames_.aaaIspExchange->put(aaaIspExchange, nullptr);
+	aaaIspExchange_->put(aaaIspExchange, nullptr);
 
 	notifyDone();
 }
