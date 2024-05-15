@@ -1542,10 +1542,12 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	if (afTask)
 		Scheduler::precede(afTask, completeTask);
 
-	captureRawQueue_idx += 1;
-	captureRawQueue_idx = captureRawQueue_idx % 8;
-	captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
-	previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
+	if (useMfnr) {
+		captureRawQueue_idx += 1;
+		captureRawQueue_idx = captureRawQueue_idx % 8;
+		captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
+		previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
+	}
 
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
