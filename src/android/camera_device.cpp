@@ -2201,11 +2201,6 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_LOCK, value);
 	}
 
-	if (settings.getEntry(ANDROID_CONTROL_AWB_LOCK, &entry)) {
-		value = *entry.data.u8;
-		resultMetadata->addEntry(ANDROID_CONTROL_AWB_LOCK, value);
-	}
-
 	if (settings.getEntry(ANDROID_CONTROL_AE_MODE, &entry)) {
 		value = *entry.data.u8;
 		resultMetadata->addEntry(ANDROID_CONTROL_AE_MODE, value);
@@ -2226,15 +2221,6 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	} else {
 		resultMetadata->addEntry(ANDROID_BLACK_LEVEL_LOCK, ANDROID_BLACK_LEVEL_LOCK_OFF);
 	}
-
-	if (settings.getEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, &entry))
-		/*
-		 * \todo Retrieve the AE FPS range from the libcamera metadata.
-		 * As libcamera does not support that control, as a temporary
-		 * workaround return what the framework asked.
-		 */
-		resultMetadata->addEntry(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
-					 entry.data.i32, 2);
 
 	found = settings.getEntry(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &entry);
 	value = found ? *entry.data.u8 : (uint8_t)ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
