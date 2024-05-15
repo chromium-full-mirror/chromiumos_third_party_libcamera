@@ -9,6 +9,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <libcamera/base/class.h>
@@ -55,8 +56,16 @@ public:
 	const CameraCapabilities *capabilities() const { return &capabilities_; }
 	const std::shared_ptr<libcamera::Camera> &camera() const { return camera_; }
 
-	const std::string &maker() const { return maker_; }
-	const std::string &model() const { return model_; }
+	const std::string &maker() const
+	{
+		return maker_.has_value() ? *maker_ : defaultMaker_;
+	}
+
+	const std::string &model() const
+	{
+		return model_.has_value() ? *model_ : defaultModel_;
+	}
+
 	int facing() const { return facing_; }
 	int orientation() const { return orientation_; }
 	unsigned int maxJpegBufferSize() const;
@@ -114,6 +123,7 @@ private:
 		const CameraMetadata &settings) const;
 
 	void cameraDisconnected();
+	void queryManufacturerInfo();
 
 	unsigned int id_;
 	camera3_device_t camera3Device_;
@@ -141,8 +151,11 @@ private:
 	std::list<Camera3ResultDescriptor *> pendingPartialResults_;
 	libcamera::ConditionVariable pendingRequestsCv_;
 
-	std::string maker_;
-	std::string model_;
+	std::optional<std::string> maker_;
+	std::optional<std::string> model_;
+
+	const std::string defaultMaker_ = "libcamera";
+	const std::string defaultModel_ = "cameraModel";
 
 	int facing_;
 	int orientation_;

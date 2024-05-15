@@ -503,28 +503,6 @@ CameraDevice::CameraDevice(unsigned int id, std::shared_ptr<Camera> camera)
 	camera_->requestCompleted.connect(this, &CameraDevice::requestComplete);
 	camera_->partialResultCompleted.connect(this, &CameraDevice::partialResultComplete);
 	camera_->disconnected.connect(this, &CameraDevice::cameraDisconnected);
-
-	maker_ = "libcamera";
-	model_ = "cameraModel";
-
-	/* \todo Support getting properties on Android */
-	std::ifstream fstream("/var/cache/camera/camera.prop");
-	if (!fstream.is_open())
-		return;
-
-	std::string line;
-	while (std::getline(fstream, line)) {
-		std::string::size_type delimPos = line.find("=");
-		if (delimPos == std::string::npos)
-			continue;
-		std::string key = line.substr(0, delimPos);
-		std::string val = line.substr(delimPos + 1);
-
-		if (!key.compare("ro.product.model"))
-			model_ = val;
-		else if (!key.compare("ro.product.manufacturer"))
-			maker_ = val;
-	}
 }
 
 CameraDevice::~CameraDevice() = default;
@@ -662,6 +640,15 @@ int CameraDevice::open(const hw_module_t *hardwareModule)
 	 */
 	camera3Device_.ops = &hal_dev_ops;
 	camera3Device_.priv = this;
+
+	/*
+	 * The manufacturer info is only available after the Android VM booted.
+	 * The camera service may load and initialize libcamera before the VM
+	 * boot, but when opening the camera we are sure the VM already booted.
+	 */
+	if (!maker_.has_value() || !model_.has_value()) {
+		queryManufacturerInfo();
+	}
 
 	return 0;
 }
@@ -2440,4 +2427,26 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 void CameraDevice::cameraDisconnected()
 {
 	notifyError(0, nullptr, CAMERA3_MSG_ERROR_DEVICE);
+}
+
+void CameraDevice::queryManufacturerInfo()
+{
+	/* \todo Support getting properties on Android */
+	std::ifstream fstream("/var/cache/camera/camera.prop");
+	if (!fstream.is_open())
+		return;
+
+	std::string line;
+	while (std::getline(fstream, line)) {
+		std::string::size_type delimPos = line.find("=");
+		if (delimPos == std::string::npos)
+			continue;
+		std::string key = line.substr(0, delimPos);
+		std::string val = line.substr(delimPos + 1);
+
+		if (!key.compare("ro.product.model"))
+			model_ = val;
+		else if (!key.compare("ro.product.manufacturer"))
+			maker_ = val;
+	}
 }
