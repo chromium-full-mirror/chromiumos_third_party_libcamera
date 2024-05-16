@@ -32,7 +32,7 @@ public:
 	static constexpr Size kMinResolution = Size{ 320, 240 };
 
 	struct Request {
-		FrameBuffer *main;
+		FrameBuffer *main = nullptr;
 		FrameBuffer *yuvo1;
 		FrameBuffer *yuvo2;
 		FrameBuffer *rawInject;

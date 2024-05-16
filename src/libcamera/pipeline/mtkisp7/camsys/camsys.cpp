@@ -45,8 +45,10 @@ constexpr unsigned int kRequestCount = 24;
 
 } /* namespace */
 
-CamSysDevice::CamSysDevice(OnDeviceTuner *odt) : onDeviceTuner_(odt)
-{}
+CamSysDevice::CamSysDevice(OnDeviceTuner *odt)
+	: onDeviceTuner_(odt)
+{
+}
 
 int CamSysDevice::init(MediaDevice *media, unsigned int index)
 {
@@ -178,7 +180,6 @@ int CamSysDevice::start()
 	if (sensor_->focusLens())
 		sensor_->focusLens()->open();
 
-
 	ASSERT(pendingRequests_.empty());
 	ASSERT(completedRequests_.empty());
 
@@ -282,15 +283,19 @@ int CamSysDevice::queueRequest(Request *request)
 	int ret = metaInput_->queueBuffer(request->tuning, mediaRequest);
 	ret |= partialMeta0_->queueBuffer(request->statistics0, mediaRequest);
 	ret |= partialMeta1_->queueBuffer(request->statistics1, mediaRequest);
-	ret |= mainStream_->queueBuffer(request->main, mediaRequest);
 	ret |= yuvo1_->queueBuffer(request->yuvo1, mediaRequest);
 	ret |= yuvo2_->queueBuffer(request->yuvo2, mediaRequest);
 	ret |= drzs4no3_->queueBuffer(request->me, mediaRequest);
 	ret |= rzh1n2to1_->queueBuffer(request->faceDetect, mediaRequest);
 
-	unsigned int queuedBuffers = 8;
+	unsigned int queuedBuffers = 7;
+	if (request->main) {
+		ret |= mainStream_->queueBuffer(request->main, mediaRequest);
+		++queuedBuffers;
+	}
+
 	if (onDeviceTuner_->isCamsysDebugFrameEnabled()) {
-		queuedBuffers = 9;
+		++queuedBuffers;
 		ret |= rawi2_->queueBuffer(request->rawInject, mediaRequest);
 	}
 
@@ -301,7 +306,7 @@ int CamSysDevice::queueRequest(Request *request)
 	}
 
 	pendingRequests_.emplace_back(
-		PendingRequest{request, mediaRequest, queuedBuffers});
+		PendingRequest{ request, mediaRequest, queuedBuffers });
 
 	return 0;
 }
@@ -382,7 +387,7 @@ int CamSysDevice::setupResource()
 	rawResource.pixel_mode = 0;
 	rawResource.throughput = 0;
 
-	struct v4l2_ext_control ext_ctrl {
+	struct v4l2_ext_control ext_ctrl{
 		.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC,
 		.size = sizeof(camsysResource),
 		.reserved2 = {},
