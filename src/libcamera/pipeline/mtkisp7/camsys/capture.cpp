@@ -102,11 +102,13 @@ void CaptureTasksManager::releaseBuffers()
 	rawi2Pool_.release();
 }
 
-void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames)
+void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames, bool needRaw)
 {
 	captureFrames.tuningOutput = makeMailBox<InfoFrame>();
 
-	captureFrames.raw = makeMailBox<InfoFrame>();
+	if (needRaw)
+		captureFrames.raw = makeMailBox<InfoFrame>();
+
 	captureFrames.yuvo1 = makeMailBox<InfoFrame>();
 	captureFrames.yuvo2 = makeMailBox<InfoFrame>();
 
@@ -252,8 +254,10 @@ void QueueTask::run()
 	manager_->faceDetectPool_.fetch(frames.faceDetection);
 	camSysRequest.faceDetect = frames.faceDetection->get().buffer();
 
-	manager_->rawPool_.fetch(frames.raw);
-	camSysRequest.main = frames.raw->get().buffer();
+	if (frames.raw) {
+		manager_->rawPool_.fetch(frames.raw);
+		camSysRequest.main = frames.raw->get().buffer();
+	}
 
 	manager_->yuvo1Pool_.fetch(frames.yuvo1);
 	camSysRequest.yuvo1 = frames.yuvo1->get().buffer();

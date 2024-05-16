@@ -1033,7 +1033,8 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 
-	captureManager.makeCaptureFrames(captureFrames);
+	captureManager.makeCaptureFrames(
+		captureFrames, useMfnr || (useLpnr && hasStillCapture));
 
 	if (internalRequestId >= CaptureTasksManager::kAAToSofDelay) {
 		uint32_t aaRequestId = internalRequestId - CaptureTasksManager::kAAToSofDelay;
