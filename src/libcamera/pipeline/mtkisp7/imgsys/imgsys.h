@@ -78,7 +78,8 @@ class ImgsysVideoDevice : public V4L2VideoDevice
 public:
 	explicit ImgsysVideoDevice(const MediaEntity *entity);
 	int open();
-	int configure(V4L2DeviceFormat *fmt, int resizeRatio, Rectangle crop);
+	int configure(V4L2DeviceFormat *fmt, int resizeRatio, Rectangle crop,
+		      bool forceResetCrop);
 	int allocateBuffers(
 		unsigned int count,
 		std::vector<std::unique_ptr<FrameBuffer>> *buffers) = delete;

@@ -195,10 +195,10 @@ int ImgsysVideoDevice::open()
 }
 
 int ImgsysVideoDevice::configure(V4L2DeviceFormat *fmt, int resizeRatio,
-				 Rectangle crop)
+				 Rectangle crop, bool forceResetCrop)
 {
 	int ret;
-
+	bool needResetCrop = false;
 	if (*fmt != format_) {
 		ret = setFormat(fmt);
 		if (ret)
@@ -206,6 +206,8 @@ int ImgsysVideoDevice::configure(V4L2DeviceFormat *fmt, int resizeRatio,
 
 		resizeRatio_ = 0;
 		crop_ = Rectangle();
+		if (forceResetCrop)
+			needResetCrop = true;
 	}
 
 	if (resizeRatio != resizeRatio_) {
@@ -220,7 +222,12 @@ int ImgsysVideoDevice::configure(V4L2DeviceFormat *fmt, int resizeRatio,
 		resizeRatio_ = resizeRatio;
 	}
 
-	if (crop != crop_) {
+	/**
+ 	 * TODO: needResetCrop is used by MCDS_F1 to check the crop == {0,0} request,
+	 * and since crop = {0,0} doesn't seem to be invalid in V4l2 api, need to
+	 * check with mtk and see if we can fix it in scp
+	 */
+	if (crop != crop_ || needResetCrop) {
 		ret = setSelection(V4L2_SEL_TGT_CROP, &crop);
 		if (ret)
 			return ret;
@@ -497,8 +504,16 @@ void reconfigureVideoNode(ImgsysVideoDevice &device, const PortInfoEx &info)
 		Rectangle(info.CropX, info.CropY,
 			  { static_cast<unsigned int>(info.CropW),
 			    static_cast<unsigned int>(info.CropH) });
-
-	device.configure(&format, info.mResizeRatio, crop);
+	bool forceResetCrop = false;
+	/* Force reset crop when crop == {0,0} in mfnr*/
+	if (crop == Rectangle() &&
+	    (info.portIdx == IMG_PORT_LTYUV2O || info.portIdx == IMG_PORT_TYUV2O ||
+	     info.portIdx == IMG_PORT_LTYUV3O || info.portIdx == IMG_PORT_TYUV3O ||
+	     info.portIdx == IMG_PORT_LTYUV4O || info.portIdx == IMG_PORT_TYUV4O ||
+	     info.portIdx == IMG_PORT_LTYUV5O)) {
+		forceResetCrop = true;
+	}
+	device.configure(&format, info.mResizeRatio, crop, forceResetCrop);
 }
 
 int ImgSysDevice::queueRequestV4L2(Request *request)
@@ -1381,7 +1396,6 @@ void ImgSysRequestHelper::requestReady(ImgSysDevice::Request *request)
 		LOG(MtkISP7, Debug) << task_->id()
 				    << " runs " << milliseconds.count() << "ms";
 	}
-
 	task_->notifyDone();
 }
 
