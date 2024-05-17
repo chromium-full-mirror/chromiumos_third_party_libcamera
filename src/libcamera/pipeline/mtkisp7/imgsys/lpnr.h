@@ -86,11 +86,7 @@ private:
 	std::vector<Size> lpnrSizes;
 
 	InfoFramePool lpnrStt_;
-	std::array<InfoFramePool, 4> lpnr_;
-
-	/* Weak ptr for above pools for easier control */
-	std::vector<InfoFramePool *> allBufferPools_;
-	std::vector<InfoFramePool *> poolsWritenByCpu_;
+	std::array<LazyInfoFramePool, 4> lpnr_;
 
 	ImgSysDevice *imgSys_;
 	DmaHeap *dmaHeap_;
