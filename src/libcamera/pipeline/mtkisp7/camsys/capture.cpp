@@ -81,7 +81,9 @@ void CaptureTasksManager::allocateBuffers()
 	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 14);
 	statistics0Pool_.createBuffers(dmaHeap_, formats::MTFA_MTISP, kStatSize0, 14, DmaHeap::CMA);
 	statistics1Pool_.createBuffers(dmaHeap_, formats::MTFF_MTISP, kStatSize1, 14, DmaHeap::CMA);
-	rawi2Pool_.createBuffers(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_, 14);
+
+	if (onDeviceTuner_->isCamsysDebugFrameEnabled())
+		rawi2Pool_.createBuffers(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_, 8);
 }
 
 void CaptureTasksManager::releaseBuffers()
