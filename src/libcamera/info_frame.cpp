@@ -194,4 +194,81 @@ int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
 	return setBuffers(format, size, buffers, strideAlign, scanAlign);
 }
 
+
+int LazyInfoFramePool::setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
+				 const Size &size,
+				 DmaHeap::Type type,
+				 unsigned int strideAlign, unsigned scanAlign)
+{
+	dmaHeap_ = dmaHeap;
+	type_ = type;
+	size_ = size;
+	format_ = format;
+	strideAlign_ = strideAlign;
+	scanAlign_ = scanAlign;
+
+	return 0;
+}
+
+void LazyInfoFramePool::release()
+{
+	allocatedBuffers_.clear();
+}
+
+void LazyInfoFramePool::fetch(SharedMailBox<InfoFrame> &mailBox)
+{
+	auto recycler = [this](InfoFrame &info) {
+		this->put(info);
+	};
+
+	mailBox->put(get(), recycler);
+}
+
+InfoFrame LazyInfoFramePool::get()
+{
+	const PixelFormatInfo &info = PixelFormatInfo::info(format_);
+	uint32_t bufferSize = 0;
+	for (unsigned int i = 0; i < info.numPlanes(); i++)
+		bufferSize += info.planeSize(size_, i, strideAlign_, scanAlign_);
+
+	SharedFD fd(dmaHeap_->alloc(bufferSize, type_));
+	if (!fd.isValid()) {
+		LOG(InfoFrame, Fatal) << "fail to allocate dma buf, size " << bufferSize;
+	}
+
+	uint32_t offset = 0;
+	std::vector<FrameBuffer::Plane> planes;
+
+	for (unsigned int j = 0; j < info.numPlanes(); j++) {
+		FrameBuffer::Plane plane;
+		plane.fd = fd;
+		plane.offset = offset;
+		plane.length = info.planeSize(size_, j, strideAlign_, scanAlign_);
+		plane.stride = info.stride(size_.width, j, strideAlign_);
+		planes.emplace_back(plane);
+		offset += plane.length;
+	}
+
+	std::scoped_lock lock(mutex_);
+	allocatedBuffers_.emplace_back(std::make_unique<FrameBuffer>(planes));
+
+	FrameBuffer* buffer = allocatedBuffers_.back().get();
+	InfoFrame infoFrame(format_, size_, buffer, strideAlign_, scanAlign_);
+	return infoFrame;
+}
+
+void LazyInfoFramePool::put(InfoFrame &frameInfo)
+{
+	std::scoped_lock lock(mutex_);
+	for (auto iter = allocatedBuffers_.begin();
+	     iter != allocatedBuffers_.end(); iter++) {
+		if (iter->get() == frameInfo.buffer()) {
+			allocatedBuffers_.erase(iter);
+			return;
+		}
+	}
+
+	LOG(InfoFrame, Fatal) << "Unknown buffer returned to LazyInfoFramePool";
+}
+
 } /* namespace libcamera */

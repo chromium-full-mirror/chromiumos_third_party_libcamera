@@ -103,4 +103,35 @@ private:
 	std::unordered_map<int, MappedBufferInfo> mappedBuffers_;
 };
 
+class LazyInfoFramePool
+{
+public:
+	LazyInfoFramePool() = default;
+	~LazyInfoFramePool() = default;
+
+	int setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
+			  const Size &size,
+			  DmaHeap::Type type = DmaHeap::System,
+			  unsigned int strideAlign = 1, unsigned scanAlign = 1);
+
+	void release();
+
+	void fetch(SharedMailBox<InfoFrame> &mailBox);
+
+	InfoFrame get();
+	void put(InfoFrame &frameInfo);
+
+private:
+	DmaHeap *dmaHeap_;
+	DmaHeap::Type type_;
+	Size size_;
+	PixelFormat format_;
+	unsigned int strideAlign_;
+	unsigned int scanAlign_;
+
+	std::vector<std::unique_ptr<FrameBuffer>> allocatedBuffers_;
+
+	Mutex mutex_;
+};
+
 } /* namespace libcamera */
