@@ -570,6 +570,10 @@ public:
 	virtual void getLatestMappingInfo(
 		NSIspTuning::CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &output) = 0;
 
+	virtual void releaseSensorTuningDB(
+		size_t sensor_index,
+		size_t sensor_dev_id) = 0;
+
 public:
 	virtual ~ITuningDataProvider() = default;
 
@@ -638,6 +642,7 @@ public:
 	void getLatestMappingInfo(CAM_IDX_QRY_COMB_ISP7 &output) override;
 	void getLatestMappingInfo(CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO &output)
 		override;
+	void releaseSensorTuningDB(size_t sensor_index, size_t sensor_dev_id) override;
 
 private:
 	size_t m_sensorid; // current sensor id (not sensor index)
