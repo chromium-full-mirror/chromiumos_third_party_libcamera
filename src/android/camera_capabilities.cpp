@@ -52,9 +52,10 @@ const std::vector<Size> camera3Resolutions = {
 	{ 1280, 960 },
 	{ 1440, 1080 },
 	{ 1920, 1080 },
-	{ 1920, 1440 },
-	{ 2560, 1440 },
-	{ 2560, 1920 },
+	// TODO: disable resolutions higher than 1080p
+	//{ 1920, 1440 },
+	//{ 2560, 1440 },
+	//{ 2560, 1920 },
 };
 
 /*
