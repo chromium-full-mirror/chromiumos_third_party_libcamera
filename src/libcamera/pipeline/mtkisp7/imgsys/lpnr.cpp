@@ -50,21 +50,21 @@ int LpnrTasksManager::configure(const Size &bayerInputSize,
 	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 5, DmaHeap::CMA);
 
 	/* Level 0 uses NV12_10P_MTISP */
-	lpnr_[0].createBuffers(dmaHeap_, formats::NV12_10P_MTISP, lpnrSizes[0], 8);
+	lpnr_[0].setFormat(dmaHeap_, formats::NV12_10P_MTISP, lpnrSizes[0]);
 	for (unsigned int i = 1; i < lpnr_.size(); i++) {
-		lpnr_[i].createBuffers(dmaHeap_, formats::NV12_12P_MTISP, lpnrSizes[i], 8);
+		lpnr_[i].setFormat(dmaHeap_, formats::NV12_12P_MTISP, lpnrSizes[i]);
 	}
 
-	for (auto &pool : poolsWritenByCpu_)
-		pool->mmap();
+	lpnrStt_.mmap();
 
 	return 0;
 }
 
 int LpnrTasksManager::releaseBuffers()
 {
-	for (auto &pool : allBufferPools_)
-		pool->release();
+	lpnrStt_.release();
+	for (unsigned int i = 1; i < lpnr_.size(); i++)
+		lpnr_[i].release();
 
 	return 0;
 }
@@ -93,13 +93,6 @@ LpnrTasksManager::LpnrTasksManager(
 	imgSys_ = imgSys;
 	dmaHeap_ = dmaHeap;
 	onDeviceTuner_ = odt;
-
-	allBufferPools_.emplace_back(&lpnrStt_);
-
-	for (unsigned int i = 0; i < lpnr_.size(); i++)
-		allBufferPools_.emplace_back(&lpnr_[i]);
-
-	poolsWritenByCpu_.emplace_back(&lpnrStt_);
 }
 
 void LpnrTasksManager::makeLPNRFrames(LPNRFrames &lpnr,

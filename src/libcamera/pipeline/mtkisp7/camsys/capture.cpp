@@ -74,11 +74,11 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 
 void CaptureTasksManager::allocateBuffers()
 {
-	rawPool_.createBuffers(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_, 14);
-	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, 14);
-	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, 14);
-	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, 14, DmaHeap::System, 64);
-	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 14);
+	rawPool_.setFormat(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_);
+	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, 8);
+	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, 8);
+	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, 8, DmaHeap::System, 64);
+	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 8);
 	statistics0Pool_.createBuffers(dmaHeap_, formats::MTFA_MTISP, kStatSize0, kRawMetaDelay, DmaHeap::CMA);
 	statistics1Pool_.createBuffers(dmaHeap_, formats::MTFF_MTISP, kStatSize1, kRawMetaDelay, DmaHeap::CMA);
 

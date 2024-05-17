@@ -1136,8 +1136,6 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&hal3AManager_.tuningPool_);
 
 	registerIPABuffers(&lpnrManager.lpnrStt_);
-	for (unsigned i = 0; i < lpnrManager.lpnr_.size(); ++i)
-		registerIPABuffers(&lpnrManager.lpnr_[i]);
 	registerIPABuffers(&lpnrTunManager.lpnrTun_);
 
 	registerIPABuffers(&mcnrTunManager.fwmeFst_);
