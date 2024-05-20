@@ -419,9 +419,6 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		 mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
 		 mtk::hal3a::Mtk3AActiveItem::kShading);
 
-	if (!resultHistory_.contain(camSysMetaRequestId))
-		r_3a_param.is_dummy_request = true;
-
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -514,9 +511,6 @@ void Hal3A::doCalculationAF(FrameBuffer *statistics1, uint64_t timestamp,
 		LOG(MtkISP7, Fatal) << "Empty statistics1";
 		return;
 	}
-
-	if (!resultHistory_.contain(camSysMetaRequestId))
-		r_3a_param.is_dummy_request = true;
 
 	// TODO: Check when to use kAFTrigger.
 	r_af_request.scenario = mtk::hal3a::Mtk3AScenario::kAFNormal;
