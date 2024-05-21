@@ -60,6 +60,10 @@ public:
 
 	~{{proxy_worker_name}}() {}
 
+	void disconnected() {
+		exit_ = true;
+	}
+
 	void readyRead()
 	{
 		IPCUnixSocket::Payload _message;
@@ -131,6 +135,7 @@ public:
 			return EXIT_FAILURE;
 		}
 		socket_.readyRead.connect(this, &{{proxy_worker_name}}::readyRead);
+		socket_.disconnected.connect(this, &{{proxy_worker_name}}::disconnected);
 
 		auto cc = ipam->createInterface();
 
