@@ -753,7 +753,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 
 		// todo: Fix the ExposureTime for now. It should be updated from
 		// sensor config
-		controls[&controls::ExposureTime] = ControlInfo((int32_t)100,
+		controls[&controls::ExposureTime] = ControlInfo((int32_t)80,
 								(int32_t)100'000,
 								(int32_t)33'333);
 
