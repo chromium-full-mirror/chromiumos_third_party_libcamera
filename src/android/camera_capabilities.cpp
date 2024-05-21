@@ -1395,7 +1395,7 @@ int CameraCapabilities::initializeStaticMetadata()
 					  minFocusDistance);
 		if (minFocusDistance != 0.0f) {
 			staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
-						  availableFocusDistanceCalibration[2]);
+						  availableFocusDistanceCalibration[1]);
 			isAfSupported_ = true;
 			// TODO, update real hyperfocal distance from camera static metadata
 			// Note hyperFocalDistance should be in the range (0, minFocusDistance)
