@@ -1038,7 +1038,7 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	auto *scheduler = pipeline->scheduler_.get();
 
 	captureManager.makeCaptureFrames(
-		captureFrames, useMfnr || (useLpnr && hasStillCapture));
+		captureFrames, useMfnr || (useLpnr && hasStillCapture) || onDeviceTuner_->isEnabled());
 
 	if (internalRequestId >= CaptureTasksManager::kAAToSofDelay) {
 		uint32_t aaRequestId = internalRequestId - CaptureTasksManager::kAAToSofDelay;
