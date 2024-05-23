@@ -987,9 +987,9 @@ int ImgSysDevice::importBuffers(
 		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf0, 40, 144, 108 });
 		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf5, 24, 144, 108 });
 	} else {
-		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf0, 16, 144, 108 });
-		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf4, 24, 144, 108 });
-		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf5, 24, 144, 108 });
+		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf0, 24, 144, 108 });
+		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf4, 28, 144, 108 });
+		portBufsMcnr.push_back({ IMG_PORT_TNRCI, formats::GREY, meConf5, 28, 144, 108 });
 	}
 
 	std::vector<Size> lpnrSizes(4);
