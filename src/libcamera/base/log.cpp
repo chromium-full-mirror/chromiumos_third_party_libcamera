@@ -621,6 +621,7 @@ Logger::Logger()
 {
 #if defined(OS_CHROMEOS)
 	logSetTarget(LoggingTargetCros);
+	parseLogLevels();
 	return;
 #endif
 
