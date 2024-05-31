@@ -1505,11 +1505,12 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	}
 
 	bool hasStillCapture = still1Buffer || still2Buffer;
+	bool onlyStillCapture = hasStillCapture && (!video1Buffer && !video2Buffer);
 
 	uint32_t internalRequestId = requestCount_++;
 	// todo(yerlandinata): set feature for MFNR.
 	// todo(yerlandinata): check whether we need Feature::video or not.
-	Feature feature = hasStillCapture ? Feature::Capture_lpnr : Feature::Preview;
+	Feature feature = onlyStillCapture ? Feature::Capture_lpnr : Feature::Preview;
 
 	if (aaControlChanged || nddEnabled) {
 		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAGroup);
@@ -1523,7 +1524,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 				prevAATask->setPerFrameControl(
 					AATask::PerFrameControl{
 						.delayIdx = static_cast<int>(shift),
-						.isStillCapture = hasStillCapture,
+						// TODO: Rename the parameter to onlyStillCapture.
+						.isStillCapture = onlyStillCapture,
 						.controls = request->controls() });
 				iter++;
 			}
