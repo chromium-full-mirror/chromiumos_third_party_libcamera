@@ -1394,8 +1394,11 @@ int CameraCapabilities::initializeStaticMetadata()
 		staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
 					  minFocusDistance);
 		if (minFocusDistance != 0.0f) {
+			// TODO: Currently set the Calibration to uncaliberated to
+			// skip per-frame lens control in Android Camera ITS. This
+			// should be fix by re-arrange the AF timing.
 			staticMetadata_->addEntry(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION,
-						  availableFocusDistanceCalibration[1]);
+						  availableFocusDistanceCalibration[0]);
 			isAfSupported_ = true;
 			// TODO, update real hyperfocal distance from camera static metadata
 			// Note hyperFocalDistance should be in the range (0, minFocusDistance)
