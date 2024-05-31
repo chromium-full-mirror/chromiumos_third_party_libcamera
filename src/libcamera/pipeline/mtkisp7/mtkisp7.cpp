@@ -1262,9 +1262,6 @@ void MtkISP7CameraData::IPADisconnected()
 
 void MtkISP7CameraData::stopDevice()
 {
-	captureResult_.release();
-	requestCount_ = 0;
-
 	camSysDev_->frameStart().disconnect(this);
 
 	captureRawQueue_idx = -1;
@@ -1300,6 +1297,9 @@ bool MtkISP7CameraData::acquireDevice()
 
 void MtkISP7CameraData::releaseDevice()
 {
+	captureResult_.release();
+	requestCount_ = 0;
+
 	ipa_->releaseProxy();
 
 	imgSysDev_->releaseAllBuffers();
