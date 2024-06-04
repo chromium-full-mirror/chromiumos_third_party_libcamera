@@ -354,6 +354,8 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 	}
 	prevEndedRequestNum_ = requestNumber;
 
+	stillCaptureFrames_.erase(requestNumber);
+
 	if (isIpa_) {
 		ImagiqAdapter::notifyRequestEnd(
 			sensorId_, requestNumber, sessionTimestamp_,
@@ -374,6 +376,16 @@ void OnDeviceTuner::notifyVideoOnly(int requestNumber)
 		false, false);
 }
 
+void OnDeviceTuner::notifyStillCapture(int requestNumber)
+{
+	stillCaptureFrames_.emplace(requestNumber);
+}
+
+bool OnDeviceTuner::isStillCaptureRequest(int requestNumber)
+{
+	return stillCaptureFrames_.count(requestNumber) > 0;
+}
+
 bool OnDeviceTuner::parseHalIspNdd(
 	uint32_t internalRequestId,
 	uint32_t frameNumber,
@@ -381,6 +393,7 @@ bool OnDeviceTuner::parseHalIspNdd(
 	Feature feature)
 {
 	uint32_t requestNumber = internalRequestId;
+	// |feature| from IPC getImgSysMetaTuning.
 	bool isStillCapture = isStillCaptureFeature(feature);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return false;
@@ -574,7 +587,7 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	ImagiqAdapter::configureScenarioRecorder(
 		internalRequestId, sessionTimestamp_,
 		highIsoMode && !enforceLowIsoLpnr_,
-		isStillCaptureFeature(feature));
+		isStillCaptureRequest(internalRequestId));
 
 	ImagiqAdapter::writeScenarioRecorderSettings(
 		tuningParam.cam_info->sr_para, getMtkMetadata(internalRequestId),
@@ -593,6 +606,7 @@ void OnDeviceTuner::tuneExif(
 	EStage_T stage, Feature feature)
 {
 	uint32_t requestNumber = internalRequestId;
+	// |feature| from IPC getImgSysMetaTuning.
 	bool isStillCapture = isStillCaptureFeature(feature);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
@@ -756,7 +770,7 @@ void OnDeviceTuner::tune3ARequest(
 	Feature feature)
 {
 	uint32_t requestNumber = internalRequestId;
-	bool isStillCapture = isStillCaptureFeature(feature);
+	bool isStillCapture = isStillCaptureRequest(requestNumber);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
 	}
@@ -774,11 +788,10 @@ void OnDeviceTuner::tune3ARequest(
 
 void OnDeviceTuner::tune3AState(uint32_t internalRequestId,
 				FrameBuffer *statistics0,
-				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult,
-				Feature feature)
+				mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult)
 {
 	uint32_t requestNumber = internalRequestId;
-	bool isStillCapture = isStillCaptureFeature(feature);
+	bool isStillCapture = isStillCaptureRequest(requestNumber);
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) && !isStillCapture)) {
 		return;
 	}
@@ -1547,10 +1560,9 @@ void OnDeviceTuner::tuneAfbld(
 }
 
 void OnDeviceTuner::writeStillCaptureDebugMetadata(
-	ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
-	Feature feature)
+	ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result)
 {
-	if (!enabled_ || !isStillCaptureFeature(feature)) {
+	if (!enabled_) {
 		return;
 	}
 

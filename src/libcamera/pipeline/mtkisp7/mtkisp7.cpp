@@ -163,8 +163,7 @@ public:
 			    uint32_t camSysMetaRequestId, PipelineHandler *pipe,
 			    IPADelegate *ipa,
 			    OnDeviceTuner *odt, FaceDetector *faceDetector,
-			    SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
-			    Feature feature);
+			    SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange);
 
 	virtual void run() override final;
 
@@ -177,7 +176,6 @@ private:
 	IPADelegate *ipa_;
 	OnDeviceTuner *onDeviceTuner_;
 	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
-	Feature feature_;
 };
 
 CompleteRequestTask::CompleteRequestTask(
@@ -190,13 +188,12 @@ CompleteRequestTask::CompleteRequestTask(
 	IPADelegate *ipa,
 	OnDeviceTuner *odt,
 	FaceDetector *faceDetector,
-	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
-	Feature feature)
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
 	  internalRequestId_(internalRequestId),
 	  camSysMetaRequestId_(camSysMetaRequestId),
 	  faceDetector_(faceDetector), ipa_(ipa), onDeviceTuner_(odt),
-	  aaaIspExchange_(aaaIspExchange), feature_(feature)
+	  aaaIspExchange_(aaaIspExchange)
 {
 }
 
@@ -402,10 +399,10 @@ void CompleteRequestTask::run()
 		auto aaaIspExchange = aaaIspExchange_->get();
 		metadata.merge(aaaIspExchange.aaaMetadata);
 		if (onDeviceTuner_->isEnabled() &&
-		    OnDeviceTuner::isStillCaptureFeature(feature_)) {
+		    onDeviceTuner_->isStillCaptureRequest(internalRequestId_)) {
 			ControlList debugMetadata;
 			ipa_->writeStillCaptureDebugMetadata(
-				camSysMetaRequestId_, feature_, &debugMetadata);
+				camSysMetaRequestId_, &debugMetadata);
 			metadata.merge(debugMetadata);
 		}
 	} else {
@@ -1072,6 +1069,8 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	if (onDeviceTuner_->isEnabled()) {
 		onDeviceTuner_->notifyRequestBegin(internalRequestId);
+		if (hasStillCapture)
+			onDeviceTuner_->notifyStillCapture(internalRequestId);
 
 		// Make sure it's ahead of everything else.
 		ipa_->notifyRequestBegin(internalRequestId, hasStillCapture);
@@ -1550,7 +1549,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, internalRequestId,
 		camSysMetaRequestId, pipeline, ipa_.get(), onDeviceTuner_,
-		faceDetector_, aaaIspExchange, feature);
+		faceDetector_, aaaIspExchange);
 
 	if (afTask)
 		Scheduler::precede(afTask, completeTask);

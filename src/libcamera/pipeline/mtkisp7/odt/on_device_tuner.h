@@ -78,6 +78,8 @@ public:
 	// Tuning tools need to know if there is a still capture in
 	// the request or not.
 	void notifyVideoOnly(int requestNumber);
+	void notifyStillCapture(int requestNumber);
+	bool isStillCaptureRequest(int requestNumber);
 
 	// P1 Camsys
 	void tuneCamsys(uint32_t internalRequestId, CaptureFrames &frames);
@@ -112,8 +114,7 @@ public:
 		Feature feature);
 	void tune3AState(uint32_t internalRequestId,
 			 FrameBuffer *statistics0,
-			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult,
-			 Feature feature);
+			 mtk::hal3a::v1_0::mtk_3a_result *mtk3AResult);
 
 	// P2 Imgsys driver
 	// Todo: in V4L2 mode, there is only one stage,
@@ -169,12 +170,11 @@ public:
 
 	// Still capture only
 	void writeStillCaptureDebugMetadata(
-		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
-		Feature feature);
-
-	static bool isStillCaptureFeature(Feature feature);
+		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result);
 
 private:
+	static bool isStillCaptureFeature(Feature feature);
+
 	struct NamedFrame {
 		Dump::Id id;
 		const InfoFrame &frame;
@@ -240,6 +240,8 @@ private:
 
 	std::unique_ptr<CamsysDebug> camsysDebug_;
 	ImgsysDebug imgsysDebug_;
+
+	std::unordered_set<uint32_t> stillCaptureFrames_;
 };
 
 } // namespace libcamera

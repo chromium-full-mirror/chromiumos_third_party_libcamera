@@ -94,13 +94,12 @@ void IPADelegate::unmapBuffers(const std::vector<unsigned int> &ids)
 
 void IPADelegate::writeStillCaptureDebugMetadata(
 	const uint32_t camSysMetaRequestId,
-	const Feature feature,
 	ControlList *metadata)
 {
 	ipaProxy_->invokeMethod(
 		&ipa::mtkisp7::IPAProxyMtkISP7::writeStillCaptureDebugMetadata,
 		ConnectionTypeBlocking,
-		camSysMetaRequestId, static_cast<uint32_t>(feature), metadata);
+		camSysMetaRequestId, metadata);
 }
 
 void IPADelegate::notifyRequestBegin(const uint32_t frame,

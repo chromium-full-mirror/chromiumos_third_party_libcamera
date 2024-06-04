@@ -92,8 +92,7 @@ interface IPAMtkISP7Interface {
 	mapBuffers(array<libcamera.IPABuffer> buffers);
 	unmapBuffers(array<uint32> ids);
 
-        writeStillCaptureDebugMetadata(uint32 camSysMetaRequestId,
-                                       uint32 featureEnum)
+        writeStillCaptureDebugMetadata(uint32 camSysMetaRequestId)
                                        => (libcamera.ControlList metadata);
 
         [async] notifyRequestBegin(uint32 frame, bool hassStillCapture);

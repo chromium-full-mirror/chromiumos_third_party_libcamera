@@ -55,7 +55,6 @@ public:
 
 	void writeStillCaptureDebugMetadata(
 		const uint32_t camSysMetaRequestId,
-		const uint32_t featureEnum,
 		ControlList *metadata) override;
 
 	void notifyRequestBegin(const uint32_t frame,

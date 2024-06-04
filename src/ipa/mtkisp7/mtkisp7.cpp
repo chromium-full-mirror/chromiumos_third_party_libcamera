@@ -212,13 +212,11 @@ void IPAMtkISP7::unmapBuffers(const std::vector<unsigned int> &ids)
 
 void IPAMtkISP7::writeStillCaptureDebugMetadata(
 	const uint32_t camSysMetaRequestId,
-	const uint32_t featureEnum,
 	ControlList *metadata)
 {
 	*metadata = controls::controls;
 	onDeviceTuner_.writeStillCaptureDebugMetadata(*metadata,
-						      hal3A_->resultHistory_.query(camSysMetaRequestId),
-						      static_cast<Feature>(featureEnum));
+						      hal3A_->resultHistory_.query(camSysMetaRequestId));
 }
 
 void IPAMtkISP7::notifyRequestBegin(const uint32_t frame,
@@ -228,6 +226,8 @@ void IPAMtkISP7::notifyRequestBegin(const uint32_t frame,
 
 	if (!hasStillCapture)
 		onDeviceTuner_.notifyVideoOnly(frame);
+	else
+		onDeviceTuner_.notifyStillCapture(frame);
 }
 
 void IPAMtkISP7::notifyRequestEnd(const uint32_t frame)
@@ -511,11 +511,10 @@ void IPAMtkISP7::AAManager::doCalculation(FrameBuffer *statistics0, uint64_t tim
 		internalRequestId, exposureAndGain, aaaIspExchange,
 		lensPositionInfo);
 
-	if (idApplied && featureApplied) {
+	if (idApplied) {
 		ipa_->onDeviceTuner_.tune3AState(
 			internalRequestIdApplied,
-			statistics0, &ipa_->hal3A_->r3AResult_,
-			featureApplied.value());
+			statistics0, &ipa_->hal3A_->r3AResult_);
 	}
 }
 
