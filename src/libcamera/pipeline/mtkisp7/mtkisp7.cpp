@@ -695,7 +695,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		LOG(MtkISP7, Warning) << "No gyroscope available";
 	}
 
-	DeviceMatch imgSysDM("camera-dip");
+	DeviceMatch imgSysDM("mtk-imgsys");
 	imgSysDM.add("MTK-ISP-DIP-V4L2");
 
 	imgSysMedia_ = acquireMediaDevice(enumerator, imgSysDM);
