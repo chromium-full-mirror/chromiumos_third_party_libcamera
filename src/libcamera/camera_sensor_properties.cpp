@@ -260,7 +260,7 @@ const CameraSensorProperties *CameraSensorProperties::get(const std::string &sen
 			.unitCellSize = { 1120, 1120 },
 			.testPatternModes = {
 				{ controls::draft::TestPatternModeOff, 0 },
-				{ controls::draft::TestPatternModeColorBars, 2 },
+				{ controls::draft::TestPatternModeColorBars, 1 },
 			},
 		} },
 	};
