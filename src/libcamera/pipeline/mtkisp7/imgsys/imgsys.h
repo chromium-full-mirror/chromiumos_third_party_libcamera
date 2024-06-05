@@ -101,6 +101,7 @@ class ImgSysDevice
 {
 public:
 	static Rectangle getCrop(Size inSize, Size outSize);
+	static Rectangle cropNoisyBorder(const Rectangle &rect);
 
 	enum FdCtrl {
 		Add = 0,

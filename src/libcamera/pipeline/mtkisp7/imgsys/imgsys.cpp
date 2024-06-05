@@ -353,6 +353,39 @@ Rectangle ImgSysDevice::getCrop(Size inSize, Size outSize)
 	return { 0, y, inSize.width, height };
 }
 
+/**
+ * \brief Shrink rectangular crop area by 3%
+ * \param[in] originalCrop Rectangle crop area
+ *
+ * MediaTek TNR algorithm failed to denoise the edges of the image,
+ * causing a visible bad image quality on those edges.
+ * This function is a workaround because they do not want to fix the issue.
+ * The left, right, top, and bottom part of the given crop area will be cut
+ * by 3%.
+ *
+ * \return Shrank crop area
+ */
+Rectangle ImgSysDevice::cropNoisyBorder(const Rectangle &originalCrop)
+{
+	// Crop out the noisy border by 5% due to MCNR limitation
+	float x = originalCrop.x + (originalCrop.width * (1.0f - 0.97)) / 2;
+	float y = originalCrop.y + (originalCrop.height * (1.0f - 0.97)) / 2;
+
+	float w = (originalCrop.width * 0.97);
+	float h = (originalCrop.height * 0.97);
+
+	Rectangle result;
+	result.x = x + 0.5;
+	result.y = y + 0.5;
+	result.width = w;
+	result.height = h;
+
+	result.width &= ~(0x01);
+	result.height &= ~(0x01);
+
+	return result;
+}
+
 ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt) : onDeviceTuner_(odt)
 {
 }

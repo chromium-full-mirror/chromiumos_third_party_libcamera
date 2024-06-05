@@ -13,6 +13,7 @@
 
 #include "libcamera/internal/task_scheduler.h"
 
+#include "pipeline/mtkisp7/imgsys/imgsys.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "single_device.h"
@@ -305,12 +306,15 @@ void LpnrDipTask::LowIsoStages(SingleDeviceRequest &sdRequest)
 	if (stillOutput1_) {
 		InfoFrame info(formats::NV12, manager_->yuvOutputSize1_, stillOutput1_, 64);
 		Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
+		// There is no noisy border issue in LPNR, but for consistency we do crop.
+		crop = ImgSysDevice::cropNoisyBorder(crop);
 		P2_MS_F0_PQ_DIP.output(info, IMG_PORT_WDMAO, 0, crop);
 	}
 
 	if (stillOutput2_) {
 		InfoFrame info(formats::NV12, manager_->yuvOutputSize2_, stillOutput2_, 64);
 		Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
+		crop = ImgSysDevice::cropNoisyBorder(crop);
 		P2_MS_F0_PQ_DIP.output(info, IMG_PORT_WROTO, 0, crop);
 	}
 
@@ -343,12 +347,14 @@ void LpnrDipTask::HighIsoStage(SingleDeviceRequest &sdRequest)
 	if (stillOutput1_) {
 		InfoFrame info(formats::NV12, manager_->yuvOutputSize1_, stillOutput1_, 64);
 		Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
+		crop = ImgSysDevice::cropNoisyBorder(crop);
 		P2_Y2Y_PQ_DIP.output(info, IMG_PORT_WDMAO, 0, crop);
 	}
 
 	if (stillOutput2_) {
 		InfoFrame info(formats::NV12, manager_->yuvOutputSize2_, stillOutput2_, 64);
 		Rectangle crop = ImgSysDevice::getCrop(lpnrSizes[0], info.size());
+		crop = ImgSysDevice::cropNoisyBorder(crop);
 		P2_Y2Y_PQ_DIP.output(info, IMG_PORT_WROTO, 0, crop);
 	}
 
