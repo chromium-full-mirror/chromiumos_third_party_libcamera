@@ -1244,9 +1244,9 @@ int CameraCapabilities::initializeStaticMetadata()
 				hasFacePrioritySceneMode = true;
 				// Exception for SCENE_MODE_FACE_PRIORITY:
 				// HAL should read 3A settings from application.
-				sceneModesOverride.push_back(0);
-				sceneModesOverride.push_back(0);
-				sceneModesOverride.push_back(0);
+				sceneModesOverride.push_back(ANDROID_CONTROL_AE_MODE_ON);
+				sceneModesOverride.push_back(ANDROID_CONTROL_AWB_MODE_AUTO);
+				sceneModesOverride.push_back(ANDROID_CONTROL_AF_MODE_AUTO);
 				break;
 			default:
 				LOG(HAL, Fatal) << "Invalid scene mode: "
