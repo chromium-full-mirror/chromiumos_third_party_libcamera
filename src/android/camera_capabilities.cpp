@@ -1225,7 +1225,7 @@ int CameraCapabilities::initializeStaticMetadata()
 	std::vector<uint8_t> sceneModesOverride = {
 		ANDROID_CONTROL_AE_MODE_ON,
 		ANDROID_CONTROL_AWB_MODE_AUTO,
-		ANDROID_CONTROL_AF_MODE_OFF,
+		ANDROID_CONTROL_AF_MODE_AUTO,
 	};
 	auto modeSceneIter =
 		camera_->controls().find(controls::SceneMode.id());
