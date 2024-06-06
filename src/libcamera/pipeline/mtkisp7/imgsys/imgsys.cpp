@@ -420,6 +420,11 @@ int ImgSysDevice::init(MediaDevice *media, DmaHeap *dmaHeap)
 	/* Find video devices, configure and save them in allVideoDevices_*/
 	for (auto &port : ports) {
 		MediaEntity *entity = media_->getEntityByName(port.device_name);
+		if (!entity) {
+			LOG(MtkISP7, Warning) << "Entity " << port.device_name << " not found";
+			continue;
+		}
+
 		if (entity->type() != MediaEntity::Type::V4L2VideoDevice)
 			continue;
 
