@@ -37,7 +37,7 @@ static constexpr Size kTunSize{ 219348, 1 };
 {
 	assert(tuning);
 
-	InfoFrame &info = mailBox->get();
+	const InfoFrame &info = mailBox->get();
 
 	void *dest = info.address(0);
 	size_t length = info.buffer()->planes()[0].length;

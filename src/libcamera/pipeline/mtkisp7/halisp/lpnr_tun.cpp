@@ -32,7 +32,7 @@ static constexpr Size kTunSize{ 219348, 1 };
 {
 	assert(tuning);
 
-	InfoFrame &info = mailBox->get();
+	const InfoFrame &info = mailBox->get();
 
 	void *dest = info.address(0);
 	size_t length = info.buffer()->planes()[0].length;
@@ -128,7 +128,7 @@ LpnrTunXtrTask::LpnrTunXtrTask(LPNRFrames &lpnr,
 void LpnrTunXtrTask::run()
 {
 	manager_->lpnrTun_.fetch(xtrTun_);
-	InfoFrame &frame = xtrTun_->get();
+	const InfoFrame &frame = xtrTun_->get();
 
 	auto request = makeImgMetaRequestDataNonMfnr(
 		true, EStage_TR_R2Y, frame.buffer()->cookie(),

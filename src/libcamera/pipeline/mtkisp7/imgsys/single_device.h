@@ -170,8 +170,8 @@ public:
 	void setUserId(const std::string &id) { id_ = id; }
 	const std::string &id() { return id_; }
 
-	void fillRequestBufferForStage(InfoFrame &infoCtrl, int requestFd, size_t stage);
-	void fillRequestBuffer(InfoFrame &infoCtrl, InfoFrame &infoDesc, int requestFd);
+	void fillRequestBufferForStage(const InfoFrame &infoCtrl, int requestFd, size_t stage);
+	void fillRequestBuffer(const InfoFrame &infoCtrl, const InfoFrame &infoDesc, int requestFd);
 
 	std::vector<PEU_Stage> getStageEnums() const;
 

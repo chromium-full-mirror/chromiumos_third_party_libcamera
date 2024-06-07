@@ -48,7 +48,7 @@ constexpr Size kFwMmRstSize{ 132, 1 };
 
 static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
-	InfoFrame &info = mailBox->get();
+	const InfoFrame &info = mailBox->get();
 
 	void *dest = info.address(0);
 	size_t length = info.buffer()->planes()[0].length;
@@ -193,7 +193,7 @@ int McnrTasksManager::configureBuffers()
 	fwmmFst.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMmFstSize, 8);
 	fwmmRst_.createBuffers(dmaHeap_, formats::Y8_MTISP, kFwMmRstSize, 8);
 	fwmmMil_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8, DmaHeap::System, 64);
-	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{32, 24}, 8);
+	fwmmGyro_.createBuffers(dmaHeap_, formats::Y32_MTISP, Size{ 32, 24 }, 8);
 
 	meFst_.createBuffers(dmaHeap_, formats::Y32_MTISP, kFstSize, 8);
 	meFmb0_.createBuffers(dmaHeap_, formats::Y32_MTISP, kFmbSize, 8);
@@ -210,9 +210,9 @@ int McnrTasksManager::configureBuffers()
 
 	meConf0_.createBuffers(dmaHeap_, formats::GREY, kMeL1Size, 8, DmaHeap::System, 144, 108);
 	meConf4_.createBuffers(dmaHeap_, formats::GREY,
-			mcnrSizes[4].boundedTo(kMeL1Size), 12, DmaHeap::System, 144, 108);
+			       mcnrSizes[4].boundedTo(kMeL1Size), 12, DmaHeap::System, 144, 108);
 	meConf5_.createBuffers(dmaHeap_, formats::GREY,
-			mcnrSizes[5].boundedTo(kMeL1Size), 12, DmaHeap::System, 144, 108);
+			       mcnrSizes[5].boundedTo(kMeL1Size), 12, DmaHeap::System, 144, 108);
 
 	idi_.createBuffers(dmaHeap_, formats::NV21, mcnrSizes[6], 21);
 	tnrSo_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 8);
@@ -578,29 +578,29 @@ void McnrTasksManager::makeMCNRFrames(MCNRFrames &mcnr,
 }
 
 std::tuple<MeATask *, MeBTask *, TrTask *, Dip1Task *, Dip2Task *>
-McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler  *scheduler,
+McnrTasksManager::makeMcnrTasks(MCNRFrames &mcnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
-				uint32_t internalRequestId, ImgSysDevice* imgSys)
+				uint32_t internalRequestId, ImgSysDevice *imgSys)
 {
 	(void)id;
 	std::string sequence = std::to_string(request->sequence());
 
 	MeATask *meATask = new MeATask(
-			scheduler, "MeA " + sequence, request,
-			internalRequestId, imgSys, mcnr, this);
+		scheduler, "MeA " + sequence, request,
+		internalRequestId, imgSys, mcnr, this);
 	MeBTask *meBTask = new MeBTask(
-			scheduler, "MeB " + sequence, request,
-			internalRequestId, imgSys, mcnr, this);
+		scheduler, "MeB " + sequence, request,
+		internalRequestId, imgSys, mcnr, this);
 	TrTask *trTask = new TrTask(
-			scheduler, "Tr " + sequence, request,
-			internalRequestId, imgSys, mcnr, this);
+		scheduler, "Tr " + sequence, request,
+		internalRequestId, imgSys, mcnr, this);
 	Dip1Task *dip1Task = new Dip1Task(
-			scheduler, "Dip 1 " + sequence, request,
-			internalRequestId, imgSys, mcnr, this);
+		scheduler, "Dip 1 " + sequence, request,
+		internalRequestId, imgSys, mcnr, this);
 
 	Dip2Task *dip2Task = new Dip2Task(
-			scheduler, "Dip 2 " + sequence, request,
-			internalRequestId, imgSys, mcnr, this);
+		scheduler, "Dip 2 " + sequence, request,
+		internalRequestId, imgSys, mcnr, this);
 
 	return std::make_tuple(meATask, meBTask, trTask, dip1Task, dip2Task);
 }

@@ -801,7 +801,7 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 {
 	std::vector<SharedMailBox<InfoFrame>> p1Yuv;
 	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam = bssFrame.in.db_param->get();
-	std::vector<int> &BSSOrder = bssFrame.out.bss_order[0]->get();
+	std::vector<int> BSSOrder;
 
 	for (auto i = 0; i < (int)bssFrame.in.imgi.size(); i++) {
 		p1Yuv.push_back(bssFrame.in.imgi[i]);
@@ -937,6 +937,9 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 		BSSOrder.push_back(order);
 		LOG(MtkISP7, Info) << "bssOrder " << i << " -> " << order;
 	}
+
+	bssFrame.out.bss_order[0]->put(BSSOrder, NULL);
+
 	IBSS_INPUT_DATA_G *bss_dataG = reinterpret_cast<IBSS_INPUT_DATA_G *>(bssFrame.in.bssDataGInfo->get().address(0));
 	memcpy(bss_dataG, &bssInData, sizeof(IBSS_INPUT_DATA_G));
 

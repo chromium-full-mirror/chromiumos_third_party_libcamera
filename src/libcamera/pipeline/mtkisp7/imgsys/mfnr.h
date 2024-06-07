@@ -324,7 +324,6 @@ private:
 	std::shared_ptr<BssWrapper> bssWrapper_;
 	int captureNum_;
 	int blendNum_;
-	std::vector<int> bssOrder_;
 };
 
 class BssTask : public Task

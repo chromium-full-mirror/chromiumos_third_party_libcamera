@@ -683,7 +683,7 @@ void OnDeviceTuner::tuneImgsysMetadata(
 	uint32_t internalRequestId,
 	uint32_t frameNumber,
 	const std::vector<PEU_Stage> &stages,
-	InfoFrame &metaFrame,
+	const InfoFrame &metaFrame,
 	int mediaRequestFd)
 {
 	if (!enabled_) {

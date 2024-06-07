@@ -31,7 +31,7 @@ constexpr Size kHistSize{ 11776, 1 };
 
 static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
-	InfoFrame &info = mailBox->get();
+	const InfoFrame &info = mailBox->get();
 
 	void *dest = info.address(0);
 	size_t length = info.buffer()->planes()[0].length;
@@ -51,7 +51,7 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
 	assert(tuning);
 
-	InfoFrame &info = mailBox->get();
+	const InfoFrame &info = mailBox->get();
 
 	void *dest = info.address(0);
 	size_t length = info.buffer()->planes()[0].length;

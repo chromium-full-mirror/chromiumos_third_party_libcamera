@@ -85,14 +85,14 @@ ImgSysBufferCache::FormatCache::~FormatCache()
 
 ImgSysBufferCache::~ImgSysBufferCache()
 {
-	for (auto formatCache: formatCaches_) {
+	for (auto formatCache : formatCaches_) {
 		delete formatCache;
 	}
 }
 
 bool ImgSysBufferCache::isEmpty() const
 {
-	for (FormatCache* f: formatCaches_) {
+	for (FormatCache *f : formatCaches_) {
 		if (!f->cache_->isEmpty())
 			return false;
 	}
@@ -107,8 +107,7 @@ int ImgSysBufferCache::get(const FrameBuffer &buffer, uint32_t userId)
 		LOG(MtkISP7, Error) << "Format uninitialized: "
 				    << currentFormat_
 				    << " colorSpace "
-				    << (currentFormat_.colorSpace.has_value() ?
-					(*currentFormat_.colorSpace).toString() : "9527")
+				    << (currentFormat_.colorSpace.has_value() ? (*currentFormat_.colorSpace).toString() : "9527")
 				    << " planesCount "
 				    << currentFormat_.planesCount
 				    << " userId "
@@ -117,8 +116,7 @@ int ImgSysBufferCache::get(const FrameBuffer &buffer, uint32_t userId)
 			LOG(MtkISP7, Error) << "Formats : "
 					    << formatCaches_[i]->format_
 					    << " colorSpace "
-					    << (formatCaches_[i]->format_.colorSpace.has_value() ?
-							(*formatCaches_[i]->format_.colorSpace).toString() : "9527")
+					    << (formatCaches_[i]->format_.colorSpace.has_value() ? (*formatCaches_[i]->format_.colorSpace).toString() : "9527")
 					    << " planesCount "
 					    << formatCaches_[i]->format_.planesCount
 					    << " userId "
@@ -130,7 +128,7 @@ int ImgSysBufferCache::get(const FrameBuffer &buffer, uint32_t userId)
 
 void ImgSysBufferCache::put(unsigned int offsetedIdx)
 {
-	for (FormatCache* f: formatCaches_) {
+	for (FormatCache *f : formatCaches_) {
 		if (offsetedIdx >= f->offset_ && offsetedIdx < f->offset_ + f->count_) {
 			f->cache_->put(offsetedIdx);
 			return;
@@ -139,7 +137,7 @@ void ImgSysBufferCache::put(unsigned int offsetedIdx)
 	LOG(MtkISP7, Fatal) << "Index not found";
 }
 
-std::optional<uint64_t> ImgSysBufferCache::getFormatIdx(const V4L2DeviceFormat& fmt, uint32_t userId)
+std::optional<uint64_t> ImgSysBufferCache::getFormatIdx(const V4L2DeviceFormat &fmt, uint32_t userId)
 {
 	for (uint64_t i = 0; i < formatCaches_.size(); i++) {
 		if (formatCaches_[i]->format_.fourcc == fmt.fourcc &&
@@ -152,7 +150,7 @@ std::optional<uint64_t> ImgSysBufferCache::getFormatIdx(const V4L2DeviceFormat& 
 	return std::nullopt;
 }
 
-bool ImgSysBufferCache::formatReady(V4L2DeviceFormat& fmt, uint32_t userId)
+bool ImgSysBufferCache::formatReady(V4L2DeviceFormat &fmt, uint32_t userId)
 {
 	return getFormatIdx(fmt, userId) != std::nullopt;
 }
@@ -162,7 +160,7 @@ void ImgSysBufferCache::addCurrentFormat(size_t count, uint64_t offset)
 	addFormat(currentFormat_, 0, count, offset);
 }
 
-void ImgSysBufferCache::addFormat(V4L2DeviceFormat& fmt, uint32_t userId,
+void ImgSysBufferCache::addFormat(V4L2DeviceFormat &fmt, uint32_t userId,
 				  size_t count, uint64_t offset)
 {
 	if (formatReady(fmt, userId)) {
@@ -257,7 +255,7 @@ int ImgsysVideoDevice::importBuffersWithFormat(uint32_t userId, unsigned int cou
 	if (getCache()->formatReady(*format, userId)) {
 		LOG(MtkISP7, Fatal) << "Buffers already allocated " << *format << " "
 				    << "name " << driverName()
-				    <<" : " << deviceName()
+				    << " : " << deviceName()
 				    << " : " << busName();
 		return -EINVAL;
 	}
@@ -337,7 +335,7 @@ int ImgsysVideoDevice::getFormat(V4L2DeviceFormat *format)
 
 ImgSysBufferCache *ImgsysVideoDevice::getCache()
 {
-	return static_cast<ImgSysBufferCache*>(cache_);
+	return static_cast<ImgSysBufferCache *>(cache_);
 }
 
 Rectangle ImgSysDevice::getCrop(Size inSize, Size outSize)
@@ -386,7 +384,8 @@ Rectangle ImgSysDevice::cropNoisyBorder(const Rectangle &originalCrop)
 	return result;
 }
 
-ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt) : onDeviceTuner_(odt)
+ImgSysDevice::ImgSysDevice(OnDeviceTuner *odt)
+	: onDeviceTuner_(odt)
 {
 }
 
@@ -499,13 +498,14 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 {
 	SharedMailBox<InfoFrame> ctrlMeta = makeMailBox<InfoFrame>();
 	ctrlMetaPool_.fetch(ctrlMeta);
-	InfoFrame &infoCtrl = ctrlMeta->get();
+	const InfoFrame &infoCtrl = ctrlMeta->get();
 
 	SharedMailBox<InfoFrame> singleDevNorm = makeMailBox<InfoFrame>();
 	int mediaRequest = mediaRequestPool_.get();
 
 	std::vector<PEU_Stage> stages{
-		request->sdRequest->Stages()[request->stage].getStageEnum() };
+		request->sdRequest->Stages()[request->stage].getStageEnum()
+	};
 	{
 		DmaSyncer syncerCtrl(infoCtrl.buffer()->planes()[0].fd.get(), DmaHeap::SyncWrite);
 
@@ -548,7 +548,7 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 	}
 
 	ret |= ctrlMeta_->queueBuffer(infoCtrl.buffer(), mediaRequest, request->userId);
-	request->buffers_count ++;
+	request->buffers_count++;
 	ret |= media_->queueRequest(mediaRequest);
 
 	if (ret)
@@ -566,11 +566,11 @@ int ImgSysDevice::queueRequest(Request *request)
 {
 	SharedMailBox<InfoFrame> ctrlMeta = makeMailBox<InfoFrame>();
 	ctrlMetaPool_.fetch(ctrlMeta);
-	InfoFrame &infoCtrl = ctrlMeta->get();
+	const InfoFrame &infoCtrl = ctrlMeta->get();
 
 	SharedMailBox<InfoFrame> singleDevNorm = makeMailBox<InfoFrame>();
 	descPool_.fetch(singleDevNorm);
-	InfoFrame &infoDesc = singleDevNorm->get();
+	const InfoFrame &infoDesc = singleDevNorm->get();
 
 	FrameBuffer *singleDev = infoDesc.buffer();
 	int mediaRequest = mediaRequestPool_.get();
@@ -668,19 +668,19 @@ int ImgSysDevice::configure(
 	const Size video1, const Size video2,
 	const Size still1, const Size still2)
 {
-	#if !V4L2_STANDARD_MODE
-		handleIova(Delete, ctrlMetaPool_);
-		descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 266960, 1 }, 32, DmaHeap::CMA);
-	#endif
+#if !V4L2_STANDARD_MODE
+	handleIova(Delete, ctrlMetaPool_);
+	descPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 266960, 1 }, 32, DmaHeap::CMA);
+#endif
 
 	ctrlMetaPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size{ 28672, 1 }, 32, DmaHeap::CMA);
 
-	#if !V4L2_STANDARD_MODE
-		handleKva(Add, descPool_);
-		handleIova(Add, ctrlMetaPool_);
+#if !V4L2_STANDARD_MODE
+	handleKva(Add, descPool_);
+	handleIova(Add, ctrlMetaPool_);
 
-		descPool_.mmap();
-	#endif
+	descPool_.mmap();
+#endif
 	ctrlMetaPool_.mmap();
 
 	releaseAllBuffers();
@@ -773,7 +773,7 @@ int ImgSysDevice::handleIova(FdCtrl fdHandle, InfoFramePool &pool)
 
 void ImgSysDevice::importBufferByList(std::vector<PortBuffers> &portBufs, uint32_t userId)
 {
-	for (PortBuffers &portBuf: portBufs) {
+	for (PortBuffers &portBuf : portBufs) {
 		// TODO: Remove the usage of getDevicePort.
 		IMG_PORT adjustedPort =
 			getDevicePort(static_cast<uint32_t>(portBuf.port));
@@ -787,8 +787,8 @@ void ImgSysDevice::importBufferByList(std::vector<PortBuffers> &portBufs, uint32
 		for (uint64_t i = 0; i < deviceFormat.planesCount; i++) {
 			deviceFormat.planes[i].size =
 				pixFmtInfo.planeSize(deviceFormat.size, i,
-						    portBuf.strideAlign,
-						    portBuf.scanAlign);
+						     portBuf.strideAlign,
+						     portBuf.scanAlign);
 			deviceFormat.planes[i].bpl =
 				pixFmtInfo.stride(deviceFormat.size.width, i,
 						  portBuf.strideAlign);
@@ -798,7 +798,7 @@ void ImgSysDevice::importBufferByList(std::vector<PortBuffers> &portBufs, uint32
 		// the fourcc. Remove the translation.
 		deviceFormat.fourcc = getImgSysV4L2PixelFormat(portBuf.pixelFmt);
 		int ret = allVideoDevices_[adjustedPort]->importBuffersWithFormat(
-				userId, portBuf.count, &deviceFormat);
+			userId, portBuf.count, &deviceFormat);
 		if (ret)
 			LOG(MtkISP7, Fatal) << "Failed to import buffer: " << ret;
 	}
@@ -870,144 +870,144 @@ int ImgSysDevice::importBuffers(
 	// TODO: Move the portBufs calculation into a specific plannar class
 	// and share it with mcnr/lpnr/mfnr manager for buffer allocation.
 	std::vector<PortBuffers> portBufsMcnr = {
-	{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mcnrSizes[0], 14, 1, 1 },
-	{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[1], 14, 1, 1 },
-	{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
-	{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
-	{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
-	{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
-	{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[6], 16, 1, 64 },
+		{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mcnrSizes[0], 14, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[1], 14, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mcnrSizes[6], 16, 1, 64 },
 
-	{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
-	{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
-	{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
-	{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
-	{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
-	{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[6], 16, 1, 64 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mcnrSizes[6], 16, 1, 64 },
 
-	{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
-	{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
-	{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
-	{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
-	{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
-	{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[6], 16, 1, 64 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mcnrSizes[6], 16, 1, 64 },
 
-	{ IMG_PORT_TNRSI, formats::Y32_MTISP, kTnrsoSize, 64, 1, 1 },
+		{ IMG_PORT_TNRSI, formats::Y32_MTISP, kTnrsoSize, 64, 1, 1 },
 
-	{ IMG_PORT_TNRWI, formats::GREY, wtSizes[3], 48, 192, 192 },
-	{ IMG_PORT_TNRWI, formats::GREY, wtSizes[4], 12, 192, 192 },
-	{ IMG_PORT_TNRWI, formats::GREY, wtSizes[5], 12, 192, 192 },
+		{ IMG_PORT_TNRWI, formats::GREY, wtSizes[3], 48, 192, 192 },
+		{ IMG_PORT_TNRWI, formats::GREY, wtSizes[4], 12, 192, 192 },
+		{ IMG_PORT_TNRWI, formats::GREY, wtSizes[5], 12, 192, 192 },
 
-	{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[1], 3, 16, 1 },
-	{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[2], 3, 16, 1 },
-	{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[3], 3, 16, 1 },
-	{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[4], 3, 16, 1 },
-	{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[5], 3, 16, 1 },
-	{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[6], 3, 16, 1 },
+		{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[1], 3, 16, 1 },
+		{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[2], 3, 16, 1 },
+		{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[3], 3, 16, 1 },
+		{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[4], 3, 16, 1 },
+		{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[5], 3, 16, 1 },
+		{ IMG_PORT_TNRMI, formats::GREY, mcnrSizes[6], 3, 16, 1 },
 
-	{ IMG_PORT_TNRLFDI, formats::NV21, mcnrSizes[6], 128, 1, 1 },
+		{ IMG_PORT_TNRLFDI, formats::NV21, mcnrSizes[6], 128, 1, 1 },
 
-	{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[2], 8, 16, 1 },
-	{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[3], 4, 16, 1 },
-	{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[4], 4, 16, 1 },
-	{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[5], 4, 16, 1 },
-	{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[6], 4, 16, 1 },
+		{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[2], 8, 16, 1 },
+		{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[3], 4, 16, 1 },
+		{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[4], 4, 16, 1 },
+		{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[5], 4, 16, 1 },
+		{ IMG_PORT_TNRVBI, formats::GREY, mcnrSizes[6], 4, 16, 1 },
 
-	{ IMG_PORT_TNRSO, formats::Y32_MTISP, kTnrsoSize, 64, 1, 1 },
+		{ IMG_PORT_TNRSO, formats::Y32_MTISP, kTnrsoSize, 64, 1, 1 },
 
-	{ IMG_PORT_TNRWO, formats::GREY, wtSizes[3], 48, 192, 192 },
-	{ IMG_PORT_TNRWO, formats::GREY, wtSizes[4], 12, 192, 192 },
-	{ IMG_PORT_TNRWO, formats::GREY, wtSizes[5], 12, 192, 192 },
+		{ IMG_PORT_TNRWO, formats::GREY, wtSizes[3], 48, 192, 192 },
+		{ IMG_PORT_TNRWO, formats::GREY, wtSizes[4], 12, 192, 192 },
+		{ IMG_PORT_TNRWO, formats::GREY, wtSizes[5], 12, 192, 192 },
 
-	{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[1], 3, 16, 1 },
-	{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[2], 3, 16, 1 },
-	{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[3], 3, 16, 1 },
-	{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[4], 3, 16, 1 },
-	{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[5], 3, 16, 1 },
+		{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[1], 3, 16, 1 },
+		{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[2], 3, 16, 1 },
+		{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[3], 3, 16, 1 },
+		{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[4], 3, 16, 1 },
+		{ IMG_PORT_TNRMO, formats::GREY, mcnrSizes[5], 3, 16, 1 },
 
-	{ IMG_PORT_IMG3O, formats::NV12_10P_MTISP, tncSize, 3, 1, 1 },
-	{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
-	{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
-	{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
-	{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
-	{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
-	{ IMG_PORT_IMG3O, formats::NV21, mcnrSizes[6], 21, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_10P_MTISP, tncSize, 3, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[2], 16, 1, 64 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[3], 16, 1, 64 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[4], 16, 1, 64 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mcnrSizes[5], 16, 1, 64 },
+		{ IMG_PORT_IMG3O, formats::NV21, mcnrSizes[6], 21, 1, 1 },
 
-	{ IMG_PORT_IMG4O, formats::NV12_10P_MTISP, mcnrSizes[0], 8, 1, 1 },
-	{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mcnrSizes[1], 8, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_10P_MTISP, mcnrSizes[0], 8, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mcnrSizes[1], 8, 1, 1 },
 
-	// TR_F1/LTR_F1
-	{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mcnrSizes[1], 14, 1, 1 },
-	{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mcnrSizes[2], 32, 1, 64 },
-	{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mcnrSizes[3], 32, 1, 64 },
-	{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mcnrSizes[4], 32, 1, 64 },
-	{ IMG_PORT_TYUV5O, formats::GREY, mcnrSizes[2], 4, 16, 1 },
+		// TR_F1/LTR_F1
+		{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mcnrSizes[1], 14, 1, 1 },
+		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mcnrSizes[2], 32, 1, 64 },
+		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mcnrSizes[3], 32, 1, 64 },
+		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mcnrSizes[4], 32, 1, 64 },
+		{ IMG_PORT_TYUV5O, formats::GREY, mcnrSizes[2], 4, 16, 1 },
 
-	// TR_F4/LTR_F4
-	{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mcnrSizes[4], 32, 1, 64 },
-	{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mcnrSizes[5], 32, 1, 64 },
-	{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mcnrSizes[6], 32, 1, 64 },
+		// TR_F4/LTR_F4
+		{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mcnrSizes[4], 32, 1, 64 },
+		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mcnrSizes[5], 32, 1, 64 },
+		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mcnrSizes[6], 32, 1, 64 },
 
-	// HW_MVMAP
-	{ IMG_PORT_TIMGI, formats::WARP2P_MTISP, kMeMapSize0, 24, 1168, 217 },
-	{ IMG_PORT_TYUV2O, formats::WARP2P_MTISP, kMeMapSize1, 40, 1168, 217 },
-	{ IMG_PORT_TYUV3O, formats::WARP2P_MTISP, kMeMapSize2, 24, 1168, 217 },
-	{ IMG_PORT_TYUV4O, formats::WARP2P_MTISP, kMeMapSize3, 24, 1168, 217 },
+		// HW_MVMAP
+		{ IMG_PORT_TIMGI, formats::WARP2P_MTISP, kMeMapSize0, 24, 1168, 217 },
+		{ IMG_PORT_TYUV2O, formats::WARP2P_MTISP, kMeMapSize1, 40, 1168, 217 },
+		{ IMG_PORT_TYUV3O, formats::WARP2P_MTISP, kMeMapSize2, 24, 1168, 217 },
+		{ IMG_PORT_TYUV4O, formats::WARP2P_MTISP, kMeMapSize3, 24, 1168, 217 },
 
-	// LTR_ME
-	{ IMG_PORT_TIMGI, formats::GREY, kMeL0Size, 14, 64, 1 },
-	{ IMG_PORT_TYUV2O, formats::GREY, kMeL1Size, 12, 576, 432 },
+		// LTR_ME
+		{ IMG_PORT_TIMGI, formats::GREY, kMeL0Size, 14, 64, 1 },
+		{ IMG_PORT_TYUV2O, formats::GREY, kMeL1Size, 12, 576, 432 },
 
-	{ IMG_PORT_TIMGI, formats::GREY, meConf0, 16, 144, 108 },
-	{ IMG_PORT_TYUV5O, formats::GREY, meConf4, 12, 144, 108 },
-	{ IMG_PORT_TYUV5O, formats::GREY, meConf5, 12, 144, 108 },
+		{ IMG_PORT_TIMGI, formats::GREY, meConf0, 16, 144, 108 },
+		{ IMG_PORT_TYUV5O, formats::GREY, meConf4, 12, 144, 108 },
+		{ IMG_PORT_TYUV5O, formats::GREY, meConf5, 12, 144, 108 },
 
-	// vbi[2]
-	{ IMG_PORT_TIMGI, formats::GREY, mcnrSizes[2], 4, 16, 1 },
-	{ IMG_PORT_TYUV2O, formats::GREY, mcnrSizes[3], 4, 16, 1 },
-	{ IMG_PORT_TYUV3O, formats::GREY, mcnrSizes[4], 4, 16, 1 },
-	{ IMG_PORT_TYUV4O, formats::GREY, mcnrSizes[5], 4, 16, 1 },
+		// vbi[2]
+		{ IMG_PORT_TIMGI, formats::GREY, mcnrSizes[2], 4, 16, 1 },
+		{ IMG_PORT_TYUV2O, formats::GREY, mcnrSizes[3], 4, 16, 1 },
+		{ IMG_PORT_TYUV3O, formats::GREY, mcnrSizes[4], 4, 16, 1 },
+		{ IMG_PORT_TYUV4O, formats::GREY, mcnrSizes[5], 4, 16, 1 },
 
-	// HW_LTR_F1
-	{ IMG_PORT_WPE_WPEI, formats::NV12_12P_MTISP, mcnrSizes[1], 8, 1, 1 },
+		// HW_LTR_F1
+		{ IMG_PORT_WPE_WPEI, formats::NV12_12P_MTISP, mcnrSizes[1], 8, 1, 1 },
 
-	{ IMG_PORT_WPE_WPEI, formats::GREY, wtSizes[3], 48, 192, 192 },
-	{ IMG_PORT_WPE_WPEI, formats::GREY, wtSizes[4], 12, 192, 192 },
-	{ IMG_PORT_WPE_WPEI, formats::GREY, wtSizes[5], 12, 192, 192 },
+		{ IMG_PORT_WPE_WPEI, formats::GREY, wtSizes[3], 48, 192, 192 },
+		{ IMG_PORT_WPE_WPEI, formats::GREY, wtSizes[4], 12, 192, 192 },
+		{ IMG_PORT_WPE_WPEI, formats::GREY, wtSizes[5], 12, 192, 192 },
 
-	{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize0, 40, 1168, 217 },
-	{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize1, 40, 1168, 217 },
-	{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize2, 24, 1168, 217 },
-	{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize3, 24, 1168, 217 },
+		{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize0, 40, 1168, 217 },
+		{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize1, 40, 1168, 217 },
+		{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize2, 24, 1168, 217 },
+		{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, kMeMapSize3, 24, 1168, 217 },
 
-	{ IMG_PORT_WPE_WPEO, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
-	{ IMG_PORT_WPE_WPEO, formats::GREY, wtSizes[3], 48, 192, 192 },
-	{ IMG_PORT_WPE_WPEO, formats::GREY, wtSizes[4], 12, 192, 192 },
-	{ IMG_PORT_WPE_WPEO, formats::GREY, wtSizes[5], 12, 192, 192 },
+		{ IMG_PORT_WPE_WPEO, formats::NV12_12P_MTISP, mcnrSizes[1], 16, 1, 64 },
+		{ IMG_PORT_WPE_WPEO, formats::GREY, wtSizes[3], 48, 192, 192 },
+		{ IMG_PORT_WPE_WPEO, formats::GREY, wtSizes[4], 12, 192, 192 },
+		{ IMG_PORT_WPE_WPEO, formats::GREY, wtSizes[5], 12, 192, 192 },
 
-	{ IMG_PORT_WPE_TNR_WPEI, formats::NV12_10P_MTISP, mcnrSizes[0], 8, 1, 1 },
-	{ IMG_PORT_WPE_TNR_VECI, formats::WARP2P_MTISP, kMeMapSize0, 24, 1168, 217 },
+		{ IMG_PORT_WPE_TNR_WPEI, formats::NV12_10P_MTISP, mcnrSizes[0], 8, 1, 1 },
+		{ IMG_PORT_WPE_TNR_VECI, formats::WARP2P_MTISP, kMeMapSize0, 24, 1168, 217 },
 
-	{ IMG_PORT_ME_L0_IMG0I, formats::GREY, kMeL0Size, 14, 64, 1 },
-	{ IMG_PORT_ME_L0_IMG1I, formats::GREY, kMeL0Size, 14, 64, 1 },
-	{ IMG_PORT_ME_L1_IMG0I, formats::GREY, kMeL1Size, 12, 576, 432 },
-	{ IMG_PORT_ME_L1_IMG1I, formats::GREY, kMeL1Size, 12, 576, 432 },
+		{ IMG_PORT_ME_L0_IMG0I, formats::GREY, kMeL0Size, 14, 64, 1 },
+		{ IMG_PORT_ME_L0_IMG1I, formats::GREY, kMeL0Size, 14, 64, 1 },
+		{ IMG_PORT_ME_L1_IMG0I, formats::GREY, kMeL1Size, 12, 576, 432 },
+		{ IMG_PORT_ME_L1_IMG1I, formats::GREY, kMeL1Size, 12, 576, 432 },
 
-	{ IMG_PORT_ME_MEMILI, formats::Y8_MTISP, kMeL1Size, 8, 1, 1 },
+		{ IMG_PORT_ME_MEMILI, formats::Y8_MTISP, kMeL1Size, 8, 1, 1 },
 
-	{ IMG_PORT_ME_L0_RMVI, formats::Y32_MTISP, kMeL1Size, 128, 1, 1 },
-	{ IMG_PORT_ME_L1_RMVI, formats::Y32_MTISP, kFmbSize, 24, 1, 1 },
-	{ IMG_PORT_ME_L0_WMVO, formats::Y32_MTISP, kMeL1Size, 24, 1, 1 },
-	{ IMG_PORT_ME_L1_WMVO, formats::Y32_MTISP, kFmbSize, 24, 1, 1 },
+		{ IMG_PORT_ME_L0_RMVI, formats::Y32_MTISP, kMeL1Size, 128, 1, 1 },
+		{ IMG_PORT_ME_L1_RMVI, formats::Y32_MTISP, kFmbSize, 24, 1, 1 },
+		{ IMG_PORT_ME_L0_WMVO, formats::Y32_MTISP, kMeL1Size, 24, 1, 1 },
+		{ IMG_PORT_ME_L1_WMVO, formats::Y32_MTISP, kFmbSize, 24, 1, 1 },
 
-	{ IMG_PORT_ME_CONFO, formats::GREY, meConf0, 8, 144, 108 },
-	{ IMG_PORT_ME_WMAPO, formats::WARP2P_MTISP, kMeMapSize0, 24, 1168, 217 },
-	{ IMG_PORT_ME_L0_FMBI, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
-	{ IMG_PORT_ME_L1_FMBI, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
-	{ IMG_PORT_ME_L0_FMBO, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
-	{ IMG_PORT_ME_L1_FMBO, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
-	{ IMG_PORT_ME_FSTO, formats::Y32_MTISP, kFstSize, 8, 1, 1 },
-	{ IMG_PORT_ME_LMIO, formats::Y16_MTISP, kMeL1Size, 8, 1, 1 },
+		{ IMG_PORT_ME_CONFO, formats::GREY, meConf0, 8, 144, 108 },
+		{ IMG_PORT_ME_WMAPO, formats::WARP2P_MTISP, kMeMapSize0, 24, 1168, 217 },
+		{ IMG_PORT_ME_L0_FMBI, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
+		{ IMG_PORT_ME_L1_FMBI, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
+		{ IMG_PORT_ME_L0_FMBO, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
+		{ IMG_PORT_ME_L1_FMBO, formats::Y32_MTISP, kFmbSize, 8, 1, 1 },
+		{ IMG_PORT_ME_FSTO, formats::Y32_MTISP, kFstSize, 8, 1, 1 },
+		{ IMG_PORT_ME_LMIO, formats::Y16_MTISP, kMeL1Size, 8, 1, 1 },
 	};
 
 	if (!video1.isNull())
@@ -1113,7 +1113,7 @@ void ImgSysRequestHelper::queueRequest(uint32_t userId, SingleDeviceRequest &sdR
 {
 #if V4L2_STANDARD_MODE
 	for (size_t stage = 0; stage < sdRequest.Stages().size(); ++stage) {
-		imgSysRequests_.push_back({ &sdRequest, stage, 0, userId});
+		imgSysRequests_.push_back({ &sdRequest, stage, 0, userId });
 		imgSys_->queueRequestV4L2(&imgSysRequests_.back());
 	}
 #else

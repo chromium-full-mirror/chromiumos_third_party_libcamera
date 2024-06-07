@@ -54,7 +54,7 @@ using namespace NSCam::NSImgStream;
 
 static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
-	InfoFrame &info = mailBox->get();
+	const InfoFrame &info = mailBox->get();
 
 	void *dest = info.address(0);
 	size_t length = info.buffer()->planes()[0].length;
@@ -409,7 +409,6 @@ void MfnrTasksManager::makeMFNRFrames(
 	bssFrames.in.bssFdInfo.resize(kInputRawCount);
 	bssFrames.in.bssFaceInfo.resize(kInputRawCount);
 	bssFrames.in.bssPosInfo.resize(kInputRawCount);
-	bssOrder->put(bssOrder_, NULL);
 	mfnr.bss_order = bssOrder;
 	bssFrames.out.bss_order.push_back(bssOrder);
 	for (auto i = 0; i < kInputRawCount; i++) {

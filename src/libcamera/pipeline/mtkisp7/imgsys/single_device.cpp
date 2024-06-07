@@ -105,7 +105,7 @@ NSCam::NSImgStream::BufferProperty toBufferPropery(const libcamera::InfoFrame &i
 		property.planes[i].stride = formatInfo.stride(info.size().width, i, info.strideAlign());
 
 		unsigned int planeSize = formatInfo.planeSize(
-				info.size(), i, info.strideAlign(), info.scanAlign());
+			info.size(), i, info.strideAlign(), info.scanAlign());
 
 		property.planes[i].scanline = planeSize / property.planes[i].stride;
 		property.planes[i].va = reinterpret_cast<MINTPTR>(info.address(i));
@@ -338,7 +338,7 @@ void SingleDeviceRequest::fillFrameParams(
 	frameParams.mvExtraParam = stage.extra_;
 }
 
-void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
+void SingleDeviceRequest::fillRequestBufferForStage(const InfoFrame &infoCtrl,
 						    int requestFd, size_t stage)
 {
 	std::vector<FrameParams> mvFrameParams;
@@ -414,8 +414,8 @@ void SingleDeviceRequest::fillRequestBufferForStage(InfoFrame &infoCtrl,
 	}
 }
 
-void SingleDeviceRequest::fillRequestBuffer(InfoFrame &infoCtrl,
-					    InfoFrame &infoDesc,
+void SingleDeviceRequest::fillRequestBuffer(const InfoFrame &infoCtrl,
+					    const InfoFrame &infoDesc,
 					    int requestFd)
 {
 	std::vector<FrameParams> mvFrameParams;

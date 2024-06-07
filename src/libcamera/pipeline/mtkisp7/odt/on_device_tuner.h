@@ -124,7 +124,7 @@ public:
 		uint32_t internalRequestId,
 		uint32_t frameNumber,
 		const std::vector<PEU_Stage> &stages,
-		InfoFrame &metaFrame,
+		const InfoFrame &metaFrame,
 		int mediaRequestFd);
 	void tuneImgsysDriver(int internalRequestId,
 			      int mediaRequestFd,
@@ -177,7 +177,7 @@ public:
 private:
 	struct NamedFrame {
 		Dump::Id id;
-		InfoFrame &frame;
+		const InfoFrame &frame;
 		Stage stage = Stage::Default;
 	};
 	struct NamedPointer {
