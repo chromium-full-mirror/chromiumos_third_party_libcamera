@@ -293,8 +293,8 @@ void EventDispatcherPoll::processNotifiers(const std::vector<struct pollfd> &pol
 				continue;
 
 			if (pfd.revents & POLLHUP) {
-				LOG(Event, Warning) << "Got signal POLLHUP."
-						    << " Disconnecting IPC";
+				LOG(Event, Debug) << "Got signal POLLHUP."
+						  << " Disconnecting IPC";
 
 				notifier->disconnected.emit();
 				unregisterEventNotifier(notifier);
