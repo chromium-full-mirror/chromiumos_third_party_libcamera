@@ -14,17 +14,21 @@
 namespace libcamera {
 
 template<class T>
-class MailBox {
+class MailBox
+{
 public:
 	using Recycler = std::function<void(T &)>;
 
-	MailBox() :valid_(false) {}
-	~MailBox() {
+	MailBox()
+		: valid_(false) {}
+	~MailBox()
+	{
 		if (valid_ && recycler_)
 			recycler_(item_);
 	}
 
-	void put(const T &item, Recycler recycler) {
+	void put(const T &item, Recycler recycler)
+	{
 		ASSERT(!valid_);
 
 		valid_ = true;
@@ -32,7 +36,8 @@ public:
 		item_ = item;
 	}
 
-	T &get() {
+	const T &get()
+	{
 		ASSERT(valid_);
 		return item_;
 	}
@@ -49,12 +54,14 @@ template<class T>
 using SharedMailBox = std::shared_ptr<MailBox<T>>;
 
 template<class T>
-SharedMailBox<T> makeMailBox() {
+SharedMailBox<T> makeMailBox()
+{
 	return std::make_shared<MailBox<T>>();
 }
 
 template<class T>
-std::vector<SharedMailBox<T>> makeMailBoxVector(unsigned int count) {
+std::vector<SharedMailBox<T>> makeMailBoxVector(unsigned int count)
+{
 	std::vector<SharedMailBox<T>> mailBoxes;
 	mailBoxes.resize(count);
 	for (unsigned int i = 0; i < count; i++)
@@ -64,4 +71,3 @@ std::vector<SharedMailBox<T>> makeMailBoxVector(unsigned int count) {
 }
 
 } /* namespace libcamera */
-
