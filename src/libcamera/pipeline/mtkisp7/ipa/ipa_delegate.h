@@ -12,12 +12,15 @@
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 
+#include "mtkisp7_ipa_interface.h"
+
 namespace libcamera {
 
 class AAATask;
 class MfnrTunSwmeTask;
 class MtkISP7CameraData;
 class ImgSysTask;
+class MfnrTunBssTask;
 
 class IPADelegate : public Object
 {
@@ -43,8 +46,7 @@ public:
 		      bool isVideo, const Size &sensorFullSize,
 		      const Size &swmeAlignedSize,
 		      Size *swmeWorkingBufSize, Size *wrappingMapSize,
-		      Size *confMapSize,
-		      std::vector<uint8_t> *bssParam);
+		      Size *confMapSize);
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers);
 	void unmapBuffers(const std::vector<unsigned int> &ids);
@@ -94,6 +96,8 @@ public:
 		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
 		const ControlList &controls);
 
+	void doBss(MfnrTunBssTask *mfnrTunbssTask,
+		   const ipa::mtkisp7::BssFramesData &bssFramesData);
 	void doSwme(
 		MfnrTunSwmeTask *swmeTask,
 		const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData);
@@ -114,6 +118,7 @@ private:
 
 	void ImgSysMetaTuningDone(uint64_t cookie);
 
+	void BssResultReady(uint64_t cookie, const std::vector<int32_t> &bssOrder);
 	void SwmeResultReady(uint64_t cookie);
 
 	std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy_;
@@ -124,6 +129,9 @@ private:
 
 	uint64_t imgSysCookieCounter_ = 1;
 	std::unordered_map<uint64_t, ImgSysTask *> imgSysTasks_;
+
+	uint64_t bssCookieCounter_ = 1;
+	std::unordered_map<uint64_t, MfnrTunBssTask *> bssTasks_;
 
 	uint64_t swmeCookieCounter_ = 1;
 	std::unordered_map<uint64_t, MfnrTunSwmeTask *> swmeTasks_;

@@ -155,8 +155,7 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 			  bool isVideo, const Size &sensorFullSize,
 			  const Size &swmeAlignedSize,
 			  Size *swmeWorkingBufSize, Size *wrappingMapSize,
-			  Size *confMapSize,
-			  std::vector<uint8_t> *bssParam)
+			  Size *confMapSize)
 {
 	ImagiqAdapter::sensorIdMap.emplace(
 		sensorId, NSCam::TuningUtils::eSensorId(sensorIdx_));
@@ -175,10 +174,8 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 	hal3A_->configure(camsysYuvSize, isVideo, force3AConsistency);
 	halIsp_->configure(maxVideoSize, maxStillSize, isVideo);
 
-	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss = halIsp_->getIspBssParam();
-	const auto bssSize = sizeof(mtk::isphal::v1::isp_bss_Param);
-	bssParam->resize(bssSize);
-	memcpy(bssParam->data(), bss.get(), bssSize);
+	bssWrapper_ = std::make_shared<BssWrapper>(sensorIdx_);
+	bssWrapper_->bssInit(camsysYuvSize);
 
 	int ret = aieParser_->initialize();
 	if (ret != 0) {
@@ -663,6 +660,134 @@ void IPAMtkISP7::doSwme(
 	}
 
 	SwmeResultReady.emit(cookie);
+}
+
+void IPAMtkISP7::doBss(const uint64_t cookie, const BssFramesData &bssFramesData)
+{
+	const int kInputRawCount = 4;
+
+	BssFramesBuffers bssFramesBuffers;
+
+	std::vector<DmaSyncer> syncers;
+	{
+		IPAMappedBuffer *bssParamBuffer = getMappedBufferIter(bssFramesData.bssParamInfoId);
+		if (!bssParamBuffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssParam buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssParamInfo = bssParamBuffer->mapped.get();
+
+		syncers.emplace_back(bssParamBuffer->buffer.planes()[0].fd.get());
+	}
+
+	{
+		IPAMappedBuffer *bssDataGBuffer = getMappedBufferIter(bssFramesData.bssDataGInfoId);
+		if (!bssDataGBuffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssDataG buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssDataGInfo = bssDataGBuffer->mapped.get();
+
+		syncers.emplace_back(bssDataGBuffer->buffer.planes()[0].fd.get());
+	}
+
+	{
+		IPAMappedBuffer *bssVerBuffer = getMappedBufferIter(bssFramesData.bssVerInfoId);
+		if (!bssVerBuffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssVer buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssVerInfo = bssVerBuffer->mapped.get();
+
+		syncers.emplace_back(bssVerBuffer->buffer.planes()[0].fd.get());
+	}
+
+	bssFramesBuffers.in.db_param = halIsp_->getIspBssParam();
+
+	{
+		IPAMappedBuffer *bssTuningBuffer = getMappedBufferIter(bssFramesData.bssTuningInfoId);
+		if (!bssTuningBuffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssTuning buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssTuningInfo = bssTuningBuffer->mapped.get();
+
+		syncers.emplace_back(bssTuningBuffer->buffer.planes()[0].fd.get());
+
+		memcpy(reinterpret_cast<void *>(bssFramesBuffers.in.bssTuningInfo->planes()[0].data()),
+		       bssFramesBuffers.in.db_param.get(), sizeof(mtk::isphal::v1::isp_bss_Param));
+	}
+
+	for (auto id : bssFramesData.bssFdMainInfoId) {
+		IPAMappedBuffer *buffer = getMappedBufferIter(id);
+		if (!buffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssFdMainInfo buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssFdMainInfo.push_back(buffer->mapped.get());
+	}
+
+	for (auto id : bssFramesData.imgiId) {
+		IPAMappedBuffer *buffer = getMappedBufferIter(id);
+		if (!buffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find imgi buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.imgi.push_back(buffer->mapped.get());
+		bssFramesBuffers.in.imgiBuffers.push_back(&buffer->buffer);
+	}
+
+	for (auto id : bssFramesData.bssFdInfoId) {
+		IPAMappedBuffer *buffer = getMappedBufferIter(id);
+		if (!buffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssFd buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssFdInfo.push_back(buffer->mapped.get());
+	}
+
+	for (auto id : bssFramesData.bssFaceInfoId) {
+		IPAMappedBuffer *buffer = getMappedBufferIter(id);
+		if (!buffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssFace buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssFaceInfo.push_back(buffer->mapped.get());
+	}
+
+	for (auto id : bssFramesData.bssPosInfoId) {
+		IPAMappedBuffer *buffer = getMappedBufferIter(id);
+		if (!buffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssPos buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.in.bssPosInfo.push_back(buffer->mapped.get());
+	}
+
+	{
+		IPAMappedBuffer *bssOutDataBuffer = getMappedBufferIter(bssFramesData.bssOutDataInfoId);
+		if (!bssOutDataBuffer) {
+			LOG(IPAMtkISP7, Error) << "Could not find bssOutData buffer!";
+			BssResultReady.emit(cookie, {});
+			return;
+		}
+		bssFramesBuffers.out.bssOutDataInfo = bssOutDataBuffer->mapped.get();
+
+		syncers.emplace_back(bssOutDataBuffer->buffer.planes()[0].fd.get());
+	}
+
+	auto bssOrder = bssWrapper_->doBss(kInputRawCount, bssFramesBuffers);
+
+	BssResultReady.emit(cookie, bssOrder);
 }
 
 void IPAMtkISP7::doAAAResultReady(uint32_t frame, SensorSetting sensorSetting,

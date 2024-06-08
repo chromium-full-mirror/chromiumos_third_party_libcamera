@@ -22,6 +22,7 @@
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 namespace libcamera {
@@ -31,6 +32,7 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 namespace {
 
 static constexpr Size kTunSize{ 219348, 1 };
+constexpr Size kBssGmDataMSize{ 5, 1 };
 
 } //namespace
 
@@ -65,6 +67,26 @@ void MfnrTunManager::allocateBuffers()
 	mfnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 45, DmaHeap::CMA);
 	mfnrTun_.mmap();
 
+	bssParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_PARAM_STRUCT), 1), 1);
+	bssDataGPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_INPUT_DATA_G), 1), 1);
+	bssVerPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kBssGmDataMSize, 1);
+	bssTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_bss_Param), 1), 1);
+	bssFdMainPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(FD_DATATYPE), 1), kInputRawCount);
+	bssFdPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFaceMetadata), 1), kInputRawCount);
+	bssFacePool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFace) * 15, 1), kInputRawCount);
+	bssPosPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFaceInfo) * 15, 1), kInputRawCount);
+	bssOutDataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_OUTPUT_DATA), 1), 1);
+
+	bssParamPool_.mmap();
+	bssDataGPool_.mmap();
+	bssVerPool_.mmap();
+	bssTuningPool_.mmap();
+	bssFdMainPool_.mmap();
+	bssFdPool_.mmap();
+	bssFacePool_.mmap();
+	bssPosPool_.mmap();
+	bssOutDataPool_.mmap();
+
 	swmeOutPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_PROC1_OUT_STRUCT), 1), kInputRawCount - 1);
 	swmeParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_SET_PROC_INFO_STRUCT), 1), kInputRawCount - 1);
 	swmeTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_swme_Param), 1), kInputRawCount - 1);
@@ -84,6 +106,16 @@ void MfnrTunManager::releaseBuffers()
 {
 	mfnrTun_.release();
 
+	bssParamPool_.release();
+	bssDataGPool_.release();
+	bssVerPool_.release();
+	bssTuningPool_.release();
+	bssFdMainPool_.release();
+	bssFdPool_.release();
+	bssFacePool_.release();
+	bssPosPool_.release();
+	bssOutDataPool_.release();
+
 	tnrciPool_.release();
 	wrap2pPool_.release();
 	fourBytes_1_16_pool_.release();
@@ -95,8 +127,7 @@ void MfnrTunManager::releaseBuffers()
 int MfnrTunManager::configure(const Size &bayerInputSize,
 			      const Size &yuvOutput1Size, const Size &yuvOutput2Size,
 			      const Size &mfnrSize_aligned16, const Size &wrappingMapSize,
-			      const Size &confMapSize,
-			      std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss)
+			      const Size &confMapSize)
 {
 	yuvOutput1Size_ = yuvOutput1Size;
 	yuvOutput2Size_ = yuvOutput2Size;
@@ -106,8 +137,6 @@ int MfnrTunManager::configure(const Size &bayerInputSize,
 
 	wrappingMapSize_ = wrappingMapSize;
 	confMapSize_ = confMapSize;
-
-	bss_ = bss;
 
 	mfnrSizes_.resize(7);
 	Size size = bayerInputSize_;
@@ -140,7 +169,7 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 				 uint32_t internalRequestId)
 {
 	MfnrTunBssTask *mfnrTunBssTask = new MfnrTunBssTask(
-		mfnr, scheduler, id, bss_);
+		mfnr, scheduler, id, this, internalRequestId);
 
 	MfnrTunBfbldTask *mfnrTunBfbldTask = new MfnrTunBfbldTask(
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
@@ -173,18 +202,108 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 
 MfnrTunBssTask::MfnrTunBssTask(MFNRFrames &mfnr,
 			       Scheduler *scheduler,
-			       const std::string &id,
-			       std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss)
-	: Task(scheduler, id), bss_(bss)
+			       const std::string &id, MfnrTunManager *manager,
+			       uint32_t internalRequestId)
+	: Task(scheduler, id), manager_(manager),
+	  internalRequestId_(internalRequestId)
 {
 	bssFrames_ = mfnr.bssFrames;
 }
 
+void MfnrTunBssTask::allocateBuffers()
+{
+	manager_->bssParamPool_.fetch(bssFrames_.in.bssParamInfo);
+	manager_->bssDataGPool_.fetch(bssFrames_.in.bssDataGInfo);
+	manager_->bssTuningPool_.fetch(bssFrames_.in.bssTuningInfo);
+	manager_->bssVerPool_.fetch(bssFrames_.in.bssVerInfo);
+	manager_->bssOutDataPool_.fetch(bssFrames_.out.bssOutDataInfo);
+
+	for (auto i = 0; i < kInputRawCount; i++) {
+		manager_->bssFdMainPool_.fetch(bssFrames_.in.bssFdMainInfo[i]);
+		manager_->bssFdPool_.fetch(bssFrames_.in.bssFdInfo[i]);
+		manager_->bssFacePool_.fetch(bssFrames_.in.bssFaceInfo[i]);
+		manager_->bssPosPool_.fetch(bssFrames_.in.bssPosInfo[i]);
+	}
+}
+
 void MfnrTunBssTask::run()
 {
-	auto &in = bssFrames_.in;
-	in.db_param->put(bss_, nullptr);
+	allocateBuffers();
 
+	auto &in = bssFrames_.in;
+	// TODO: check if needed:
+
+	auto &out = bssFrames_.out;
+	ipa::mtkisp7::BssFramesData bssFramesData;
+	bssFramesData.bssParamInfoId = in.bssParamInfo->get().buffer()->cookie();
+	bssFramesData.bssDataGInfoId = in.bssDataGInfo->get().buffer()->cookie();
+	bssFramesData.bssVerInfoId = in.bssVerInfo->get().buffer()->cookie();
+	bssFramesData.bssTuningInfoId = in.bssTuningInfo->get().buffer()->cookie();
+	for (const SharedMailBox<InfoFrame> &info : in.bssFdMainInfo)
+		bssFramesData.bssFdMainInfoId.push_back(info->get().buffer()->cookie());
+	for (const SharedMailBox<InfoFrame> &info : in.imgi)
+		bssFramesData.imgiId.push_back(info->get().buffer()->cookie());
+	for (const SharedMailBox<InfoFrame> &info : in.bssFdInfo)
+		bssFramesData.bssFdInfoId.push_back(info->get().buffer()->cookie());
+	for (const SharedMailBox<InfoFrame> &info : in.bssFaceInfo)
+		bssFramesData.bssFaceInfoId.push_back(info->get().buffer()->cookie());
+	for (const SharedMailBox<InfoFrame> &info : in.bssPosInfo)
+		bssFramesData.bssPosInfoId.push_back(info->get().buffer()->cookie());
+	bssFramesData.bssOutDataInfoId = out.bssOutDataInfo->get().buffer()->cookie();
+
+	manager_->ipa_->doBss(this, bssFramesData);
+}
+
+void MfnrTunBssTask::notifyBssResult(
+	const std::vector<int32_t> &bssOrder)
+{
+	auto &in = bssFrames_.in;
+	auto &out = bssFrames_.out;
+
+	out.bss_order->put(bssOrder, NULL);
+	if (!manager_->onDeviceTuner_->isEnabled()) {
+		notifyDone();
+		return;
+	}
+
+	// TODO: remove sync when odt is disabled.
+	MappedFrameBuffer mappedBssParamBuffers =
+		MappedFrameBuffer(in.bssParamInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+	DmaSyncer syncer_bssParam(in.bssParamInfo->get().buffer()->planes()[0].fd.get());
+
+	MappedFrameBuffer mappedBssDataGBuffers =
+		MappedFrameBuffer(in.bssDataGInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+	DmaSyncer syncer_dataG(in.bssDataGInfo->get().buffer()->planes()[0].fd.get());
+
+	std::vector<MappedFrameBuffer> mappedBssFdMain;
+	std::vector<MappedFrameBuffer> mappedBssFd;
+	std::vector<MappedFrameBuffer> mappedFace;
+	std::vector<MappedFrameBuffer> mappedPos;
+
+	MappedFrameBuffer mappedBssTuningBuffers =
+		MappedFrameBuffer(in.bssTuningInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+	DmaSyncer syncer_bssTuningInfo(in.bssTuningInfo->get().buffer()->planes()[0].fd.get());
+
+	MappedFrameBuffer mappedBssVerInfoBuffers =
+		MappedFrameBuffer(in.bssVerInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+	DmaSyncer syncer_bssVerInfo(in.bssVerInfo->get().buffer()->planes()[0].fd.get());
+
+	MappedFrameBuffer mappedBssOutBuffers =
+		MappedFrameBuffer(out.bssOutDataInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+	DmaSyncer syncer_bssOut(out.bssOutDataInfo->get().buffer()->planes()[0].fd.get());
+
+	for (int i = 0; i < kInputRawCount; i++) {
+		mappedBssFdMain.push_back(MappedFrameBuffer(in.bssFdMainInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
+		DmaSyncer syncer_bssFdMainInfo(in.bssFdMainInfo[i]->get().buffer()->planes()[0].fd.get());
+		mappedBssFd.push_back(MappedFrameBuffer(in.bssFdInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
+		DmaSyncer syncer_bssFdInfo(in.bssFdInfo[i]->get().buffer()->planes()[0].fd.get());
+		mappedFace.push_back(MappedFrameBuffer(in.bssFaceInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
+		DmaSyncer syncer_bssFaceInfo(in.bssFaceInfo[i]->get().buffer()->planes()[0].fd.get());
+		mappedPos.push_back(MappedFrameBuffer(in.bssPosInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
+		DmaSyncer syncer_bssPosInfo(in.bssPosInfo[i]->get().buffer()->planes()[0].fd.get());
+	}
+
+	manager_->onDeviceTuner_->tuneBss(internalRequestId_, bssFrames_, kInputRawCount);
 	notifyDone();
 }
 

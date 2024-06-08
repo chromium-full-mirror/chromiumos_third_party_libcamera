@@ -5,7 +5,6 @@
  */
 #include "bss.h"
 
-#include <fstream>
 #include <map>
 #include <string>
 
@@ -17,6 +16,8 @@
 #include "pipeline/mtkisp7/imgsys/const.h"
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/debug_exif/cam/dbg_cam_param.h"
+#include "platform/mtkisp7/mtkcam-core/libcamera/mt8188/include/libmfnr/MTKBss.h"
+#include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libBssWrapper/MTKBssHeader/EMTKBss.h"
 #include "sensor/sensor_info.h"
 
 #define MFLL_MF_TAG_VERSION 18
@@ -48,8 +49,10 @@ BssWrapper::~BssWrapper()
 		pMTKBSS = nullptr;
 	}
 }
-MRESULT BssWrapper::bssInit()
+MRESULT BssWrapper::bssInit(Size camsysYuvSize)
 {
+	camsysYuvSize_ = camsysYuvSize;
+
 	MRESULT ErrCode = S_BSS_OK;
 	//LOG(MtkISP7, Info) << "bssInit";
 	MTKBss *pMTKBSS = (MTKBss *)m_pBssDrv;
@@ -595,12 +598,12 @@ loadBinaryFromOdt(reinterpret_cast<void*>(mDbParam.get()),
 	LOG(MtkISP7, Info) << "======= updateBssProcInfo end ======";
 }
 MBOOL BssWrapper::appendBSSInput(
-	std::vector<MappedFrameBuffer> &p1YuvMappedFrameBuffer,
+	std::vector<MappedFrameBuffer *> &p1YuvMappedFrameBuffer,
 	IBSS_INPUT_DATA_G_IPC &bss_input)
 {
 	for (auto idx = 0; idx < (int)p1YuvMappedFrameBuffer.size(); idx++) {
 		bss_input.apbyBssInImg[idx] = reinterpret_cast<MUINT8 *>(
-			p1YuvMappedFrameBuffer[idx].planes()[0].data());
+			p1YuvMappedFrameBuffer[idx]->planes()[0].data());
 	}
 	return true;
 }
@@ -796,15 +799,10 @@ MVOID BssWrapper::collectPostBSSExifData(std::vector<MINT32> &vNewIndex,
 	}
 }
 
-void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
+std::vector<int> BssWrapper::doBss(int frameNum, BssFramesBuffers &bssFramesBuffers)
 {
-	std::vector<SharedMailBox<InfoFrame>> p1Yuv;
-	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam = bssFrame.in.db_param->get();
+	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> dbParam = bssFramesBuffers.in.db_param;
 	std::vector<int> BSSOrder;
-
-	for (auto i = 0; i < (int)bssFrame.in.imgi.size(); i++) {
-		p1Yuv.push_back(bssFrame.in.imgi[i]);
-	}
 
 	std::vector<int> doBssIndex;
 	for (auto i = 0; i < frameNum; i++) {
@@ -813,12 +811,12 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 	IBSS_WB_STRUCT workingBufferInfo;
 	std::unique_ptr<MUINT8[]> bss_working_buffer;
 
-	InfoFrame mainFrame = p1Yuv[0]->get();
+	FrameBuffer *mainFrame = bssFramesBuffers.in.imgiBuffers[0];
 
-	mZipData.imgWidth = mainFrame.size().width;
-	mZipData.imgHeight = mainFrame.size().height;
+	mZipData.imgWidth = camsysYuvSize_.width;
+	mZipData.imgHeight = camsysYuvSize_.height;
 	mZipData.imgFormat = NSCam::eImgFmt_MTK_YUV_P010;
-	mZipData.imgStride[0] = mainFrame.buffer()->planes()[0].stride;
+	mZipData.imgStride[0] = mainFrame->planes()[0].stride;
 	LOG(MtkISP7, Info) << "mZipData size: " << mZipData.imgWidth << "x"
 			   << mZipData.imgHeight << ", total size: ["
 			   << mZipData.imgSize[0] << ", " << mZipData.imgSize[1]
@@ -840,12 +838,12 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 				reinterpret_cast<void *>(&workingBufferInfo), NULL);
 	if (b != S_BSS_OK) {
 		LOG(MtkISP7, Error) << "get working buffer size from MTKBss failed: " << b;
-		return;
+		return BSSOrder;
 	}
 	if (workingBufferInfo.u4WKSize <= 0) {
 		LOG(MtkISP7, Error) << "unexpected bss working buffer size: "
 				    << workingBufferInfo.u4WKSize;
-		return;
+		return BSSOrder;
 	}
 	bss_working_buffer =
 		std::unique_ptr<MUINT8[]>(new MUINT8[workingBufferInfo.u4WKSize]{ 0 });
@@ -867,7 +865,7 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 	}
 
 	IBSS_PARAM_STRUCT bssParam;
-	IBSS_PARAM_STRUCT *bss_param = reinterpret_cast<IBSS_PARAM_STRUCT *>(bssFrame.in.bssParamInfo->get().address(0));
+	IBSS_PARAM_STRUCT *bss_param = reinterpret_cast<IBSS_PARAM_STRUCT *>(bssFramesBuffers.in.bssParamInfo->planes()[0].data());
 	memcpy(bss_param, &bssParam, sizeof(IBSS_PARAM_STRUCT));
 	updateBssProcInfo(
 		bss_param, frameNum,
@@ -889,13 +887,12 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 
 	updateBssIOInfo(bssInData);
 
-	std::vector<MappedFrameBuffer> p1YuvMappedFrameBuffers;
-	for (auto idx = 0; idx < (int)p1Yuv.size(); idx++) {
-		p1YuvMappedFrameBuffers.push_back(MappedFrameBuffer(
-			p1Yuv[idx]->get().buffer(), MappedFrameBuffer::MapFlag::Read));
-		DmaSyncer syncer(p1Yuv[idx]->get().buffer()->planes()[0].fd.get());
+	for (auto i = 0; i < (int)bssFramesBuffers.in.imgiBuffers.size(); i++) {
+		// TODO: check with Han-lin: why is this needed?
+		DmaSyncer syncer(bssFramesBuffers.in.imgiBuffers[i]->planes()[0].fd.get());
 	}
-	appendBSSInput(p1YuvMappedFrameBuffers, bssInData);
+
+	appendBSSInput(bssFramesBuffers.in.imgi, bssInData);
 
 	if (NSCam::isHalRawFormat((NSCam::EImageFormat)mZipData.imgFormat)) {
 		bssInData.eType = IBSS_TYPE_PACK_RAW10;
@@ -937,12 +934,10 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 		LOG(MtkISP7, Info) << "bssOrder " << i << " -> " << order;
 	}
 
-	bssFrame.out.bss_order->put(BSSOrder, NULL);
-
-	IBSS_INPUT_DATA_G *bss_dataG = reinterpret_cast<IBSS_INPUT_DATA_G *>(bssFrame.in.bssDataGInfo->get().address(0));
+	IBSS_INPUT_DATA_G *bss_dataG = reinterpret_cast<IBSS_INPUT_DATA_G *>(bssFramesBuffers.in.bssDataGInfo->planes()[0].data());
 	memcpy(bss_dataG, &bssInData, sizeof(IBSS_INPUT_DATA_G));
 
-	IBSS_OUTPUT_DATA *bss_outData = reinterpret_cast<IBSS_OUTPUT_DATA *>(bssFrame.out.bssOutDataInfo->get().address(0));
+	IBSS_OUTPUT_DATA *bss_outData = reinterpret_cast<IBSS_OUTPUT_DATA *>(bssFramesBuffers.out.bssOutDataInfo->planes()[0].data());
 	memcpy(bss_outData, &bssOutData, sizeof(IBSS_OUTPUT_DATA));
 
 	collectPostBSSExifData(vNewOrdering, bssOutData);
@@ -963,13 +958,13 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 	offset += strlen(verInfo.rSubVer);
 	ver[offset] = '\0';
 
-	IPASS_BSS_VerInfo *bss_VerInfo = reinterpret_cast<IPASS_BSS_VerInfo *>(bssFrame.in.bssVerInfo->get().address(0));
+	IPASS_BSS_VerInfo *bss_VerInfo = reinterpret_cast<IPASS_BSS_VerInfo *>(bssFramesBuffers.in.bssVerInfo->planes()[0].data());
 	memcpy(bss_VerInfo, (void *)(&ver), strlen(ver));
 
 	for (int i = 0; i < kInputRawCount; i++) {
-		IBssFaceMetadata *bss_fd = reinterpret_cast<IBssFaceMetadata *>(bssFrame.in.bssFdInfo[i]->get().address(0));
-		IBssFace *bss_face = reinterpret_cast<IBssFace *>(bssFrame.in.bssFaceInfo[i]->get().address(0));
-		IBssFaceInfo *bss_pos = reinterpret_cast<IBssFaceInfo *>(bssFrame.in.bssPosInfo[i]->get().address(0));
+		IBssFaceMetadata *bss_fd = reinterpret_cast<IBssFaceMetadata *>(bssFramesBuffers.in.bssFdInfo[i]->planes()[0].data());
+		IBssFace *bss_face = reinterpret_cast<IBssFace *>(bssFramesBuffers.in.bssFaceInfo[i]->planes()[0].data());
+		IBssFaceInfo *bss_pos = reinterpret_cast<IBssFaceInfo *>(bssFramesBuffers.in.bssPosInfo[i]->planes()[0].data());
 		if (bssInData.Face[i] != nullptr) {
 			memcpy(bss_fd, reinterpret_cast<void *>(bssInData.Face[i]), sizeof(IBssFaceMetadata));
 			if (bssInData.Face[i]->faces != nullptr) {
@@ -996,6 +991,8 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 			memcpy(bss_pos, reinterpret_cast<void *>(dummy_posInfo), sizeof(IBssFaceMetadata));
 		}
 	}
+
+	return BSSOrder;
 }
 
 } // namespace libcamera

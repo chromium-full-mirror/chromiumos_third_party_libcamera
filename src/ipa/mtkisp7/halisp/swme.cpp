@@ -8,7 +8,7 @@
 
 #include <libcamera/base/log.h>
 
-#include "pipeline/mtkisp7/imgsys/bss.h"
+#include "bss.h"
 
 namespace libcamera {
 LOG_DECLARE_CATEGORY(MtkISP7)

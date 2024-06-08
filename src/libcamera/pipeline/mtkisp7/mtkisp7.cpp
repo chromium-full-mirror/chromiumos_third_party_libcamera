@@ -93,7 +93,6 @@ enum MtkISP7TaskGroup {
 	AieFaceDetectionGroup,
 	AieFaceToneClassificationGroup,
 	AieParseGroup,
-	BssTaskGroup,
 	BfbldTaskGroup,
 	McdsF1Group,
 	BfmeGroup,
@@ -132,7 +131,6 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ LpnrTunDipTaskGroup, "LpnrTunDipTaskGroup" },
 	{ AieFaceDetectionGroup, "AieFaceDetectionGroup" },
 	{ AieFaceToneClassificationGroup, "AieFaceToneClassificationGroup" },
-	{ BssTaskGroup, "BssTaskGroup" },
 	{ BfbldTaskGroup, "BfbldTaskGroup" },
 	{ McdsF1Group, "McdsF1Group" },
 	{ BfmeGroup, "BfmeGroup" },
@@ -1139,6 +1137,7 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&captureManager.faceDetectPool_);
 	registerIPABuffers(&faceDetector_->resultMetadataPool_);
 
+	registerIPABuffers(&captureManager.yuvo1Pool_);
 	registerIPABuffers(&captureManager.statistics0Pool_);
 	registerIPABuffers(&captureManager.statistics1Pool_);
 	registerIPABuffers(&hal3AManager_.tuningPool_);
@@ -1192,15 +1191,18 @@ void MtkISP7CameraData::allocateIPABuffers()
 
 	registerIPABuffers(&mfnrTunManager.mfnrTun_);
 
-	registerIPABuffers(&mfnrManager.bssParamPool_);
-	registerIPABuffers(&mfnrManager.bssDataGPool_);
-	registerIPABuffers(&mfnrManager.bssVerPool_);
-	registerIPABuffers(&mfnrManager.bssTuningPool_);
-	registerIPABuffers(&mfnrManager.bssFdMainPool_);
-	registerIPABuffers(&mfnrManager.bssFdPool_);
-	registerIPABuffers(&mfnrManager.bssFacePool_);
-	registerIPABuffers(&mfnrManager.bssPosPool_);
-	registerIPABuffers(&mfnrManager.bssOutDataPool_);
+	for (unsigned i = 0; i < mfnrManager.mfnr_.size(); ++i)
+		registerIPABuffers(&mcnrManager.wt_[i]);
+
+	registerIPABuffers(&mfnrTunManager.bssParamPool_);
+	registerIPABuffers(&mfnrTunManager.bssDataGPool_);
+	registerIPABuffers(&mfnrTunManager.bssVerPool_);
+	registerIPABuffers(&mfnrTunManager.bssTuningPool_);
+	registerIPABuffers(&mfnrTunManager.bssFdMainPool_);
+	registerIPABuffers(&mfnrTunManager.bssFdPool_);
+	registerIPABuffers(&mfnrTunManager.bssFacePool_);
+	registerIPABuffers(&mfnrTunManager.bssPosPool_);
+	registerIPABuffers(&mfnrTunManager.bssOutDataPool_);
 
 	registerIPABuffers(&mfnrTunManager.tnrciPool_);
 	registerIPABuffers(&mfnrTunManager.wrap2pPool_);
@@ -1426,7 +1428,6 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 
 	Size swmeWorkingBufSize, wrappingMapSize, confMapSize;
-	std::vector<uint8_t> bssParam;
 	ipa_->configure(camsysYuvSize, faceDetector_,
 			video1 > video2 ? video1 : video2,
 			still1 > still2 ? still1 : still2, camSysDev_->cameraId(),
@@ -1434,12 +1435,8 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 			onDeviceTuner_->getSessionTimestamp(),
 			isVideo, sensorFullSize_,
 			MfnrTasksManager::getSizeAligned(sensorFullSize_),
-			&swmeWorkingBufSize, &wrappingMapSize, &confMapSize,
-			&bssParam);
+			&swmeWorkingBufSize, &wrappingMapSize, &confMapSize);
 
-	auto bss = std::make_shared<mtk::isphal::v1::isp_bss_Param>();
-	memcpy(bss.get(), bssParam.data(),
-	       sizeof(mtk::isphal::v1::isp_bss_Param));
 	if (useMfnr) {
 		mfnrManager.configure(sensorFullSize_,
 				      still1, still2,
@@ -1449,7 +1446,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 		mfnrTunManager.configure(sensorFullSize_, still1, still2,
 					 MfnrTasksManager::getSizeAligned(sensorFullSize_),
 					 wrappingMapSize,
-					 confMapSize, bss);
+					 confMapSize);
 	}
 
 	imgSysDev_->configure(sensorFullSize_, camsysYuvSize,
@@ -1672,7 +1669,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			      mfnrTunMsbldTask, mfnrTunAfbldTask] =
 				mfnrTunManager.makeMfnrTunTasks(mfnr, camSysMetaRequestId, scheduler, "MfnrTun " + sequence, request, internalRequestId);
 
-			auto [mfnrBssTask, mfnrBfbldTask, mfnrBfmeTask,
+			auto [mfnrBfbldTask, mfnrBfmeTask,
 			      mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask,
 			      mfnrAfbldTask] =
 				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request, internalRequestId, imgSysDev_);
@@ -1682,22 +1679,19 @@ int MtkISP7CameraData::queueRequest(Request *request)
 				Scheduler::precede(taskDip2, mfnrBfbldTask);
 			}
 
-			Scheduler::precede(taskDQBuf, mfnrBssTask);
-			Scheduler::precede(mfnrTunBssTask, mfnrBssTask);
+			Scheduler::precede(taskDQBuf, mfnrTunBssTask);
 			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
 			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);
-			scheduler->succeedPrevTaskByStep(BssTaskGroup, 0, mfnrBssTask);
-			scheduler->queueTask(mfnrBssTask, BssTaskGroup);
-			Scheduler::precede(mfnrBssTask, mfnrTunBfbldTask);
+			Scheduler::precede(mfnrTunBssTask, mfnrTunBfbldTask);
 			Scheduler::precede(mfnrTunBfbldTask, mfnrBfbldTask);
 			scheduler->succeedPrevTaskByStep(BfbldTunTaskGroup, 0, mfnrTunBfbldTask);
 			scheduler->queueTask(mfnrTunBfbldTask, BfbldTunTaskGroup);
 
-			Scheduler::precede(mfnrBssTask, mfnrBfbldTask);
+			Scheduler::precede(mfnrTunBssTask, mfnrBfbldTask);
 			scheduler->succeedPrevTaskByStep(BfbldTaskGroup, 0, mfnrBfbldTask);
 			scheduler->queueTask(mfnrBfbldTask, BfbldTaskGroup);
 
-			Scheduler::precede(mfnrBssTask, mfnrTunBfmeTask);
+			Scheduler::precede(mfnrTunBssTask, mfnrTunBfmeTask);
 			Scheduler::precede(mfnrBfbldTask, mfnrTunBfmeTask);
 			Scheduler::precede(mfnrTunBfmeTask, mfnrBfmeTask);
 			scheduler->succeedPrevTaskByStep(BfmeTunGroup, 0, mfnrTunBfmeTask);
@@ -1720,7 +1714,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(McdsF1Group, 0, mfnrMcdsF1Task);
 			scheduler->queueTask(mfnrMcdsF1Task, McdsF1Group);
 
-			Scheduler::precede(mfnrBssTask, mfnrTunDsTask);
+			Scheduler::precede(mfnrTunBssTask, mfnrTunDsTask);
 			Scheduler::precede(mfnrTunMcdsF1Task, mfnrTunDsTask);
 			Scheduler::precede(mfnrTunDsTask, mfnrDsTask);
 			scheduler->succeedPrevTaskByStep(DsTunGroup, 0, mfnrTunDsTask);
@@ -1739,7 +1733,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(DsVbiGroup, 0, mfnrDsVbiTask);
 			scheduler->queueTask(mfnrDsVbiTask, DsVbiGroup);
 
-			Scheduler::precede(mfnrBssTask, mfnrTunMsbldTask);
+			Scheduler::precede(mfnrTunBssTask, mfnrTunMsbldTask);
 			Scheduler::precede(mfnrTunDsVbiTask, mfnrTunMsbldTask);
 			Scheduler::precede(mfnrTunMsbldTask, mfnrMsbldTask);
 			scheduler->succeedPrevTaskByStep(MsbldTunGroup, 0, mfnrTunMsbldTask);

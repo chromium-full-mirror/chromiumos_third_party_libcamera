@@ -12,7 +12,6 @@
 #include "../face_detect/detector.h"
 #include "../hal3a/aaa.h"
 #include "../halisp/mfnr_tun.h"
-#include "libcamera/base/bound_method.h"
 #include "pipeline/mtkisp7/halisp/imgsys_task.h"
 
 #include "mtkisp7_ipa_interface.h"
@@ -39,6 +38,7 @@ int IPADelegate::init(std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy,
 
 	ipaProxy_->ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
 
+	ipaProxy_->BssResultReady.connect(this, &IPADelegate::BssResultReady);
 	ipaProxy_->SwmeResultReady.connect(this, &IPADelegate::SwmeResultReady);
 
 	int ret = ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::init,
@@ -76,8 +76,7 @@ int IPADelegate::configure(
 	bool isVideo, const Size &sensorFullSize,
 	const Size &swmeAlignedSize,
 	Size *swmeWorkingBufSize, Size *wrappingMapSize,
-	Size *confMapSize,
-	std::vector<uint8_t> *bssParam)
+	Size *confMapSize)
 {
 	faceDetector_ = faceDetector;
 
@@ -87,7 +86,7 @@ int IPADelegate::configure(
 				       sensorId, camsysIndex, sessionTimestamp,
 				       isVideo, sensorFullSize, swmeAlignedSize,
 				       swmeWorkingBufSize, wrappingMapSize,
-				       confMapSize, bssParam);
+				       confMapSize);
 }
 
 void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
@@ -204,6 +203,17 @@ void IPADelegate::getImgSysMetaTuning(
 				imgMetaRequests, controls);
 }
 
+void IPADelegate::doBss(MfnrTunBssTask *mfnrTunBssTask,
+			const ipa::mtkisp7::BssFramesData &bssFramesData)
+{
+	uint64_t cookie = bssCookieCounter_++;
+	bssTasks_.emplace(cookie, mfnrTunBssTask);
+
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::doBss,
+				ConnectionTypeBlocking,
+				cookie, bssFramesData);
+}
+
 void IPADelegate::doSwme(
 	MfnrTunSwmeTask *swmeTask,
 	const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData)
@@ -251,6 +261,20 @@ void IPADelegate::ImgSysMetaTuningDone(uint64_t cookie)
 	it->second->notifyDone();
 
 	imgSysTasks_.erase(it);
+}
+
+void IPADelegate::BssResultReady(uint64_t cookie, const std::vector<int32_t> &bssOrder)
+{
+	auto it = bssTasks_.find(cookie);
+	if (it == bssTasks_.end()) {
+		LOG(IPADelegateMtkISP7, Fatal)
+			<< "BssResult: couldn't find task with cookie"
+			<< cookie;
+		return;
+	}
+	it->second->notifyBssResult(bssOrder);
+
+	bssTasks_.erase(it);
 }
 
 void IPADelegate::SwmeResultReady(uint64_t cookie)

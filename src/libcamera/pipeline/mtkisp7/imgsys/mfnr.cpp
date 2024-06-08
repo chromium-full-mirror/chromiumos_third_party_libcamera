@@ -29,7 +29,6 @@
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/task_scheduler.h"
 
-#include "pipeline/mtkisp7/imgsys/bss.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "ImgPortDef.h"
@@ -46,7 +45,6 @@ constexpr const char *kMfnrPrecheck = "/run/camera/mfnr_precheck";
 
 constexpr Size kP2sttoSize{ 738624, 1 };
 constexpr Size kTnrsoSize{ 40, 1 };
-constexpr Size kBssGmDataMSize{ 5, 1 };
 constexpr Size kWrotoSize{ 192, 144 };
 using namespace NSCam::NSImgStream;
 
@@ -73,17 +71,6 @@ MfnrTasksManager::MfnrTasksManager(
 	dmaHeap_ = dmaHeap;
 	onDeviceTuner_ = odt;
 
-	allBufferPools_.emplace_back(&bssParamPool_);
-	allBufferPools_.emplace_back(&bssDataGPool_);
-	allBufferPools_.emplace_back(&bssVerPool_);
-	allBufferPools_.emplace_back(&bssFdMainPool_);
-	allBufferPools_.emplace_back(&bssTuningPool_);
-	allBufferPools_.emplace_back(&bssOutDataPool_);
-	allBufferPools_.emplace_back(&bssFdMainPool_);
-	allBufferPools_.emplace_back(&bssFdPool_);
-	allBufferPools_.emplace_back(&bssFacePool_);
-	allBufferPools_.emplace_back(&bssPosPool_);
-
 	allBufferPools_.emplace_back(&tunbufiPool_);
 	allBufferPools_.emplace_back(&p2sttoPool_);
 	allBufferPools_.emplace_back(&yuvp010_1_1_pool_);
@@ -108,17 +95,6 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&nv12_1_64_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
 	allBufferPools_.emplace_back(&memc_workbuf_pool_);
-
-	poolsWritenByCpu_.emplace_back(&bssParamPool_);
-	poolsWritenByCpu_.emplace_back(&bssDataGPool_);
-	poolsWritenByCpu_.emplace_back(&bssVerPool_);
-	poolsWritenByCpu_.emplace_back(&bssFdMainPool_);
-	poolsWritenByCpu_.emplace_back(&bssTuningPool_);
-	poolsWritenByCpu_.emplace_back(&bssOutDataPool_);
-	poolsWritenByCpu_.emplace_back(&bssFdMainPool_);
-	poolsWritenByCpu_.emplace_back(&bssFdPool_);
-	poolsWritenByCpu_.emplace_back(&bssFacePool_);
-	poolsWritenByCpu_.emplace_back(&bssPosPool_);
 
 	poolsWritenByCpu_.emplace_back(&tunbufiPool_);
 	poolsWritenByCpu_.emplace_back(&p2sttoPool_);
@@ -189,8 +165,6 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 
 	swmeWorkingBufSize_ = swmeWorkingBufSize;
 	confMapSize_ = confMapSize;
-	bssWrapper_ = std::make_shared<BssWrapper>(sensor_idx_);
-	bssWrapper_->bssInit();
 
 	configureBuffers();
 	for (auto &pool : poolsWritenByCpu_)
@@ -200,16 +174,6 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 
 int MfnrTasksManager::configureBuffers()
 {
-	bssParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_PARAM_STRUCT), 1), 1);
-	bssDataGPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_INPUT_DATA_G), 1), 1);
-	bssVerPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kBssGmDataMSize, 1);
-	bssTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_bss_Param), 1), 1);
-	bssFdMainPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(FD_DATATYPE), 1), kInputRawCount);
-	bssFdPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFaceMetadata), 1), kInputRawCount);
-	bssFacePool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFace) * 15, 1), kInputRawCount);
-	bssPosPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFaceInfo) * 15, 1), kInputRawCount);
-
-	bssOutDataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_OUTPUT_DATA), 1), 1);
 	p2sttoPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kP2sttoSize, 4, DmaHeap::CMA);
 
 	yuvp010_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], 9);
@@ -317,8 +281,6 @@ void MfnrTasksManager::makeMFNRFrames(
 	std::vector<SharedMailBox<InfoFrame>> swmeMcmvBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> swmeParamInBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> swmeParamOutBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
-	std::vector<SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>>> swmeDbParam =
-		makeMailBoxVector<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>>(kInputRawCount - 1);
 
 	std::vector<SharedMailBox<InfoFrame>> mcdsF1Tun = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 
@@ -369,20 +331,13 @@ void MfnrTasksManager::makeMFNRFrames(
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrso = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrci = makeMailBoxVector<InfoFrame>(1);
 
-	/* Frames used by Bsstask */
+	/* Frames used by MfnrTunBsstask */
 	BssFrames &bssFrames = mfnr.bssFrames;
 	bssFrames.in.bssParamInfo = makeMailBox<InfoFrame>();
 	bssFrames.in.bssDataGInfo = makeMailBox<InfoFrame>();
-	bssFrames.in.db_param = makeMailBox<std::shared_ptr<mtk::isphal::v1::isp_bss_Param>>();
 	bssFrames.in.bssTuningInfo = makeMailBox<InfoFrame>();
 	bssFrames.in.bssVerInfo = makeMailBox<InfoFrame>();
 	bssFrames.out.bssOutDataInfo = makeMailBox<InfoFrame>();
-
-	bssParamPool_.fetch(bssFrames.in.bssParamInfo);
-	bssDataGPool_.fetch(bssFrames.in.bssDataGInfo);
-	bssTuningPool_.fetch(bssFrames.in.bssTuningInfo);
-	bssVerPool_.fetch(bssFrames.in.bssVerInfo);
-	bssOutDataPool_.fetch(bssFrames.out.bssOutDataInfo);
 
 	bssFrames.in.imgi.resize(kInputRawCount);
 	bssFrames.in.bssFdMainInfo.resize(kInputRawCount);
@@ -398,10 +353,6 @@ void MfnrTasksManager::makeMFNRFrames(
 		bssFrames.in.bssFdInfo[i] = bssFd[i];
 		bssFrames.in.bssFaceInfo[i] = bssFace[i];
 		bssFrames.in.bssPosInfo[i] = bssPos[i];
-		bssFdMainPool_.fetch(bssFrames.in.bssFdMainInfo[i]);
-		bssFdPool_.fetch(bssFrames.in.bssFdInfo[i]);
-		bssFacePool_.fetch(bssFrames.in.bssFaceInfo[i]);
-		bssPosPool_.fetch(bssFrames.in.bssPosInfo[i]);
 	}
 	/* Frames used by BfbldTask */
 	BfbldFrames &bfbldFrames = mfnr.bfbldFrames;
@@ -794,89 +745,20 @@ void MfnrTasksManager::makeMFNRFrames(
 	afbldF0.in.tnrmi.push_back(afbldF1.out.tnrmo[0]); //Y8:1632x1224
 }
 
-std::tuple<BssTask *, BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
+std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
 				uint32_t internalRequestId, ImgSysDevice *imgSys)
 {
-	BssTask *bssTask = new BssTask(scheduler, id + " (BSS)", request, internalRequestId, imgSys, mfnr, this);
-	BfbldTask *bfbldTask = new BfbldTask(scheduler, id + " (BFBLD)", request, internalRequestId, imgSys, mfnr, this);
-	BfmeTask *bfmeTask = new BfmeTask(scheduler, id + " (BFME)", request, internalRequestId, imgSys, mfnr, this);
-	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id + " (MCDSF1)", request, internalRequestId, imgSys, mfnr, this);
-	DsTask *dsTask = new DsTask(scheduler, id + " (DS)", request, internalRequestId, imgSys, mfnr, this);
-	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id + " (DSVBI)", request, internalRequestId, imgSys, mfnr, this);
-	MsbldTask *msbldTask = new MsbldTask(scheduler, id + " (MSBLD)", request, internalRequestId, imgSys, mfnr, this);
-	AfbldTask *afbldTask = new AfbldTask(scheduler, id + " (AFBLD)", request, internalRequestId, imgSys, mfnr, this);
+	BfbldTask *bfbldTask = new BfbldTask(scheduler, id + " BFBLD", request, internalRequestId, imgSys, mfnr, this);
+	BfmeTask *bfmeTask = new BfmeTask(scheduler, id + " BFME", request, internalRequestId, imgSys, mfnr, this);
+	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id + " MCDSF1", request, internalRequestId, imgSys, mfnr, this);
+	DsTask *dsTask = new DsTask(scheduler, id + " DS", request, internalRequestId, imgSys, mfnr, this);
+	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id + " DSVBI", request, internalRequestId, imgSys, mfnr, this);
+	MsbldTask *msbldTask = new MsbldTask(scheduler, id + " MSBLD", request, internalRequestId, imgSys, mfnr, this);
+	AfbldTask *afbldTask = new AfbldTask(scheduler, id + " AFBLD", request, internalRequestId, imgSys, mfnr, this);
 
-	return std::make_tuple(bssTask, bfbldTask, bfmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask, afbldTask);
-}
-
-BssTask::BssTask(Scheduler *scheduler, const std::string &id, [[maybe_unused]] Request *request, uint32_t internalRequestId,
-		 ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
-	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
-{
-	frames_ = mfnr.bssFrames;
-	bssWrapper_ = manager->bssWrapper_;
-	mfnr_ = mfnr;
-}
-
-void BssTask::allocateOutputBuffers()
-{
-	[[maybe_unused]] auto &out = frames_.out;
-	for (auto i = 0; i < kInputRawCount; i++) {
-	}
-}
-
-void BssTask::run()
-{
-	allocateOutputBuffers();
-
-	[[maybe_unused]] auto &mfnrSizes_ = manager_->mfnrSizes_;
-	[[maybe_unused]] auto &in = frames_.in;
-	[[maybe_unused]] auto &out = frames_.out;
-	MappedFrameBuffer mappedBssParamBuffers =
-		MappedFrameBuffer(in.bssParamInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-	DmaSyncer syncer_bssParam(in.bssParamInfo->get().buffer()->planes()[0].fd.get());
-
-	MappedFrameBuffer mappedBssDataGBuffers =
-		MappedFrameBuffer(in.bssDataGInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-	DmaSyncer syncer_dataG(in.bssDataGInfo->get().buffer()->planes()[0].fd.get());
-
-	std::vector<MappedFrameBuffer> mappedBssFdMain;
-	std::vector<MappedFrameBuffer> mappedBssFd;
-	std::vector<MappedFrameBuffer> mappedFace;
-	std::vector<MappedFrameBuffer> mappedPos;
-
-	MappedFrameBuffer mappedBssTuningBuffers =
-		MappedFrameBuffer(in.bssTuningInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-	DmaSyncer syncer_bssTuningInfo(in.bssTuningInfo->get().buffer()->planes()[0].fd.get());
-
-	MappedFrameBuffer mappedBssVerInfoBuffers =
-		MappedFrameBuffer(in.bssVerInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-	DmaSyncer syncer_bssVerInfo(in.bssVerInfo->get().buffer()->planes()[0].fd.get());
-
-	MappedFrameBuffer mappedBssOutBuffers =
-		MappedFrameBuffer(out.bssOutDataInfo->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-	DmaSyncer syncer_bssOut(out.bssOutDataInfo->get().buffer()->planes()[0].fd.get());
-
-	bssWrapper_->doBss(kInputRawCount, frames_);
-
-	for (int i = 0; i < kInputRawCount; i++) {
-		mappedBssFdMain.push_back(MappedFrameBuffer(in.bssFdMainInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
-		DmaSyncer syncer_bssFdMainInfo(in.bssFdMainInfo[i]->get().buffer()->planes()[0].fd.get());
-		mappedBssFd.push_back(MappedFrameBuffer(in.bssFdInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
-		DmaSyncer syncer_bssFdInfo(in.bssFdInfo[i]->get().buffer()->planes()[0].fd.get());
-		mappedFace.push_back(MappedFrameBuffer(in.bssFaceInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
-		DmaSyncer syncer_bssFaceInfo(in.bssFaceInfo[i]->get().buffer()->planes()[0].fd.get());
-		mappedPos.push_back(MappedFrameBuffer(in.bssPosInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite));
-		DmaSyncer syncer_bssPosInfo(in.bssPosInfo[i]->get().buffer()->planes()[0].fd.get());
-	}
-
-	memcpy(reinterpret_cast<void *>(in.bssTuningInfo->get().address(0)), in.db_param->get().get(), sizeof(mtk::isphal::v1::isp_bss_Param));
-
-	manager_->onDeviceTuner_->tuneBss(internalRequestId_, frames_, kInputRawCount);
-	Task::notifyDone();
+	return std::make_tuple(bfbldTask, bfmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask, afbldTask);
 }
 
 BfbldTask::BfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,

@@ -7,10 +7,9 @@ libmtkcam_debugwrapper = cc.find_library('libmtkcam.debugwrapper', required : tr
 libcam_halsensor = cc.find_library('libcam.halsensor', required : true)
 libcam_halisp_utils_pub = cc.find_library('libcam.halisp.utils.pub', required : true)
 
+# TODO: move to IPA
 libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : true)
 libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
-
-libcamalgo_bss = cc.find_library('camalgo.bss', required : true)
 
 libcamera_deps += [
     libmtkcam_metadata_container,
@@ -21,7 +20,6 @@ libcamera_deps += [
     libcam_halisp_utils_pub,
     libmtkcam_tuning_utils,
     libmtkcam_stdutils,
-    libcamalgo_bss,
 ]
 
 libcamera_sources += files([
@@ -38,7 +36,6 @@ libcamera_sources += files([
     'imgsys/imgsys.cpp',
     'imgsys/mcnr.cpp',
     'imgsys/mfnr.cpp',
-    'imgsys/bss.cpp',
     'imgsys/single_device.cpp',
     'ipa/ipa_delegate.cpp',
     'odt/imagiq_adapter/static_metadata/static_strings.cpp',

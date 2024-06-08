@@ -11,6 +11,7 @@
 
 #include "face_detect/parser.h"
 #include "hal3a/hal_3a.h"
+#include "halisp/bss.h"
 #include "halisp/hal_isp.h"
 #include "halisp/swme.h"
 #include "libcamera/base/thread.h"
@@ -50,8 +51,7 @@ public:
 		      bool isVideo, const Size &sensorFullSize,
 		      const Size &swmeAlignedSize,
 		      Size *swmeWorkingBufSize, Size *wrappingMapSize,
-		      Size *confMapSize,
-		      std::vector<uint8_t> *bssParam) override;
+		      Size *confMapSize) override;
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers) override;
 	void unmapBuffers(const std::vector<unsigned int> &ids) override;
@@ -100,6 +100,8 @@ public:
 		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
 		const ControlList &controls) override;
 
+	void doBss(const uint64_t cookie,
+		   const BssFramesData &bssFramesData) override;
 	void doSwme(
 		const uint64_t cookie,
 		const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData) override;
@@ -197,9 +199,10 @@ private:
 	// The sensor being configured.
 	int32_t sensorIdx_;
 
+	std::shared_ptr<BssWrapper> bssWrapper_;
+
 	Size sensorFullSize_;
 	Size swmeAlignedSize_;
-
 	std::vector<std::shared_ptr<SwmeWrapper>> swmeWrapper_;
 };
 

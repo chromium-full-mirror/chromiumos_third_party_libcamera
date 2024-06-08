@@ -78,6 +78,23 @@ struct ImgMetaRequestData {
 	uint32 frameNumber;
 };
 
+struct BssFramesData {
+	// in
+	uint32 bssParamInfoId;
+	uint32 bssDataGInfoId;
+	uint32 bssVerInfoId;
+	uint32 bssTuningInfoId;
+
+	array<uint32> bssFdMainInfoId;
+	array<uint32> imgiId;
+	array<uint32> bssFdInfoId;
+	array<uint32> bssFaceInfoId;
+	array<uint32> bssPosInfoId;
+
+	// out
+	uint32 bssOutDataInfoId;
+};
+
 struct SwmeFramesData {
 	// in
 	uint32 workbuf;
@@ -106,8 +123,7 @@ interface IPAMtkISP7Interface {
                   int32 sessionTimestamp, bool isVideo, libcamera.Size sensorFullSize,
                   libcamera.Size swmeAlignedSize) =>
                   (int32 ret, libcamera.Size swmeWorkingBufSize,
-                   libcamera.Size wrappingMapSize, libcamera.Size confMapSize,
-                   array<uint8> bssParam);
+                   libcamera.Size wrappingMapSize, libcamera.Size confMapSize);
 
 	mapBuffers(array<libcamera.IPABuffer> buffers);
 	unmapBuffers(array<uint32> ids);
@@ -144,6 +160,7 @@ interface IPAMtkISP7Interface {
 	                            array<ImgMetaRequestData> imgMetaRequests,
                                     libcamera.ControlList controls);
 
+        [async] doBss(uint64 cookie, BssFramesData bssFramesData);
         [async] doSwme(uint64 cookie, array<SwmeFramesData> swmeFramesData);
 };
 
@@ -158,5 +175,6 @@ interface IPAMtkISP7EventInterface {
 
         ImgSysMetaTuningDone(uint64 taskCounter);
 
+        BssResultReady(uint64 cookie, array<int32> bssOrder);
         SwmeResultReady(uint64 cookie);
 };

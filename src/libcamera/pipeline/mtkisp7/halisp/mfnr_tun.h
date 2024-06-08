@@ -57,8 +57,7 @@ public:
 	int configure(const Size &bayerInputSize,
 		      const Size &yuvOutput1Size, const Size &yuvOutput2Size,
 		      const Size &mfnrSize_aligned16, const Size &wrappingMapSize,
-		      const Size &confMapSize,
-		      std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss);
+		      const Size &confMapSize);
 
 	void allocateBuffers();
 	void releaseBuffers();
@@ -82,8 +81,6 @@ private:
 	Size bayerInputSize_;
 	Size mfnrSize_aligned16_;
 
-	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss_;
-
 	bool needCropTNC16x9_;
 
 	std::vector<Size> mfnrSizes_;
@@ -98,6 +95,16 @@ private:
 	InfoFramePool swmeParamPool_;
 	InfoFramePool swmeTuningPool_;
 
+	InfoFramePool bssParamPool_;
+	InfoFramePool bssDataGPool_;
+	InfoFramePool bssVerPool_;
+	InfoFramePool bssTuningPool_;
+	InfoFramePool bssFdMainPool_;
+	InfoFramePool bssFdPool_;
+	InfoFramePool bssFacePool_;
+	InfoFramePool bssPosPool_;
+	InfoFramePool bssOutDataPool_;
+
 	Size wrappingMapSize_;
 	Size confMapSize_;
 
@@ -111,13 +118,19 @@ class MfnrTunBssTask : public Task
 public:
 	MfnrTunBssTask(MFNRFrames &mfnr,
 		       Scheduler *scheduler, const std::string &id,
-		       std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss);
+		       MfnrTunManager *manager, uint32_t internalRequestId);
 
 	virtual void run() override final;
 
+	void notifyBssResult(const std::vector<int32_t> &bssOrder);
+
 	BssFrames bssFrames_;
 
-	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss_;
+	MfnrTunManager *manager_;
+	uint32_t internalRequestId_;
+
+private:
+	void allocateBuffers();
 };
 
 class MfnrTunBfbldTask : public ImgSysTask

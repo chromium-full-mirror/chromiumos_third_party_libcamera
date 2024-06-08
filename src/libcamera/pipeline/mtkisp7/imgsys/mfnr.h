@@ -15,13 +15,11 @@
 #include "../camsys/capture.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
-#include "bss.h"
 #include "imgsys.h"
 
 #define MFNR_QUEUE_SIZE 4
 namespace libcamera {
 
-class BssTask;
 class BfbldTask;
 class McdsF1Task;
 class BfmeTask;
@@ -161,6 +159,25 @@ struct AfbldFrames {
 	} out;
 };
 
+struct BssFrames {
+	struct {
+		SharedMailBox<InfoFrame> bssParamInfo;
+		SharedMailBox<InfoFrame> bssDataGInfo;
+		SharedMailBox<InfoFrame> bssVerInfo;
+		SharedMailBox<InfoFrame> bssTuningInfo; // TODO: Harvey thinks this is output
+
+		std::vector<SharedMailBox<InfoFrame>> bssFdMainInfo;
+		std::vector<SharedMailBox<InfoFrame>> imgi;
+		std::vector<SharedMailBox<InfoFrame>> bssFdInfo;
+		std::vector<SharedMailBox<InfoFrame>> bssFaceInfo;
+		std::vector<SharedMailBox<InfoFrame>> bssPosInfo;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame> bssOutDataInfo;
+		SharedMailBox<std::vector<int>> bss_order;
+	} out;
+};
+
 struct SwmeFrames {
 	struct {
 		std::vector<SharedMailBox<InfoFrame>> workbuf;
@@ -238,7 +255,7 @@ public:
 			    FrameBuffer *output2Frame);
 	std::vector<Size> mfnrSizes_;
 	Size mfnrSize_aligned16_;
-	std::tuple<BssTask *, BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
+	std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
 		      uint32_t internalRequestId, ImgSysDevice *imgSys);
@@ -247,7 +264,6 @@ public:
 	Size confMapSize_;
 
 private:
-	friend class BssTask;
 	friend class BfbldTask;
 	friend class McdsF1Task;
 	friend class BfmeTask;
@@ -277,16 +293,6 @@ private:
 	std::vector<InfoFramePool *> poolsWritenByCpu_;
 
 	/* MFNR intermediate buffers' pools */
-	InfoFramePool bssParamPool_;
-	InfoFramePool bssDataGPool_;
-	InfoFramePool bssVerPool_;
-	InfoFramePool bssTuningPool_;
-	InfoFramePool bssFdMainPool_;
-	InfoFramePool bssFdPool_;
-	InfoFramePool bssFacePool_;
-	InfoFramePool bssPosPool_;
-	InfoFramePool bssOutDataPool_;
-
 	InfoFramePool tunbufiPool_;
 	InfoFramePool p2sttoPool_;
 	InfoFramePool yuvp010_1_1_pool_;
@@ -314,30 +320,8 @@ private:
 
 	// TODO, need to get fe from hw/sw
 	std::vector<SharedMailBox<InfoFrame>> mcdsWpeVeci;
-	std::shared_ptr<BssWrapper> bssWrapper_;
 	int captureNum_;
 	int blendNum_;
-};
-
-class BssTask : public Task
-{
-public:
-	BssTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
-		ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
-
-	void run() override;
-
-private:
-	void allocateOutputBuffers();
-	BssFrames frames_;
-	ImgSysRequestHelper requestHelper_;
-	[[maybe_unused]] Request *request_;
-	[[maybe_unused]] uint32_t internalRequestId_;
-	[[maybe_unused]] ImgSysDevice *imgSys_;
-	MfnrTasksManager *manager_;
-	std::shared_ptr<BssWrapper> bssWrapper_;
-
-	MFNRFrames mfnr_;
 };
 
 class BfbldTask : public Task
