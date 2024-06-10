@@ -111,8 +111,6 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 		*lens_position = -1;
 		return;
 	}
-	MappedFrameBuffer mappedRawMeta(&rawMetaBuffer->buffer,
-					MappedFrameBuffer::MapFlag::ReadWrite);
 
 	hal3A_->start(reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(
 		rawMetaBuffer->mapped->planes()[0].data()));
