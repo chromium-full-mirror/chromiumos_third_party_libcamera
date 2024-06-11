@@ -353,7 +353,6 @@ void OnDeviceTuner::notifyRequestEnd(int requestNumber)
 		return;
 	}
 	prevEndedRequestNum_ = requestNumber;
-
 	stillCaptureFrames_.erase(requestNumber);
 
 	if (isIpa_) {
@@ -372,13 +371,13 @@ void OnDeviceTuner::notifyVideoOnly(int requestNumber)
 		LOG(MtkISP7, Fatal) << "notifyVideoOnly is called in pipeline handler";
 
 	ImagiqAdapter::configureScenarioRecorder(
-		requestNumber, sessionTimestamp_,
-		false, false);
+		requestNumber, requestNumber,
+		sessionTimestamp_, false, false, Feature::NUM);
 }
 
-void OnDeviceTuner::notifyStillCapture(int requestNumber)
+void OnDeviceTuner::notifyStillCapture(int baseRequestNumber, int frameNumber)
 {
-	stillCaptureFrames_.emplace(requestNumber);
+	stillCaptureFrames_.insert({ frameNumber, baseRequestNumber });
 }
 
 bool OnDeviceTuner::isStillCaptureRequest(int requestNumber)
@@ -503,6 +502,10 @@ void OnDeviceTuner::tune(
 	    !shouldExportDumpNow(requestNumber) && !shouldImportDumpNow(requestNumber)) {
 		return;
 	}
+	uint32_t baseRequestId = requestNumber;
+	if (isStillCaptureRequest(requestNumber)) {
+		baseRequestId = stillCaptureFrames_.at(requestNumber);
+	}
 	std::vector<Dump> dumps;
 	for (auto namedPtr : namedPointers) {
 		Dump::Metadata metadata = kDumpMetadata.at(namedPtr.id);
@@ -510,7 +513,7 @@ void OnDeviceTuner::tune(
 		std::vector<uint8_t> buffer(namedPtr.size);
 		std::memcpy(buffer.data(), namedPtr.ptr, namedPtr.size);
 		dumps.push_back({ .id = namedPtr.id,
-				  .requestNumber = requestNumber,
+				  .requestNumber = baseRequestId,
 				  .frameNumber = requestNumber,
 				  .sensorId = sensorId_,
 				  .timestamp = sessionTimestamp_,
@@ -584,14 +587,18 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 	tuningResult.exif.valid = true;
 	std::memcpy(tuningResult.exif.data, reinterpret_cast<uint8_t *>(&mtk3AResult.debug_isp_info), sizeof(AAA_DEBUG_INFO2_T));
 
+	int baseRequestId = internalRequestId;
+	if (isStillCaptureRequest(internalRequestId)) {
+		baseRequestId = stillCaptureFrames_.at(internalRequestId);
+	}
 	ImagiqAdapter::configureScenarioRecorder(
-		internalRequestId, sessionTimestamp_,
-		highIsoMode && !enforceLowIsoLpnr_,
-		isStillCaptureRequest(internalRequestId));
+		baseRequestId, internalRequestId,
+		sessionTimestamp_, highIsoMode && !enforceLowIsoLpnr_,
+		isStillCaptureRequest(internalRequestId), feature);
 
 	ImagiqAdapter::writeScenarioRecorderSettings(
 		tuningParam.cam_info->sr_para, getMtkMetadata(internalRequestId),
-		sessionTimestamp_, internalRequestId,
+		sessionTimestamp_, internalRequestId, internalRequestId,
 		NSIspTuning::EStage_P1, sensorId_);
 
 	return parseHalIspNdd(internalRequestId, internalRequestId,
@@ -688,7 +695,7 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 
 	ImagiqAdapter::writeScenarioRecorderSettings(
 		tuningParam.cam_info.sr_para, getMtkMetadata(internalRequestId),
-		sessionTimestamp_, internalRequestId, stage, sensorId_);
+		sessionTimestamp_, internalRequestId, frameNumber, stage, sensorId_);
 
 	parseHalIspNdd(internalRequestId, frameNumber, tuningParam.cam_info.rNdd_info, feature);
 }

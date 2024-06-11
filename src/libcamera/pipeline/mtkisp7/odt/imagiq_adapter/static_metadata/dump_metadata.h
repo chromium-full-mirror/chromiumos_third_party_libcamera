@@ -3004,6 +3004,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::MSBLD_F0_ISPINFO,
 	  {
@@ -3132,6 +3133,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::MSBLD_F1_ISPINFO,
 	  {
@@ -3260,6 +3262,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::MSBLD_F2_ISPINFO,
 	  {
@@ -3388,6 +3391,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::MSBLD_F3_ISPINFO,
 	  {
@@ -3516,6 +3520,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::MSBLD_F4_ISPINFO,
 	  {
@@ -3636,6 +3641,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::MSBLD_F5_ISPINFO,
 	  {
@@ -3700,6 +3706,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::MSBLD_F6_ISPINFO,
 	  {
@@ -3836,6 +3843,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::AFBLD_F0_ISPINFO,
 	  {
@@ -3964,6 +3972,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::AFBLD_F1_ISPINFO,
 	  {
@@ -4092,6 +4101,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::AFBLD_F2_ISPINFO,
 	  {
@@ -4220,6 +4230,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::AFBLD_F3_ISPINFO,
 	  {
@@ -4348,6 +4359,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::AFBLD_F4_ISPINFO,
 	  {
@@ -4468,6 +4480,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::AFBLD_F5_ISPINFO,
 	  {
@@ -4532,6 +4545,7 @@ const std::map<Dump::Id, const Dump::Metadata> kDumpMetadata{
 		  .moduleId = NSCam::TuningUtils::eModule::kMETA_P2,
 		  .category = NSCam::TuningUtils::eCategory::kCAPTURE,
 		  .action = Action::Capture,
+		  .version = 2000,
 	  } },
 	{ Dump::Id::AFBLD_F6_ISPINFO,
 	  {

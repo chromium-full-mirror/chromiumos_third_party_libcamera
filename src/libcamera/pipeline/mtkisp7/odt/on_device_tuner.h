@@ -13,6 +13,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <libcamera/controls.h>
@@ -79,7 +80,7 @@ public:
 	// Tuning tools need to know if there is a still capture in
 	// the request or not.
 	void notifyVideoOnly(int requestNumber);
-	void notifyStillCapture(int requestNumber);
+	void notifyStillCapture(int baseRequestNumber, int frameNumber);
 	bool isStillCaptureRequest(int requestNumber);
 
 	// P1 Camsys
@@ -243,7 +244,7 @@ private:
 	std::unique_ptr<CamsysDebug> camsysDebug_;
 	ImgsysDebug imgsysDebug_;
 
-	std::unordered_set<uint32_t> stillCaptureFrames_;
+	std::unordered_map<uint32_t, uint32_t> stillCaptureFrames_;
 };
 
 } // namespace libcamera

@@ -1068,13 +1068,28 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 
 	if (onDeviceTuner_->isEnabled()) {
 		onDeviceTuner_->notifyRequestBegin(internalRequestId);
-		if (hasStillCapture)
-			onDeviceTuner_->notifyStillCapture(internalRequestId);
+		bool captureInProcessing = hasStillCapture;
+		if (captureInProcessing) {
+			if (useMfnr) {
+				onDeviceTuner_->notifyStillCapture(internalRequestId, internalRequestId);
+				onDeviceTuner_->notifyStillCapture(internalRequestId, internalRequestId + 1);
+				onDeviceTuner_->notifyStillCapture(internalRequestId, internalRequestId + 2);
+				onDeviceTuner_->notifyStillCapture(internalRequestId, internalRequestId + 3);
+			} else {
+				onDeviceTuner_->notifyStillCapture(internalRequestId, internalRequestId);
+			}
+		}
 
 		// Make sure it's ahead of everything else.
-		ipa_->notifyRequestBegin(internalRequestId, hasStillCapture);
+		if (captureInProcessing && useMfnr) {
+			ipa_->notifyRequestBegin(internalRequestId, internalRequestId, captureInProcessing);
+			ipa_->notifyRequestBegin(internalRequestId, internalRequestId + 1, captureInProcessing);
+			ipa_->notifyRequestBegin(internalRequestId, internalRequestId + 2, captureInProcessing);
+			ipa_->notifyRequestBegin(internalRequestId, internalRequestId + 3, captureInProcessing);
+		} else {
+			ipa_->notifyRequestBegin(internalRequestId, internalRequestId, captureInProcessing);
+		}
 	}
-
 	auto *aaaTask = hal3AManager_.make3ATasks(
 		scheduler, request, captureFrames, internalRequestId,
 		camSysMetaRequestId, faceDetector_);
@@ -1503,9 +1518,14 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool onlyStillCapture = hasStillCapture && (!video1Buffer && !video2Buffer);
 
 	uint32_t internalRequestId = requestCount_++;
-	// todo(yerlandinata): set feature for MFNR.
 	// todo(yerlandinata): check whether we need Feature::video or not.
-	Feature feature = onlyStillCapture ? Feature::Capture_lpnr : Feature::Preview;
+	Feature feature = Feature::Preview;
+	if (hasStillCapture) {
+		if (useMfnr)
+			feature = Feature::Capture_mfnr;
+		else
+			feature = Feature::Capture_lpnr;
+	}
 
 	if (aaControlChanged || nddEnabled) {
 		std::list<Task *> &capture3ATasks = scheduler->groupTasks(AAAGroup);
@@ -1667,10 +1687,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			Scheduler::precede(mfnrTunBssTask, mfnrBssTask);
 			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
 			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);
-
 			scheduler->succeedPrevTaskByStep(BssTaskGroup, 0, mfnrBssTask);
 			scheduler->queueTask(mfnrBssTask, BssTaskGroup);
-
 			Scheduler::precede(mfnrBssTask, mfnrTunBfbldTask);
 			Scheduler::precede(mfnrTunBfbldTask, mfnrBfbldTask);
 			scheduler->succeedPrevTaskByStep(BfbldTunTaskGroup, 0, mfnrTunBfbldTask);

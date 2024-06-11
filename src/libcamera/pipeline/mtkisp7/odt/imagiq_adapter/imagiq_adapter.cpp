@@ -83,13 +83,14 @@ std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
 }
 
 void ImagiqAdapter::configureScenarioRecorder(
-	int requestNumber, int timestamp,
-	bool highIsoMode, bool isStillCapture)
+	int requestNumber, int frameNumber, int timestamp,
+	bool highIsoMode, bool isStillCapture, Feature feature)
 {
 	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
 	if (!IScenarioRecorder::getInstance()->isScenarioRecorderOn()) {
 		return;
 	}
+
 	// Notify scenario recorder
 	IScenarioRecorder::getInstance()->recordNddInfo(
 		timestamp, requestNumber, requestNumber, isStillCapture);
@@ -97,7 +98,7 @@ void ImagiqAdapter::configureScenarioRecorder(
 	// Add scenario recorder headline entry
 	NSCam::IMetadata metadata;
 	NSCam::TuningUtils::INdd::getInstance()->update_uniquekey(
-		metadata, timestamp, requestNumber, requestNumber);
+		metadata, timestamp, requestNumber, frameNumber);
 	NSCam::TuningUtils::scenariorecorder::ExecResultInput resultParam;
 	resultParam.decisionType =
 		NSCam::TuningUtils::scenariorecorder::DECISION_FEATURE;
@@ -106,15 +107,15 @@ void ImagiqAdapter::configureScenarioRecorder(
 	std::stringstream ss;
 	ss << "trigger feature:";
 	if (isStillCapture) {
-		// todo(yerlandinata): If MFNR is enabled, adjust the feature ID here.
-		ss << kFeatureStrMap.at(Feature::Capture_lpnr);
-		if (highIsoMode) {
-			ss << ", mode: high iso";
-		} else {
-			ss << ", mode: low iso";
+		ss << kFeatureStrMap.at(feature);
+		if (feature == Feature::Capture_lpnr) {
+			if (highIsoMode) {
+				ss << ", mode: high iso";
+			} else {
+				ss << ", mode: low iso";
+			}
+			resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_CAPTURE;
 		}
-		resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_CAPTURE;
-
 		// In case of still capture, must notify NDD as well to
 		// enable scenario recorder.
 		NSCam::IMetadata::IEntry entry(MTK_TUNING_FEATURE_CAPTURE_HINT);
@@ -132,8 +133,10 @@ void ImagiqAdapter::configureScenarioRecorder(
 		   << "camera_act:CamActPrv";
 		resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_STREAMING;
 	}
-	IScenarioRecorder::getInstance()->submitExecutionRecord(
-		&metadata, resultParam, ss.str().c_str());
+	if (requestNumber == frameNumber) {
+		IScenarioRecorder::getInstance()->submitExecutionRecord(
+			&metadata, resultParam, ss.str().c_str());
+	}
 }
 
 /**
@@ -1017,6 +1020,7 @@ void ImagiqAdapter::writeScenarioRecorderSettings(
 	NSCam::IMetadata *metadata,
 	int dumpSessionTimestamp,
 	int requestNumber,
+	int frameNumber,
 	EStage_T stage,
 	const std::string &sensorId)
 {
@@ -1029,7 +1033,7 @@ void ImagiqAdapter::writeScenarioRecorderSettings(
 	outParam.enable = 1;
 
 	NSCam::TuningUtils::INdd::getInstance()->update_uniquekey(
-		*metadata, dumpSessionTimestamp, requestNumber, requestNumber);
+		*metadata, dumpSessionTimestamp, requestNumber, frameNumber);
 
 	outParam.pHalMeta = metadata;
 	// decision log

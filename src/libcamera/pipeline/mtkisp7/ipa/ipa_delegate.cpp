@@ -7,6 +7,8 @@
 
 #include "ipa_delegate.h"
 
+#include <cstdint>
+
 #include "../face_detect/detector.h"
 #include "../hal3a/aaa.h"
 #include "pipeline/mtkisp7/halisp/imgsys_task.h"
@@ -101,11 +103,12 @@ void IPADelegate::writeStillCaptureDebugMetadata(
 		camSysMetaRequestId, metadata);
 }
 
-void IPADelegate::notifyRequestBegin(const uint32_t frame,
+void IPADelegate::notifyRequestBegin(const uint32_t baseFrame,
+				     const uint32_t curFrame,
 				     const bool hasStillCapture)
 {
 	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::notifyRequestBegin,
-				ConnectionTypeBlocking, frame, hasStillCapture);
+				ConnectionTypeBlocking, baseFrame, curFrame, hasStillCapture);
 }
 
 void IPADelegate::notifyRequestEnd(const uint32_t frame)

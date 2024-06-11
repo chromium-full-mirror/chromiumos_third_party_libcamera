@@ -260,15 +260,16 @@ void IPAMtkISP7::writeStillCaptureDebugMetadata(
 						      hal3A_->resultHistory_.query(camSysMetaRequestId));
 }
 
-void IPAMtkISP7::notifyRequestBegin(const uint32_t frame,
+void IPAMtkISP7::notifyRequestBegin(const uint32_t baseFrame,
+				    const uint32_t curFrame,
 				    const bool hasStillCapture)
 {
-	onDeviceTuner_.notifyRequestBegin(frame);
+	onDeviceTuner_.notifyRequestBegin(curFrame);
 
 	if (!hasStillCapture)
-		onDeviceTuner_.notifyVideoOnly(frame);
+		onDeviceTuner_.notifyVideoOnly(curFrame);
 	else
-		onDeviceTuner_.notifyStillCapture(frame);
+		onDeviceTuner_.notifyStillCapture(baseFrame, curFrame);
 }
 
 void IPAMtkISP7::notifyRequestEnd(const uint32_t frame)

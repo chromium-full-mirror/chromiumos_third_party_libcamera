@@ -22,7 +22,7 @@
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
 #include "mtk_cam_metabuf.h"
-
+#include "mtkisp7_ipa_interface.h"
 namespace libcamera {
 
 class ImagiqAdapter
@@ -36,8 +36,9 @@ public:
 	using SensorIdMap = std::map<std::string, NSCam::TuningUtils::eSensorId>;
 
 	static void configureScenarioRecorder(
-		int requestNumber, int timestamp,
-		bool highIsoMode, bool isStillCapture);
+		int requestNumber, int frameNumber,
+		int timestamp, bool highIsoMode,
+		bool isStillCapture, Feature feature);
 
 	static int enableMtkTuningTool(std::filesystem::path workDir);
 
@@ -85,6 +86,7 @@ public:
 		NSCam::IMetadata *metadata,
 		int dumpSessionTimestamp,
 		int requestNumber,
+		int frameNumber,
 		EStage_T stage,
 		const std::string &sensorId);
 

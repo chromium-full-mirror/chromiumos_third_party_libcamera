@@ -57,7 +57,8 @@ public:
 		const uint32_t camSysMetaRequestId,
 		ControlList *metadata) override;
 
-	void notifyRequestBegin(const uint32_t frame,
+	void notifyRequestBegin(const uint32_t baseFrame,
+				const uint32_t curFrame,
 				const bool hasStillCapture) override;
 	void notifyRequestEnd(const uint32_t frame) override;
 

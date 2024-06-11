@@ -50,7 +50,8 @@ public:
 		const uint32_t camSysMetaRequestId,
 		ControlList *metadata);
 
-	void notifyRequestBegin(const uint32_t frame,
+	void notifyRequestBegin(const uint32_t baseFrame,
+				const uint32_t curFrame,
 				const bool hasStillCapture);
 	void notifyRequestEnd(const uint32_t frame);
 
