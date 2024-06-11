@@ -938,7 +938,7 @@ void BssWrapper::doBss(int frameNum, BssFrames &bssFrame)
 		LOG(MtkISP7, Info) << "bssOrder " << i << " -> " << order;
 	}
 
-	bssFrame.out.bss_order[0]->put(BSSOrder, NULL);
+	bssFrame.out.bss_order->put(BSSOrder, NULL);
 
 	IBSS_INPUT_DATA_G *bss_dataG = reinterpret_cast<IBSS_INPUT_DATA_G *>(bssFrame.in.bssDataGInfo->get().address(0));
 	memcpy(bss_dataG, &bssInData, sizeof(IBSS_INPUT_DATA_G));

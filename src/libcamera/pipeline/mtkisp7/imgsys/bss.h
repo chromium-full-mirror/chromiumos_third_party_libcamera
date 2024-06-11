@@ -256,7 +256,7 @@ struct BssFrames {
 	} in;
 	struct {
 		SharedMailBox<InfoFrame> bssOutDataInfo;
-		std::vector<SharedMailBox<std::vector<int>>> bss_order;
+		SharedMailBox<std::vector<int>> bss_order;
 	} out;
 };
 

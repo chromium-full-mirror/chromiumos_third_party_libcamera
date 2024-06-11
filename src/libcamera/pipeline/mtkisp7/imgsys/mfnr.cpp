@@ -410,7 +410,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	bssFrames.in.bssFaceInfo.resize(kInputRawCount);
 	bssFrames.in.bssPosInfo.resize(kInputRawCount);
 	mfnr.bss_order = bssOrder;
-	bssFrames.out.bss_order.push_back(bssOrder);
+	bssFrames.out.bss_order = bssOrder;
 	for (auto i = 0; i < kInputRawCount; i++) {
 		int idx = (captureRawQueue_idx - (kInputRawCount - 1 - i) + 8) % 8;
 		bssFrames.in.imgi[i] = previewQueue[idx];
@@ -425,7 +425,6 @@ void MfnrTasksManager::makeMFNRFrames(
 	}
 	/* Frames used by BfbldTask */
 	BfbldFrames &bfbldFrames = mfnr.bfbldFrames;
-	mfnr.bss_order = bssFrames.out.bss_order[0];
 	bfbldFrames.capturedRaws.resize(kInputRawCount);
 	bfbldFrames.in.timgi.resize(kInputRawCount);
 	for (auto i = 0; i < kInputRawCount; i++) {
