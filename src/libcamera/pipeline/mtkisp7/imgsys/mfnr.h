@@ -231,6 +231,8 @@ public:
 	static bool forceMfnr();
 	static bool mfnrPrecheck();
 
+	static Size getSizeAligned(const Size &bayerInputSize);
+
 	void makeMFNRFrames(MFNRFrames &mfnr,
 			    std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &captureRawQueue,
 			    std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &previewQueue,
@@ -238,7 +240,7 @@ public:
 			    FrameBuffer *output1Frame,
 			    FrameBuffer *output2Frame);
 	std::vector<Size> mfnrSizes_;
-	std::vector<Size> mfnrSizes_aligned16_;
+	Size mfnrSize_aligned16_;
 	std::tuple<BssTask *, BfbldTask *, BfmeTask *, SwmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,

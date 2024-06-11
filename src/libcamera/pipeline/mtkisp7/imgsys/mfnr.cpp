@@ -156,6 +156,19 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&memc_workbuf_pool_);
 }
 
+// static
+Size MfnrTasksManager::getSizeAligned(const Size &bayerInputSize)
+{
+	Size size = bayerInputSize;
+	for (size_t i = 0; i < 2; i++) {
+		size.width = (size.width + 1) / 2;
+		size.height = (size.height + 1) / 2;
+		size.alignDownTo(16, 16);
+	}
+
+	return size;
+}
+
 int MfnrTasksManager::configure(const Size &bayerInputSize,
 				const Size &yuvOutputSize1, const Size &yuvOutputSize2,
 				const Size &videoOutputSize1, const Size &videoOutputSize2,
@@ -169,7 +182,6 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 	sensor_idx_ = sensor_idx;
 
 	mfnrSizes_.resize(7);
-	mfnrSizes_aligned16_.resize(3);
 	Size size = bayerInputSize_;
 
 	/* Assign the size to 1/2 of the previous level.
@@ -181,18 +193,12 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 		size.height = (size.height + 1) / 2;
 		size.alignUpTo(2, 2);
 	}
-	size = bayerInputSize_;
-	for (size_t i = 0; i < mfnrSizes_aligned16_.size(); i++) {
-		LOG(MtkISP7, Info) << "mfnrSizes_aligned16_[" << i << "] = " << size;
-		mfnrSizes_aligned16_[i] = size;
-		size.width = (size.width + 1) / 2;
-		size.height = (size.height + 1) / 2;
-		size.alignDownTo(16, 16);
-	}
+
+	mfnrSize_aligned16_ = getSizeAligned(bayerInputSize_);
 
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		std::shared_ptr<SwmeWrapper> swmewrapper = std::make_shared<SwmeWrapper>();
-		Size swme_in = mfnrSizes_aligned16_[2];
+		Size swme_in = mfnrSize_aligned16_;
 		swmewrapper->setMotionEstimationResolution(swme_in.width, swme_in.height);
 		swmewrapper->init();
 		swmeWrapper_.push_back(swmewrapper);
@@ -230,12 +236,12 @@ int MfnrTasksManager::configureBuffers()
 	tnrciPool_.createBuffers(dmaHeap_, formats::Y8_MTISP, confMapSize_, 3, DmaHeap::System);
 
 	yuvp010_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], 9);
-	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_aligned16_[2], 4, DmaHeap::System, 16);
+	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSize_aligned16_, 4, DmaHeap::System, 16);
 
 	yuvp012_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[0], 1, DmaHeap::System, 16, 16);
 	yuvp012_1_2_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[1], 7, DmaHeap::System, 16, 16);
 	yuvp012_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[2], 7, DmaHeap::System, 16, 16);
-	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_aligned16_[2], 4, DmaHeap::System, 8, 8);
+	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSize_aligned16_, 4, DmaHeap::System, 8, 8);
 
 	yuvp012_1_8_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[3], 7, DmaHeap::System, 16, 16);
 	yuvp012_1_16_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[4], 7, DmaHeap::System, 16, 16);
@@ -1070,7 +1076,7 @@ void BfmeTask::run()
 {
 	allocateOutputBuffers();
 
-	auto &mfnrSizes_aligned16 = manager_->mfnrSizes_aligned16_;
+	auto &mfnrSize_aligned16 = manager_->mfnrSize_aligned16_;
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
@@ -1084,7 +1090,7 @@ void BfmeTask::run()
 		StageEx &BFME = sdRequest.emplaceStage(PEU_Stage::BFME, internalRequestId_ + bssOrder[i]);
 		BFME.input(in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
 		BFME.input(in.tunbufi[1]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
-		BFME.output(out.img2o[i]->get(), IMG_PORT_IMG2O, 0, mfnrSizes_aligned16[2]);
+		BFME.output(out.img2o[i]->get(), IMG_PORT_IMG2O, 0, mfnrSize_aligned16);
 		BFME.setMultiScale(IMG_MULTI_SCALE_DOWN4, 1, 0);
 	}
 	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
@@ -1121,7 +1127,7 @@ void SwmeTask::run()
 	allocateOutputBuffers();
 
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
-	auto &mfnrSizes_aligned16_ = manager_->mfnrSizes_aligned16_;
+	auto &mfnrSize_aligned16 = manager_->mfnrSize_aligned16_;
 	auto &in = frames_.in;
 	auto &out = frames_.out;
 	auto bssOrder = mfnr_.bss_order->get();
@@ -1150,7 +1156,7 @@ void SwmeTask::run()
 			out.warpping_map[i],
 			in.db_param[i]->get(),
 			mfnrSizes_[0],
-			mfnrSizes_aligned16_[2],
+			mfnrSize_aligned16,
 			i);
 		swmewrapper->featureCtrl(IMFBLL_FTCTRL_SET_PROC_INFO, &paramIn, NULL);
 		IMFBLL_PROC1_OUT_STRUCT_IPC paramOut;
