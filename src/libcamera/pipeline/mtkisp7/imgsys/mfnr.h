@@ -315,7 +315,6 @@ private:
 	InfoFramePool y8_1_32_pool_;
 	InfoFramePool fourBytes_pool_;
 	InfoFramePool nv12_1_64_pool_;
-	InfoFramePool nv21_1_1_pool_;
 	InfoFramePool nv12_wroto_pool_;
 	InfoFramePool memc_workbuf_pool_;
 

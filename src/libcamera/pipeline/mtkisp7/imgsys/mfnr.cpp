@@ -114,7 +114,6 @@ MfnrTasksManager::MfnrTasksManager(
 
 	allBufferPools_.emplace_back(&fourBytes_pool_);
 	allBufferPools_.emplace_back(&nv12_1_64_pool_);
-	allBufferPools_.emplace_back(&nv21_1_1_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
 	allBufferPools_.emplace_back(&memc_workbuf_pool_);
 
@@ -156,7 +155,6 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&y8_1_32_pool_);
 	poolsWritenByCpu_.emplace_back(&fourBytes_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_1_64_pool_);
-	poolsWritenByCpu_.emplace_back(&nv21_1_1_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_wroto_pool_);
 	poolsWritenByCpu_.emplace_back(&memc_workbuf_pool_);
 }
@@ -259,7 +257,6 @@ int MfnrTasksManager::configureBuffers()
 	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16);
 	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16);
 	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 28);
-	nv21_1_1_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[0], 7);
 	nv12_1_64_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[6], 9);
 	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 7);
 
