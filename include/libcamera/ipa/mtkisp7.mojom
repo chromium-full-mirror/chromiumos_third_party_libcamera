@@ -78,6 +78,22 @@ struct ImgMetaRequestData {
 	uint32 frameNumber;
 };
 
+struct SwmeFramesData {
+	// in
+	uint32 workbuf;
+	uint32 base_buf;
+	uint32 ref_buf;
+	uint32 bss_buf;
+	uint32 paramInInfo;
+	uint32 tuningInfo;
+
+	// out
+	uint32 conf_map;
+	uint32 warpping_map;
+	uint32 mcmv;
+	uint32 paramOutInfo;
+};
+
 interface IPAMtkISP7Interface {
 	init(string model, int32 sensorIdx, array<uint8> eeprom,
              array<CamSysData> camSysDataArray) => (int32 ret);
@@ -87,8 +103,11 @@ interface IPAMtkISP7Interface {
 
 	configure(libcamera.Size camsysYuvSize, libcamera.Size maxVideoSize,
                   libcamera.Size maxStillSize, string sensorId, uint32 camsysIndex,
-                  int32 sessionTimestamp, bool isVideo) =>
-                  (int32 ret, array<uint8> swmeParam, array<uint8> bssParam);
+                  int32 sessionTimestamp, bool isVideo, libcamera.Size sensorFullSize,
+                  libcamera.Size swmeAlignedSize) =>
+                  (int32 ret, libcamera.Size swmeWorkingBufSize,
+                   libcamera.Size wrappingMapSize, libcamera.Size confMapSize,
+                   array<uint8> bssParam);
 
 	mapBuffers(array<libcamera.IPABuffer> buffers);
 	unmapBuffers(array<uint32> ids);
@@ -124,6 +143,8 @@ interface IPAMtkISP7Interface {
 	                            bool needCropTNC16x9, uint32 featureEnum,
 	                            array<ImgMetaRequestData> imgMetaRequests,
                                     libcamera.ControlList controls);
+
+        [async] doSwme(uint64 cookie, array<SwmeFramesData> swmeFramesData);
 };
 
 interface IPAMtkISP7EventInterface {
@@ -136,4 +157,6 @@ interface IPAMtkISP7EventInterface {
                       LensPositionInfo lensPositionInfo);
 
         ImgSysMetaTuningDone(uint64 taskCounter);
+
+        SwmeResultReady(uint64 cookie);
 };

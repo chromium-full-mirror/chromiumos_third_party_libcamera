@@ -8,9 +8,7 @@
 
 #include <libcamera/base/log.h>
 
-#include "pipeline/mtkisp7/imgsys/mfnr.h"
-
-#include "bss.h"
+#include "pipeline/mtkisp7/imgsys/bss.h"
 
 namespace libcamera {
 LOG_DECLARE_CATEGORY(MtkISP7)
@@ -431,26 +429,22 @@ void SwmeWrapper::Parser_ParaOut_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut, v
 	return;
 }
 
+// static
 void SwmeWrapper::prepareParam(
 	IMFBLL_SET_PROC_INFO_STRUCT_IPC &param,
-	SharedMailBox<InfoFrame> working_buf,
-	SharedMailBox<InfoFrame> base_buf,
-	SharedMailBox<InfoFrame> ref_buf,
-	SharedMailBox<InfoFrame> bss_buf,
-	SharedMailBox<InfoFrame> warpping_buf,
-	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam,
+	SwmeFramesBuffers swmeFramesBuffers,
 	Size frame_size,
 	Size mc_size,
 	int index)
 {
 	param.workbuf_addr =
-		reinterpret_cast<MUINT8 *>(working_buf->get().address(0));
+		reinterpret_cast<MUINT8 *>(swmeFramesBuffers.in.workbuf->planes()[0].data());
 	param.buf_size = 0;
-	for (auto i = 0; i < (int)working_buf->get().numPlanes(); i++) {
-		param.buf_size += working_buf->get().buffer()->planes()[i].length;
+	for (auto plane : swmeFramesBuffers.in.work_framebuffer->planes()) {
+		param.buf_size += plane.length;
 	}
-	param.Proc1_base = base_buf->get().address(0);
-	param.Proc1_ref = ref_buf->get().address(0);
+	param.Proc1_base = swmeFramesBuffers.in.base_buf->planes()[0].data();
+	param.Proc1_ref = swmeFramesBuffers.in.ref_buf->planes()[0].data();
 
 	param.Proc1_width = mc_size.width;
 	param.Proc1_height = mc_size.height;
@@ -462,13 +456,13 @@ void SwmeWrapper::prepareParam(
 	param.Proc1_me_wpe_image_width = frame_size.width;
 	param.Proc1_me_wpe_image_height = frame_size.height;
 	param.Proc1_me_wpe_np1_mode = isHighResolution(frame_size);
-	param.Proc1_me_wpe_stride = warpping_buf->get().buffer()->planes()[0].stride;
-	dbParam->ME_RSV_4_1 = 700;
-	param.pSWMENvram = dbParam.get();
+	param.Proc1_me_wpe_stride = swmeFramesBuffers.out.warpping_map_buffer->planes()[0].stride;
+	swmeFramesBuffers.in.db_param->ME_RSV_4_1 = 700;
+	param.pSWMENvram = swmeFramesBuffers.in.db_param.get();
 	param.Proc1_ImgFmt = IPROC1_FMT_Y;
 	param.Proc_idx = index;
 
-	IBSS_OUTPUT_DATA *bssOut = reinterpret_cast<IBSS_OUTPUT_DATA *>(bss_buf->get().address(0));
+	IBSS_OUTPUT_DATA *bssOut = reinterpret_cast<IBSS_OUTPUT_DATA *>(swmeFramesBuffers.in.bss_buf->planes()[0].data());
 	auto bstIdx = bssOut->originalOrder[0];
 	auto refIdx = bssOut->originalOrder[index + 1];
 	param.iBssOrgScore_base = (MUINT32)bssOut->final_score[bstIdx];
@@ -479,7 +473,7 @@ void SwmeWrapper::prepareParam(
 			   << ", Proc1_ref: " << static_cast<void *>(param.Proc1_ref)
 			   << ", Proc1_width: " << param.Proc1_width
 			   << ", Proc1_height: " << param.Proc1_height
-			   << ", ME_RSV_4_1: " << dbParam->ME_RSV_4_1
+			   << ", ME_RSV_4_1: " << swmeFramesBuffers.in.db_param->ME_RSV_4_1
 			   << ", bstIdx:" << bstIdx
 			   << ", refIdx:" << refIdx
 			   << ", iBssOrgScore_base: " << param.iBssOrgScore_base
@@ -528,19 +522,18 @@ void SwmeWrapper::prepareParam(
 			   << ", mfnr_.pSWMENvram addr = " << static_cast<void *>(param.pSWMENvram);
 }
 
+// static
 void SwmeWrapper::prepareOutParam(
 	IMFBLL_PROC1_OUT_STRUCT_IPC *paramOut,
-	SharedMailBox<InfoFrame> confmap_buf,
-	SharedMailBox<InfoFrame> warpping_buf,
-	SharedMailBox<InfoFrame> mcmv_buf)
+	SwmeFramesBuffers swmeFramesBuffers)
 {
-	paramOut->pu1ConfMap = confmap_buf->get().address(0);
-	paramOut->u4MapSize = confmap_buf->get().buffer()->planes()[0].length;
-	paramOut->pi4WpeMapX = static_cast<MINT32 *>(reinterpret_cast<void *>(warpping_buf->get().address(0)));
-	paramOut->pi4WpeMapY = static_cast<MINT32 *>(reinterpret_cast<void *>(warpping_buf->get().address(1)));
-	paramOut->u4WpeMapSize += warpping_buf->get().buffer()->planes()[0].length;
-	paramOut->pu1MV = static_cast<MUINT8 *>(mcmv_buf->get().address(0));
-	paramOut->u4MVSize = mcmv_buf->get().buffer()->planes()[0].length;
+	paramOut->pu1ConfMap = swmeFramesBuffers.out.conf_map->planes()[0].data();
+	paramOut->u4MapSize = swmeFramesBuffers.out.conf_map_buffer->planes()[0].length;
+	paramOut->pi4WpeMapX = static_cast<MINT32 *>(reinterpret_cast<void *>(swmeFramesBuffers.out.warpping_map->planes()[0].data()));
+	paramOut->pi4WpeMapY = static_cast<MINT32 *>(reinterpret_cast<void *>(swmeFramesBuffers.out.warpping_map->planes()[1].data()));
+	paramOut->u4WpeMapSize += swmeFramesBuffers.out.warpping_map_buffer->planes()[0].length;
+	paramOut->pu1MV = static_cast<MUINT8 *>(swmeFramesBuffers.out.mcmv->planes()[0].data());
+	paramOut->u4MVSize = swmeFramesBuffers.out.mcmv_buffer->planes()[0].length;
 	LOG(MtkISP7, Info) << "pu1ConfMap: " << static_cast<void *>(paramOut->pu1ConfMap)
 			   << ", pi4WpeMapX: " << static_cast<void *>(paramOut->pi4WpeMapX)
 			   << ", pi4WpeMapY: " << static_cast<void *>(paramOut->pi4WpeMapY)

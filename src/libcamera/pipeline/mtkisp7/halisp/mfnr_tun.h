@@ -56,7 +56,8 @@ public:
 
 	int configure(const Size &bayerInputSize,
 		      const Size &yuvOutput1Size, const Size &yuvOutput2Size,
-		      std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme,
+		      const Size &mfnrSize_aligned16, const Size &wrappingMapSize,
+		      const Size &confMapSize,
 		      std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss);
 
 	void allocateBuffers();
@@ -79,8 +80,8 @@ private:
 	Size yuvOutput2Size_;
 
 	Size bayerInputSize_;
+	Size mfnrSize_aligned16_;
 
-	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme_;
 	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss_;
 
 	bool needCropTNC16x9_;
@@ -89,6 +90,16 @@ private:
 
 	DmaHeap *dmaHeap_;
 	InfoFramePool mfnrTun_;
+
+	InfoFramePool tnrciPool_;
+	InfoFramePool wrap2pPool_;
+	InfoFramePool fourBytes_1_16_pool_;
+	InfoFramePool swmeOutPool_;
+	InfoFramePool swmeParamPool_;
+	InfoFramePool swmeTuningPool_;
+
+	Size wrappingMapSize_;
+	Size confMapSize_;
 
 	IPADelegate *ipa_;
 
@@ -153,13 +164,21 @@ class MfnrTunSwmeTask : public Task
 public:
 	MfnrTunSwmeTask(MFNRFrames &mfnr,
 			Scheduler *scheduler, const std::string &id,
-			std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme);
+			MfnrTunManager *manager,
+			uint32_t internalRequestId);
 
 	virtual void run() override final;
 
+	void notifySwmeResultReady();
+
+	MFNRFrames mfnr_;
 	SwmeFrames swmeFrames_;
 
-	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme_;
+	MfnrTunManager *manager_;
+	uint32_t internalRequestId_;
+
+private:
+	void allocateBuffers();
 };
 
 class MfnrTunDsTask : public ImgSysTask

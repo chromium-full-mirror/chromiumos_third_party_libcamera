@@ -17,18 +17,14 @@
 
 #include "bss.h"
 #include "imgsys.h"
-#include "swme.h"
 
 #define MFNR_QUEUE_SIZE 4
 namespace libcamera {
-
-constexpr int kInputRawCount = 4;
 
 class BssTask;
 class BfbldTask;
 class McdsF1Task;
 class BfmeTask;
-class SwmeTask;
 class CalMeTask;
 class DsTask;
 class DsVbiTask;
@@ -172,7 +168,6 @@ struct SwmeFrames {
 		std::vector<SharedMailBox<InfoFrame>> ref_buf;
 		std::vector<SharedMailBox<InfoFrame>> bss_buf;
 		std::vector<SharedMailBox<InfoFrame>> paramInInfo;
-		std::vector<SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>>> db_param;
 		std::vector<SharedMailBox<InfoFrame>> tuningInfo;
 	} in;
 	struct {
@@ -222,6 +217,8 @@ public:
 		      const Size &yuvOutputSize2,
 		      const Size &videoOutputSize1,
 		      const Size &videoOutputSize2,
+		      const Size &swmeWorkingBufSize,
+		      const Size &confMapSize,
 		      int sensor_idx);
 
 	int start();
@@ -241,24 +238,13 @@ public:
 			    FrameBuffer *output2Frame);
 	std::vector<Size> mfnrSizes_;
 	Size mfnrSize_aligned16_;
-	std::tuple<BssTask *, BfbldTask *, BfmeTask *, SwmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
+	std::tuple<BssTask *, BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
 		      uint32_t internalRequestId, ImgSysDevice *imgSys);
 
 	Size swmeWorkingBufSize_;
-	Size wrappingMapSize_;
 	Size confMapSize_;
-
-	Size getWarppingMapSize()
-	{
-		return wrappingMapSize_;
-	}
-
-	Size getConfMapSize()
-	{
-		return confMapSize_;
-	}
 
 private:
 	friend class BssTask;
@@ -270,7 +256,6 @@ private:
 	friend class DsVbiTask;
 	friend class MsbldTask;
 	friend class AfbldTask;
-	friend class SwmeTask;
 	friend MtkISP7CameraData;
 
 	int configureBuffers();
@@ -302,14 +287,8 @@ private:
 	InfoFramePool bssPosPool_;
 	InfoFramePool bssOutDataPool_;
 
-	InfoFramePool swmeParamPool_;
-	InfoFramePool swmeOutPool_;
-	InfoFramePool swmeTuningPool_;
-
 	InfoFramePool tunbufiPool_;
-	InfoFramePool wrap2pPool_;
 	InfoFramePool p2sttoPool_;
-	InfoFramePool tnrciPool_;
 	InfoFramePool yuvp010_1_1_pool_;
 	InfoFramePool yuvp010_1_4_pool_aligned16_;
 	InfoFramePool yuvp012_1_1_pool_;
@@ -329,12 +308,12 @@ private:
 	InfoFramePool fourBytes_pool_;
 	InfoFramePool fourBytes_1_16_pool_;
 	InfoFramePool nv21_1_64_pool_;
+	InfoFramePool nv12_1_64_pool_;
 	InfoFramePool nv12_wroto_pool_;
 	InfoFramePool memc_workbuf_pool_;
 
 	// TODO, need to get fe from hw/sw
 	std::vector<SharedMailBox<InfoFrame>> mcdsWpeVeci;
-	std::vector<std::shared_ptr<SwmeWrapper>> swmeWrapper_;
 	std::shared_ptr<BssWrapper> bssWrapper_;
 	int captureNum_;
 	int blendNum_;
@@ -517,28 +496,6 @@ private:
 
 	FrameBuffer *stillOutput1_;
 	FrameBuffer *stillOutput2_;
-};
-
-class SwmeTask : public Task
-{
-public:
-	SwmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
-		 ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
-
-	void run() override;
-	// void notifyDone() override;
-
-private:
-	void allocateOutputBuffers();
-	std::vector<std::shared_ptr<SwmeWrapper>> swmeWrapper_;
-	ImgSysRequestHelper requestHelper_;
-	[[maybe_unused]] Request *request_;
-	[[maybe_unused]] uint32_t internalRequestId_;
-	[[maybe_unused]] ImgSysDevice *imgSys_;
-	MfnrTasksManager *manager_;
-	MFNRFrames mfnr_;
-	SwmeFrames frames_;
-	SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>> dbParam_;
 };
 
 } /* namespace libcamera */

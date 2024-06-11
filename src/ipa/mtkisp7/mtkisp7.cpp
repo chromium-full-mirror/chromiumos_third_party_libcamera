@@ -16,6 +16,7 @@
 #include "libcamera/controls.h"
 #include "libcamera/ipa/ipa_module_info.h"
 #include "pipeline/mtkisp7/hal3a/const.h"
+#include "pipeline/mtkisp7/imgsys/const.h"
 #include "platform/mtkisp7/cam_cal_helper.h"
 #include "platform/mtkisp7/platform_utils.h"
 #include "platform/mtkisp7/sensor/sensor_info.h"
@@ -151,12 +152,17 @@ void IPAMtkISP7::stop()
 int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 			  const Size &maxStillSize, const std::string &sensorId,
 			  const uint32_t camsysIndex, const int32_t sessionTimestamp,
-			  bool isVideo,
-			  std::vector<uint8_t> *swmeParam,
+			  bool isVideo, const Size &sensorFullSize,
+			  const Size &swmeAlignedSize,
+			  Size *swmeWorkingBufSize, Size *wrappingMapSize,
+			  Size *confMapSize,
 			  std::vector<uint8_t> *bssParam)
 {
 	ImagiqAdapter::sensorIdMap.emplace(
 		sensorId, NSCam::TuningUtils::eSensorId(sensorIdx_));
+
+	sensorFullSize_ = sensorFullSize;
+	swmeAlignedSize_ = swmeAlignedSize;
 
 	onDeviceTuner_.configure(sensorId, camsysIndex, sessionTimestamp);
 
@@ -169,11 +175,6 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 	hal3A_->configure(camsysYuvSize, isVideo, force3AConsistency);
 	halIsp_->configure(maxVideoSize, maxStillSize, isVideo);
 
-	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme = halIsp_->getIspSwmeParam();
-	const auto swmeSize = sizeof(mtk::isphal::v1::isp_swme_Param);
-	swmeParam->resize(swmeSize);
-	memcpy(swmeParam->data(), swme.get(), swmeSize);
-
 	std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss = halIsp_->getIspBssParam();
 	const auto bssSize = sizeof(mtk::isphal::v1::isp_bss_Param);
 	bssParam->resize(bssSize);
@@ -184,6 +185,17 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 		return ret;
 	}
 	aieParser_->configure();
+
+	for (auto i = 0; i < kInputRawCount - 1; i++) {
+		std::shared_ptr<SwmeWrapper> swmeWrapper = std::make_shared<SwmeWrapper>();
+		swmeWrapper->setMotionEstimationResolution(swmeAlignedSize);
+		swmeWrapper->init();
+		swmeWrapper_.push_back(swmeWrapper);
+	}
+
+	*swmeWorkingBufSize = swmeWrapper_[0]->getAlgorithmWorkBufferSize();
+	*wrappingMapSize = swmeWrapper_[0]->getWarppingMapSize();
+	*confMapSize = swmeWrapper_[0]->getConfMapSize();
 
 	return aieParser_->initialize();
 }
@@ -477,6 +489,180 @@ void IPAMtkISP7::getImgSysMetaTuning(
 		static_cast<Feature>(featureEnum),
 		imgMetaRequests, std::move(dataMappedBuffersList),
 		controls);
+}
+
+void IPAMtkISP7::doSwme(
+	const uint64_t cookie,
+	const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData)
+{
+	for (size_t i = 0; i < kInputRawCount - 1; i++) {
+		std::shared_ptr<SwmeWrapper> swmewrapper = swmeWrapper_[i];
+
+		if (i >= swmeFramesData.size()) {
+			LOG(IPAMtkISP7, Error) << "Missing SwmeFramesData for index: " << i;
+			break;
+		}
+
+		const SwmeFramesData &data = swmeFramesData[i];
+
+		SwmeFramesBuffers swmeFramesBuffers;
+
+		std::vector<DmaSyncer> syncers;
+
+		swmeFramesBuffers.in.db_param = halIsp_->getIspSwmeParam();
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.workbuf);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme work buffer!";
+				continue;
+			}
+			swmeFramesBuffers.in.workbuf = buffer->mapped.get();
+			swmeFramesBuffers.in.work_framebuffer = &buffer->buffer;
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.base_buf);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme base buffer!: ";
+				continue;
+			}
+			swmeFramesBuffers.in.base_buf = buffer->mapped.get();
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.ref_buf);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme ref buffer!";
+				continue;
+			}
+			swmeFramesBuffers.in.ref_buf = buffer->mapped.get();
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.bss_buf);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme bss buffer!";
+				continue;
+			}
+			swmeFramesBuffers.in.bss_buf = buffer->mapped.get();
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.tuningInfo);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme tuningInfo buffer!";
+				continue;
+			}
+			swmeFramesBuffers.in.tuningInfo = buffer->mapped.get();
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.conf_map);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme conf_map buffer!";
+				continue;
+			}
+			swmeFramesBuffers.out.conf_map = buffer->mapped.get();
+			swmeFramesBuffers.out.conf_map_buffer = &buffer->buffer;
+
+			syncers.emplace_back(buffer->buffer.planes()[0].fd.get());
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.warpping_map);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme warpping_map buffer!";
+				continue;
+			}
+			swmeFramesBuffers.out.warpping_map = buffer->mapped.get();
+			swmeFramesBuffers.out.warpping_map_buffer = &buffer->buffer;
+
+			syncers.emplace_back(buffer->buffer.planes()[0].fd.get());
+			syncers.emplace_back(buffer->buffer.planes()[1].fd.get());
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.mcmv);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme mcmv buffer!";
+				continue;
+			}
+			swmeFramesBuffers.out.mcmv = buffer->mapped.get();
+			swmeFramesBuffers.out.mcmv_buffer = &buffer->buffer;
+
+			syncers.emplace_back(buffer->buffer.planes()[0].fd.get());
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.paramOutInfo);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme paramOutInfo buffer!";
+				continue;
+			}
+			swmeFramesBuffers.out.paramOutInfo = buffer->mapped.get();
+		}
+
+		IMFBLL_SET_PROC_INFO_STRUCT_IPC paramIn;
+		SwmeWrapper::prepareParam(
+			paramIn,
+			swmeFramesBuffers,
+			sensorFullSize_,
+			swmeAlignedSize_,
+			i);
+		swmewrapper->featureCtrl(IMFBLL_FTCTRL_SET_PROC_INFO, &paramIn, NULL);
+		IMFBLL_PROC1_OUT_STRUCT_IPC paramOut;
+		SwmeWrapper::prepareOutParam(
+			&paramOut,
+			swmeFramesBuffers);
+
+		MRESULT ErrCode = swmewrapper->swmeMain(IMFBLL_PROC1, NULL, &paramOut);
+		if (ErrCode)
+			LOG(IPAMtkISP7, Error) << "Some error with in swmeMain, ErrCode = " << ErrCode;
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.paramInInfo);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Error) << "Could not find swme paramInInfo buffer!";
+				continue;
+			}
+
+			DmaSyncer syncer(buffer->buffer.planes()[0].fd.get());
+
+			memcpy(reinterpret_cast<void *>(buffer->mapped->planes()[0].data()),
+			       reinterpret_cast<void *>(&paramIn),
+			       sizeof(IMFBLL_SET_PROC_INFO_STRUCT));
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.tuningInfo);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Fatal) << "Could not find swme tuning buffer!";
+				continue;
+			}
+
+			DmaSyncer syncer(buffer->buffer.planes()[0].fd.get());
+
+			memcpy(reinterpret_cast<void *>(buffer->mapped->planes()[0].data()),
+			       reinterpret_cast<void *>(swmeFramesBuffers.in.db_param.get()),
+			       sizeof(mtk::isphal::v1::isp_swme_Param));
+		}
+
+		{
+			IPAMappedBuffer *buffer = getMappedBufferIter(data.paramOutInfo);
+			if (!buffer) {
+				LOG(IPAMtkISP7, Fatal) << "Could not find swme paramOutInfo buffer!";
+				continue;
+			}
+
+			DmaSyncer syncer(buffer->buffer.planes()[0].fd.get());
+
+			memcpy(reinterpret_cast<void *>(buffer->mapped->planes()[0].data()),
+			       reinterpret_cast<void *>(&paramOut),
+			       sizeof(IMFBLL_PROC1_OUT_STRUCT));
+		}
+	}
+
+	SwmeResultReady.emit(cookie);
 }
 
 void IPAMtkISP7::doAAAResultReady(uint32_t frame, SensorSetting sensorSetting,

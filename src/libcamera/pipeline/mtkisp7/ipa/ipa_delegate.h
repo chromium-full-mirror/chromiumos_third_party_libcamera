@@ -15,6 +15,7 @@
 namespace libcamera {
 
 class AAATask;
+class MfnrTunSwmeTask;
 class MtkISP7CameraData;
 class ImgSysTask;
 
@@ -39,8 +40,10 @@ public:
 		      const Size &maxVideoSize,
 		      const Size &maxStillSize, const std::string &sensorId,
 		      const uint32_t camsysIndex, const int32_t sessionTimestamp,
-		      bool isVideo,
-		      std::vector<uint8_t> *swmeParam,
+		      bool isVideo, const Size &sensorFullSize,
+		      const Size &swmeAlignedSize,
+		      Size *swmeWorkingBufSize, Size *wrappingMapSize,
+		      Size *confMapSize,
 		      std::vector<uint8_t> *bssParam);
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers);
@@ -91,6 +94,10 @@ public:
 		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
 		const ControlList &controls);
 
+	void doSwme(
+		MfnrTunSwmeTask *swmeTask,
+		const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData);
+
 private:
 	friend MtkISP7CameraData;
 
@@ -107,6 +114,8 @@ private:
 
 	void ImgSysMetaTuningDone(uint64_t cookie);
 
+	void SwmeResultReady(uint64_t cookie);
+
 	std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy_;
 
 	FaceDetector *faceDetector_;
@@ -115,6 +124,9 @@ private:
 
 	uint64_t imgSysCookieCounter_ = 1;
 	std::unordered_map<uint64_t, ImgSysTask *> imgSysTasks_;
+
+	uint64_t swmeCookieCounter_ = 1;
+	std::unordered_map<uint64_t, MfnrTunSwmeTask *> swmeTasks_;
 };
 
 } // namespace libcamera

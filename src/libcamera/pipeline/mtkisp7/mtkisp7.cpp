@@ -97,7 +97,6 @@ enum MtkISP7TaskGroup {
 	BfbldTaskGroup,
 	McdsF1Group,
 	BfmeGroup,
-	SwmeGroup,
 	DsGroup,
 	DsVbiGroup,
 	MsbldGroup,
@@ -137,7 +136,6 @@ static const std::map<MtkISP7TaskGroup, std::string> kGroupName{
 	{ BfbldTaskGroup, "BfbldTaskGroup" },
 	{ McdsF1Group, "McdsF1Group" },
 	{ BfmeGroup, "BfmeGroup" },
-	{ SwmeGroup, "SwmeGroup" },
 	{ DsGroup, "DsGroup" },
 	{ DsVbiGroup, "DsVbiGroup" },
 	{ MsbldGroup, "MsbldGroup" },
@@ -1203,13 +1201,16 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.bssFacePool_);
 	registerIPABuffers(&mfnrManager.bssPosPool_);
 	registerIPABuffers(&mfnrManager.bssOutDataPool_);
-	registerIPABuffers(&mfnrManager.swmeParamPool_);
-	registerIPABuffers(&mfnrManager.swmeOutPool_);
-	registerIPABuffers(&mfnrManager.swmeTuningPool_);
+
+	registerIPABuffers(&mfnrTunManager.tnrciPool_);
+	registerIPABuffers(&mfnrTunManager.wrap2pPool_);
+	registerIPABuffers(&mfnrTunManager.fourBytes_1_16_pool_);
+	registerIPABuffers(&mfnrTunManager.swmeOutPool_);
+	registerIPABuffers(&mfnrTunManager.swmeParamPool_);
+	registerIPABuffers(&mfnrTunManager.swmeTuningPool_);
+
 	registerIPABuffers(&mfnrManager.tunbufiPool_);
-	registerIPABuffers(&mfnrManager.wrap2pPool_);
 	registerIPABuffers(&mfnrManager.p2sttoPool_);
-	registerIPABuffers(&mfnrManager.tnrciPool_);
 	registerIPABuffers(&mfnrManager.yuvp010_1_1_pool_);
 	registerIPABuffers(&mfnrManager.yuvp010_1_4_pool_aligned16_);
 	registerIPABuffers(&mfnrManager.yuvp012_1_1_pool_);
@@ -1222,6 +1223,7 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.y8_1_1_pool_);
 	registerIPABuffers(&mfnrManager.y8_1_2_pool_);
 	registerIPABuffers(&mfnrManager.y8_1_4_pool_);
+	registerIPABuffers(&mfnrManager.y8_1_4_pool_aligned16_);
 	registerIPABuffers(&mfnrManager.y8_1_8_pool_);
 	registerIPABuffers(&mfnrManager.y8_1_16_pool_);
 	registerIPABuffers(&mfnrManager.y8_1_32_pool_);
@@ -1423,32 +1425,31 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 				  camSysDev_->getIndex(), 0, ipa_.get());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 
-	std::vector<uint8_t> swmeParam, bssParam;
+	Size swmeWorkingBufSize, wrappingMapSize, confMapSize;
+	std::vector<uint8_t> bssParam;
 	ipa_->configure(camsysYuvSize, faceDetector_,
 			video1 > video2 ? video1 : video2,
 			still1 > still2 ? still1 : still2, camSysDev_->cameraId(),
 			camSysDev_->getIndex(),
 			onDeviceTuner_->getSessionTimestamp(),
-			isVideo,
-			&swmeParam, &bssParam);
-
-	auto swme = std::make_shared<mtk::isphal::v1::isp_swme_Param>();
-	memcpy(swme.get(), swmeParam.data(),
-	       sizeof(mtk::isphal::v1::isp_swme_Param));
+			isVideo, sensorFullSize_,
+			MfnrTasksManager::getSizeAligned(sensorFullSize_),
+			&swmeWorkingBufSize, &wrappingMapSize, &confMapSize,
+			&bssParam);
 
 	auto bss = std::make_shared<mtk::isphal::v1::isp_bss_Param>();
 	memcpy(bss.get(), bssParam.data(),
 	       sizeof(mtk::isphal::v1::isp_bss_Param));
-	Size wrappingMapSize = Size{ 0, 0 };
-	Size confMapSize = Size{ 0, 0 };
 	if (useMfnr) {
 		mfnrManager.configure(sensorFullSize_,
 				      still1, still2,
 				      video1, video2,
+				      swmeWorkingBufSize, confMapSize,
 				      sensor_idx_);
-		wrappingMapSize = mfnrManager.getWarppingMapSize();
-		confMapSize = mfnrManager.getConfMapSize();
-		mfnrTunManager.configure(sensorFullSize_, still1, still2, swme, bss);
+		mfnrTunManager.configure(sensorFullSize_, still1, still2,
+					 MfnrTasksManager::getSizeAligned(sensorFullSize_),
+					 wrappingMapSize,
+					 confMapSize, bss);
 	}
 
 	imgSysDev_->configure(sensorFullSize_, camsysYuvSize,
@@ -1671,7 +1672,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			      mfnrTunMsbldTask, mfnrTunAfbldTask] =
 				mfnrTunManager.makeMfnrTunTasks(mfnr, camSysMetaRequestId, scheduler, "MfnrTun " + sequence, request, internalRequestId);
 
-			auto [mfnrBssTask, mfnrBfbldTask, mfnrBfmeTask, mfnrSwmeTask,
+			auto [mfnrBssTask, mfnrBfbldTask, mfnrBfmeTask,
 			      mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask,
 			      mfnrAfbldTask] =
 				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request, internalRequestId, imgSysDev_);
@@ -1707,15 +1708,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->queueTask(mfnrBfmeTask, BfmeGroup);
 
 			Scheduler::precede(mfnrBfmeTask, mfnrTunSwmeTask);
-			Scheduler::precede(mfnrTunSwmeTask, mfnrSwmeTask);
-			scheduler->succeedPrevTaskByStep(SwmeTunGroup, 0, mfnrSwmeTask);
+			scheduler->succeedPrevTaskByStep(SwmeTunGroup, 0, mfnrTunSwmeTask);
 			scheduler->queueTask(mfnrTunSwmeTask, SwmeTunGroup);
 
-			Scheduler::precede(mfnrBfbldTask, mfnrSwmeTask);
-			scheduler->succeedPrevTaskByStep(SwmeGroup, 0, mfnrSwmeTask);
-			scheduler->queueTask(mfnrSwmeTask, SwmeGroup);
-
-			Scheduler::precede(mfnrSwmeTask, mfnrTunMcdsF1Task);
+			Scheduler::precede(mfnrTunSwmeTask, mfnrTunMcdsF1Task);
 			Scheduler::precede(mfnrTunMcdsF1Task, mfnrMcdsF1Task);
 			scheduler->succeedPrevTaskByStep(McdsF1TunGroup, 0, mfnrTunMcdsF1Task);
 			scheduler->queueTask(mfnrTunMcdsF1Task, McdsF1TunGroup);

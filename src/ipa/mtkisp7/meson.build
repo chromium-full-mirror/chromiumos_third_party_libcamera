@@ -8,6 +8,7 @@ mtkisp7_ipa_sources = files([
   'hal3a/hal_3a.cpp',
   'hal3a/utils_3a.cpp',
   'halisp/hal_isp.cpp',
+  'halisp/swme.cpp',
 ])
 
 libcamalgo_fdft = cc.find_library('camalgo.fdft', required : false)
@@ -26,6 +27,8 @@ libcam_halisp_tuning_provider = cc.find_library('cam.halisp.TuningDataProvider',
 libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : true)
 libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
 
+libcamalgo_mfnr = cc.find_library('camalgo.mfnr', required : true)
+
 mtkisp7_deps = [
     libcamalgo_fdft,
     libcam_hal3a,
@@ -40,6 +43,7 @@ mtkisp7_deps = [
     libcam_halisp_tuning_provider,
     libmtkcam_tuning_utils,
     libmtkcam_stdutils,
+    libcamalgo_mfnr,
     libcamera_private
 ]
 

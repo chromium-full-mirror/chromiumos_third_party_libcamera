@@ -12,6 +12,7 @@
 #include "face_detect/parser.h"
 #include "hal3a/hal_3a.h"
 #include "halisp/hal_isp.h"
+#include "halisp/swme.h"
 #include "libcamera/base/thread.h"
 #include "libcamera/controls.h"
 #include "libfdft_lib/faces.h"
@@ -46,8 +47,10 @@ public:
 	int configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 		      const Size &maxStillSize, const std::string &sensorId,
 		      const uint32_t camsysIndex, const int32_t sessionTimestamp,
-		      bool isVideo,
-		      std::vector<uint8_t> *swmeParam,
+		      bool isVideo, const Size &sensorFullSize,
+		      const Size &swmeAlignedSize,
+		      Size *swmeWorkingBufSize, Size *wrappingMapSize,
+		      Size *confMapSize,
 		      std::vector<uint8_t> *bssParam) override;
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers) override;
@@ -96,6 +99,10 @@ public:
 		const uint32_t featureEnum,
 		const std::vector<ipa::mtkisp7::ImgMetaRequestData> &imgMetaRequests,
 		const ControlList &controls) override;
+
+	void doSwme(
+		const uint64_t cookie,
+		const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData) override;
 
 private:
 	void doAAAResultReady(uint32_t frame, SensorSetting sensorSetting,
@@ -189,6 +196,11 @@ private:
 
 	// The sensor being configured.
 	int32_t sensorIdx_;
+
+	Size sensorFullSize_;
+	Size swmeAlignedSize_;
+
+	std::vector<std::shared_ptr<SwmeWrapper>> swmeWrapper_;
 };
 
 } // namespace ipa::mtkisp7

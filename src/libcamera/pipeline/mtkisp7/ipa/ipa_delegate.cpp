@@ -11,6 +11,8 @@
 
 #include "../face_detect/detector.h"
 #include "../hal3a/aaa.h"
+#include "../halisp/mfnr_tun.h"
+#include "libcamera/base/bound_method.h"
 #include "pipeline/mtkisp7/halisp/imgsys_task.h"
 
 #include "mtkisp7_ipa_interface.h"
@@ -36,6 +38,9 @@ int IPADelegate::init(std::unique_ptr<ipa::mtkisp7::IPAProxyMtkISP7> ipaProxy,
 	ipaProxy_->AAAResultReady.connect(this, &IPADelegate::AAAResultReady);
 
 	ipaProxy_->ImgSysMetaTuningDone.connect(this, &IPADelegate::ImgSysMetaTuningDone);
+
+	ipaProxy_->SwmeResultReady.connect(this, &IPADelegate::SwmeResultReady);
+
 	int ret = ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::init,
 					  ConnectionTypeBlocking, model, sensorIdx,
 					  eeprom, camSysDataArray);
@@ -68,8 +73,10 @@ int IPADelegate::configure(
 	const Size &maxVideoSize,
 	const Size &maxStillSize, const std::string &sensorId,
 	const uint32_t camsysIndex, const int32_t sessionTimestamp,
-	bool isVideo,
-	std::vector<uint8_t> *swmeParam,
+	bool isVideo, const Size &sensorFullSize,
+	const Size &swmeAlignedSize,
+	Size *swmeWorkingBufSize, Size *wrappingMapSize,
+	Size *confMapSize,
 	std::vector<uint8_t> *bssParam)
 {
 	faceDetector_ = faceDetector;
@@ -78,7 +85,9 @@ int IPADelegate::configure(
 				       ConnectionTypeBlocking,
 				       camsysYuvSize, maxVideoSize, maxStillSize,
 				       sensorId, camsysIndex, sessionTimestamp,
-				       isVideo, swmeParam, bssParam);
+				       isVideo, sensorFullSize, swmeAlignedSize,
+				       swmeWorkingBufSize, wrappingMapSize,
+				       confMapSize, bssParam);
 }
 
 void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)
@@ -195,6 +204,17 @@ void IPADelegate::getImgSysMetaTuning(
 				imgMetaRequests, controls);
 }
 
+void IPADelegate::doSwme(
+	MfnrTunSwmeTask *swmeTask,
+	const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData)
+{
+	uint64_t cookie = swmeCookieCounter_++;
+	swmeTasks_.emplace(cookie, swmeTask);
+
+	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::doSwme,
+				ConnectionTypeBlocking, cookie, swmeFramesData);
+}
+
 void IPADelegate::AieParseResultReady(
 	bool success,
 	const ipa::mtkisp7::PrimaryFaceData &primaryFace,
@@ -231,6 +251,20 @@ void IPADelegate::ImgSysMetaTuningDone(uint64_t cookie)
 	it->second->notifyDone();
 
 	imgSysTasks_.erase(it);
+}
+
+void IPADelegate::SwmeResultReady(uint64_t cookie)
+{
+	auto it = swmeTasks_.find(cookie);
+	if (it == swmeTasks_.end()) {
+		LOG(IPADelegateMtkISP7, Fatal)
+			<< "SwmeResultReady: couldn't find task with cookie: "
+			<< cookie;
+		return;
+	}
+	it->second->notifySwmeResultReady();
+
+	swmeTasks_.erase(it);
 }
 
 } // namespace libcamera

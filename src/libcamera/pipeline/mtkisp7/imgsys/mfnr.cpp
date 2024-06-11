@@ -33,6 +33,7 @@
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "ImgPortDef.h"
+#include "const.h"
 #include "single_device.h"
 #include "single_device_helper.h"
 
@@ -83,14 +84,8 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&bssFacePool_);
 	allBufferPools_.emplace_back(&bssPosPool_);
 
-	allBufferPools_.emplace_back(&swmeParamPool_);
-	allBufferPools_.emplace_back(&swmeOutPool_);
-	allBufferPools_.emplace_back(&swmeTuningPool_);
-
 	allBufferPools_.emplace_back(&tunbufiPool_);
 	allBufferPools_.emplace_back(&p2sttoPool_);
-	allBufferPools_.emplace_back(&tnrciPool_);
-	allBufferPools_.emplace_back(&wrap2pPool_);
 	allBufferPools_.emplace_back(&yuvp010_1_1_pool_);
 	allBufferPools_.emplace_back(&yuvp010_1_4_pool_aligned16_);
 	allBufferPools_.emplace_back(&yuvp012_1_1_pool_);
@@ -109,8 +104,8 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&y8_1_32_pool_);
 
 	allBufferPools_.emplace_back(&fourBytes_pool_);
-	allBufferPools_.emplace_back(&fourBytes_1_16_pool_);
 	allBufferPools_.emplace_back(&nv21_1_64_pool_);
+	allBufferPools_.emplace_back(&nv12_1_64_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
 	allBufferPools_.emplace_back(&memc_workbuf_pool_);
 
@@ -125,14 +120,8 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&bssFacePool_);
 	poolsWritenByCpu_.emplace_back(&bssPosPool_);
 
-	poolsWritenByCpu_.emplace_back(&swmeParamPool_);
-	poolsWritenByCpu_.emplace_back(&swmeOutPool_);
-	poolsWritenByCpu_.emplace_back(&swmeTuningPool_);
-
 	poolsWritenByCpu_.emplace_back(&tunbufiPool_);
 	poolsWritenByCpu_.emplace_back(&p2sttoPool_);
-	poolsWritenByCpu_.emplace_back(&tnrciPool_);
-	poolsWritenByCpu_.emplace_back(&wrap2pPool_);
 	poolsWritenByCpu_.emplace_back(&yuvp010_1_1_pool_);
 	poolsWritenByCpu_.emplace_back(&yuvp010_1_4_pool_aligned16_);
 	poolsWritenByCpu_.emplace_back(&yuvp012_1_1_pool_);
@@ -150,8 +139,8 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&y8_1_16_pool_);
 	poolsWritenByCpu_.emplace_back(&y8_1_32_pool_);
 	poolsWritenByCpu_.emplace_back(&fourBytes_pool_);
-	poolsWritenByCpu_.emplace_back(&fourBytes_1_16_pool_);
 	poolsWritenByCpu_.emplace_back(&nv21_1_64_pool_);
+	poolsWritenByCpu_.emplace_back(&nv12_1_64_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_wroto_pool_);
 	poolsWritenByCpu_.emplace_back(&memc_workbuf_pool_);
 }
@@ -172,6 +161,8 @@ Size MfnrTasksManager::getSizeAligned(const Size &bayerInputSize)
 int MfnrTasksManager::configure(const Size &bayerInputSize,
 				const Size &yuvOutputSize1, const Size &yuvOutputSize2,
 				const Size &videoOutputSize1, const Size &videoOutputSize2,
+				const Size &swmeWorkingBufSize,
+				const Size &confMapSize,
 				int sensor_idx)
 {
 	yuvOutputSize1_ = yuvOutputSize1;
@@ -196,16 +187,8 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 
 	mfnrSize_aligned16_ = getSizeAligned(bayerInputSize_);
 
-	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		std::shared_ptr<SwmeWrapper> swmewrapper = std::make_shared<SwmeWrapper>();
-		Size swme_in = mfnrSize_aligned16_;
-		swmewrapper->setMotionEstimationResolution(swme_in.width, swme_in.height);
-		swmewrapper->init();
-		swmeWrapper_.push_back(swmewrapper);
-	}
-	swmeWorkingBufSize_ = swmeWrapper_[0]->getAlgorithmWorkBufferSize();
-	wrappingMapSize_ = swmeWrapper_[0]->getWarppingMapSize();
-	confMapSize_ = swmeWrapper_[0]->getConfMapSize();
+	swmeWorkingBufSize_ = swmeWorkingBufSize;
+	confMapSize_ = confMapSize;
 	bssWrapper_ = std::make_shared<BssWrapper>(sensor_idx_);
 	bssWrapper_->bssInit();
 
@@ -226,14 +209,8 @@ int MfnrTasksManager::configureBuffers()
 	bssFacePool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFace) * 15, 1), kInputRawCount);
 	bssPosPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBssFaceInfo) * 15, 1), kInputRawCount);
 
-	swmeOutPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_PROC1_OUT_STRUCT), 1), kInputRawCount - 1);
-	swmeParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_SET_PROC_INFO_STRUCT), 1), kInputRawCount - 1);
-	swmeTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_swme_Param), 1), kInputRawCount - 1);
-
 	bssOutDataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_OUTPUT_DATA), 1), 1);
 	p2sttoPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kP2sttoSize, 4, DmaHeap::CMA);
-	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 3, DmaHeap::System, 1, 1);
-	tnrciPool_.createBuffers(dmaHeap_, formats::Y8_MTISP, confMapSize_, 3, DmaHeap::System);
 
 	yuvp010_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], 9);
 	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSize_aligned16_, 4, DmaHeap::System, 16);
@@ -256,7 +233,6 @@ int MfnrTasksManager::configureBuffers()
 	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 10, DmaHeap::System, 16, 16);
 
 	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 22);
-	fourBytes_1_16_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, mfnrSizes_[4], 3);
 	nv21_1_64_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[6], 3);
 	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 1);
 
@@ -456,7 +432,6 @@ void MfnrTasksManager::makeMFNRFrames(
 		swmeFrame.in.workbuf.push_back(swmeWorkBuf[i]);
 		swmeFrame.in.base_buf.push_back(bfmeFrames.out.img2o[0]);
 		swmeFrame.in.ref_buf.push_back(bfmeFrames.out.img2o[i + 1]);
-		swmeFrame.in.db_param.push_back(swmeDbParam[i]);
 		swmeFrame.in.tuningInfo.push_back(swmeTun[i]);
 		swmeFrame.in.paramInInfo.push_back(swmeParamInBuf[i]);
 		swmeFrame.out.warpping_map.push_back(swmeWrappingBuf[i]);
@@ -819,7 +794,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	afbldF0.in.tnrmi.push_back(afbldF1.out.tnrmo[0]); //Y8:1632x1224
 }
 
-std::tuple<BssTask *, BfbldTask *, BfmeTask *, SwmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
+std::tuple<BssTask *, BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
 MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
 				uint32_t internalRequestId, ImgSysDevice *imgSys)
@@ -827,14 +802,13 @@ MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 	BssTask *bssTask = new BssTask(scheduler, id + " (BSS)", request, internalRequestId, imgSys, mfnr, this);
 	BfbldTask *bfbldTask = new BfbldTask(scheduler, id + " (BFBLD)", request, internalRequestId, imgSys, mfnr, this);
 	BfmeTask *bfmeTask = new BfmeTask(scheduler, id + " (BFME)", request, internalRequestId, imgSys, mfnr, this);
-	SwmeTask *swmeTask = new SwmeTask(scheduler, id + " (SWME)", request, internalRequestId, imgSys, mfnr, this);
 	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id + " (MCDSF1)", request, internalRequestId, imgSys, mfnr, this);
 	DsTask *dsTask = new DsTask(scheduler, id + " (DS)", request, internalRequestId, imgSys, mfnr, this);
 	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id + " (DSVBI)", request, internalRequestId, imgSys, mfnr, this);
 	MsbldTask *msbldTask = new MsbldTask(scheduler, id + " (MSBLD)", request, internalRequestId, imgSys, mfnr, this);
 	AfbldTask *afbldTask = new AfbldTask(scheduler, id + " (AFBLD)", request, internalRequestId, imgSys, mfnr, this);
 
-	return std::make_tuple(bssTask, bfbldTask, bfmeTask, swmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask, afbldTask);
+	return std::make_tuple(bssTask, bfbldTask, bfmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask, afbldTask);
 }
 
 BssTask::BssTask(Scheduler *scheduler, const std::string &id, [[maybe_unused]] Request *request, uint32_t internalRequestId,
@@ -1094,129 +1068,6 @@ void BfmeTask::run()
 		BFME.setMultiScale(IMG_MULTI_SCALE_DOWN4, 1, 0);
 	}
 	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
-}
-
-SwmeTask::SwmeTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
-		   ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
-	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
-{
-	frames_ = mfnr.swmeFrames;
-	swmeWrapper_ = manager->swmeWrapper_;
-	mfnr_ = mfnr;
-}
-
-void SwmeTask::allocateOutputBuffers()
-{
-	auto &in = frames_.in;
-	auto &out = frames_.out;
-
-	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		manager_->tnrciPool_.fetch(out.conf_map[i]);
-		manager_->wrap2pPool_.fetch(out.warpping_map[i]);
-		manager_->fourBytes_1_16_pool_.fetch(out.mcmv[i]);
-		manager_->swmeOutPool_.fetch(out.paramOutInfo[i]);
-
-		manager_->swmeParamPool_.fetch(in.paramInInfo[i]);
-		manager_->swmeTuningPool_.fetch(in.tuningInfo[i]);
-	}
-}
-
-void SwmeTask::run()
-{
-	allocateOutputBuffers();
-
-	auto &mfnrSizes_ = manager_->mfnrSizes_;
-	auto &mfnrSize_aligned16 = manager_->mfnrSize_aligned16_;
-	auto &in = frames_.in;
-	auto &out = frames_.out;
-	auto bssOrder = mfnr_.bss_order->get();
-	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		std::shared_ptr<SwmeWrapper> swmewrapper = swmeWrapper_[i];
-		IMFBLL_SET_PROC_INFO_STRUCT_IPC paramIn;
-		MappedFrameBuffer mappedWarppingMapBuffers =
-			MappedFrameBuffer(out.warpping_map[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-		DmaSyncer syncer_WarppingMapX(out.warpping_map[i]->get().buffer()->planes()[0].fd.get());
-		DmaSyncer syncer_WarppingMapY(out.warpping_map[i]->get().buffer()->planes()[1].fd.get());
-
-		MappedFrameBuffer mappedConfMapBuffers =
-			MappedFrameBuffer(out.conf_map[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-		DmaSyncer syncer_ConfMap(out.conf_map[i]->get().buffer()->planes()[0].fd.get());
-
-		MappedFrameBuffer mappedMcmvMapBuffers =
-			MappedFrameBuffer(out.mcmv[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-		DmaSyncer syncer_McmvMap(out.mcmv[i]->get().buffer()->planes()[0].fd.get());
-
-		SwmeWrapper::prepareParam(
-			paramIn,
-			in.workbuf[i],
-			in.base_buf[i],
-			in.ref_buf[i],
-			in.bss_buf[i],
-			out.warpping_map[i],
-			in.db_param[i]->get(),
-			mfnrSizes_[0],
-			mfnrSize_aligned16,
-			i);
-		swmewrapper->featureCtrl(IMFBLL_FTCTRL_SET_PROC_INFO, &paramIn, NULL);
-		IMFBLL_PROC1_OUT_STRUCT_IPC paramOut;
-		SwmeWrapper::prepareOutParam(
-			&paramOut,
-			out.conf_map[i],
-			out.warpping_map[i],
-			out.mcmv[i]);
-
-		MRESULT ErrCode = swmewrapper->swmeMain(IMFBLL_PROC1, NULL, &paramOut);
-		if (ErrCode)
-			LOG(MtkISP7, Error) << "Some error with in swmeMain, ErrCode = " << ErrCode;
-
-		MappedFrameBuffer mappedSwmeParamInBuffer =
-			MappedFrameBuffer(in.paramInInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-		DmaSyncer syncer_swmeParamIn(in.paramInInfo[i]->get().buffer()->planes()[0].fd.get());
-
-		memcpy(reinterpret_cast<void *>(in.paramInInfo[i]->get().address(0)),
-		       reinterpret_cast<void *>(&paramIn),
-		       sizeof(IMFBLL_SET_PROC_INFO_STRUCT));
-
-		MappedFrameBuffer mappedSwmeTuningBuffer =
-			MappedFrameBuffer(in.tuningInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-		DmaSyncer syncer_swmeTuning(in.tuningInfo[i]->get().buffer()->planes()[0].fd.get());
-
-		memcpy(reinterpret_cast<void *>(in.tuningInfo[i]->get().address(0)),
-		       reinterpret_cast<void *>(in.db_param[i]->get().get()),
-		       sizeof(mtk::isphal::v1::isp_swme_Param));
-
-		MappedFrameBuffer mappedSwmeParamOutBuffer =
-			MappedFrameBuffer(out.paramOutInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
-		DmaSyncer syncer_swmeParamOut(out.paramOutInfo[i]->get().buffer()->planes()[0].fd.get());
-
-		memcpy(reinterpret_cast<void *>(out.paramOutInfo[i]->get().address(0)),
-		       reinterpret_cast<void *>(&paramOut),
-		       sizeof(IMFBLL_PROC1_OUT_STRUCT));
-
-		//SWME Precheck
-		if (MfnrTasksManager::mfnrPrecheck()) {
-			bool hasVal = false;
-			MINT32 *px = static_cast<MINT32 *>(reinterpret_cast<void *>(out.warpping_map[i]->get().address(0)));
-			MINT32 *py = static_cast<MINT32 *>(reinterpret_cast<void *>(out.warpping_map[i]->get().address(1)));
-			Size warppingMapSize = out.warpping_map[i]->get().size();
-			int stride = out.warpping_map[i]->get().buffer()->planes()[0].stride;
-			for (int h = 0; h < (int)warppingMapSize.height && !hasVal; h++) {
-				for (int w = 0; w < (int)warppingMapSize.width; w++) {
-					MUINT8 *x = reinterpret_cast<MUINT8 *>(px + w + h * stride);
-					MUINT8 *y = reinterpret_cast<MUINT8 *>(py + w + h * stride);
-					if (*x != 0 || *y != 0) {
-						hasVal = true;
-						break;
-					}
-				}
-			}
-			LOG(MtkISP7, Info) << "[CAT][MFNR] swme_out:" << hasVal;
-		}
-	}
-
-	manager_->onDeviceTuner_->tuneSwme(internalRequestId_, frames_, bssOrder);
-	Task::notifyDone();
 }
 
 DsTask::DsTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,

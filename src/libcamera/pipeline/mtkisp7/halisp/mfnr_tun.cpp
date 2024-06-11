@@ -18,6 +18,7 @@
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/task_scheduler.h"
 
+#include "pipeline/mtkisp7/imgsys/const.h"
 #include "pipeline/mtkisp7/imgsys/mfnr.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -63,25 +64,49 @@ void MfnrTunManager::allocateBuffers()
 {
 	mfnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 45, DmaHeap::CMA);
 	mfnrTun_.mmap();
+
+	swmeOutPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_PROC1_OUT_STRUCT), 1), kInputRawCount - 1);
+	swmeParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_SET_PROC_INFO_STRUCT), 1), kInputRawCount - 1);
+	swmeTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_swme_Param), 1), kInputRawCount - 1);
+	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 4, DmaHeap::System, 1, 1);
+	tnrciPool_.createBuffers(dmaHeap_, formats::Y8_MTISP, confMapSize_, 3, DmaHeap::System);
+	fourBytes_1_16_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, mfnrSizes_[4], 3);
+
+	tnrciPool_.mmap();
+	wrap2pPool_.mmap();
+	fourBytes_1_16_pool_.mmap();
+	swmeOutPool_.mmap();
+	swmeParamPool_.mmap();
+	swmeTuningPool_.mmap();
 }
 
 void MfnrTunManager::releaseBuffers()
 {
-	mfnrTun_.unmap();
 	mfnrTun_.release();
+
+	tnrciPool_.release();
+	wrap2pPool_.release();
+	fourBytes_1_16_pool_.release();
+	swmeOutPool_.release();
+	swmeParamPool_.release();
+	swmeTuningPool_.release();
 }
 
 int MfnrTunManager::configure(const Size &bayerInputSize,
 			      const Size &yuvOutput1Size, const Size &yuvOutput2Size,
-			      std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme,
+			      const Size &mfnrSize_aligned16, const Size &wrappingMapSize,
+			      const Size &confMapSize,
 			      std::shared_ptr<mtk::isphal::v1::isp_bss_Param> bss)
 {
 	yuvOutput1Size_ = yuvOutput1Size;
 	yuvOutput2Size_ = yuvOutput2Size;
 
 	bayerInputSize_ = bayerInputSize;
+	mfnrSize_aligned16_ = mfnrSize_aligned16;
 
-	swme_ = swme;
+	wrappingMapSize_ = wrappingMapSize;
+	confMapSize_ = confMapSize;
+
 	bss_ = bss;
 
 	mfnrSizes_.resize(7);
@@ -99,6 +124,7 @@ int MfnrTunManager::configure(const Size &bayerInputSize,
 	if ((yuvOutput1Size_.width * 9 == yuvOutput1Size_.height * 16) &&
 	    (yuvOutput2Size_.width * 9 == yuvOutput2Size_.height * 16))
 		needCropTNC16x9_ = true;
+
 	allocateBuffers();
 
 	return 0;
@@ -123,7 +149,7 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	MfnrTunSwmeTask *mfnrTunSwmeTask = new MfnrTunSwmeTask(
-		mfnr, scheduler, id, swme_);
+		mfnr, scheduler, id, this, internalRequestId);
 
 	MfnrTunDsTask *mfnrTunDsTask = new MfnrTunDsTask(
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
@@ -245,19 +271,84 @@ void MfnrTunBfmeTask::run()
 MfnrTunSwmeTask::MfnrTunSwmeTask(MFNRFrames &mfnr,
 				 Scheduler *scheduler,
 				 const std::string &id,
-				 std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme)
-	: Task(scheduler, id), swme_(swme)
+				 MfnrTunManager *manager,
+				 uint32_t internalRequestId)
+	: Task(scheduler, id), mfnr_(mfnr), manager_(manager),
+	  internalRequestId_(internalRequestId)
 {
 	swmeFrames_ = mfnr.swmeFrames;
 }
 
-void MfnrTunSwmeTask::run()
+void MfnrTunSwmeTask::allocateBuffers()
 {
 	auto &in = swmeFrames_.in;
-	for (auto i = 0; i < (int)in.db_param.size(); i++) {
-		in.db_param[i]->put(swme_, nullptr);
+	auto &out = swmeFrames_.out;
+
+	for (auto i = 0; i < kInputRawCount - 1; i++) {
+		manager_->tnrciPool_.fetch(out.conf_map[i]);
+		manager_->wrap2pPool_.fetch(out.warpping_map[i]);
+		manager_->fourBytes_1_16_pool_.fetch(out.mcmv[i]);
+		manager_->swmeOutPool_.fetch(out.paramOutInfo[i]);
+
+		manager_->swmeParamPool_.fetch(in.paramInInfo[i]);
+		manager_->swmeTuningPool_.fetch(in.tuningInfo[i]);
+	}
+}
+
+void MfnrTunSwmeTask::run()
+{
+	allocateBuffers();
+
+	auto &in = swmeFrames_.in;
+	auto &out = swmeFrames_.out;
+
+	std::vector<ipa::mtkisp7::SwmeFramesData> swmeFramesData;
+	for (auto i = 0; i < kInputRawCount - 1; i++) {
+		ipa::mtkisp7::SwmeFramesData data;
+		data.workbuf = in.workbuf[i]->get().buffer()->cookie();
+		data.base_buf = in.base_buf[i]->get().buffer()->cookie();
+		data.ref_buf = in.ref_buf[i]->get().buffer()->cookie();
+		data.bss_buf = in.bss_buf[i]->get().buffer()->cookie();
+		data.paramInInfo = in.paramInInfo[i]->get().buffer()->cookie();
+		data.tuningInfo = in.tuningInfo[i]->get().buffer()->cookie();
+
+		data.conf_map = out.conf_map[i]->get().buffer()->cookie();
+		data.warpping_map = out.warpping_map[i]->get().buffer()->cookie();
+		data.mcmv = out.mcmv[i]->get().buffer()->cookie();
+		data.paramOutInfo = out.paramOutInfo[i]->get().buffer()->cookie();
+
+		swmeFramesData.push_back(std::move(data));
 	}
 
+	manager_->ipa_->doSwme(this, swmeFramesData);
+}
+
+void MfnrTunSwmeTask::notifySwmeResultReady()
+{
+	auto &out = swmeFrames_.out;
+	for (auto i = 0; i < kInputRawCount - 1; i++) {
+		//SWME Precheck
+		if (MfnrTasksManager::mfnrPrecheck()) {
+			bool hasVal = false;
+			MINT32 *px = static_cast<MINT32 *>(reinterpret_cast<void *>(out.warpping_map[i]->get().address(0)));
+			MINT32 *py = static_cast<MINT32 *>(reinterpret_cast<void *>(out.warpping_map[i]->get().address(1)));
+			Size warppingMapSize = out.warpping_map[i]->get().size();
+			int stride = out.warpping_map[i]->get().buffer()->planes()[0].stride;
+			for (int h = 0; h < (int)warppingMapSize.height && !hasVal; h++) {
+				for (int w = 0; w < (int)warppingMapSize.width; w++) {
+					MUINT8 *x = reinterpret_cast<MUINT8 *>(px + w + h * stride);
+					MUINT8 *y = reinterpret_cast<MUINT8 *>(py + w + h * stride);
+					if (*x != 0 || *y != 0) {
+						hasVal = true;
+						break;
+					}
+				}
+			}
+			LOG(MtkISP7, Info) << "[CAT][MFNR] swme_out:" << hasVal;
+		}
+	}
+
+	manager_->onDeviceTuner_->tuneSwme(internalRequestId_, swmeFrames_, mfnr_.bss_order->get());
 	notifyDone();
 }
 

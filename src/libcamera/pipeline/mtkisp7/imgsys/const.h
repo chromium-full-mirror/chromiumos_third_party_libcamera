@@ -1,18 +1,22 @@
 /*
  * Copyright (C) 2024, Google Inc.
  *
- * swme.h - MtkISP7 ImgSys Device Softeware Motion Estimate
+ * const.h - Constants of ImgSys.
  */
 
 #pragma once
-#include "libcamera/internal/info_frame.h"
 
-#include "platform/mtkisp7/halisp/ITuningDataProvider.h"
-#include "platform/mtkisp7/mtkcam-core/libcamera/mt8188/include/libmfnr/MTKMfbll.h"
-#include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/IMTKMfbll.h"
-#include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/include/EMfbll.h"
+#include <cstring>
+
+#include "libmfnr/MTKBssType.h"
+#include "mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/IMTKMfbll.h"
+#include "mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/include/EMfbll.h"
+
+#include "MediaTypes.h"
 
 namespace libcamera {
+
+constexpr int kInputRawCount = 4;
 
 struct IMFBLL_SET_PROC_INFO_STRUCT {
 	MUINT8 *workbuf_addr;
@@ -203,83 +207,5 @@ typedef struct IMFBLL_PROC1_OUT_STRUCT_IPC : IMFBLL_PROC1_OUT_STRUCT {
 	void *pMVPtr;
 	void *pWpeMapPtr;
 } IMFBLL_PROC1_OUT_STRUCT_IPC, *P_IMFBLL_PROC1_OUT_STRUCT_IPC;
-
-class SwmeWrapper
-{
-public:
-	SwmeWrapper();
-	void destroyInstance();
-	~SwmeWrapper();
-	MRESULT init();
-	void reset();
-	static void prepareParam(
-		IMFBLL_SET_PROC_INFO_STRUCT_IPC &param,
-		SharedMailBox<InfoFrame> working_buf,
-		SharedMailBox<InfoFrame> base_buf,
-		SharedMailBox<InfoFrame> ref_buf,
-		SharedMailBox<InfoFrame> bss_buf,
-		SharedMailBox<InfoFrame> warpping_buf,
-		std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam,
-		Size frame_size,
-		Size mc_size,
-		int index);
-	static void prepareOutParam(
-		IMFBLL_PROC1_OUT_STRUCT_IPC *paramOut,
-		SharedMailBox<InfoFrame> confmap_buf,
-		SharedMailBox<InfoFrame> warpping_buf,
-		SharedMailBox<InfoFrame> mcmv_buf);
-	MRESULT swmeMain(IMFBLL_PROC_ENUM ProcId, void *pParaIn, void *pParaOut);
-	MRESULT featureCtrl(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *pParaOut);
-	void *Parser_MfbllIn(void *pParaIn);
-	void *Parser_MfbllOut(void *pParaOut);
-	//void Parser_MfbllIn_Done(void *pParaIn, void *pParaParseIn);
-	void Parser_MfbllOut_Done(void *pParaOut, void *pParaParseOut);
-	void *Parser_ParaIn(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn);
-	void *Parser_ParaOut(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut);
-	void Parser_ParaIn_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *pParaParseIn);
-	void Parser_ParaOut_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut, void *pParaParseOut);
-
-	void setMotionEstimationResolution(const int &w, const int &h)
-	{
-		m_widthMe = w;
-		m_heightMe = h;
-		//updateIsUsingFullMemc();
-	}
-
-	Size getAlgorithmWorkBufferSize()
-	{
-		return Size{ m_WorkingBufInfo.Ext_mem_size, 1 };
-	}
-
-	Size getWarppingMapSize()
-	{
-		return Size{ m_WorkingBufInfo.WpeMap_width, m_WorkingBufInfo.WpeMap_height };
-	}
-	Size getConfMapSize()
-	{
-		return Size{ m_WorkingBufInfo.CofMap_width, m_WorkingBufInfo.CofMap_height };
-	}
-
-private:
-	void *m_pMfbllDrv;
-	int m_widthMe;
-	int m_heightMe;
-	int m_widthMc;
-	int m_heightMc;
-	IPass_MFBLL_INIT_PARAM_STRUCT m_MfbllInitParam;
-	IPass_MFBLL_GET_PROC_INFO_STRUCT m_MfbllGetProc;
-	IPass_MFBLL_SET_PROC_INFO_STRUCT m_MfbllSetProc;
-	IPass_MFBLL_SET_PROC_INFO_STRUCT_IPC m_MfbllSetProc_IPC;
-	IPass_MFBLL_PROC1_OUT_STRUCT m_MfbllProcOut;
-	IPass_MFBLL_PROC1_OUT_STRUCT_IPC m_MfbllProcOut_IPC;
-
-	IMFBLL_GET_PROC_INFO_STRUCT m_WorkingBufInfo;
-
-	SharedMailBox<InfoFrame> working_buf_;
-	SharedMailBox<InfoFrame> base_buf_;
-	SharedMailBox<InfoFrame> ref_buf_;
-	SharedMailBox<InfoFrame> warpping_buf_;
-	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> m_dbParam;
-};
 
 } /* namespace libcamera */
