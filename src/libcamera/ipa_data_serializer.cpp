@@ -571,6 +571,7 @@ SharedFD IPADataSerializer<SharedFD>::deserialize(const std::vector<uint8_t> &da
  * 4 byte  - SharedFD
  * 4 bytes - uint32_t Offset
  * 4 bytes - uint32_t Length
+ * 4 bytes - uint32_t Stride
  */
 template<>
 std::tuple<std::vector<uint8_t>, std::vector<SharedFD>>
@@ -589,6 +590,7 @@ IPADataSerializer<FrameBuffer::Plane>::serialize(const FrameBuffer::Plane &data,
 
 	appendPOD<uint32_t>(dataVec, data.offset);
 	appendPOD<uint32_t>(dataVec, data.length);
+	appendPOD<uint32_t>(dataVec, data.stride);
 
 	return { dataVec, fdsVec };
 }
@@ -607,6 +609,7 @@ IPADataSerializer<FrameBuffer::Plane>::deserialize(std::vector<uint8_t>::const_i
 								fdsBegin, fdsBegin + 1);
 	ret.offset = readPOD<uint32_t>(dataBegin, 4, dataEnd);
 	ret.length = readPOD<uint32_t>(dataBegin, 8, dataEnd);
+	ret.stride = readPOD<uint32_t>(dataBegin, 12, dataEnd);
 
 	return ret;
 }
