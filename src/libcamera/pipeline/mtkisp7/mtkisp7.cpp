@@ -243,7 +243,7 @@ public:
 		   AAATask *, uint32_t>
 	makeTasks(const std::string &id, Request *request,
 		  CaptureFrames &captureFrames, uint32_t internalRequestId,
-		  bool hasStillCapture = false);
+		  bool hasStillCapture, bool hasVideo);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
 				  SofTask *sofTask, AAATask *aaaTask);
 
@@ -1026,13 +1026,14 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 std::tuple<QueueTask *, DequeueTask *, SofTask *, AAATask *, uint32_t>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames,
-			     uint32_t internalRequestId, bool hasStillCapture)
+			     uint32_t internalRequestId, bool hasStillCapture, bool hasVideo)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 
 	captureManager.makeCaptureFrames(
-		captureFrames, useMfnr || (useLpnr && hasStillCapture) || onDeviceTuner_->isEnabled());
+		captureFrames, useMfnr || (useLpnr && hasStillCapture) || onDeviceTuner_->isEnabled(),
+		useMfnr || hasVideo, hasVideo);
 
 	if (internalRequestId >= CaptureTasksManager::kAAToSofDelay) {
 		uint32_t aaRequestId = internalRequestId - CaptureTasksManager::kAAToSofDelay;
@@ -1488,7 +1489,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 		for (size_t i = 0; i < needed; ++i) {
 			CaptureFrames captureFrames;
-			makeTasks("Padding capture", nullptr, captureFrames, requestCount_++);
+			makeTasks("Padding capture", nullptr, captureFrames, requestCount_++, false, false);
 		}
 	}
 
@@ -1522,8 +1523,9 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	CaptureFrames captureFrames;
 
+	bool hasVideo = video1Buffer || video2Buffer;
 	auto [taskQBuf, taskDQBuf, sofTask, aaaTask, camSysMetaRequestId] = makeTasks(
-		"Capture " + sequence, request, captureFrames, internalRequestId, hasStillCapture);
+		"Capture " + sequence, request, captureFrames, internalRequestId, hasStillCapture, hasVideo);
 	aaaTask->setPerFrameControl(
 		AAATask::PerFrameControl{
 			.delayIdx = 0,
@@ -1532,7 +1534,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
-	bool hasVideo = video1Buffer || video2Buffer;
 
 	CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
 	auto aaaIspExchange = aaCaptureResult->aaaIspExchange;

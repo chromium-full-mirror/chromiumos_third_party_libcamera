@@ -33,15 +33,15 @@ public:
 
 	struct Request {
 		FrameBuffer *main = nullptr;
-		FrameBuffer *yuvo1;
-		FrameBuffer *yuvo2;
-		FrameBuffer *rawInject;
+		FrameBuffer *yuvo1 = nullptr;
+		FrameBuffer *yuvo2 = nullptr;
+		FrameBuffer *rawInject = nullptr;
 
-		FrameBuffer *me;
-		FrameBuffer *faceDetect;
-		FrameBuffer *tuning;
-		FrameBuffer *statistics0;
-		FrameBuffer *statistics1;
+		FrameBuffer *me = nullptr;
+		FrameBuffer *faceDetect = nullptr;
+		FrameBuffer *tuning = nullptr;
+		FrameBuffer *statistics0 = nullptr;
+		FrameBuffer *statistics1 = nullptr;
 
 		int mediaRequest;
 	};

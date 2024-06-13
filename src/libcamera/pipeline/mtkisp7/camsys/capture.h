@@ -83,7 +83,8 @@ public:
 	void allocateBuffers();
 	void releaseBuffers();
 
-	void makeCaptureFrames(CaptureFrames &captureFrames, bool needRaw);
+	void makeCaptureFrames(CaptureFrames &captureFrames, bool needRaw,
+			       bool needYuvo1, bool hasVideo);
 
 	std::tuple<QueueTask *, DequeueTask *, SofTask *>
 	makeCaptureTasks(Scheduler *scheduler, const std::string &id,
