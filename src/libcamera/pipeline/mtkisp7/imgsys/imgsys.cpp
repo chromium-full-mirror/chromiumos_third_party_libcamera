@@ -520,7 +520,8 @@ int ImgSysDevice::queueRequestV4L2(Request *request)
 			infoCtrl, mediaRequest, request->stage);
 		onDeviceTuner_->tuneImgsysMetadata(
 			request->sdRequest->sequence(),
-			request->sdRequest->sequence(),
+			request->frameNumber,
+			request->layer,
 			stages,
 			infoCtrl, mediaRequest);
 	}
@@ -588,7 +589,8 @@ int ImgSysDevice::queueRequest(Request *request)
 		request->sdRequest->fillRequestBuffer(infoCtrl, infoDesc, mediaRequest);
 		onDeviceTuner_->tuneImgsysMetadata(
 			request->sdRequest->sequence(),
-			request->sdRequest->sequence(),
+			request->frameNumber,
+			request->layer,
 			request->sdRequest->getStageEnums(),
 			infoCtrl, mediaRequest);
 	}
@@ -1339,7 +1341,9 @@ void ImgSysRequestHelper::queueRequest(uint32_t userId, SingleDeviceRequest &sdR
 {
 #if V4L2_STANDARD_MODE
 	for (size_t stage = 0; stage < sdRequest.Stages().size(); ++stage) {
-		imgSysRequests_.push_back({ &sdRequest, stage, 0, userId });
+		int frameNumber = sdRequest.frameNumber(stage);
+		uint32_t layer = sdRequest.layer(stage);
+		imgSysRequests_.push_back({ &sdRequest, stage, 0, userId, frameNumber, layer });
 		imgSys_->queueRequestV4L2(&imgSysRequests_.back());
 	}
 #else

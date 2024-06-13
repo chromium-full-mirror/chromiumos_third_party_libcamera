@@ -113,6 +113,8 @@ public:
 		size_t stage;
 		int buffers_count;
 		uint32_t userId;
+		int frameNumber;
+		uint32_t layer;
 	};
 
 	ImgSysDevice(OnDeviceTuner *odt);

@@ -430,6 +430,7 @@ std::string ImagiqAdapter::getFileExtension(const PixelFormat &pixelFormat)
 		return "nv21";
 	case formats::GREY:
 		return "y";
+	case formats::Y8_MTISP:
 		return "y";
 	}
 	return "packed_word";

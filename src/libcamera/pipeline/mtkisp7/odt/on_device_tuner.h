@@ -27,6 +27,7 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/dump.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/imagiq_adapter.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/static_strings.h"
 #include "pipeline/mtkisp7/odt/imgsys_driver_debug.h"
 #include "platform/mtkisp7/halisp/IspControls.h"
 #include "platform/mtkisp7/halisp/TuningParam.h"
@@ -124,6 +125,7 @@ public:
 	void tuneImgsysMetadata(
 		uint32_t internalRequestId,
 		uint32_t frameNumber,
+		int layer,
 		const std::vector<PEU_Stage> &stages,
 		const InfoFrame &metaFrame,
 		int mediaRequestFd);

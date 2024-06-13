@@ -696,6 +696,7 @@ void OnDeviceTuner::tuneImgsysHalIsp(
 void OnDeviceTuner::tuneImgsysMetadata(
 	uint32_t internalRequestId,
 	uint32_t frameNumber,
+	int layer,
 	const std::vector<PEU_Stage> &stages,
 	const InfoFrame &metaFrame,
 	int mediaRequestFd)
@@ -719,6 +720,9 @@ void OnDeviceTuner::tuneImgsysMetadata(
 		Dump::Id id = kPeuStageDumpIdMap.at(stages[i]);
 		Dump::Metadata dumpMetadata = kDumpMetadata.at(id);
 		Dump::Config config = dumpConfig_[id];
+		if (layer != -1) {
+			dumpMetadata.layer = layer;
+		}
 		imgSysMetadata[i].common.needDump = true;
 		auto dumpFileName = ImagiqAdapter::getDumpFileName({
 			.id = id,
@@ -1447,7 +1451,7 @@ void OnDeviceTuner::tuneAfbld(
 	namedFrames.push_back({ Dump::Id::AFBLD_F0_TNRWI, afbldF0_.in.tnrwi[i]->get() });
 	namedFrames.push_back({ Dump::Id::AFBLD_F0_TUNBUF, afbldF0_.in.tunbufi[i]->get() });
 	namedFrames.push_back({ Dump::Id::AFBLD_F0_TNRWO, afbldF0_.out.tnrwo[i]->get() });
-	namedFrames.push_back({ Dump::Id::AFBLD_F0_IMG3O, afbldF1_.out.img3o[i]->get() });
+	namedFrames.push_back({ Dump::Id::AFBLD_F0_IMG3O, afbldF0_.out.img3o[i]->get() });
 
 	if (still1Output) {
 		InfoFrame still1Frame = getFrameInfoFromRequest(request, still1Output);
