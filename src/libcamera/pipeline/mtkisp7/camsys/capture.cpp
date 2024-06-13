@@ -21,6 +21,7 @@
 
 #include "mt8188/mtk_cam_metabuf.h"
 #include "pipeline/mtkisp7/hal3a/aaa.h"
+#include "pipeline/mtkisp7/imgsys/mfnr.h"
 
 #include "camsys.h"
 #include "control_ids.h"
@@ -77,7 +78,7 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 void CaptureTasksManager::allocateBuffers()
 {
 	rawPool_.setFormat(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_);
-	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, pipelineDepth_);
+	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, pipelineDepth_ + MFNR_QUEUE_SIZE);
 	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, pipelineDepth_);
 	// Me needs one more buffer to be kept in MCNRPrevOutput.
 	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, pipelineDepth_ + 1, DmaHeap::System, 64);
