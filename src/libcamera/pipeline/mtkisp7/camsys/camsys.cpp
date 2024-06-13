@@ -283,14 +283,23 @@ int CamSysDevice::queueRequest(Request *request)
 	int ret = metaInput_->queueBuffer(request->tuning, mediaRequest);
 	ret |= partialMeta0_->queueBuffer(request->statistics0, mediaRequest);
 	ret |= partialMeta1_->queueBuffer(request->statistics1, mediaRequest);
-	ret |= yuvo1_->queueBuffer(request->yuvo1, mediaRequest);
-	ret |= yuvo2_->queueBuffer(request->yuvo2, mediaRequest);
-	ret |= drzs4no3_->queueBuffer(request->me, mediaRequest);
 	ret |= rzh1n2to1_->queueBuffer(request->faceDetect, mediaRequest);
 
-	unsigned int queuedBuffers = 7;
+	unsigned int queuedBuffers = 4;
 	if (request->main) {
 		ret |= mainStream_->queueBuffer(request->main, mediaRequest);
+		++queuedBuffers;
+	}
+	if (request->yuvo1) {
+		ret |= yuvo1_->queueBuffer(request->yuvo1, mediaRequest);
+		++queuedBuffers;
+	}
+	if (request->yuvo2) {
+		ret |= yuvo2_->queueBuffer(request->yuvo2, mediaRequest);
+		++queuedBuffers;
+	}
+	if (request->me) {
+		ret |= drzs4no3_->queueBuffer(request->me, mediaRequest);
 		++queuedBuffers;
 	}
 

@@ -107,17 +107,22 @@ void CaptureTasksManager::releaseBuffers()
 	rawi2Pool_.release();
 }
 
-void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames, bool needRaw)
+void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames,
+					    bool needRaw, bool needYuvo1,
+					    bool hasVideo)
 {
 	captureFrames.tuningOutput = makeMailBox<InfoFrame>();
 
 	if (needRaw)
 		captureFrames.raw = makeMailBox<InfoFrame>();
 
-	captureFrames.yuvo1 = makeMailBox<InfoFrame>();
-	captureFrames.yuvo2 = makeMailBox<InfoFrame>();
-
-	captureFrames.me = makeMailBox<InfoFrame>();
+	if (needYuvo1) {
+		captureFrames.yuvo1 = makeMailBox<InfoFrame>();
+	}
+	if (hasVideo) {
+		captureFrames.yuvo2 = makeMailBox<InfoFrame>();
+		captureFrames.me = makeMailBox<InfoFrame>();
+	}
 	captureFrames.faceDetection = makeMailBox<InfoFrame>();
 
 	captureFrames.statistics0 = makeMailBox<InfoFrame>();
@@ -252,8 +257,10 @@ void QueueTask::run()
 
 	camSysRequest.tuning = frames.tuning->get().buffer();
 
-	manager_->mePool_.fetch(frames.me);
-	camSysRequest.me = frames.me->get().buffer();
+	if (frames.me) {
+		manager_->mePool_.fetch(frames.me);
+		camSysRequest.me = frames.me->get().buffer();
+	}
 
 	manager_->faceDetectPool_.fetch(frames.faceDetection);
 	camSysRequest.faceDetect = frames.faceDetection->get().buffer();
@@ -263,11 +270,15 @@ void QueueTask::run()
 		camSysRequest.main = frames.raw->get().buffer();
 	}
 
-	manager_->yuvo1Pool_.fetch(frames.yuvo1);
-	camSysRequest.yuvo1 = frames.yuvo1->get().buffer();
+	if (frames.yuvo1) {
+		manager_->yuvo1Pool_.fetch(frames.yuvo1);
+		camSysRequest.yuvo1 = frames.yuvo1->get().buffer();
+	}
 
-	manager_->yuvo2Pool_.fetch(frames.yuvo2);
-	camSysRequest.yuvo2 = frames.yuvo2->get().buffer();
+	if (frames.yuvo2) {
+		manager_->yuvo2Pool_.fetch(frames.yuvo2);
+		camSysRequest.yuvo2 = frames.yuvo2->get().buffer();
+	}
 
 	camSys->queueRequest(&camSysRequest);
 
