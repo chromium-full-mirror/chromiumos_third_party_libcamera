@@ -1243,7 +1243,7 @@ void OnDeviceTuner::tuneSwme(uint32_t internalRequestId, SwmeFrames &frames, std
 		namedFrames.push_back({ Dump::Id::SWME_TUNING, frames.in.tuningInfo[i]->get() });
 		namedFrames.push_back({ Dump::Id::SWME_OUT, frames.out.paramOutInfo[i]->get() });
 		namedFrames.push_back({ Dump::Id::SWME_CONF_MAP, frames.out.conf_map[i]->get() });
-		namedFrames.push_back({ Dump::Id::SWME_WPEX_MAP, frames.out.wrapping_map[i]->get() });
+		namedFrames.push_back({ Dump::Id::SWME_WPEX_MAP, frames.out.warpping_map[i]->get() });
 
 		tune(internalRequestId, internalRequestId + order[i + 1], namedFrames, true);
 	}

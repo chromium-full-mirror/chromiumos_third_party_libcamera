@@ -34,6 +34,9 @@ static const int MF_BSS_ON = 1;
 BssWrapper::BssWrapper(int sensorIndex)
 	: sensorIndex_(sensorIndex)
 {
+	DRVBssObject_s Pass_DRVBssObject_s = DRV_BSS_OBJ_SW;
+	m_pBssDrv =
+		(void *)MTKBss::createInstance((DrvBssObject_e)Pass_DRVBssObject_s);
 	mOdtUtils = NSCam::TuningUtils::IOdtUtils::getInstance(sensorIndex);
 }
 BssWrapper::~BssWrapper()
@@ -641,15 +644,10 @@ MVOID BssWrapper::updateBssIOInfo(IBSS_INPUT_DATA_G_IPC &bss_input)
 	bss_input.inWidth = mZipData.imgWidth;
 	bss_input.inHeight = mZipData.imgHeight;
 
-	std::stringstream sstream;
-	sstream << "\n======= updateBssIOInfo start ======\n";
-
-	sstream << "BayerOrder(" << bss_input.BayerOrder << ") Bitnum("
-		<< bss_input.Bitnum << ") Stride(" << bss_input.Stride << ") Size("
-		<< bss_input.inWidth << "x" << bss_input.inHeight << ")\n";
-
-	sstream << "======= updateBssIOInfo end ======\n";
-	LOG(MtkISP7, Info) << sstream.str();
+	LOG(MtkISP7, Info) << "BayerOrder:" << bss_input.BayerOrder
+			   << ", Bitnum:" << bss_input.Bitnum
+			   << ", Stride:" << bss_input.BayerOrder
+			   << ", Size:" << bss_input.inWidth << "x" << bss_input.inHeight;
 }
 
 MVOID BssWrapper::collectPreBSSExifData(IBSS_PARAM_STRUCT *bss_param)
@@ -787,12 +785,12 @@ MVOID BssWrapper::collectPostBSSExifData(std::vector<MINT32> &vNewIndex,
 	/* bss result score */
 	for (size_t i = 0; i < vNewIndex.size(); i++) {
 		LOG(MtkISP7, Info) << "SharpScore[" << i
-				   << "]  = " << bss_output.SharpScore[i] << "adj1_score["
+				   << "]  = " << bss_output.SharpScore[i] << ", adj1_score["
 				   << i << "]  = " << bss_output.adj1_score[i]
-				   << "adj2_score[" << i
-				   << "]  = " << bss_output.adj2_score[i] << "adj3_score["
+				   << ", adj2_score[" << i
+				   << "]  = " << bss_output.adj2_score[i] << ", adj3_score["
 				   << i << "]  = " << bss_output.adj3_score[i]
-				   << "final_score[" << i
+				   << ", final_score[" << i
 				   << "]  = " << bss_output.final_score[i];
 	}
 }

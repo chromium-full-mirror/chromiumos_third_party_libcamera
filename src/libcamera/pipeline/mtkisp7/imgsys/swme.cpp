@@ -8,6 +8,10 @@
 
 #include <libcamera/base/log.h>
 
+#include "pipeline/mtkisp7/imgsys/mfnr.h"
+
+#include "bss.h"
+
 namespace libcamera {
 LOG_DECLARE_CATEGORY(MtkISP7)
 
@@ -16,7 +20,8 @@ SwmeWrapper::SwmeWrapper()
 	  m_heightMe(0),
 	  m_widthMc(0)
 {
-
+	DRVMfbllObject_s Pass_DRVMfbllObject_s = DRV_MFBLL_OBJ_SW;
+	m_pMfbllDrv = (void *)MTKMfbll::createInstance(Pass_DRVMfbllObject_s);
 }
 
 SwmeWrapper::~SwmeWrapper()
@@ -40,21 +45,18 @@ MRESULT SwmeWrapper::init()
 	MRESULT ErrCode = S_MFBLL_OK;
 	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
 	ErrCode = pMTKMfbll->MfbllInit(&initParam, NULL);
-	LOG(MtkISP7, Info) << "ErrCode " << ErrCode;
+	if (ErrCode != S_MFBLL_OK) {
+		LOG(MtkISP7, Info) << "MfbllInit error!!,  ErrCode = " << ErrCode;
+	}
 	//Prepare working buffer
 	IMFBLL_SET_PROC_INFO_STRUCT_IPC param;
 	featureCtrl(IMFBLL_FTCTRL_GET_PROC_INFO,
 		    &param, // no need
 		    &m_WorkingBufInfo);
-	char buf[1024];
-	sprintf(buf, "working buffer size = %d", m_WorkingBufInfo.Ext_mem_size);
-	LOG(MtkISP7, Info) << buf;
-	sprintf(buf, "conf map size = %dx%d", m_WorkingBufInfo.CofMap_width, m_WorkingBufInfo.CofMap_height);
-	LOG(MtkISP7, Info) << buf;
-	sprintf(buf, "motion vec size = %dx%d", m_WorkingBufInfo.MV_width, m_WorkingBufInfo.MV_height);
-	LOG(MtkISP7, Info) << buf;
-	sprintf(buf, "warp map size = %dx%d", m_WorkingBufInfo.WpeMap_width, m_WorkingBufInfo.WpeMap_height);
-	LOG(MtkISP7, Info) << buf;
+	LOG(MtkISP7, Info) << "working buffer size = " << m_WorkingBufInfo.Ext_mem_size
+			   << ", conf map size = " << m_WorkingBufInfo.CofMap_width << "x" << m_WorkingBufInfo.CofMap_height
+			   << ", motion vec size = " << m_WorkingBufInfo.MV_width << "x" << m_WorkingBufInfo.MV_height
+			   << ", warp map size = " << m_WorkingBufInfo.WpeMap_width << "x" << m_WorkingBufInfo.WpeMap_height;
 	return ErrCode;
 }
 
@@ -78,6 +80,9 @@ MRESULT SwmeWrapper::swmeMain(IMFBLL_PROC_ENUM ProcId, void *pParaIn, void *pPar
 	void *pMfbllOutParse = Parser_MfbllOut(pParaOut);
 	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
 	ErrCode = pMTKMfbll->MfbllMain(Pass_MFBLL_PROC_ENUM, pMfbllInParse, pMfbllOutParse);
+	if (ErrCode != S_MFBLL_OK) {
+		LOG(MtkISP7, Error) << "MfbllMain error!!,  ErrCode = " << ErrCode;
+	}
 	//Parser_MfbllIn_Done(pMfbllInParse, pParaIn);
 	Parser_MfbllOut_Done(pMfbllOutParse, pParaOut);
 	return ErrCode;
@@ -109,17 +114,20 @@ MRESULT SwmeWrapper::featureCtrl(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *p
 	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
 	IMFBLL_GET_PROC_INFO_STRUCT *debug_out = &m_WorkingBufInfo;
 	ErrCode = pMTKMfbll->MfbllFeatureCtrl(Pass_MFBLL_FTCTRL_ENUM, pIn, pOut);
+	if (ErrCode != S_MFBLL_OK) {
+		LOG(MtkISP7, Error) << "MfbllFeatureCtrl error!!,  ErrCode = " << ErrCode;
+	}
 	Parser_ParaIn_Done(FcId, pIn, pParaIn);
 	Parser_ParaOut_Done(FcId, pOut, pParaOut);
 
-	LOG(MtkISP7, Info) << "Ext_mem_size: " << debug_out->Ext_mem_size;
-	LOG(MtkISP7, Info) << "CofMap_width: " << debug_out->CofMap_width;
-	LOG(MtkISP7, Info) << "CofMap_height: " << debug_out->CofMap_height;
-	LOG(MtkISP7, Info) << "MV_width: " << debug_out->MV_width;
-	LOG(MtkISP7, Info) << "MV_height: " << debug_out->MV_height;
-	LOG(MtkISP7, Info) << "WpeMap_width: " << debug_out->WpeMap_width;
-	LOG(MtkISP7, Info) << "WpeMap_height: " << debug_out->WpeMap_height;
-	LOG(MtkISP7, Info) << "ErrCode = " << ErrCode;
+	LOG(MtkISP7, Info) << "Ext_mem_size: " << debug_out->Ext_mem_size
+			   << ", CofMap_width: " << debug_out->CofMap_width
+			   << ", CofMap_height: " << debug_out->CofMap_height
+			   << ", MV_width: " << debug_out->MV_width
+			   << ", MV_height: " << debug_out->MV_height
+			   << ", WpeMap_width: " << debug_out->WpeMap_width
+			   << ", WpeMap_height: " << debug_out->WpeMap_height
+			   << ", ErrCode = " << ErrCode;
 	return ErrCode;
 }
 
@@ -428,10 +436,12 @@ void SwmeWrapper::prepareParam(
 	SharedMailBox<InfoFrame> working_buf,
 	SharedMailBox<InfoFrame> base_buf,
 	SharedMailBox<InfoFrame> ref_buf,
-	SharedMailBox<InfoFrame> wrapping_buf,
+	SharedMailBox<InfoFrame> bss_buf,
+	SharedMailBox<InfoFrame> warpping_buf,
 	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam,
 	Size frame_size,
-	Size mc_size)
+	Size mc_size,
+	int index)
 {
 	param.workbuf_addr =
 		reinterpret_cast<MUINT8 *>(working_buf->get().address(0));
@@ -452,19 +462,29 @@ void SwmeWrapper::prepareParam(
 	param.Proc1_me_wpe_image_width = frame_size.width;
 	param.Proc1_me_wpe_image_height = frame_size.height;
 	param.Proc1_me_wpe_np1_mode = isHighResolution(frame_size);
-	param.Proc1_me_wpe_stride = wrapping_buf->get().buffer()->planes()[0].stride;
-
+	param.Proc1_me_wpe_stride = warpping_buf->get().buffer()->planes()[0].stride;
+	dbParam->ME_RSV_4_1 = 700;
 	param.pSWMENvram = dbParam.get();
-
 	param.Proc1_ImgFmt = IPROC1_FMT_Y;
-	param.Proc_idx = 0;
+	param.Proc_idx = index;
 
+	IBSS_OUTPUT_DATA *bssOut = reinterpret_cast<IBSS_OUTPUT_DATA *>(bss_buf->get().address(0));
+	auto bstIdx = bssOut->originalOrder[0];
+	auto refIdx = bssOut->originalOrder[index + 1];
+	param.iBssOrgScore_base = (MUINT32)bssOut->final_score[bstIdx];
+	param.iBssOrgScore_ref = (MUINT32)bssOut->final_score[refIdx];
 	LOG(MtkISP7, Info) << "workbuf_addr: " << static_cast<void *>(param.workbuf_addr)
 			   << ", buf_size: " << param.buf_size
 			   << ", Proc1_base: " << static_cast<void *>(param.Proc1_base)
 			   << ", Proc1_ref: " << static_cast<void *>(param.Proc1_ref)
 			   << ", Proc1_width: " << param.Proc1_width
-			   << ", Proc1_height: " << param.Proc1_height;
+			   << ", Proc1_height: " << param.Proc1_height
+			   << ", ME_RSV_4_1: " << dbParam->ME_RSV_4_1
+			   << ", bstIdx:" << bstIdx
+			   << ", refIdx:" << refIdx
+			   << ", iBssOrgScore_base: " << param.iBssOrgScore_base
+			   << ", iBssOrgScore_ref:" << param.iBssOrgScore_ref
+			   << ", Proc_idx: " << (int)param.Proc_idx;
 	char buf[1024];
 	sprintf(buf, "me wpe image size %dx%d stride:%d, wpe_np1_mode:%d",
 		param.Proc1_me_wpe_image_width, param.Proc1_me_wpe_image_height,
@@ -511,28 +531,16 @@ void SwmeWrapper::prepareParam(
 void SwmeWrapper::prepareOutParam(
 	IMFBLL_PROC1_OUT_STRUCT_IPC *paramOut,
 	SharedMailBox<InfoFrame> confmap_buf,
-	SharedMailBox<InfoFrame> wrapping_buf,
+	SharedMailBox<InfoFrame> warpping_buf,
 	SharedMailBox<InfoFrame> mcmv_buf)
 {
 	paramOut->pu1ConfMap = confmap_buf->get().address(0);
-	paramOut->u4MapSize = 0;
-	for (auto i = 0; i < (int)confmap_buf->get().numPlanes(); i++) {
-		LOG(MtkISP7, Info) << "confmap_buf[" << i << "], size = " << confmap_buf->get().buffer()->planes()[i].length;
-		paramOut->u4MapSize += confmap_buf->get().buffer()->planes()[i].length;
-	}
-	paramOut->pi4WpeMapX = static_cast<MINT32 *>(reinterpret_cast<void *>(wrapping_buf->get().address(0)));
-	paramOut->pi4WpeMapY = static_cast<MINT32 *>(reinterpret_cast<void *>(wrapping_buf->get().address(1)));
-	paramOut->u4WpeMapSize = 0;
-	for (auto i = 0; i < (int)wrapping_buf->get().numPlanes(); i++) {
-		LOG(MtkISP7, Info) << "wrapping_buf[" << i << "], size = " << wrapping_buf->get().buffer()->planes()[i].length;
-		paramOut->u4WpeMapSize += wrapping_buf->get().buffer()->planes()[i].length;
-	}
-	paramOut->pu1MV = mcmv_buf->get().address(0);
-	paramOut->u4MVSize = 0;
-	for (auto i = 0; i < (int)mcmv_buf->get().numPlanes(); i++) {
-		LOG(MtkISP7, Info) << "mcmv_buf[" << i << "], size = " << mcmv_buf->get().buffer()->planes()[i].length;
-		paramOut->u4MVSize += mcmv_buf->get().buffer()->planes()[i].length;
-	}
+	paramOut->u4MapSize = confmap_buf->get().buffer()->planes()[0].length;
+	paramOut->pi4WpeMapX = static_cast<MINT32 *>(reinterpret_cast<void *>(warpping_buf->get().address(0)));
+	paramOut->pi4WpeMapY = static_cast<MINT32 *>(reinterpret_cast<void *>(warpping_buf->get().address(1)));
+	paramOut->u4WpeMapSize += warpping_buf->get().buffer()->planes()[0].length;
+	paramOut->pu1MV = static_cast<MUINT8 *>(mcmv_buf->get().address(0));
+	paramOut->u4MVSize = mcmv_buf->get().buffer()->planes()[0].length;
 	LOG(MtkISP7, Info) << "pu1ConfMap: " << static_cast<void *>(paramOut->pu1ConfMap)
 			   << ", pi4WpeMapX: " << static_cast<void *>(paramOut->pi4WpeMapX)
 			   << ", pi4WpeMapY: " << static_cast<void *>(paramOut->pi4WpeMapY)

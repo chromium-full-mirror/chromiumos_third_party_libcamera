@@ -1645,8 +1645,10 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer, int requestFd, uint32_t us
 	}
 
 	ret = cache_->get(*buffer, userId);
-	if (ret < 0)
+	if (ret < 0) {
+		LOG(V4L2, Error) << "Fail to get buffer from cache. ret = " << ret;
 		return ret;
+	}
 
 	buf.index = ret;
 	buf.type = bufferType_;

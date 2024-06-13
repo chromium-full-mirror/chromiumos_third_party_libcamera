@@ -170,13 +170,14 @@ struct SwmeFrames {
 		std::vector<SharedMailBox<InfoFrame>> workbuf;
 		std::vector<SharedMailBox<InfoFrame>> base_buf;
 		std::vector<SharedMailBox<InfoFrame>> ref_buf;
+		std::vector<SharedMailBox<InfoFrame>> bss_buf;
 		std::vector<SharedMailBox<InfoFrame>> paramInInfo;
 		std::vector<SharedMailBox<std::shared_ptr<mtk::isphal::v1::isp_swme_Param>>> db_param;
 		std::vector<SharedMailBox<InfoFrame>> tuningInfo;
 	} in;
 	struct {
 		std::vector<SharedMailBox<InfoFrame>> conf_map;
-		std::vector<SharedMailBox<InfoFrame>> wrapping_map;
+		std::vector<SharedMailBox<InfoFrame>> warpping_map;
 		std::vector<SharedMailBox<InfoFrame>> mcmv;
 		std::vector<SharedMailBox<InfoFrame>> paramOutInfo;
 	} out;
@@ -228,6 +229,7 @@ public:
 	int releaseBuffers();
 
 	static bool forceMfnr();
+	static bool mfnrPrecheck();
 
 	void makeMFNRFrames(MFNRFrames &mfnr,
 			    std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &captureRawQueue,
@@ -245,6 +247,14 @@ public:
 	Size swmeWorkingBufSize_;
 	Size wrappingMapSize_;
 	Size confMapSize_;
+
+	Size getWarppingMapSize(){
+		return wrappingMapSize_;
+	}
+
+	Size getConfMapSize(){
+		return confMapSize_;
+	}
 
 private:
 	friend class BssTask;
@@ -314,7 +324,9 @@ private:
 	InfoFramePool y8_1_16_pool_;
 	InfoFramePool y8_1_32_pool_;
 	InfoFramePool fourBytes_pool_;
-	InfoFramePool nv12_1_64_pool_;
+	InfoFramePool fourBytes_1_16_pool_;
+	InfoFramePool nv21_1_64_pool_;
+	InfoFramePool nv21_1_1_pool_;
 	InfoFramePool nv12_wroto_pool_;
 	InfoFramePool memc_workbuf_pool_;
 

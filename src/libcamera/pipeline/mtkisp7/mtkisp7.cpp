@@ -48,6 +48,7 @@
 #include "libfdft_lib/faces.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/ipa/ipa_delegate.h"
+#include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/platform_utils.h"
 #include "platform/mtkisp7/utils/history.h"
@@ -1211,7 +1212,9 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.y8_1_16_pool_);
 	registerIPABuffers(&mfnrManager.y8_1_32_pool_);
 	registerIPABuffers(&mfnrManager.fourBytes_pool_);
-	registerIPABuffers(&mfnrManager.nv12_1_64_pool_);
+	registerIPABuffers(&mfnrManager.fourBytes_1_16_pool_);
+	registerIPABuffers(&mfnrManager.nv21_1_64_pool_);
+	registerIPABuffers(&mfnrManager.nv21_1_1_pool_);
 	registerIPABuffers(&mfnrManager.nv12_wroto_pool_);
 	registerIPABuffers(&mfnrManager.memc_workbuf_pool_);
 }
@@ -1423,9 +1426,20 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	auto bss = std::make_shared<mtk::isphal::v1::isp_bss_Param>();
 	memcpy(bss.get(), bssParam.data(),
 	       sizeof(mtk::isphal::v1::isp_bss_Param));
+	Size wrappingMapSize = Size{ 0, 0 };
+	Size confMapSize = Size{ 0, 0 };
+	if (useMfnr) {
+		mfnrManager.configure(sensorFullSize_,
+				      still1, still2,
+				      video1, video2,
+				      sensor_idx_);
+		wrappingMapSize = mfnrManager.getWarppingMapSize();
+		confMapSize = mfnrManager.getConfMapSize();
+		mfnrTunManager.configure(sensorFullSize_, still1, still2, swme, bss);
+	}
 
 	imgSysDev_->configure(sensorFullSize_, camsysYuvSize,
-			      video1, video2, still1, still2);
+			      video1, video2, still1, still2, useMfnr, wrappingMapSize, confMapSize);
 
 	int32_t pipelineDepth = controlInfo_.at(&controls::draft::PipelineDepth)
 					.max()
@@ -1440,14 +1454,6 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	lpnrManager.configure(sensorFullSize_, still1, still2);
 	lpnrTunManager.configure(sensorFullSize_, still1, still2);
 	mcnrTunManager.configure(camsysYuvSize, video1, video2);
-
-	if (useMfnr) {
-		mfnrManager.configure(sensorFullSize_,
-				      still1, still2,
-				      video1, video2,
-				      sensor_idx_);
-		mfnrTunManager.configure(sensorFullSize_, still1, still2, swme, bss);
-	}
 
 	return 0;
 }
@@ -1545,7 +1551,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	if (useMfnr) {
 		captureRawQueue_idx += 1;
-		captureRawQueue_idx = captureRawQueue_idx % 8;
+		captureRawQueue_idx = captureRawQueue_idx % MFNR_QUEUE_SIZE;
 		captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
 		previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
 	}
@@ -1657,6 +1663,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 				Scheduler::precede(taskDip2, mfnrBfbldTask);
 			}
 
+			Scheduler::precede(taskDQBuf, mfnrBssTask);
 			Scheduler::precede(mfnrTunBssTask, mfnrBssTask);
 			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
 			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);
@@ -1683,7 +1690,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(BfmeGroup, 0, mfnrBfmeTask);
 			scheduler->queueTask(mfnrBfmeTask, BfmeGroup);
 
-			Scheduler::precede(mfnrTunBfmeTask, mfnrTunSwmeTask);
+			Scheduler::precede(mfnrBfmeTask, mfnrTunSwmeTask);
 			Scheduler::precede(mfnrTunSwmeTask, mfnrSwmeTask);
 			scheduler->succeedPrevTaskByStep(SwmeTunGroup, 0, mfnrSwmeTask);
 			scheduler->queueTask(mfnrTunSwmeTask, SwmeTunGroup);
@@ -1692,7 +1699,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			scheduler->succeedPrevTaskByStep(SwmeGroup, 0, mfnrSwmeTask);
 			scheduler->queueTask(mfnrSwmeTask, SwmeGroup);
 
-			Scheduler::precede(mfnrTunSwmeTask, mfnrTunMcdsF1Task);
+			Scheduler::precede(mfnrSwmeTask, mfnrTunMcdsF1Task);
 			Scheduler::precede(mfnrTunMcdsF1Task, mfnrMcdsF1Task);
 			scheduler->succeedPrevTaskByStep(McdsF1TunGroup, 0, mfnrTunMcdsF1Task);
 			scheduler->queueTask(mfnrTunMcdsF1Task, McdsF1TunGroup);

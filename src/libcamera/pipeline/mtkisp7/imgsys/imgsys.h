@@ -45,14 +45,15 @@ public:
 	void put(unsigned int offsetedIdx) override;
 
 	void setFormat(const V4L2DeviceFormat &format)
-	{ currentFormat_ = format; }
-
-	bool formatReady(V4L2DeviceFormat& fmt, uint32_t userId);
-	void addCurrentFormat(size_t count, uint64_t offset);
-	void addFormat(V4L2DeviceFormat& fmt, uint32_t userId, size_t count, uint64_t offset);
-
-	struct FormatCache
 	{
+		currentFormat_ = format;
+	}
+
+	bool formatReady(V4L2DeviceFormat &fmt, uint32_t userId);
+	void addCurrentFormat(size_t count, uint64_t offset);
+	void addFormat(V4L2DeviceFormat &fmt, uint32_t userId, size_t count, uint64_t offset);
+
+	struct FormatCache {
 	public:
 		FormatCache(const V4L2DeviceFormat &format,
 			    uint32_t userId, size_t count, uint64_t offset);
@@ -65,11 +66,11 @@ public:
 		SimpleV4L2BufferCache *cache_;
 	};
 
-	std::optional<uint64_t> getFormatIdx(const V4L2DeviceFormat& fmt, uint32_t userId);
+	std::optional<uint64_t> getFormatIdx(const V4L2DeviceFormat &fmt, uint32_t userId);
 
 	bool noCheckUserId_ = false;
 	V4L2DeviceFormat currentFormat_;
-	std::vector<FormatCache*> formatCaches_;
+	std::vector<FormatCache *> formatCaches_;
 };
 
 class ImgsysVideoDevice : public V4L2VideoDevice
@@ -93,7 +94,6 @@ public:
 private:
 	int resizeRatio_;
 	Rectangle crop_;
-
 	ImgSysBufferCache *getCache();
 };
 
@@ -120,7 +120,8 @@ public:
 	int init(MediaDevice *media, DmaHeap *dmaHeap);
 	int configure(const Size sensorFullSize, const Size CamSysYuv,
 		      const Size video1, const Size video2,
-		      const Size still1, const Size still2);
+		      const Size still1, const Size still2,
+		      const bool useMfnr, const Size wrappingMapSize, const Size confMapSize);
 	int start();
 	int stop();
 
@@ -153,7 +154,9 @@ private:
 
 	int importBuffers(const Size sensorFullSize, const Size CamSysYuv,
 			  const Size video1, const Size video2,
-			  const Size still1, const Size still2);
+			  const Size still1, const Size still2,
+			  const bool useMfnr, const Size wrappingMapSize, const Size confMapSize);
+
 	void importBufferByList(std::vector<PortBuffers> &portBufs, uint32_t userId);
 
 	V4L2VideoDevice *sigdevNorm_;

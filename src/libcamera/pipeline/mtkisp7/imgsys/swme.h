@@ -6,6 +6,7 @@
 
 #pragma once
 #include "libcamera/internal/info_frame.h"
+
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera/mt8188/include/libmfnr/MTKMfbll.h"
 #include "platform/mtkisp7/mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/IMTKMfbll.h"
@@ -22,69 +23,83 @@ struct IMFBLL_SET_PROC_INFO_STRUCT {
 	MUINT32 Proc1_height;
 	MUINT32 Proc1_ME_top_mode;
 	MUINT32 Proc1_ME_force_mode;
+	//0x30
 	MUINT32 Proc1_HG_info_en;
 
 	MUINT32 Proc1_me_wpe_image_width;
 	MUINT32 Proc1_me_wpe_image_height;
 	MUINT32 Proc1_me_wpe_np1_mode;
+	//0x40
 	MUINT32 Proc1_me_wpe_stride;
 	MUINT32 Proc1_FD_image_width;
 	MUINT32 Proc1_FD_image_height;
 
 	MUINT32 Proc1_Bst_FDROI_X0;
+	//0x50
 	MUINT32 Proc1_Bst_FDROI_Y0;
 	MUINT32 Proc1_Bst_FDROI_X1;
 	MUINT32 Proc1_Bst_FDROI_Y1;
 	MUINT32 Proc1_Ref_FDROI_X0;
+	//0x60
 	MUINT32 Proc1_Ref_FDROI_Y0;
 	MUINT32 Proc1_Ref_FDROI_X1;
 	MUINT32 Proc1_Ref_FDROI_Y1;
 
 	MUINT32 Proc1_Bst_LEYE_X0;
+	//0x70
 	MUINT32 Proc1_Bst_LEYE_X1;
 	MUINT32 Proc1_Bst_LEYE_Y0;
 	MUINT32 Proc1_Bst_LEYE_Y1;
 	MUINT32 Proc1_Bst_LEYE_UX;
+	//0x80
 	MUINT32 Proc1_Bst_LEYE_UY;
 	MUINT32 Proc1_Bst_LEYE_DX;
 	MUINT32 Proc1_Bst_LEYE_DY;
 	MUINT32 Proc1_Bst_REYE_X0;
+	//0x90
 	MUINT32 Proc1_Bst_REYE_X1;
 	MUINT32 Proc1_Bst_REYE_Y0;
 	MUINT32 Proc1_Bst_REYE_Y1;
 	MUINT32 Proc1_Bst_REYE_UX;
+	//0xA0
 	MUINT32 Proc1_Bst_REYE_UY;
 	MUINT32 Proc1_Bst_REYE_DX;
 	MUINT32 Proc1_Bst_REYE_DY;
 
 	MUINT32 Proc1_Ref_LEYE_X0;
+	//0xB0
 	MUINT32 Proc1_Ref_LEYE_X1;
 	MUINT32 Proc1_Ref_LEYE_Y0;
 	MUINT32 Proc1_Ref_LEYE_Y1;
 	MUINT32 Proc1_Ref_LEYE_UX;
+	//0xC0
 	MUINT32 Proc1_Ref_LEYE_UY;
 	MUINT32 Proc1_Ref_LEYE_DX;
 	MUINT32 Proc1_Ref_LEYE_DY;
 	MUINT32 Proc1_Ref_REYE_X0;
+	//0xD0
 	MUINT32 Proc1_Ref_REYE_X1;
 	MUINT32 Proc1_Ref_REYE_Y0;
 	MUINT32 Proc1_Ref_REYE_Y1;
 	MUINT32 Proc1_Ref_REYE_UX;
+	//0xE0
 	MUINT32 Proc1_Ref_REYE_UY;
 	MUINT32 Proc1_Ref_REYE_DX;
 	MUINT32 Proc1_Ref_REYE_DY;
 
 	MUINT32 Proc1_base_ae_dgn_gain;
+	//0xF0
 	MUINT32 Proc1_base_ae_exposure_time;
 	MUINT32 Proc1_base_ae_isp_gain;
 	MUINT32 Proc1_base_ae_sensor_gain;
 	MUINT32 Proc1_ref_ae_dgn_gain;
+	//0x100
 	MUINT32 Proc1_ref_ae_exposure_time;
 	MUINT32 Proc1_ref_ae_isp_gain;
 	MUINT32 Proc1_ref_ae_sensor_gain;
 
 	IPROC_IMAGE_FORMAT Proc1_ImgFmt;
-
+	//0x110
 	MUINT32 iBssOrgScore_base;
 	MUINT32 iBssOrgScore_ref;
 
@@ -202,14 +217,16 @@ public:
 		SharedMailBox<InfoFrame> working_buf,
 		SharedMailBox<InfoFrame> base_buf,
 		SharedMailBox<InfoFrame> ref_buf,
-		SharedMailBox<InfoFrame> wrapping_buf,
+		SharedMailBox<InfoFrame> bss_buf,
+		SharedMailBox<InfoFrame> warpping_buf,
 		std::shared_ptr<mtk::isphal::v1::isp_swme_Param> dbParam,
 		Size frame_size,
-		Size mc_size);
+		Size mc_size,
+		int index);
 	static void prepareOutParam(
 		IMFBLL_PROC1_OUT_STRUCT_IPC *paramOut,
 		SharedMailBox<InfoFrame> confmap_buf,
-		SharedMailBox<InfoFrame> wrapping_buf,
+		SharedMailBox<InfoFrame> warpping_buf,
 		SharedMailBox<InfoFrame> mcmv_buf);
 	MRESULT swmeMain(IMFBLL_PROC_ENUM ProcId, void *pParaIn, void *pParaOut);
 	MRESULT featureCtrl(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *pParaOut);
@@ -231,10 +248,10 @@ public:
 
 	Size getAlgorithmWorkBufferSize()
 	{
-		return Size{ m_WorkingBufInfo.Ext_mem_size, 2 };
+		return Size{ m_WorkingBufInfo.Ext_mem_size, 1 };
 	}
 
-	Size getWrappingMapSize()
+	Size getWarppingMapSize()
 	{
 		return Size{ m_WorkingBufInfo.WpeMap_width, m_WorkingBufInfo.WpeMap_height };
 	}
@@ -261,8 +278,7 @@ private:
 	SharedMailBox<InfoFrame> working_buf_;
 	SharedMailBox<InfoFrame> base_buf_;
 	SharedMailBox<InfoFrame> ref_buf_;
-	SharedMailBox<InfoFrame> wrapping_buf_;
-
+	SharedMailBox<InfoFrame> warpping_buf_;
 	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> m_dbParam;
 };
 

@@ -10,6 +10,9 @@ libcam_halisp_utils_pub = cc.find_library('libcam.halisp.utils.pub', required : 
 libmtkcam_tuning_utils = cc.find_library('libmtkcam_tuning_utils', required : true)
 libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
 
+libcamalgo_mfnr = cc.find_library('camalgo.mfnr', required : true)
+libcamalgo_bss = cc.find_library('camalgo.bss', required : true)
+
 libcamera_deps += [
     libmtkcam_metadata_container,
     libmtkcam_ulog,
@@ -19,6 +22,8 @@ libcamera_deps += [
     libcam_halisp_utils_pub,
     libmtkcam_tuning_utils,
     libmtkcam_stdutils,
+    libcamalgo_mfnr,
+    libcamalgo_bss,
 ]
 
 libcamera_sources += files([

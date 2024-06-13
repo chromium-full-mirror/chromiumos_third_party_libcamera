@@ -41,15 +41,12 @@ namespace libcamera {
 LOG_DECLARE_CATEGORY(MtkISP7)
 
 constexpr const char *kEnforceMfnr = "/run/camera/enforce_mfnr";
+constexpr const char *kMfnrPrecheck = "/run/camera/mfnr_precheck";
 
 constexpr Size kP2sttoSize{ 738624, 1 };
-//constexpr Size kWrap2pSize{ 409, 305 };
 constexpr Size kTnrsoSize{ 40, 1 };
 constexpr Size kBssGmDataMSize{ 5, 1 };
 constexpr Size kWrotoSize{ 192, 144 };
-//constexpr Size kTnrciSize{ 102, 76 };
-//constexpr Size kMemcWorkBufSize{ 543328, 2 };
-/* todo: hide the NSCam::NSImgStream namespace in the single device interface. */
 using namespace NSCam::NSImgStream;
 
 static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
@@ -64,7 +61,7 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 
 	{
 		DmaSyncer syncer(info.buffer()->planes()[0].fd.get());
-		memset(dest, 128, length);
+		memset(dest, 0, length);
 	}
 }
 
@@ -113,7 +110,9 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&y8_1_32_pool_);
 
 	allBufferPools_.emplace_back(&fourBytes_pool_);
-	allBufferPools_.emplace_back(&nv12_1_64_pool_);
+	allBufferPools_.emplace_back(&fourBytes_1_16_pool_);
+	allBufferPools_.emplace_back(&nv21_1_64_pool_);
+	allBufferPools_.emplace_back(&nv21_1_1_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
 	allBufferPools_.emplace_back(&memc_workbuf_pool_);
 
@@ -154,7 +153,9 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&y8_1_16_pool_);
 	poolsWritenByCpu_.emplace_back(&y8_1_32_pool_);
 	poolsWritenByCpu_.emplace_back(&fourBytes_pool_);
-	poolsWritenByCpu_.emplace_back(&nv12_1_64_pool_);
+	poolsWritenByCpu_.emplace_back(&fourBytes_1_16_pool_);
+	poolsWritenByCpu_.emplace_back(&nv21_1_64_pool_);
+	poolsWritenByCpu_.emplace_back(&nv21_1_1_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_wroto_pool_);
 	poolsWritenByCpu_.emplace_back(&memc_workbuf_pool_);
 }
@@ -168,8 +169,6 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 	yuvOutputSize2_ = yuvOutputSize2;
 	videoOutputSize1_ = videoOutputSize1;
 	videoOutputSize2_ = videoOutputSize2;
-	LOG(MtkISP7, Info) << "yuvOutputSize1_ " << yuvOutputSize1_;
-	LOG(MtkISP7, Info) << "videoOutputSize1_ " << videoOutputSize1_;
 	bayerInputSize_ = bayerInputSize;
 	sensor_idx_ = sensor_idx;
 
@@ -203,10 +202,8 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 		swmeWrapper_.push_back(swmewrapper);
 	}
 	swmeWorkingBufSize_ = swmeWrapper_[0]->getAlgorithmWorkBufferSize();
-	wrappingMapSize_ = swmeWrapper_[0]->getWrappingMapSize();
+	wrappingMapSize_ = swmeWrapper_[0]->getWarppingMapSize();
 	confMapSize_ = swmeWrapper_[0]->getConfMapSize();
-	//LOG(MtkISP7, Info) << "wrappingMapSize_ = " << wrappingMapSize_;
-	//LOG(MtkISP7, Info) << "confMapSize_ = " << confMapSize_;
 	bssWrapper_ = std::make_shared<BssWrapper>(sensor_idx_);
 	bssWrapper_->bssInit();
 
@@ -233,31 +230,34 @@ int MfnrTasksManager::configureBuffers()
 
 	bssOutDataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_OUTPUT_DATA), 1), 1);
 	p2sttoPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kP2sttoSize, 5, DmaHeap::CMA);
-	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 4);
-	tnrciPool_.createBuffers(dmaHeap_, formats::Y8_MTISP, confMapSize_, 3);
+	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 4, DmaHeap::System, 1, 1);
+	tnrciPool_.createBuffers(dmaHeap_, formats::Y8_MTISP, confMapSize_, 3, DmaHeap::System);
 
-	yuvp010_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], 9, DmaHeap::System, 16);
+	yuvp010_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], 9);
 	yuvp010_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[2], 10, DmaHeap::System, 16);
 	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_aligned16_[2], 10, DmaHeap::System, 16);
 
 	yuvp012_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[0], 12, DmaHeap::System, 16, 16);
 	yuvp012_1_2_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[1], 12, DmaHeap::System, 16, 16);
 	yuvp012_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[2], 12, DmaHeap::System, 16, 16);
-	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_aligned16_[2], 12, DmaHeap::System, 16);
+	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_aligned16_[2], 12, DmaHeap::System, 8, 8);
 
 	yuvp012_1_8_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[3], 12, DmaHeap::System, 16, 16);
 	yuvp012_1_16_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[4], 12, DmaHeap::System, 16, 16);
 	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], 12, DmaHeap::System, 16, 16);
 	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], 12, DmaHeap::System, 16, 16);
 
-	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16);
-	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16);
-	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 14, DmaHeap::System, 16);
-	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16);
-	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16);
-	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16);
+	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16, 16);
+	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16, 16);
+	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 14, DmaHeap::System, 16, 16);
+	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16, 16);
+	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16, 16);
+	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16, 16);
+
 	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 28);
-	nv12_1_64_pool_.createBuffers(dmaHeap_, formats::NV12, mfnrSizes_[6], 9);
+	fourBytes_1_16_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, mfnrSizes_[4], 3);
+	nv21_1_1_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[0], 7);
+	nv21_1_64_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[6], 9);
 	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 7);
 
 	memc_workbuf_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, swmeWorkingBufSize_, 5);
@@ -294,6 +294,14 @@ int MfnrTasksManager::releaseBuffers()
 bool MfnrTasksManager::forceMfnr()
 {
 	if (std::filesystem::exists(kEnforceMfnr)) {
+		return true;
+	}
+	return false;
+}
+
+bool MfnrTasksManager::mfnrPrecheck()
+{
+	if (std::filesystem::exists(kMfnrPrecheck)) {
 		return true;
 	}
 	return false;
@@ -436,23 +444,22 @@ void MfnrTasksManager::makeMFNRFrames(
 	bfmeFrames.tncso = bfbldFrames.out.p2stto[0];
 	for (auto i = 0; i < kInputRawCount; i++) {
 		bfmeFrames.in.imgi.push_back(bfbldFrames.out.img2o[i]);
-		//tunbufiPool_.fetch(bfmeTun);
 		bfmeFrames.in.tunbufi.push_back(bfmeTun[i]);
 		bfmeFrames.out.img2o.push_back(bfmeImg2o[i]);
 	}
 
 	/* Frames used by BfmeTask */
 	SwmeFrames &swmeFrame = mfnr.swmeFrames;
-	//swmeFrame.out.db_param.resize(kInputRawCount - 1);
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		memc_workbuf_pool_.fetch(swmeWorkBuf[i]);
+		swmeFrame.in.bss_buf.push_back(bssFrames.out.bssOutDataInfo);
 		swmeFrame.in.workbuf.push_back(swmeWorkBuf[i]);
 		swmeFrame.in.base_buf.push_back(bfmeFrames.out.img2o[0]);
 		swmeFrame.in.ref_buf.push_back(bfmeFrames.out.img2o[i + 1]);
 		swmeFrame.in.db_param.push_back(swmeDbParam[i]);
 		swmeFrame.in.tuningInfo.push_back(swmeTun[i]);
 		swmeFrame.in.paramInInfo.push_back(swmeParamInBuf[i]);
-		swmeFrame.out.wrapping_map.push_back(swmeWrappingBuf[i]);
+		swmeFrame.out.warpping_map.push_back(swmeWrappingBuf[i]);
 		swmeFrame.out.conf_map.push_back(swmeConfMapBuf[i]);
 		swmeFrame.out.mcmv.push_back(swmeMcmvBuf[i]);
 		swmeFrame.out.paramOutInfo.push_back(swmeParamOutBuf[i]);
@@ -463,12 +470,8 @@ void MfnrTasksManager::makeMFNRFrames(
 	McdsF1Frames &mcdsF1Frames = mfnr.mcdsF1Frames;
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		mcdsF1Frames.in.wpe_wpei.push_back(bfbldFrames.out.img3o[i + 1]);
-		//tunbufiPool_.fetch(mcdsF1Tun[i]);
 		mcdsF1Frames.in.tunbufi.push_back(mcdsF1Tun[i]);
-		//mcdsWpeVeci[i] = makeMailBox<InfoFrame>();
-		//wrap2pPool_.fetch(mcdsWpeVeci[i]);
-		//testImage(mcdsWpeVeci[i]);
-		mcdsF1Frames.in.wpe_veci.push_back(swmeFrame.out.wrapping_map[i]);
+		mcdsF1Frames.in.wpe_veci.push_back(swmeFrame.out.warpping_map[i]);
 		mcdsF1Frames.out.wpe_wpeo.push_back(mcdsWpeWpeo[i]);
 		mcdsF1Frames.out.ltyuv2o.push_back(mcdsF1Ltyuv2o[i]);
 		mcdsF1Frames.out.ltyuv3o.push_back(mcdsF1Ltyuv3o[i]);
@@ -637,7 +640,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F5(0)
 	msbldF5.in.vipi.push_back(dsFrames.out.ltyuv3o[1]); //MTK_YUV_P012:102x78
 	msbldF5.in.imgi.push_back(dsFrames.out.ltyuv3o[2]); //MTK_YUV_P012:102x78
-	msbldF5.in.tnrsi.push_back(msbldF6.out.tnrso[0]); //4BYTE:40x1
+	msbldF5.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
 	msbldF5.in.rec_dsi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	msbldF5.in.tnrvbi.push_back(dsVbiFramesV5.out.tyuv2o[0]); //Y8:102x78
 	msbldF5.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -645,7 +648,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F4(0)
 	msbldF4.in.vipi.push_back(dsFrames.out.ltyuv2o[1]); //MTK_YUV_P012:204x154
 	msbldF4.in.imgi.push_back(dsFrames.out.ltyuv2o[2]); //MTK_YUV_P012:204x154
-	msbldF4.in.tnrsi.push_back(msbldF5.out.tnrso[0]); //4BYTE:40x1
+	msbldF4.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
 	msbldF4.in.rec_dsi.push_back(msbldF5.out.img4o[0]); //MTK_YUV_P012:102x78
 	msbldF4.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv4o[0]); //Y8:204x154
 	msbldF4.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -654,7 +657,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F3(0)
 	msbldF3.in.vipi.push_back(dsFrames.out.ltyuv4o[0]); //MTK_YUV_P012:408x306
 	msbldF3.in.imgi.push_back(mcdsF1Frames.out.ltyuv4o[0]); //MTK_YUV_P012:408x306
-	msbldF3.in.tnrsi.push_back(msbldF4.out.tnrso[0]); //4BYTE:40x1
+	msbldF3.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
 	msbldF3.in.rec_dsi.push_back(msbldF4.out.img4o[0]); //MTK_YUV_P012:204x154
 	msbldF3.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv3o[0]); //Y8:408x306
 	msbldF3.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -663,7 +666,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F2(0)
 	msbldF2.in.vipi.push_back(dsFrames.out.ltyuv3o[0]); //MTK_YUV_P012:816x612
 	msbldF2.in.imgi.push_back(mcdsF1Frames.out.ltyuv3o[0]); //MTK_YUV_P012:816x612
-	msbldF2.in.tnrsi.push_back(msbldF3.out.tnrso[0]); //4BYTE:40x1
+	msbldF2.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
 	msbldF2.in.rec_dsi.push_back(msbldF3.out.img4o[0]); //MTK_YUV_P012:408x306
 	msbldF2.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv2o[0]); //Y8:816x612
 	msbldF2.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -672,7 +675,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F1(0)
 	msbldF1.in.vipi.push_back(dsFrames.out.ltyuv2o[0]); //MTK_YUV_P012:1632x1224
 	msbldF1.in.imgi.push_back(mcdsF1Frames.out.ltyuv2o[0]); //MTK_YUV_P012:1632x1224
-	msbldF1.in.tnrsi.push_back(msbldF2.out.tnrso[0]); //4BYTE:40x1
+	msbldF1.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
 	msbldF1.in.rec_dsi.push_back(msbldF2.out.img4o[0]); //MTK_YUV_P012:816x612
 	msbldF1.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[0]); //Y8:1632x1224
 	msbldF1.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -681,7 +684,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F0(0)
 	msbldF0.in.vipi.push_back(bfbldFrames.out.img3o[0]); //MTK_YUV_P010:3264x2448
 	msbldF0.in.imgi.push_back(mcdsF1Frames.out.wpe_wpeo[0]); //MTK_YUV_P010:3264x2448
-	msbldF0.in.tnrsi.push_back(msbldF1.out.tnrso[0]); //4BYTE:40x1
+	msbldF0.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
 	msbldF0.in.rec_dsi.push_back(msbldF1.out.img4o[0]); //MTK_YUV_P012:1632x1224
 	msbldF0.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[0]); //Y8:1632x1224
 	msbldF0.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -690,12 +693,12 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F6(1)
 	msbldF6.in.vipi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	msbldF6.in.imgi.push_back(dsFrames.out.ltyuv4o[3]); //MTK_YUV_P012:52x40
-	msbldF6.in.tnrsi.push_back(msbldF0.out.tnrso[0]); //4BYTE:40x1
+	msbldF6.in.tnrsi.push_back(msbldF6.out.tnrso[0]); //4BYTE:40x1
 
 	//MSBLD_F5(1)
 	msbldF5.in.vipi.push_back(msbldF5.out.img4o[0]); //MTK_YUV_P012:102x78
 	msbldF5.in.imgi.push_back(dsFrames.out.ltyuv3o[3]); //MTK_YUV_P012:102x78
-	msbldF5.in.tnrsi.push_back(msbldF6.out.tnrso[1]); //4BYTE:40x1
+	msbldF5.in.tnrsi.push_back(msbldF5.out.tnrso[0]); //4BYTE:40x1
 	msbldF5.in.rec_dsi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	msbldF5.in.tnrwi.push_back(msbldF5.out.tnrwo[0]); //Y8:102x78
 	msbldF5.in.tnrvbi.push_back(dsVbiFramesV5.out.tyuv2o[1]); //Y8:102x78
@@ -704,7 +707,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F4(1)
 	msbldF4.in.vipi.push_back(msbldF4.out.img4o[0]); //MTK_YUV_P012:204x154
 	msbldF4.in.imgi.push_back(dsFrames.out.ltyuv2o[3]); //MTK_YUV_P012:204x154
-	msbldF4.in.tnrsi.push_back(msbldF5.out.tnrso[1]); //4BYTE:40x1
+	msbldF4.in.tnrsi.push_back(msbldF4.out.tnrso[0]); //4BYTE:40x1
 	msbldF4.in.rec_dsi.push_back(msbldF5.out.img4o[1]); //MTK_YUV_P012:102x78
 	msbldF4.in.tnrwi.push_back(msbldF4.out.tnrwo[0]); //Y8:204x154
 	msbldF4.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv4o[1]); //Y8:204x154
@@ -714,7 +717,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F3(1)
 	msbldF3.in.vipi.push_back(msbldF3.out.img4o[0]); //MTK_YUV_P012:408x306
 	msbldF3.in.imgi.push_back(mcdsF1Frames.out.ltyuv4o[1]); //MTK_YUV_P012:408x306
-	msbldF3.in.tnrsi.push_back(msbldF4.out.tnrso[1]); //4BYTE:40x1
+	msbldF3.in.tnrsi.push_back(msbldF3.out.tnrso[0]); //4BYTE:40x1
 	msbldF3.in.rec_dsi.push_back(msbldF4.out.img4o[1]); //MTK_YUV_P012:204x154
 	msbldF3.in.tnrwi.push_back(msbldF3.out.tnrwo[0]); //Y8:408x306
 	msbldF3.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv3o[1]); //Y8:408x306
@@ -724,7 +727,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F2(1)
 	msbldF2.in.vipi.push_back(msbldF2.out.img4o[0]); //MTK_YUV_P012:816x612
 	msbldF2.in.imgi.push_back(mcdsF1Frames.out.ltyuv3o[1]); //MTK_YUV_P012:816x612
-	msbldF2.in.tnrsi.push_back(msbldF3.out.tnrso[1]); //4BYTE:40x1
+	msbldF2.in.tnrsi.push_back(msbldF2.out.tnrso[0]); //4BYTE:40x1
 	msbldF2.in.rec_dsi.push_back(msbldF3.out.img4o[1]); //MTK_YUV_P012:408x306
 	msbldF2.in.tnrwi.push_back(msbldF2.out.tnrwo[0]); //Y8:816x612
 	msbldF2.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv2o[1]); //Y8:816x612
@@ -734,7 +737,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F1(1)
 	msbldF1.in.vipi.push_back(msbldF1.out.img4o[0]); //MTK_YUV_P012:1632x1224
 	msbldF1.in.imgi.push_back(mcdsF1Frames.out.ltyuv2o[1]); //MTK_YUV_P012:1632x1224
-	msbldF1.in.tnrsi.push_back(msbldF2.out.tnrso[1]); //4BYTE:40x1
+	msbldF1.in.tnrsi.push_back(msbldF1.out.tnrso[0]); //4BYTE:40x1
 	msbldF1.in.rec_dsi.push_back(msbldF2.out.img4o[1]); //MTK_YUV_P012:816x612
 	msbldF1.in.tnrwi.push_back(msbldF1.out.tnrwo[0]); //Y8:1632x1224
 	msbldF1.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[1]); //Y8:1632x1224
@@ -744,7 +747,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F0(1)
 	msbldF0.in.vipi.push_back(msbldF0.out.img4o[0]); //MTK_YUV_P010:3264x2448
 	msbldF0.in.imgi.push_back(mcdsF1Frames.out.wpe_wpeo[1]); //MTK_YUV_P010:3264x2448
-	msbldF0.in.tnrsi.push_back(msbldF1.out.tnrso[1]); //4BYTE:40x1
+	msbldF0.in.tnrsi.push_back(msbldF0.out.tnrso[0]); //4BYTE:40x1
 	msbldF0.in.rec_dsi.push_back(msbldF1.out.img4o[1]); //MTK_YUV_P012:1632x1224
 	msbldF0.in.tnrwi.push_back(msbldF0.out.tnrwo[0]); //Y8:3264x2448
 	msbldF0.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[1]); //Y8:1632x1224
@@ -754,12 +757,12 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F6(0)
 	afbldF6.in.vipi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	afbldF6.in.imgi.push_back(dsFrames.out.ltyuv4o[4]); //MTK_YUV_P012:52x40
-	afbldF6.in.tnrsi.push_back(msbldF0.out.tnrso[1]); //4BYTE:40x1
+	afbldF6.in.tnrsi.push_back(msbldF6.out.tnrso[1]); //4BYTE:40x1
 
 	//AFBLD_F5(0)
 	afbldF5.in.vipi.push_back(msbldF5.out.img4o[1]); //MTK_YUV_P012:102x78
 	afbldF5.in.imgi.push_back(dsFrames.out.ltyuv3o[4]); //MTK_YUV_P012:102x78
-	afbldF5.in.tnrsi.push_back(afbldF6.out.tnrso[0]); //4BYTE:40x1
+	afbldF5.in.tnrsi.push_back(msbldF5.out.tnrso[1]); //4BYTE:40x1
 	afbldF5.in.rec_dsi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	afbldF5.in.tnrwi.push_back(msbldF5.out.tnrwo[1]); //Y8:102x78
 	afbldF5.in.tnrvbi.push_back(dsVbiFramesV5.out.tyuv2o[2]); //Y8:102x78
@@ -768,7 +771,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F4(0)
 	afbldF4.in.vipi.push_back(msbldF4.out.img4o[1]); //MTK_YUV_P012:204x154
 	afbldF4.in.imgi.push_back(dsFrames.out.ltyuv2o[4]); //MTK_YUV_P012:204x154
-	afbldF4.in.tnrsi.push_back(afbldF5.out.tnrso[0]); //4BYTE:40x1
+	afbldF4.in.tnrsi.push_back(msbldF4.out.tnrso[1]); //4BYTE:40x1
 	afbldF4.in.rec_dsi.push_back(afbldF5.out.img3o[0]); //MTK_YUV_P012:102x78
 	afbldF4.in.tnrwi.push_back(msbldF4.out.tnrwo[1]); //Y8:204x154
 	afbldF4.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv4o[2]); //Y8:204x154
@@ -778,7 +781,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F3(0)
 	afbldF3.in.vipi.push_back(msbldF3.out.img4o[1]); //MTK_YUV_P012:408x306
 	afbldF3.in.imgi.push_back(mcdsF1Frames.out.ltyuv4o[2]); //MTK_YUV_P012:408x306
-	afbldF3.in.tnrsi.push_back(afbldF4.out.tnrso[0]); //4BYTE:40x1
+	afbldF3.in.tnrsi.push_back(msbldF3.out.tnrso[1]); //4BYTE:40x1
 	afbldF3.in.rec_dsi.push_back(afbldF4.out.img3o[0]); //MTK_YUV_P012:204x154
 	afbldF3.in.tnrwi.push_back(msbldF3.out.tnrwo[1]); //Y8:408x306
 	afbldF3.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv3o[2]); //Y8:408x306
@@ -788,7 +791,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F2(0)
 	afbldF2.in.vipi.push_back(msbldF2.out.img4o[1]); //MTK_YUV_P012:816x612
 	afbldF2.in.imgi.push_back(mcdsF1Frames.out.ltyuv3o[2]); //MTK_YUV_P012:816x612
-	afbldF2.in.tnrsi.push_back(afbldF3.out.tnrso[0]); //4BYTE:40x1
+	afbldF2.in.tnrsi.push_back(msbldF2.out.tnrso[1]); //4BYTE:40x1
 	afbldF2.in.rec_dsi.push_back(afbldF3.out.img3o[0]); //MTK_YUV_P012:408x306
 	afbldF2.in.tnrwi.push_back(msbldF2.out.tnrwo[1]); //Y8:816x612
 	afbldF2.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv2o[2]); //Y8:816x612
@@ -798,7 +801,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F1(0)
 	afbldF1.in.vipi.push_back(msbldF1.out.img4o[1]); //MTK_YUV_P012:1632x1224
 	afbldF1.in.imgi.push_back(mcdsF1Frames.out.ltyuv2o[2]); //MTK_YUV_P012:1632x1224
-	afbldF1.in.tnrsi.push_back(afbldF2.out.tnrso[0]); //4BYTE:40x1
+	afbldF1.in.tnrsi.push_back(msbldF1.out.tnrso[1]); //4BYTE:40x1
 	afbldF1.in.rec_dsi.push_back(afbldF2.out.img3o[0]); //MTK_YUV_P012:816x612
 	afbldF1.in.tnrwi.push_back(msbldF1.out.tnrwo[1]); //Y8:1632x1224
 	afbldF1.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[2]); //Y8:1632x1224
@@ -808,7 +811,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F0(0)
 	afbldF0.in.vipi.push_back(msbldF0.out.img4o[1]); //MTK_YUV_P010:3264x2448
 	afbldF0.in.imgi.push_back(mcdsF1Frames.out.wpe_wpeo[2]); //MTK_YUV_P010:3264x2448
-	afbldF0.in.tnrsi.push_back(afbldF1.out.tnrso[0]); //4BYTE:40x1
+	afbldF0.in.tnrsi.push_back(msbldF1.out.tnrso[1]); //4BYTE:40x1
 	afbldF0.in.rec_dsi.push_back(afbldF1.out.img3o[0]); //MTK_YUV_P012:1632x1224
 	afbldF0.in.tnrwi.push_back(msbldF0.out.tnrwo[1]); //Y8:3264x2448
 	afbldF0.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[2]); //Y8:1632x1224
@@ -821,15 +824,15 @@ MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
 				uint32_t internalRequestId, ImgSysDevice *imgSys)
 {
-	BssTask *bssTask = new BssTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	BfbldTask *bfbldTask = new BfbldTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	BfmeTask *bfmeTask = new BfmeTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	SwmeTask *swmeTask = new SwmeTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	DsTask *dsTask = new DsTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	MsbldTask *msbldTask = new MsbldTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
-	AfbldTask *afbldTask = new AfbldTask(scheduler, id, request, internalRequestId, imgSys, mfnr, this);
+	BssTask *bssTask = new BssTask(scheduler, id + " (BSS)", request, internalRequestId, imgSys, mfnr, this);
+	BfbldTask *bfbldTask = new BfbldTask(scheduler, id + " (BFBLD)", request, internalRequestId, imgSys, mfnr, this);
+	BfmeTask *bfmeTask = new BfmeTask(scheduler, id + " (BFME)", request, internalRequestId, imgSys, mfnr, this);
+	SwmeTask *swmeTask = new SwmeTask(scheduler, id + " (SWME)", request, internalRequestId, imgSys, mfnr, this);
+	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id + " (MCDSF1)", request, internalRequestId, imgSys, mfnr, this);
+	DsTask *dsTask = new DsTask(scheduler, id + " (DS)", request, internalRequestId, imgSys, mfnr, this);
+	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id + " (DSVBI)", request, internalRequestId, imgSys, mfnr, this);
+	MsbldTask *msbldTask = new MsbldTask(scheduler, id + " (MSBLD)", request, internalRequestId, imgSys, mfnr, this);
+	AfbldTask *afbldTask = new AfbldTask(scheduler, id + " (AFBLD)", request, internalRequestId, imgSys, mfnr, this);
 
 	return std::make_tuple(bssTask, bfbldTask, bfmeTask, swmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask, afbldTask);
 }
@@ -925,6 +928,16 @@ void BfbldTask::notifyDone()
 {
 	auto bssOrder = mfnr_.bss_order->get();
 	manager_->onDeviceTuner_->tuneBfbld(internalRequestId_, frames_, bssOrder);
+	//BFBLD Precheck
+	if (MfnrTasksManager::mfnrPrecheck()) {
+		for (auto i = 0; i < kInputRawCount; i++) {
+			if (i == 0) {
+				LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_BFBLD_BASE:1";
+			} else {
+				LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_BFBLD_REF:1";
+			}
+		}
+	}
 	Task::notifyDone();
 }
 
@@ -951,7 +964,6 @@ void BfbldTask::run()
 			BFBLD_BASE.output(out.img3o[0]->get(), IMG_PORT_IMG3O, 0, mfnrSizes_[0]);
 			BFBLD_BASE.output(out.img2o[0]->get(), IMG_PORT_IMG2O, 0, mfnrSizes_[0]);
 			BFBLD_BASE.output(out.p2stto[0]->get(), IMG_PORT_IMGSTATO, 0, mfnrSizes_[0]);
-
 		} else {
 			StageEx &BFBLD_REF = sdRequest.emplaceStage(PEU_Stage::BFBLD_REF, internalRequestId_ + bssOrder[i]);
 			BFBLD_REF.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
@@ -989,18 +1001,21 @@ void McdsF1Task::notifyDone()
 {
 	auto bssOrder = mfnr_.bss_order->get();
 	manager_->onDeviceTuner_->tuneMcdsF1(internalRequestId_, frames_, bssOrder);
+	//MCDS_F1 Precheck
+	if (MfnrTasksManager::mfnrPrecheck()) {
+		for (auto i = 0; i < kInputRawCount; i++) {
+			LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MCDS_F1:1";
+		}
+	}
 	Task::notifyDone();
 }
 
 void McdsF1Task::run()
 {
-	bool debug = false;
-	if (debug)
-		return;
-
 	allocateOutputBuffers();
 
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
+	auto bssOrder = mfnr_.bss_order->get();
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
@@ -1011,7 +1026,7 @@ void McdsF1Task::run()
 	auto &out = frames_.out;
 
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		StageEx &MCDS_F1 = sdRequest.emplaceStage(PEU_Stage::MCDS_F1);
+		StageEx &MCDS_F1 = sdRequest.emplaceStage(PEU_Stage::MCDS_F1, internalRequestId_ + bssOrder[i + 1]);
 		MCDS_F1.input(in.wpe_wpei[i]->get(), IMG_PORT_WPE_WPEI, 0, Size{ 0, 0 });
 		MCDS_F1.input(in.wpe_veci[i]->get(), IMG_PORT_WPE_VECI, 0, Size{ 0, 0 });
 		MCDS_F1.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
@@ -1048,6 +1063,12 @@ void BfmeTask::notifyDone()
 {
 	auto bssOrder = mfnr_.bss_order->get();
 	manager_->onDeviceTuner_->tuneBfme(internalRequestId_, frames_, bssOrder);
+	//BFME Precheck
+	if (MfnrTasksManager::mfnrPrecheck()) {
+		for (auto i = 0; i < kInputRawCount; i++) {
+			LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_BFME:1";
+		}
+	}
 	Task::notifyDone();
 }
 
@@ -1092,8 +1113,8 @@ void SwmeTask::allocateOutputBuffers()
 
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		manager_->tnrciPool_.fetch(out.conf_map[i]);
-		manager_->wrap2pPool_.fetch(out.wrapping_map[i]);
-		manager_->y8_1_16_pool_.fetch(out.mcmv[i]);
+		manager_->wrap2pPool_.fetch(out.warpping_map[i]);
+		manager_->fourBytes_1_16_pool_.fetch(out.mcmv[i]);
 		manager_->swmeOutPool_.fetch(out.paramOutInfo[i]);
 
 		manager_->swmeParamPool_.fetch(in.paramInInfo[i]);
@@ -1106,31 +1127,48 @@ void SwmeTask::run()
 	allocateOutputBuffers();
 
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
+	auto &mfnrSizes_aligned16_ = manager_->mfnrSizes_aligned16_;
 	auto &in = frames_.in;
 	auto &out = frames_.out;
 	auto bssOrder = mfnr_.bss_order->get();
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		std::shared_ptr<SwmeWrapper> swmewrapper = swmeWrapper_[i];
-		continue;
 		IMFBLL_SET_PROC_INFO_STRUCT_IPC paramIn;
+		MappedFrameBuffer mappedWarppingMapBuffers =
+			MappedFrameBuffer(out.warpping_map[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+		DmaSyncer syncer_WarppingMapX(out.warpping_map[i]->get().buffer()->planes()[0].fd.get());
+		DmaSyncer syncer_WarppingMapY(out.warpping_map[i]->get().buffer()->planes()[1].fd.get());
+
+		MappedFrameBuffer mappedConfMapBuffers =
+			MappedFrameBuffer(out.conf_map[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+		DmaSyncer syncer_ConfMap(out.conf_map[i]->get().buffer()->planes()[0].fd.get());
+
+		MappedFrameBuffer mappedMcmvMapBuffers =
+			MappedFrameBuffer(out.mcmv[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+		DmaSyncer syncer_McmvMap(out.mcmv[i]->get().buffer()->planes()[0].fd.get());
 
 		SwmeWrapper::prepareParam(
 			paramIn,
 			in.workbuf[i],
 			in.base_buf[i],
 			in.ref_buf[i],
-			out.wrapping_map[i],
+			in.bss_buf[i],
+			out.warpping_map[i],
 			in.db_param[i]->get(),
 			mfnrSizes_[0],
-			mfnrSizes_[2]);
+			mfnrSizes_aligned16_[2],
+			i);
 		swmewrapper->featureCtrl(IMFBLL_FTCTRL_SET_PROC_INFO, &paramIn, NULL);
 		IMFBLL_PROC1_OUT_STRUCT_IPC paramOut;
 		SwmeWrapper::prepareOutParam(
 			&paramOut,
 			out.conf_map[i],
-			out.wrapping_map[i],
+			out.warpping_map[i],
 			out.mcmv[i]);
-		swmewrapper->swmeMain(IMFBLL_PROC1, NULL, &paramOut);
+
+		MRESULT ErrCode = swmewrapper->swmeMain(IMFBLL_PROC1, NULL, &paramOut);
+		if (ErrCode)
+			LOG(MtkISP7, Error) << "Some error with in swmeMain, ErrCode = " << ErrCode;
 
 		MappedFrameBuffer mappedSwmeParamInBuffer =
 			MappedFrameBuffer(in.paramInInfo[i]->get().buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
@@ -1155,6 +1193,26 @@ void SwmeTask::run()
 		memcpy(reinterpret_cast<void *>(out.paramOutInfo[i]->get().address(0)),
 		       reinterpret_cast<void *>(&paramOut),
 		       sizeof(IMFBLL_PROC1_OUT_STRUCT));
+
+		//SWME Precheck
+		if (MfnrTasksManager::mfnrPrecheck()) {
+			bool hasVal = false;
+			MINT32 *px = static_cast<MINT32 *>(reinterpret_cast<void *>(out.warpping_map[i]->get().address(0)));
+			MINT32 *py = static_cast<MINT32 *>(reinterpret_cast<void *>(out.warpping_map[i]->get().address(1)));
+			Size warppingMapSize = out.warpping_map[i]->get().size();
+			int stride = out.warpping_map[i]->get().buffer()->planes()[0].stride;
+			for (int h = 0; h < (int)warppingMapSize.height && !hasVal; h++) {
+				for (int w = 0; w < (int)warppingMapSize.width; w++) {
+					MUINT8 *x = reinterpret_cast<MUINT8 *>(px + w + h * stride);
+					MUINT8 *y = reinterpret_cast<MUINT8 *>(py + w + h * stride);
+					if (*x != 0 || *y != 0) {
+						hasVal = true;
+						break;
+					}
+				}
+			}
+			LOG(MtkISP7, Info) << "[CAT][MFNR] swme_out:" << hasVal;
+		}
 	}
 
 	manager_->onDeviceTuner_->tuneSwme(internalRequestId_, frames_, bssOrder);
@@ -1187,6 +1245,11 @@ void DsTask::notifyDone()
 {
 	auto bssOrder = mfnr_.bss_order->get();
 	manager_->onDeviceTuner_->tuneDs(internalRequestId_, frames_, bssOrder);
+	//DS Precheck
+	if (MfnrTasksManager::mfnrPrecheck()) {
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_DS:1";
+	}
+
 	Task::notifyDone();
 }
 
@@ -1254,6 +1317,13 @@ void DsVbiTask::notifyDone()
 {
 	auto bssOrder = mfnr_.bss_order->get();
 	manager_->onDeviceTuner_->tuneDsVbi(internalRequestId_, dsVbiFramesV2_, dsVbiFramesV5_, bssOrder);
+	//DS_VBI Precheck
+	if (MfnrTasksManager::mfnrPrecheck()) {
+		for (auto i = 0; i < kInputRawCount - 1; i++) {
+			LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_DS_VBI_V2:1";
+			LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_DS_VBI_V5:1";
+		}
+	}
 	Task::notifyDone();
 }
 
@@ -1313,7 +1383,7 @@ void MsbldTask::allocateOutputBuffers()
 {
 	for (auto i = 0; i < 2; i++) {
 		auto &msbldF6_out = msbldF6_.out;
-		manager_->nv12_1_64_pool_.fetch(msbldF6_out.img4o[i]);
+		manager_->nv21_1_64_pool_.fetch(msbldF6_out.img4o[i]);
 		manager_->fourBytes_pool_.fetch(msbldF6_out.tnrso[i]);
 		auto &msbldF5_out = msbldF5_.out;
 		manager_->yuvp012_1_32_pool_.fetch(msbldF5_out.img4o[i]);
@@ -1353,6 +1423,16 @@ void MsbldTask::notifyDone()
 	manager_->onDeviceTuner_->tuneMsbld(
 		internalRequestId_, msbldF0_, msbldF1_, msbldF2_,
 		msbldF3_, msbldF4_, msbldF5_, msbldF6_, bssOrder);
+	//MSBLD Precheck
+	if (MfnrTasksManager::mfnrPrecheck()) {
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F0:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F1:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F2:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F3:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F4:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F5:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F6:1";
+	}
 	Task::notifyDone();
 }
 
@@ -1529,7 +1609,7 @@ AfbldTask::AfbldTask(Scheduler *scheduler, const std::string &id, Request *reque
 void AfbldTask::allocateOutputBuffers()
 {
 	auto &afbldF6_out = afbldF6_.out;
-	manager_->nv12_1_64_pool_.fetch(afbldF6_out.img4o[0]);
+	manager_->nv21_1_64_pool_.fetch(afbldF6_out.img4o[0]);
 	manager_->fourBytes_pool_.fetch(afbldF6_out.tnrso[0]);
 	auto &afbldF5_out = afbldF5_.out;
 
@@ -1576,6 +1656,16 @@ void AfbldTask::notifyDone()
 	manager_->onDeviceTuner_->tuneAfbld(
 		request_, internalRequestId_, afbldF0_, afbldF1_, afbldF2_,
 		afbldF3_, afbldF4_, afbldF5_, afbldF6_, bssOrder, stillOutput1_, stillOutput2_);
+	//MSBLD Precheck
+	if (MfnrTasksManager::mfnrPrecheck()) {
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F0:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F1:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F2:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F3:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F4:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F5:1";
+		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F6:1";
+	}
 	Task::notifyDone();
 }
 
