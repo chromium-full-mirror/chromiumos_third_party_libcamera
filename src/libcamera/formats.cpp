@@ -1043,8 +1043,8 @@ const std::map<PixelFormat, PixelFormatInfo> pixelFormatInfo{
 		.bitsPerPixel = 32,
 		.colourEncoding = PixelFormatInfo::ColourEncodingYUV,
 		.packed = false,
-		.pixelsPerGroup = 4,
-		.planes = {{ { 16, 1 }, { 16, 1 }, { 0, 0 } }},
+		.pixelsPerGroup = 2,
+		.planes = {{ { 8, 1 }, { 8, 1 }, { 0, 0 } }},
 	} },
 	{ formats::Y8_MTISP, {
 		.name = "Y8_MTISP",
