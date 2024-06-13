@@ -105,6 +105,8 @@ private:
 
 	void doImgSysMetaTuningDone(uint64_t taskCounter);
 
+	void adjustRLimit();
+
 	struct IPAMappedBuffer {
 		IPAMappedBuffer(const std::vector<FrameBuffer::Plane> &planes)
 			: buffer(planes) {}

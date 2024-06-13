@@ -7,6 +7,7 @@
 
 #include "mtkisp7.h"
 
+#include <sys/resource.h>
 #include <sys/wait.h>
 
 #include "halisp/hal_isp.h"
@@ -45,6 +46,7 @@ int IPAMtkISP7::init(const std::string &model, const int32_t sensorIdx,
 		     const std::vector<uint8_t> &eeprom,
 		     const std::vector<ipa::mtkisp7::CamSysData> &camSysDataArray)
 {
+	adjustRLimit();
 	PlatformUtils::setWithModelName(model);
 	CamCalHelper::getInstance(sensorIdx)->setEepromData(eeprom);
 
@@ -182,6 +184,43 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 	aieParser_->configure();
 
 	return aieParser_->initialize();
+}
+
+/**
+ * \brief Adjust the fd limit to 2048
+ */
+void IPAMtkISP7::adjustRLimit()
+{
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) != 0) {
+		perror("getrlimit");
+		exit(EXIT_FAILURE);
+	}
+
+	if (rlim.rlim_cur == RLIM_INFINITY)
+		LOG(IPAMtkISP7, Info) << "Current file descriptor limit: unlimited ";
+	else
+		LOG(IPAMtkISP7, Info) << "Current file descriptor limit:" << rlim.rlim_cur;
+
+	if (rlim.rlim_max == RLIM_INFINITY)
+		LOG(IPAMtkISP7, Info) << "Maximum file descriptor limit: unlimited:";
+	else
+		LOG(IPAMtkISP7, Info) << "Maximum file descriptor limit: " << rlim.rlim_max;
+
+	// Increase the soft limit to 2048
+	rlim.rlim_cur = 2048;
+	LOG(IPAMtkISP7, Info) << "rlim_cur:" << rlim.rlim_cur;
+
+	if (setrlimit(RLIMIT_NOFILE, &rlim) != 0) {
+		perror("setrlimit");
+		exit(EXIT_FAILURE);
+	}
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) != 0) {
+		perror("getrlimit");
+		exit(EXIT_FAILURE);
+	}
 }
 
 /**
