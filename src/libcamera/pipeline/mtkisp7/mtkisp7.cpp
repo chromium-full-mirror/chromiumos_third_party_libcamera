@@ -1440,7 +1440,12 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 	imgSysDev_->configure(sensorFullSize_, camsysYuvSize,
 			      video1, video2, still1, still2);
 
-	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_, camsysYuvSize);
+	int32_t pipelineDepth = controlInfo_.at(&controls::draft::PipelineDepth)
+					.max()
+					.get<int32_t>();
+
+	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_,
+				 camsysYuvSize, pipelineDepth);
 	faceDetector_->configure(sensorFullSize_, ipa_.get());
 	hal3AManager_.configure(dmaHeap_, camSysDev_, gyroSensor_, ipa_.get());
 
