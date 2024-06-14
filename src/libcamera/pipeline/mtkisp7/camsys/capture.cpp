@@ -57,7 +57,8 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 				   CamSysDevice *camSys,
 				   PipelineHandler *pipe,
 				   const Size &rawFrameSize,
-				   const Size &yuvFrameSize)
+				   const Size &yuvFrameSize,
+				   int32_t pipelineDepth)
 {
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
@@ -65,6 +66,7 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 
 	rawFrameSize_ = rawFrameSize;
 	yuvFrameSize_ = yuvFrameSize;
+	pipelineDepth_ = pipelineDepth;
 
 	releaseBuffers();
 	allocateBuffers();
@@ -75,9 +77,9 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 void CaptureTasksManager::allocateBuffers()
 {
 	rawPool_.setFormat(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_);
-	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, 8);
-	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, 8);
-	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, 8, DmaHeap::System, 64);
+	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, pipelineDepth_);
+	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, pipelineDepth_);
+	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, pipelineDepth_, DmaHeap::System, 64);
 	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 8);
 	statistics0Pool_.createBuffers(dmaHeap_, formats::MTFA_MTISP, kStatSize0, kRawMetaDelay, DmaHeap::CMA);
 	statistics1Pool_.createBuffers(dmaHeap_, formats::MTFF_MTISP, kStatSize1, kRawMetaDelay, DmaHeap::CMA);

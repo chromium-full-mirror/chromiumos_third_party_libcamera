@@ -77,7 +77,8 @@ public:
 	~CaptureTasksManager() = default;
 
 	int configure(DmaHeap *dmaHeap, CamSysDevice *camSys, PipelineHandler *pipe,
-		      const Size &rawFrameSize, const Size &yuvFrameSize);
+		      const Size &rawFrameSize, const Size &yuvFrameSize,
+		      int32_t pipelineDepth);
 
 	void allocateBuffers();
 	void releaseBuffers();
@@ -97,6 +98,7 @@ private:
 
 	Size rawFrameSize_;
 	Size yuvFrameSize_;
+	int32_t pipelineDepth_;
 
 	CamSysDevice *camSys_;
 	PipelineHandler *pipe_;
