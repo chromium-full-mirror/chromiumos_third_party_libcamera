@@ -207,7 +207,7 @@ static_assert(sizeof(ipa_controls_header) == 32,
  * Padding bytes (shall be set to 0)
  */
 
-static_assert(sizeof(ipa_control_value_entry) == 16,
+static_assert(sizeof(ipa_control_value_entry) == 20,
 	      "Invalid ABI size change for struct ipa_control_value_entry");
 
 /**

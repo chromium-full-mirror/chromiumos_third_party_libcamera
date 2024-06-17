@@ -37,7 +37,7 @@ struct ipa_control_value_entry {
 	uint32_t id;
 	uint8_t type;
 	uint8_t is_array;
-	uint16_t count;
+	uint32_t count;
 	uint32_t offset;
 	uint32_t padding[1];
 };
