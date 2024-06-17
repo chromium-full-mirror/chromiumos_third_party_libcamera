@@ -92,7 +92,6 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&tnrciPool_);
 	allBufferPools_.emplace_back(&wrap2pPool_);
 	allBufferPools_.emplace_back(&yuvp010_1_1_pool_);
-	allBufferPools_.emplace_back(&yuvp010_1_4_pool_);
 	allBufferPools_.emplace_back(&yuvp010_1_4_pool_aligned16_);
 	allBufferPools_.emplace_back(&yuvp012_1_1_pool_);
 	allBufferPools_.emplace_back(&yuvp012_1_2_pool_);
@@ -112,7 +111,6 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&fourBytes_pool_);
 	allBufferPools_.emplace_back(&fourBytes_1_16_pool_);
 	allBufferPools_.emplace_back(&nv21_1_64_pool_);
-	allBufferPools_.emplace_back(&nv21_1_1_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
 	allBufferPools_.emplace_back(&memc_workbuf_pool_);
 
@@ -136,7 +134,6 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&tnrciPool_);
 	poolsWritenByCpu_.emplace_back(&wrap2pPool_);
 	poolsWritenByCpu_.emplace_back(&yuvp010_1_1_pool_);
-	poolsWritenByCpu_.emplace_back(&yuvp010_1_4_pool_);
 	poolsWritenByCpu_.emplace_back(&yuvp010_1_4_pool_aligned16_);
 	poolsWritenByCpu_.emplace_back(&yuvp012_1_1_pool_);
 	poolsWritenByCpu_.emplace_back(&yuvp012_1_2_pool_);
@@ -155,7 +152,6 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&fourBytes_pool_);
 	poolsWritenByCpu_.emplace_back(&fourBytes_1_16_pool_);
 	poolsWritenByCpu_.emplace_back(&nv21_1_64_pool_);
-	poolsWritenByCpu_.emplace_back(&nv21_1_1_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_wroto_pool_);
 	poolsWritenByCpu_.emplace_back(&memc_workbuf_pool_);
 }
@@ -229,38 +225,36 @@ int MfnrTasksManager::configureBuffers()
 	swmeTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_swme_Param), 1), kInputRawCount - 1);
 
 	bssOutDataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_OUTPUT_DATA), 1), 1);
-	p2sttoPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kP2sttoSize, 5, DmaHeap::CMA);
-	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 4, DmaHeap::System, 1, 1);
+	p2sttoPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kP2sttoSize, 4, DmaHeap::CMA);
+	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 3, DmaHeap::System, 1, 1);
 	tnrciPool_.createBuffers(dmaHeap_, formats::Y8_MTISP, confMapSize_, 3, DmaHeap::System);
 
 	yuvp010_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], 9);
-	yuvp010_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[2], 10, DmaHeap::System, 16);
-	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_aligned16_[2], 10, DmaHeap::System, 16);
+	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_aligned16_[2], 4, DmaHeap::System, 16);
 
-	yuvp012_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[0], 12, DmaHeap::System, 16, 16);
-	yuvp012_1_2_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[1], 12, DmaHeap::System, 16, 16);
-	yuvp012_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[2], 12, DmaHeap::System, 16, 16);
-	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_aligned16_[2], 12, DmaHeap::System, 8, 8);
+	yuvp012_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[0], 1, DmaHeap::System, 16, 16);
+	yuvp012_1_2_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[1], 7, DmaHeap::System, 16, 16);
+	yuvp012_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[2], 7, DmaHeap::System, 16, 16);
+	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_aligned16_[2], 4, DmaHeap::System, 8, 8);
 
-	yuvp012_1_8_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[3], 12, DmaHeap::System, 16, 16);
-	yuvp012_1_16_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[4], 12, DmaHeap::System, 16, 16);
-	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], 12, DmaHeap::System, 16, 16);
-	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], 12, DmaHeap::System, 16, 16);
+	yuvp012_1_8_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[3], 7, DmaHeap::System, 16, 16);
+	yuvp012_1_16_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[4], 7, DmaHeap::System, 16, 16);
+	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], 7, DmaHeap::System, 16, 16);
+	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], 4, DmaHeap::System, 16, 16);
 
-	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16, 16);
+	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 4, DmaHeap::System, 16, 16);
 	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16, 16);
-	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 14, DmaHeap::System, 16, 16);
+	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 10, DmaHeap::System, 16, 16);
 	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16, 16);
-	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 13, DmaHeap::System, 16, 16);
-	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 13, DmaHeap::System, 16, 16);
+	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 10, DmaHeap::System, 16, 16);
+	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 10, DmaHeap::System, 16, 16);
 
-	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 28);
+	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 22);
 	fourBytes_1_16_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, mfnrSizes_[4], 3);
-	nv21_1_1_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[0], 7);
-	nv21_1_64_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[6], 9);
-	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 7);
+	nv21_1_64_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[6], 3);
+	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 1);
 
-	memc_workbuf_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, swmeWorkingBufSize_, 5);
+	memc_workbuf_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, swmeWorkingBufSize_, 3);
 
 	return 0;
 }

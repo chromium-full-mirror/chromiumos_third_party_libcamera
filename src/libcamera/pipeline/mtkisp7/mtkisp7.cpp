@@ -1211,7 +1211,6 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.p2sttoPool_);
 	registerIPABuffers(&mfnrManager.tnrciPool_);
 	registerIPABuffers(&mfnrManager.yuvp010_1_1_pool_);
-	registerIPABuffers(&mfnrManager.yuvp010_1_4_pool_);
 	registerIPABuffers(&mfnrManager.yuvp010_1_4_pool_aligned16_);
 	registerIPABuffers(&mfnrManager.yuvp012_1_1_pool_);
 	registerIPABuffers(&mfnrManager.yuvp012_1_2_pool_);
@@ -1229,7 +1228,6 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.fourBytes_pool_);
 	registerIPABuffers(&mfnrManager.fourBytes_1_16_pool_);
 	registerIPABuffers(&mfnrManager.nv21_1_64_pool_);
-	registerIPABuffers(&mfnrManager.nv21_1_1_pool_);
 	registerIPABuffers(&mfnrManager.nv12_wroto_pool_);
 	registerIPABuffers(&mfnrManager.memc_workbuf_pool_);
 }

@@ -248,11 +248,13 @@ public:
 	Size wrappingMapSize_;
 	Size confMapSize_;
 
-	Size getWarppingMapSize(){
+	Size getWarppingMapSize()
+	{
 		return wrappingMapSize_;
 	}
 
-	Size getConfMapSize(){
+	Size getConfMapSize()
+	{
 		return confMapSize_;
 	}
 
@@ -307,7 +309,6 @@ private:
 	InfoFramePool p2sttoPool_;
 	InfoFramePool tnrciPool_;
 	InfoFramePool yuvp010_1_1_pool_;
-	InfoFramePool yuvp010_1_4_pool_;
 	InfoFramePool yuvp010_1_4_pool_aligned16_;
 	InfoFramePool yuvp012_1_1_pool_;
 	InfoFramePool yuvp012_1_2_pool_;
@@ -326,7 +327,6 @@ private:
 	InfoFramePool fourBytes_pool_;
 	InfoFramePool fourBytes_1_16_pool_;
 	InfoFramePool nv21_1_64_pool_;
-	InfoFramePool nv21_1_1_pool_;
 	InfoFramePool nv12_wroto_pool_;
 	InfoFramePool memc_workbuf_pool_;
 
