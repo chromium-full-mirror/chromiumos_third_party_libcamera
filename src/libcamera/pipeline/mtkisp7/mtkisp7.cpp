@@ -1111,6 +1111,10 @@ void MtkISP7CameraData::setTasksDependencies(
 	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kAAToSofDelay - 1, sofTask);
 	scheduler->succeedPrevTaskByStep(SofGroup, CaptureTasksManager::kExposureAndGainDelay - 1, taskQBuf);
 	scheduler->succeedPrevTaskByStep(AAGroup, CaptureTasksManager::kRawMetaDelay - 1, taskQBuf);
+	int32_t pipelineDepth = controlInfo_.at(&controls::draft::PipelineDepth)
+					.max()
+					.get<int32_t>();
+	scheduler->succeedPrevTaskByStep(CompleteGroup, pipelineDepth - 1, taskQBuf);
 
 	/* At most 5 request can be queued into CamSys */
 	scheduler->succeedPrevTaskByStep(CaptureDequeueGroup, 4, taskQBuf);
