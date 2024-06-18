@@ -1236,7 +1236,6 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.fourBytes_1_16_pool_);
 	registerIPABuffers(&mfnrManager.nv21_1_64_pool_);
 	registerIPABuffers(&mfnrManager.nv12_wroto_pool_);
-	registerIPABuffers(&mfnrManager.memc_workbuf_pool_);
 }
 
 void MtkISP7CameraData::registerIPABuffers(InfoFramePool *pool)
@@ -1430,7 +1429,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 				  camSysDev_->getIndex(), 0, ipa_.get());
 	camSysDev_->configure(sensorFullSize_, camsysYuvSize);
 
-	Size swmeWorkingBufSize, wrappingMapSize, confMapSize;
+	Size wrappingMapSize, confMapSize;
 	ipa_->configure(camsysYuvSize, faceDetector_,
 			video1 > video2 ? video1 : video2,
 			still1 > still2 ? still1 : still2, camSysDev_->cameraId(),
@@ -1438,13 +1437,13 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 			onDeviceTuner_->getSessionTimestamp(),
 			isVideo, sensorFullSize_,
 			MfnrTasksManager::getSizeAligned(sensorFullSize_),
-			&swmeWorkingBufSize, &wrappingMapSize, &confMapSize);
+			&wrappingMapSize, &confMapSize);
 
 	if (useMfnr) {
 		mfnrManager.configure(sensorFullSize_,
 				      still1, still2,
 				      video1, video2,
-				      swmeWorkingBufSize, confMapSize,
+				      confMapSize,
 				      sensor_idx_);
 		mfnrTunManager.configure(sensorFullSize_, still1, still2,
 					 MfnrTasksManager::getSizeAligned(sensorFullSize_),

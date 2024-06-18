@@ -435,7 +435,6 @@ void MfnrTunSwmeTask::run()
 	std::vector<ipa::mtkisp7::SwmeFramesData> swmeFramesData;
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		ipa::mtkisp7::SwmeFramesData data;
-		data.workbuf = in.workbuf[i]->get().buffer()->cookie();
 		data.base_buf = in.base_buf[i]->get().buffer()->cookie();
 		data.ref_buf = in.ref_buf[i]->get().buffer()->cookie();
 		data.bss_buf = in.bss_buf[i]->get().buffer()->cookie();

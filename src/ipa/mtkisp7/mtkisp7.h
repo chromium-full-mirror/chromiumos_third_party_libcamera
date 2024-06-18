@@ -50,8 +50,7 @@ public:
 		      const uint32_t camsysIndex, const int32_t sessionTimestamp,
 		      bool isVideo, const Size &sensorFullSize,
 		      const Size &swmeAlignedSize,
-		      Size *swmeWorkingBufSize, Size *wrappingMapSize,
-		      Size *confMapSize) override;
+		      Size *wrappingMapSize, Size *confMapSize) override;
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers) override;
 	void unmapBuffers(const std::vector<unsigned int> &ids) override;
@@ -206,6 +205,8 @@ private:
 	Size swmeAlignedSize_;
 	std::vector<std::shared_ptr<SwmeWrapper>> swmeWrapper_;
 	std::map<int, int> mfnrExifData_;
+
+	std::vector<uint8_t> swmeWorkbuf_;
 };
 
 } // namespace ipa::mtkisp7

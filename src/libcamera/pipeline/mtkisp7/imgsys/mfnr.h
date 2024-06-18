@@ -180,7 +180,6 @@ struct BssFrames {
 
 struct SwmeFrames {
 	struct {
-		std::vector<SharedMailBox<InfoFrame>> workbuf;
 		std::vector<SharedMailBox<InfoFrame>> base_buf;
 		std::vector<SharedMailBox<InfoFrame>> ref_buf;
 		std::vector<SharedMailBox<InfoFrame>> bss_buf;
@@ -233,7 +232,6 @@ public:
 		      const Size &yuvOutputSize2,
 		      const Size &videoOutputSize1,
 		      const Size &videoOutputSize2,
-		      const Size &swmeWorkingBufSize,
 		      const Size &confMapSize,
 		      int sensor_idx);
 
@@ -259,7 +257,6 @@ public:
 		      const std::string &id, Request *request,
 		      uint32_t internalRequestId, ImgSysDevice *imgSys);
 
-	Size swmeWorkingBufSize_;
 	Size confMapSize_;
 
 private:
@@ -314,7 +311,6 @@ private:
 	InfoFramePool nv21_1_64_pool_;
 	InfoFramePool nv12_1_64_pool_;
 	InfoFramePool nv12_wroto_pool_;
-	InfoFramePool memc_workbuf_pool_;
 
 	// TODO, need to get fe from hw/sw
 	std::vector<SharedMailBox<InfoFrame>> mcdsWpeVeci;

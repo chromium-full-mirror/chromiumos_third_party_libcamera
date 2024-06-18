@@ -438,11 +438,8 @@ void SwmeWrapper::prepareParam(
 	int index)
 {
 	param.workbuf_addr =
-		reinterpret_cast<MUINT8 *>(swmeFramesBuffers.in.workbuf->planes()[0].data());
-	param.buf_size = 0;
-	for (auto plane : swmeFramesBuffers.in.work_framebuffer->planes()) {
-		param.buf_size += plane.length;
-	}
+		reinterpret_cast<MUINT8 *>(swmeFramesBuffers.in.workbuf->data());
+	param.buf_size = swmeFramesBuffers.in.workbuf->size();
 	param.Proc1_base = swmeFramesBuffers.in.base_buf->planes()[0].data();
 	param.Proc1_ref = swmeFramesBuffers.in.ref_buf->planes()[0].data();
 

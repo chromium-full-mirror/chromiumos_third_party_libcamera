@@ -75,7 +75,7 @@ int IPADelegate::configure(
 	const uint32_t camsysIndex, const int32_t sessionTimestamp,
 	bool isVideo, const Size &sensorFullSize,
 	const Size &swmeAlignedSize,
-	Size *swmeWorkingBufSize, Size *wrappingMapSize,
+	Size *wrappingMapSize,
 	Size *confMapSize)
 {
 	faceDetector_ = faceDetector;
@@ -85,8 +85,7 @@ int IPADelegate::configure(
 				       camsysYuvSize, maxVideoSize, maxStillSize,
 				       sensorId, camsysIndex, sessionTimestamp,
 				       isVideo, sensorFullSize, swmeAlignedSize,
-				       swmeWorkingBufSize, wrappingMapSize,
-				       confMapSize);
+				       wrappingMapSize, confMapSize);
 }
 
 void IPADelegate::mapBuffers(const std::vector<IPABuffer> &buffers)

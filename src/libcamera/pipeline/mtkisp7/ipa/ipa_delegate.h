@@ -45,7 +45,7 @@ public:
 		      const uint32_t camsysIndex, const int32_t sessionTimestamp,
 		      bool isVideo, const Size &sensorFullSize,
 		      const Size &swmeAlignedSize,
-		      Size *swmeWorkingBufSize, Size *wrappingMapSize,
+		      Size *wrappingMapSize,
 		      Size *confMapSize);
 
 	void mapBuffers(const std::vector<IPABuffer> &buffers);

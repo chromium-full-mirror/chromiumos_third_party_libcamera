@@ -18,8 +18,7 @@ namespace libcamera {
 
 struct SwmeFramesBuffers {
 	struct {
-		MappedFrameBuffer *workbuf;
-		FrameBuffer *work_framebuffer;
+		std::vector<uint8_t> *workbuf;
 
 		MappedFrameBuffer *base_buf;
 		MappedFrameBuffer *ref_buf;

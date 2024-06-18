@@ -10,6 +10,8 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
+#include "libcamera/internal/formats.h"
+
 #include "halisp/hal_isp.h"
 #include "libcamera/base/log.h"
 #include "libcamera/control_ids.h"
@@ -21,6 +23,8 @@
 #include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/debug_exif/cam/dbg_cam_param.h"
 #include "platform/mtkisp7/platform_utils.h"
 #include "platform/mtkisp7/sensor/sensor_info.h"
+
+#include "formats.h"
 
 namespace libcamera {
 
@@ -157,8 +161,7 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 			  const uint32_t camsysIndex, const int32_t sessionTimestamp,
 			  bool isVideo, const Size &sensorFullSize,
 			  const Size &swmeAlignedSize,
-			  Size *swmeWorkingBufSize, Size *wrappingMapSize,
-			  Size *confMapSize)
+			  Size *wrappingMapSize, Size *confMapSize)
 {
 	ImagiqAdapter::sensorIdMap.emplace(
 		sensorId, NSCam::TuningUtils::eSensorId(sensorIdx_));
@@ -193,7 +196,6 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 		swmeWrapper_.push_back(swmeWrapper);
 	}
 
-	*swmeWorkingBufSize = swmeWrapper_[0]->getAlgorithmWorkBufferSize();
 	*wrappingMapSize = swmeWrapper_[0]->getWarppingMapSize();
 	*confMapSize = swmeWrapper_[0]->getConfMapSize();
 
@@ -528,15 +530,16 @@ void IPAMtkISP7::doSwme(
 		std::vector<DmaSyncer> syncers;
 
 		swmeFramesBuffers.in.db_param = halIsp_->getIspSwmeParam();
-		{
-			IPAMappedBuffer *buffer = getMappedBufferIter(data.workbuf);
-			if (!buffer) {
-				LOG(IPAMtkISP7, Error) << "Could not find swme work buffer!";
-				continue;
-			}
-			swmeFramesBuffers.in.workbuf = buffer->mapped.get();
-			swmeFramesBuffers.in.work_framebuffer = &buffer->buffer;
+
+		if (swmeWorkbuf_.empty()) {
+			const PixelFormatInfo &info = PixelFormatInfo::info(formats::Y8_MTISP);
+			uint32_t bufferSize = 0;
+			for (unsigned int j = 0; j < info.numPlanes(); j++)
+				bufferSize += info.planeSize(swmeWrapper_[0]->getAlgorithmWorkBufferSize(), j);
+
+			swmeWorkbuf_.resize(bufferSize);
 		}
+		swmeFramesBuffers.in.workbuf = &swmeWorkbuf_;
 
 		{
 			IPAMappedBuffer *buffer = getMappedBufferIter(data.base_buf);

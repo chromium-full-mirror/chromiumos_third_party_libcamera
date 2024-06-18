@@ -103,7 +103,6 @@ struct BssFramesData {
 
 struct SwmeFramesData {
 	// in
-	uint32 workbuf;
 	uint32 base_buf;
 	uint32 ref_buf;
 	uint32 bss_buf;
@@ -128,8 +127,8 @@ interface IPAMtkISP7Interface {
                   libcamera.Size maxStillSize, string sensorId, uint32 camsysIndex,
                   int32 sessionTimestamp, bool isVideo, libcamera.Size sensorFullSize,
                   libcamera.Size swmeAlignedSize) =>
-                  (int32 ret, libcamera.Size swmeWorkingBufSize,
-                   libcamera.Size wrappingMapSize, libcamera.Size confMapSize);
+                  (int32 ret, libcamera.Size wrappingMapSize,
+                   libcamera.Size confMapSize);
 
 	mapBuffers(array<libcamera.IPABuffer> buffers);
 	unmapBuffers(array<uint32> ids);

@@ -93,7 +93,6 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&nv21_1_64_pool_);
 	allBufferPools_.emplace_back(&nv12_1_64_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
-	allBufferPools_.emplace_back(&memc_workbuf_pool_);
 
 	poolsWritenByCpu_.emplace_back(&tunbufiPool_);
 	poolsWritenByCpu_.emplace_back(&p2sttoPool_);
@@ -116,7 +115,6 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&nv21_1_64_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_1_64_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_wroto_pool_);
-	poolsWritenByCpu_.emplace_back(&memc_workbuf_pool_);
 }
 
 // static
@@ -135,7 +133,6 @@ Size MfnrTasksManager::getSizeAligned(const Size &bayerInputSize)
 int MfnrTasksManager::configure(const Size &bayerInputSize,
 				const Size &yuvOutputSize1, const Size &yuvOutputSize2,
 				const Size &videoOutputSize1, const Size &videoOutputSize2,
-				const Size &swmeWorkingBufSize,
 				const Size &confMapSize,
 				int sensor_idx)
 {
@@ -161,7 +158,6 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 
 	mfnrSize_aligned16_ = getSizeAligned(bayerInputSize_);
 
-	swmeWorkingBufSize_ = swmeWorkingBufSize;
 	confMapSize_ = confMapSize;
 
 	configureBuffers();
@@ -196,8 +192,6 @@ int MfnrTasksManager::configureBuffers()
 	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 22);
 	nv21_1_64_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[6], 3);
 	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 1);
-
-	memc_workbuf_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, swmeWorkingBufSize_, 3);
 
 	return 0;
 }
@@ -272,7 +266,6 @@ void MfnrTasksManager::makeMFNRFrames(
 	std::vector<SharedMailBox<InfoFrame>> bfmeImg2o = makeMailBoxVector<InfoFrame>(kInputRawCount);
 
 	std::vector<SharedMailBox<InfoFrame>> swmeTun = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
-	std::vector<SharedMailBox<InfoFrame>> swmeWorkBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> swmeConfMapBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> swmeWrappingBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> swmeMcmvBuf = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
@@ -371,9 +364,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	/* Frames used by BfmeTask */
 	SwmeFrames &swmeFrame = mfnr.swmeFrames;
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
-		memc_workbuf_pool_.fetch(swmeWorkBuf[i]);
 		swmeFrame.in.bss_buf.push_back(bssFrames.out.bssOutDataInfo);
-		swmeFrame.in.workbuf.push_back(swmeWorkBuf[i]);
 		swmeFrame.in.base_buf.push_back(bfmeFrames.out.img2o[0]);
 		swmeFrame.in.ref_buf.push_back(bfmeFrames.out.img2o[i + 1]);
 		swmeFrame.in.tuningInfo.push_back(swmeTun[i]);
