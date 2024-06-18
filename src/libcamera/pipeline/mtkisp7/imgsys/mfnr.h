@@ -283,13 +283,11 @@ private:
 	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
 
-	std::array<InfoFramePool, 4> mfnr_;
 	/* Weak ptr for above pools for easier control */
 	std::vector<InfoFramePool *> allBufferPools_;
 	std::vector<InfoFramePool *> poolsWritenByCpu_;
 
 	/* MFNR intermediate buffers' pools */
-	InfoFramePool tunbufiPool_;
 	InfoFramePool p2sttoPool_;
 	InfoFramePool yuvp010_1_1_pool_;
 	InfoFramePool yuvp010_1_4_pool_aligned16_;
@@ -307,9 +305,7 @@ private:
 	InfoFramePool y8_1_16_pool_;
 	InfoFramePool y8_1_32_pool_;
 	InfoFramePool fourBytes_pool_;
-	InfoFramePool fourBytes_1_16_pool_;
 	InfoFramePool nv21_1_64_pool_;
-	InfoFramePool nv12_1_64_pool_;
 	InfoFramePool nv12_wroto_pool_;
 
 	// TODO, need to get fe from hw/sw

@@ -71,7 +71,6 @@ MfnrTasksManager::MfnrTasksManager(
 	dmaHeap_ = dmaHeap;
 	onDeviceTuner_ = odt;
 
-	allBufferPools_.emplace_back(&tunbufiPool_);
 	allBufferPools_.emplace_back(&p2sttoPool_);
 	allBufferPools_.emplace_back(&yuvp010_1_1_pool_);
 	allBufferPools_.emplace_back(&yuvp010_1_4_pool_aligned16_);
@@ -91,10 +90,8 @@ MfnrTasksManager::MfnrTasksManager(
 
 	allBufferPools_.emplace_back(&fourBytes_pool_);
 	allBufferPools_.emplace_back(&nv21_1_64_pool_);
-	allBufferPools_.emplace_back(&nv12_1_64_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
 
-	poolsWritenByCpu_.emplace_back(&tunbufiPool_);
 	poolsWritenByCpu_.emplace_back(&p2sttoPool_);
 	poolsWritenByCpu_.emplace_back(&yuvp010_1_1_pool_);
 	poolsWritenByCpu_.emplace_back(&yuvp010_1_4_pool_aligned16_);
@@ -113,7 +110,6 @@ MfnrTasksManager::MfnrTasksManager(
 	poolsWritenByCpu_.emplace_back(&y8_1_32_pool_);
 	poolsWritenByCpu_.emplace_back(&fourBytes_pool_);
 	poolsWritenByCpu_.emplace_back(&nv21_1_64_pool_);
-	poolsWritenByCpu_.emplace_back(&nv12_1_64_pool_);
 	poolsWritenByCpu_.emplace_back(&nv12_wroto_pool_);
 }
 
@@ -402,7 +398,6 @@ void MfnrTasksManager::makeMFNRFrames(
 		} else {
 			dsFrames.in.ltimgi.push_back(mcdsF1Frames.out.ltyuv4o[i - 2]);
 		}
-		//tunbufiPool_.fetch(dsTun[i]);
 		dsFrames.in.tunbufi.push_back(dsTun[i]);
 		dsFrames.out.ltyuv2o.push_back(dsYuv2o[i]);
 		dsFrames.out.ltyuv3o.push_back(dsYuv3o[i]);
@@ -414,14 +409,12 @@ void MfnrTasksManager::makeMFNRFrames(
 	DsVbiFrames &dsVbiFramesV5 = mfnr.dsVbiFramesV5;
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		dsVbiFramesV2.in.timgi.push_back(mcdsF1Frames.out.ltyuv5o[i]);
-		//tunbufiPool_.fetch(dsVbiV2Tun[i]);
 		dsVbiFramesV2.in.tunbufi.push_back(dsVbiV2Tun[i]);
 		dsVbiFramesV2.out.tyuv2o.push_back(dsVbiV2Tyuv2o[i]);
 		dsVbiFramesV2.out.tyuv3o.push_back(dsVbiV2Tyuv3o[i]);
 		dsVbiFramesV2.out.tyuv4o.push_back(dsVbiV2Tyuv4o[i]);
 
 		dsVbiFramesV5.in.timgi.push_back(dsVbiFramesV2.out.tyuv4o[i]);
-		//tunbufiPool_.fetch(dsVbiV5Tun[i]);
 		dsVbiFramesV5.in.tunbufi.push_back(dsVbiV5Tun[i]);
 		dsVbiFramesV5.out.tyuv2o.push_back(dsVbiV5Tyuv2o[i]);
 		dsVbiFramesV5.out.tyuv3o.push_back(dsVbiV5Tyuv3o[i]);

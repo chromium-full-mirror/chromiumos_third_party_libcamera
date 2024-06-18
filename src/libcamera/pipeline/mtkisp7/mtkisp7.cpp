@@ -1195,9 +1195,6 @@ void MtkISP7CameraData::allocateIPABuffers()
 
 	registerIPABuffers(&mfnrTunManager.mfnrTun_);
 
-	for (unsigned i = 0; i < mfnrManager.mfnr_.size(); ++i)
-		registerIPABuffers(&mcnrManager.wt_[i]);
-
 	registerIPABuffers(&mfnrTunManager.bssParamPool_);
 	registerIPABuffers(&mfnrTunManager.bssDataGPool_);
 	registerIPABuffers(&mfnrTunManager.bssVerPool_);
