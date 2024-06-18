@@ -79,7 +79,8 @@ void CaptureTasksManager::allocateBuffers()
 	rawPool_.setFormat(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_);
 	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, pipelineDepth_);
 	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, pipelineDepth_);
-	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, pipelineDepth_, DmaHeap::System, 64);
+	// Me needs one more buffer to be kept in MCNRPrevOutput.
+	mePool_.createBuffers(dmaHeap_, formats::GREY, kMeSize, pipelineDepth_ + 1, DmaHeap::System, 64);
 	faceDetectPool_.createBuffers(dmaHeap_, formats::NV12, kFdSize, 8);
 	statistics0Pool_.createBuffers(dmaHeap_, formats::MTFA_MTISP, kStatSize0, kRawMetaDelay, DmaHeap::CMA);
 	statistics1Pool_.createBuffers(dmaHeap_, formats::MTFF_MTISP, kStatSize1, kRawMetaDelay, DmaHeap::CMA);
