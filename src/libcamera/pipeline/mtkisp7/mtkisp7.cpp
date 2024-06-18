@@ -1215,7 +1215,6 @@ void MtkISP7CameraData::allocateIPABuffers()
 	registerIPABuffers(&mfnrManager.p2sttoPool_);
 	registerIPABuffers(&mfnrManager.yuvp010_1_1_pool_);
 	registerIPABuffers(&mfnrManager.yuvp010_1_4_pool_aligned16_);
-	registerIPABuffers(&mfnrManager.yuvp012_1_1_pool_);
 	registerIPABuffers(&mfnrManager.yuvp012_1_2_pool_);
 	registerIPABuffers(&mfnrManager.yuvp012_1_4_pool_);
 	registerIPABuffers(&mfnrManager.yuvp012_1_8_pool_);
@@ -1660,7 +1659,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	}
 
 	if (hasStillCapture) {
-		if (useMfnr && !useLpnr) {
+		if (useMfnr) {
+			LOG(MtkISP7, Info) << "[CAT][MFNR] Trigger MFNR !";
 			MFNRFrames mfnr;
 			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
 

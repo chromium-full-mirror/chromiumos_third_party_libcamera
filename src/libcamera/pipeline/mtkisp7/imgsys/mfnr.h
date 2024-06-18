@@ -297,7 +297,6 @@ private:
 	InfoFramePool p2sttoPool_;
 	InfoFramePool yuvp010_1_1_pool_;
 	InfoFramePool yuvp010_1_4_pool_aligned16_;
-	InfoFramePool yuvp012_1_1_pool_;
 	InfoFramePool yuvp012_1_2_pool_;
 	InfoFramePool yuvp012_1_4_pool_;
 	InfoFramePool yuvp012_1_8_pool_;

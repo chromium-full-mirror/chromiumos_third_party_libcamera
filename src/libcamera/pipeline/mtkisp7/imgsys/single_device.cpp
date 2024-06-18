@@ -187,7 +187,7 @@ void StageEx::setMcdsF1WpeInfo(NSCam::NSImgStream::IMG_EXTRA_PARAM_ID id, Size c
 		.vgen_out = crpInfo,
 		.tbl_sel_v = PSP_TABLE_DEFAULT,
 		.tbl_sel_h = PSP_TABLE_DEFAULT,
-		.extra_feature_index = EXTRA_FEATURE_INDEX(2),
+		.extra_feature_index = EXTRA_FEATURE_INDEX(0),
 		.rgb_mode = (RGB_MODE)0,
 		.vgen_in = crpOfstInfo,
 		.psp_border_color_y = 0,
