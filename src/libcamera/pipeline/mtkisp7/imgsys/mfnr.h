@@ -284,29 +284,28 @@ private:
 	OnDeviceTuner *onDeviceTuner_;
 
 	/* Weak ptr for above pools for easier control */
-	std::vector<InfoFramePool *> allBufferPools_;
-	std::vector<InfoFramePool *> poolsWritenByCpu_;
+	std::vector<LazyInfoFramePool *> allBufferPools_;
 
 	/* MFNR intermediate buffers' pools */
 	InfoFramePool p2sttoPool_;
-	InfoFramePool yuvp010_1_1_pool_;
-	InfoFramePool yuvp010_1_4_pool_aligned16_;
-	InfoFramePool yuvp012_1_2_pool_;
-	InfoFramePool yuvp012_1_4_pool_;
-	InfoFramePool yuvp012_1_8_pool_;
-	InfoFramePool yuvp012_1_16_pool_;
-	InfoFramePool yuvp012_1_32_pool_;
-	InfoFramePool yuvp012_1_64_pool_;
-	InfoFramePool y8_1_1_pool_;
-	InfoFramePool y8_1_2_pool_;
-	InfoFramePool y8_1_4_pool_;
+	LazyInfoFramePool yuvp010_1_1_pool_;
+	LazyInfoFramePool yuvp010_1_4_pool_aligned16_;
+	LazyInfoFramePool yuvp012_1_2_pool_;
+	LazyInfoFramePool yuvp012_1_4_pool_;
+	LazyInfoFramePool yuvp012_1_8_pool_;
+	LazyInfoFramePool yuvp012_1_16_pool_;
+	LazyInfoFramePool yuvp012_1_32_pool_;
+	LazyInfoFramePool yuvp012_1_64_pool_;
+	LazyInfoFramePool y8_1_1_pool_;
+	LazyInfoFramePool y8_1_2_pool_;
+	LazyInfoFramePool y8_1_4_pool_;
 	InfoFramePool y8_1_4_pool_aligned16_;
-	InfoFramePool y8_1_8_pool_;
-	InfoFramePool y8_1_16_pool_;
-	InfoFramePool y8_1_32_pool_;
-	InfoFramePool fourBytes_pool_;
-	InfoFramePool nv21_1_64_pool_;
-	InfoFramePool nv12_wroto_pool_;
+	LazyInfoFramePool y8_1_8_pool_;
+	LazyInfoFramePool y8_1_16_pool_;
+	LazyInfoFramePool y8_1_32_pool_;
+	LazyInfoFramePool fourBytes_pool_;
+	LazyInfoFramePool nv21_1_64_pool_;
+	LazyInfoFramePool nv12_wroto_pool_;
 
 	// TODO, need to get fe from hw/sw
 	std::vector<SharedMailBox<InfoFrame>> mcdsWpeVeci;

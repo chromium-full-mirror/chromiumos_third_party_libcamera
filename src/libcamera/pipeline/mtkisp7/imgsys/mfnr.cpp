@@ -51,7 +51,10 @@ static void zeroImage(SharedMailBox<InfoFrame> &mailBox)
 {
 	const InfoFrame &info = mailBox->get();
 
-	void *dest = info.address(0);
+	MappedFrameBuffer mappedBuffer =
+		MappedFrameBuffer(info.buffer(), MappedFrameBuffer::MapFlag::ReadWrite);
+
+	void *dest = mappedBuffer.planes()[0].data();
 	size_t length = info.buffer()->planes()[0].length;
 
 	assert(dest);
@@ -70,7 +73,6 @@ MfnrTasksManager::MfnrTasksManager(
 	dmaHeap_ = dmaHeap;
 	onDeviceTuner_ = odt;
 
-	allBufferPools_.emplace_back(&p2sttoPool_);
 	allBufferPools_.emplace_back(&yuvp010_1_1_pool_);
 	allBufferPools_.emplace_back(&yuvp010_1_4_pool_aligned16_);
 	allBufferPools_.emplace_back(&yuvp012_1_2_pool_);
@@ -82,7 +84,6 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&y8_1_1_pool_);
 	allBufferPools_.emplace_back(&y8_1_2_pool_);
 	allBufferPools_.emplace_back(&y8_1_4_pool_);
-	allBufferPools_.emplace_back(&y8_1_4_pool_aligned16_);
 	allBufferPools_.emplace_back(&y8_1_8_pool_);
 	allBufferPools_.emplace_back(&y8_1_16_pool_);
 	allBufferPools_.emplace_back(&y8_1_32_pool_);
@@ -90,26 +91,6 @@ MfnrTasksManager::MfnrTasksManager(
 	allBufferPools_.emplace_back(&fourBytes_pool_);
 	allBufferPools_.emplace_back(&nv21_1_64_pool_);
 	allBufferPools_.emplace_back(&nv12_wroto_pool_);
-
-	poolsWritenByCpu_.emplace_back(&p2sttoPool_);
-	poolsWritenByCpu_.emplace_back(&yuvp010_1_1_pool_);
-	poolsWritenByCpu_.emplace_back(&yuvp010_1_4_pool_aligned16_);
-	poolsWritenByCpu_.emplace_back(&yuvp012_1_2_pool_);
-	poolsWritenByCpu_.emplace_back(&yuvp012_1_4_pool_);
-	poolsWritenByCpu_.emplace_back(&yuvp012_1_8_pool_);
-	poolsWritenByCpu_.emplace_back(&yuvp012_1_16_pool_);
-	poolsWritenByCpu_.emplace_back(&yuvp012_1_32_pool_);
-	poolsWritenByCpu_.emplace_back(&yuvp012_1_64_pool_);
-	poolsWritenByCpu_.emplace_back(&y8_1_1_pool_);
-	poolsWritenByCpu_.emplace_back(&y8_1_2_pool_);
-	poolsWritenByCpu_.emplace_back(&y8_1_4_pool_);
-	poolsWritenByCpu_.emplace_back(&y8_1_4_pool_aligned16_);
-	poolsWritenByCpu_.emplace_back(&y8_1_8_pool_);
-	poolsWritenByCpu_.emplace_back(&y8_1_16_pool_);
-	poolsWritenByCpu_.emplace_back(&y8_1_32_pool_);
-	poolsWritenByCpu_.emplace_back(&fourBytes_pool_);
-	poolsWritenByCpu_.emplace_back(&nv21_1_64_pool_);
-	poolsWritenByCpu_.emplace_back(&nv12_wroto_pool_);
 }
 
 // static
@@ -156,8 +137,6 @@ int MfnrTasksManager::configure(const Size &bayerInputSize,
 	confMapSize_ = confMapSize;
 
 	configureBuffers();
-	for (auto &pool : poolsWritenByCpu_)
-		pool->mmap();
 	return 0;
 }
 
@@ -165,28 +144,28 @@ int MfnrTasksManager::configureBuffers()
 {
 	p2sttoPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kP2sttoSize, 4, DmaHeap::CMA);
 
-	yuvp010_1_1_pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], 10, DmaHeap::System, 16, 16);
-	yuvp010_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, mfnrSize_aligned16_, 4, DmaHeap::System, 16, 16);
+	yuvp010_1_1_pool_.setFormat(dmaHeap_, formats::NV12_10P_MTISP, mfnrSizes_[0], DmaHeap::System, 16, 16);
+	yuvp010_1_4_pool_aligned16_.setFormat(dmaHeap_, formats::NV12_10P_MTISP, mfnrSize_aligned16_, DmaHeap::System, 16, 16);
 
-	yuvp012_1_2_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[1], 7, DmaHeap::System, 16, 16);
-	yuvp012_1_4_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[2], 7, DmaHeap::System, 16, 16);
+	yuvp012_1_2_pool_.setFormat(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[1], DmaHeap::System, 16, 16);
+	yuvp012_1_4_pool_.setFormat(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[2], DmaHeap::System, 16, 16);
 	y8_1_4_pool_aligned16_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSize_aligned16_, 4, DmaHeap::System, 8, 8);
 
-	yuvp012_1_8_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[3], 7, DmaHeap::System, 16, 16);
-	yuvp012_1_16_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[4], 7, DmaHeap::System, 16, 16);
-	yuvp012_1_32_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], 7, DmaHeap::System, 16, 16);
-	yuvp012_1_64_pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], 4, DmaHeap::System, 16, 16);
+	yuvp012_1_8_pool_.setFormat(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[3], DmaHeap::System, 16, 16);
+	yuvp012_1_16_pool_.setFormat(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[4], DmaHeap::System, 16, 16);
+	yuvp012_1_32_pool_.setFormat(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[5], DmaHeap::System, 16, 16);
+	yuvp012_1_64_pool_.setFormat(dmaHeap_, formats::NV12_12P_MTISP, mfnrSizes_[6], DmaHeap::System, 16, 16);
 
-	y8_1_1_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], 4, DmaHeap::System, 16, 16);
-	y8_1_2_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], 10, DmaHeap::System, 16, 16);
-	y8_1_4_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], 10, DmaHeap::System, 16, 16);
-	y8_1_8_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], 10, DmaHeap::System, 16, 16);
-	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 10, DmaHeap::System, 16, 16);
-	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 10, DmaHeap::System, 16, 16);
+	y8_1_1_pool_.setFormat(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[0], DmaHeap::System, 16, 16);
+	y8_1_2_pool_.setFormat(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[1], DmaHeap::System, 16, 16);
+	y8_1_4_pool_.setFormat(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[2], DmaHeap::System, 16, 16);
+	y8_1_8_pool_.setFormat(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[3], DmaHeap::System, 16, 16);
+	y8_1_16_pool_.setFormat(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], DmaHeap::System, 16, 16);
+	y8_1_32_pool_.setFormat(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], DmaHeap::System, 16, 16);
 
-	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 2);
-	nv21_1_64_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[6], 3);
-	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 1);
+	fourBytes_pool_.setFormat(dmaHeap_, formats::Y32_MTISP, kTnrsoSize);
+	nv21_1_64_pool_.setFormat(dmaHeap_, formats::NV21, mfnrSizes_[6]);
+	nv12_wroto_pool_.setFormat(dmaHeap_, formats::NV12, kWrotoSize);
 
 	return 0;
 }
@@ -213,6 +192,9 @@ int MfnrTasksManager::releaseBuffers()
 {
 	for (auto &pool : allBufferPools_)
 		pool->release();
+
+	p2sttoPool_.release();
+	y8_1_4_pool_aligned16_.release();
 
 	return 0;
 }
