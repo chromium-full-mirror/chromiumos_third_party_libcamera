@@ -437,16 +437,6 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 		}
 	}
 
-	/*
-	Some CameraITS tests configures one yuv snapshot stream, but expect it
-	to work as video stream with proper 3A. Make the scenario as a special
-	case. (ITS: scene1_1/test_exposure.py)
-	*/
-	if (streamConfigs.size() == 1 && streamConfigs[0].streams.size() == 1) {
-		if (isYuvSnapshotStream(streamConfigs[0].streams[0].stream))
-			streamConfigs[0].config.role = StreamRole::Viewfinder;
-	}
-
 	return 0;
 }
 
