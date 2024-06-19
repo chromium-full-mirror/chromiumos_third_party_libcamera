@@ -93,6 +93,10 @@ struct BssFramesData {
 
 	// out
 	uint32 bssOutDataInfoId;
+
+	// debug
+	uint32 exposure;
+	uint32 iso;
 };
 
 struct SwmeFramesData {

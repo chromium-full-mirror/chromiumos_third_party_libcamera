@@ -204,6 +204,7 @@ private:
 	Size sensorFullSize_;
 	Size swmeAlignedSize_;
 	std::vector<std::shared_ptr<SwmeWrapper>> swmeWrapper_;
+	std::map<int, int> mfnrExifData_;
 };
 
 } // namespace ipa::mtkisp7

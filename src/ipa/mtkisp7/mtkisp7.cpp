@@ -18,6 +18,7 @@
 #include "pipeline/mtkisp7/hal3a/const.h"
 #include "pipeline/mtkisp7/imgsys/const.h"
 #include "platform/mtkisp7/cam_cal_helper.h"
+#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/debug_exif/cam/dbg_cam_param.h"
 #include "platform/mtkisp7/platform_utils.h"
 #include "platform/mtkisp7/sensor/sensor_info.h"
 
@@ -194,6 +195,23 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 	*wrappingMapSize = swmeWrapper_[0]->getWarppingMapSize();
 	*confMapSize = swmeWrapper_[0]->getConfMapSize();
 
+	mfnrExifData_[MF_TAG_VERSION] = MF_DEBUG_TAG_VERSION;
+	mfnrExifData_[MF_TAG_CAPTURE_M] = 4;
+	mfnrExifData_[MF_TAG_BLENDED_N] = 4;
+	mfnrExifData_[MF_TAG_AEVC_AE_EN] = 1;
+	mfnrExifData_[MF_TAG_AEVC_LCSO_EN] = 1;
+	mfnrExifData_[MF_TAG_MFNR_ISO_TH] = 90;
+	mfnrExifData_[MF_TAG_MAX_FRAME_NUMBER] = 4;
+	mfnrExifData_[MF_TAG_PROCESSING_NUMBER] = 3;
+	mfnrExifData_[MF_TAG_RAW_WIDTH] = sensorFullSize.width;
+	mfnrExifData_[MF_TAG_RAW_HEIGHT] = sensorFullSize.height;
+	mfnrExifData_[MF_TAG_BLD_YUV_WIDTH] = sensorFullSize.width;
+	mfnrExifData_[MF_TAG_BLD_YUV_HEIGHT] = sensorFullSize.height;
+	mfnrExifData_[MF_TAG_P2_ME_IN_WIDTH] = swmeAlignedSize.width;
+	mfnrExifData_[MF_TAG_P2_ME_IN_HEIGHT] = swmeAlignedSize.height;
+	mfnrExifData_[MF_TAG_ME_IN_WIDTH] = swmeAlignedSize.width;
+	mfnrExifData_[MF_TAG_ME_IN_HEIGHT] = swmeAlignedSize.height;
+
 	return aieParser_->initialize();
 }
 
@@ -266,7 +284,8 @@ void IPAMtkISP7::writeStillCaptureDebugMetadata(
 {
 	*metadata = controls::controls;
 	onDeviceTuner_.writeStillCaptureDebugMetadata(*metadata,
-						      hal3A_->resultHistory_.query(camSysMetaRequestId));
+						      hal3A_->resultHistory_.query(camSysMetaRequestId),
+						      mfnrExifData_);
 }
 
 void IPAMtkISP7::notifyRequestBegin(const uint32_t baseFrame,
@@ -787,6 +806,10 @@ void IPAMtkISP7::doBss(const uint64_t cookie, const BssFramesData &bssFramesData
 
 	auto bssOrder = bssWrapper_->doBss(kInputRawCount, bssFramesBuffers);
 
+	mfnrExifData_[MF_TAG_EXPOSURE] = bssFramesData.exposure;
+	mfnrExifData_[MF_TAG_ISO] = bssFramesData.iso;
+	for (auto &item : bssWrapper_->getExifData())
+		mfnrExifData_[item.first] = item.second;
 	BssResultReady.emit(cookie, bssOrder);
 }
 

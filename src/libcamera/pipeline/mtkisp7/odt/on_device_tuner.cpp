@@ -43,6 +43,7 @@
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/stage.h"
 #include "pipeline/mtkisp7/odt/imgsys_driver_debug.h"
 #include "platform/mtkisp7/halisp/IspControls.h"
+#include "platform/mtkisp7/mtkcam-chrom/custom/mt8188/hal/inc/debug_exif/cam/dbg_cam_param.h"
 #include "platform/mtkisp7/single_device_helper.h"
 #include "tuning_mapping/cam_idx_struct_ext_pub.h"
 
@@ -1571,33 +1572,64 @@ void OnDeviceTuner::tuneAfbld(
 }
 
 void OnDeviceTuner::writeStillCaptureDebugMetadata(
-	ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result)
+	ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
+	std::map<int, int> mfnrExifData)
 {
 	if (!enabled_) {
 		return;
 	}
-
+	const unsigned int mfnrDebug = 5;
 	const unsigned int idx3ADebug = 6;
 	const unsigned int idxIspDebug = 7;
 
-	std::vector<uint16_t> jpegAppSegmentLength(16, 0);
+	bool mfnrNDD = false;
+	DEBUG_CAM_INFO_T debug_cam_info;
+	DEBUG_MF_INFO_T *debug_mf_info = &debug_cam_info.rDbgMFInfo;
+	if (mfnrExifData.size() != 0) {
+		mfnrNDD = true;
+		uint8_t *app5Dest = reinterpret_cast<uint8_t *>(&debug_cam_info);
+		std::memcpy(app5Dest,
+			    reinterpret_cast<uint8_t *>(const_cast<void *>(NSCam::Custom::sDbgExifBufInfo_cam.header_context)),
+			    sizeof(debug_cam_info.hdr));
+
+		for (const auto &item : mfnrExifData) {
+			const int index = item.first;
+			const int value = item.second;
+			debug_mf_info->Tag[index].u4FieldID = (0x1000000 | index);
+			debug_mf_info->Tag[index].u4FieldValue = value;
+		}
+	}
+
+	std::array<uint16_t, 16> jpegAppSegmentLength{ 0 };
+	if (mfnrNDD)
+		jpegAppSegmentLength[mfnrDebug] = sizeof(DEBUG_CAM_INFO_T);
 	jpegAppSegmentLength[idx3ADebug] = sizeof(AAA_DEBUG_INFO1_T);
 	jpegAppSegmentLength[idxIspDebug] = sizeof(AAA_DEBUG_INFO2_T);
-	out.set(controls::JpegApplicationSegmentLength,
-		Span<const uint16_t, 16>(jpegAppSegmentLength));
+	out.set(controls::JpegApplicationSegmentLength, jpegAppSegmentLength);
 
 	size_t totalSize = sizeof(AAA_DEBUG_INFO1_T) +
 			   sizeof(AAA_DEBUG_INFO2_T);
+	if (mfnrNDD)
+		totalSize += sizeof(DEBUG_CAM_INFO_T);
+
 	std::vector<uint8_t> jpegAppSegmentContent(totalSize);
+	if (mfnrNDD) {
+		uint8_t *app5Src = reinterpret_cast<uint8_t *>(&debug_cam_info);
+		std::memcpy(jpegAppSegmentContent.data(), app5Src,
+			    jpegAppSegmentLength[mfnrDebug]);
+	}
 
 	uint8_t *app6Src = reinterpret_cast<uint8_t *>(
 		&result->debug_3a_info);
-	std::memcpy(jpegAppSegmentContent.data(), app6Src,
+	uint8_t *app6Dest = jpegAppSegmentContent.data() +
+			    jpegAppSegmentLength[mfnrDebug];
+	std::memcpy(app6Dest, app6Src,
 		    jpegAppSegmentLength[idx3ADebug]);
 
 	uint8_t *app7Src = reinterpret_cast<uint8_t *>(
 		&result->debug_isp_info);
 	uint8_t *app7Dest = jpegAppSegmentContent.data() +
+			    jpegAppSegmentLength[mfnrDebug] +
 			    jpegAppSegmentLength[idx3ADebug];
 	std::memcpy(app7Dest, app7Src, jpegAppSegmentLength[idxIspDebug]);
 

@@ -67,6 +67,7 @@ public:
 		   MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 	makeMfnrTunTasks(
 		MFNRFrames &mfnr,
+		SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 		uint32_t camSysMetaRequestId,
 		Scheduler *scheduler,
 		const std::string &id, Request *request,
@@ -117,6 +118,7 @@ class MfnrTunBssTask : public Task
 {
 public:
 	MfnrTunBssTask(MFNRFrames &mfnr,
+		       SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 		       Scheduler *scheduler, const std::string &id,
 		       MfnrTunManager *manager, uint32_t internalRequestId);
 
@@ -128,6 +130,7 @@ public:
 
 	MfnrTunManager *manager_;
 	uint32_t internalRequestId_;
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
 
 private:
 	void allocateBuffers();

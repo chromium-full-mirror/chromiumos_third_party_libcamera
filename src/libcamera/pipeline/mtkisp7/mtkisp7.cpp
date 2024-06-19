@@ -1667,7 +1667,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			auto [mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
 			      mfnrTunMsbldTask, mfnrTunAfbldTask] =
-				mfnrTunManager.makeMfnrTunTasks(mfnr, camSysMetaRequestId, scheduler, "MfnrTun " + sequence, request, internalRequestId);
+				mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, camSysMetaRequestId, scheduler, "MfnrTun " + sequence, request, internalRequestId);
 
 			auto [mfnrBfbldTask, mfnrBfmeTask,
 			      mfnrMcdsF1Task, mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask,

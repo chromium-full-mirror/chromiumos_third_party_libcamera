@@ -49,6 +49,7 @@ public:
 	MRESULT bssInit(Size camsysYuvSize);
 	std::vector<int> doBss(int frameNum,
 			       BssFramesBuffers &bssFramesBuffers);
+	std::map<MINT32, MINT32> getExifData() { return mExifData; }
 
 private:
 	MRESULT bssMain(IBSS_PROC_ENUM ProcId, void *pParaIn, void *pParaOut);

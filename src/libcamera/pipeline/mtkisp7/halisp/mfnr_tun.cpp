@@ -163,13 +163,14 @@ std::tuple<MfnrTunBssTask *, MfnrTunBfbldTask *, MfnrTunBfmeTask *,
 	   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *,
 	   MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
+				 SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 				 uint32_t camSysMetaRequestId,
 				 Scheduler *scheduler,
 				 const std::string &id, Request *request,
 				 uint32_t internalRequestId)
 {
 	MfnrTunBssTask *mfnrTunBssTask = new MfnrTunBssTask(
-		mfnr, scheduler, id, this, internalRequestId);
+		mfnr, aaaIspExchange, scheduler, id, this, internalRequestId);
 
 	MfnrTunBfbldTask *mfnrTunBfbldTask = new MfnrTunBfbldTask(
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
@@ -201,11 +202,13 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 }
 
 MfnrTunBssTask::MfnrTunBssTask(MFNRFrames &mfnr,
+			       SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 			       Scheduler *scheduler,
 			       const std::string &id, MfnrTunManager *manager,
 			       uint32_t internalRequestId)
 	: Task(scheduler, id), manager_(manager),
-	  internalRequestId_(internalRequestId)
+	  internalRequestId_(internalRequestId),
+	  aaaIspExchange_(aaaIspExchange)
 {
 	bssFrames_ = mfnr.bssFrames;
 }
@@ -251,6 +254,9 @@ void MfnrTunBssTask::run()
 		bssFramesData.bssPosInfoId.push_back(info->get().buffer()->cookie());
 	bssFramesData.bssOutDataInfoId = out.bssOutDataInfo->get().buffer()->cookie();
 
+	auto aaaIspExchange = aaaIspExchange_->get();
+	bssFramesData.exposure = aaaIspExchange.aaaMetadata.get(controls::ExposureTime).value_or(333333);
+	bssFramesData.iso = aaaIspExchange.aaaMetadata.get(controls::AnalogueGain).value_or(100);
 	manager_->ipa_->doBss(this, bssFramesData);
 }
 

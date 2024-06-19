@@ -173,7 +173,8 @@ public:
 
 	// Still capture only
 	void writeStillCaptureDebugMetadata(
-		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result);
+		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
+		std::map<int, int> mfnrExifData);
 
 private:
 	static bool isStillCaptureFeature(Feature feature);

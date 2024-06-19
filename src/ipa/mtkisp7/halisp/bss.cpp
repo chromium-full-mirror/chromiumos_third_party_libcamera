@@ -11,6 +11,7 @@
 #include <libcamera/base/log.h>
 
 #include "libcamera/framebuffer.h"
+#include "mtkcam-chrom/custom/common/hal/inc/custom/debug_exif/cam/dbg_cam_mf_param18.h"
 #include "mtkcam-halif/def/UITypes.h"
 #include "mtkcam-interfaces/def/ImageFormat.h"
 #include "pipeline/mtkisp7/imgsys/const.h"
@@ -656,7 +657,6 @@ MVOID BssWrapper::updateBssIOInfo(IBSS_INPUT_DATA_G_IPC &bss_input)
 
 MVOID BssWrapper::collectPreBSSExifData(IBSS_PARAM_STRUCT *bss_param)
 {
-	LOG(MtkISP7, Info) << "collectPreBSSExifData";
 #if (MFLL_MF_TAG_VERSION > 0)
 	mtk::isphal::v1::isp_bss_Param *pBssDB = reinterpret_cast<mtk::isphal::v1::isp_bss_Param *>(bss_param->pBSSNvram);
 	LOG(MtkISP7, Info) << "pBssDB: " << reinterpret_cast<void *>(pBssDB);
@@ -917,6 +917,7 @@ std::vector<int> BssWrapper::doBss(int frameNum, BssFramesBuffers &bssFramesBuff
 
 	std::vector<MINT32> vNewOrdering;
 	MUINT32 order = 0;
+	MUINT32 bssOrder_group1 = 0;
 	for (size_t i = 0, bss_idx = 0; i < (unsigned long)frameNum; i++) {
 		MINT32 newOrder =
 			(mEnableBSSOrdering == 0) ? bss_idx : bssOutData.originalOrder[bss_idx];
@@ -934,6 +935,11 @@ std::vector<int> BssWrapper::doBss(int frameNum, BssFramesBuffers &bssFramesBuff
 		LOG(MtkISP7, Info) << "bssOrder " << i << " -> " << order;
 	}
 
+	for (auto o : BSSOrder) {
+		bssOrder_group1 = (bssOrder_group1 >> 4) | (o << 12);
+	}
+	mExifData[MF_TAG_BSS_ORDER_GROUP_1] = bssOrder_group1;
+	mExifData[MF_TAG_BSS_ORDER_GROUP_2] = 0;
 	IBSS_INPUT_DATA_G *bss_dataG = reinterpret_cast<IBSS_INPUT_DATA_G *>(bssFramesBuffers.in.bssDataGInfo->planes()[0].data());
 	memcpy(bss_dataG, &bssInData, sizeof(IBSS_INPUT_DATA_G));
 
