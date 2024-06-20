@@ -662,7 +662,7 @@ void MfnrTunMsbldTask::run()
 	for (auto i = 0; i < kInputRawCount - 2; i++) {
 		for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
 			int size_idx = it->first - EStage_MSBLD_F0;
-			int frameNumber = internalRequestId_ + bssOrder[i + 1];
+			int frameNumber = internalRequestId_ + bssOrder[i];
 			request = ipa::mtkisp7::ImgMetaRequestData(
 				true, it->first,
 				it->second[i]->get().buffer()->cookie(),
@@ -729,7 +729,7 @@ void MfnrTunAfbldTask::run()
 	auto bssOrder = bssOrder_->get();
 	for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
 		int size_idx = it->first - EStage_AFBLD_F0;
-		int frameNumber = internalRequestId_ + bssOrder[bssOrder.size() - 1];
+		int frameNumber = internalRequestId_ + bssOrder[2];
 
 		if (it->first == NSIspTuning::EStage_AFBLD_F0) {
 			request = ipa::mtkisp7::ImgMetaRequestData(

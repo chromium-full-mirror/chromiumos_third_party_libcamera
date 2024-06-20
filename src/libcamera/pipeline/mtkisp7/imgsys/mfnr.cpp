@@ -1175,7 +1175,7 @@ void MsbldTask::run()
 	for (auto i = 0; i < 2; i++) {
 		auto bssOrder = mfnr_.bss_order->get();
 
-		int frameNumber = internalRequestId_ + bssOrder[i + 1];
+		int frameNumber = internalRequestId_ + bssOrder[i];
 		StageEx &MSBLD_F6 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F6, frameNumber);
 		auto &msbldF6_in = msbldF6_.in;
 		auto &msbldF6_out = msbldF6_.out;
@@ -1395,7 +1395,7 @@ void AfbldTask::run()
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
 	auto bssOrder = mfnr_.bss_order->get();
-	int frameNumber = internalRequestId_ + bssOrder[bssOrder.size() - 1];
+	int frameNumber = internalRequestId_ + bssOrder[2];
 	sdRequest.init(internalRequestId_, timestampMili, "AFBLD");
 
 	StageEx &AFBLD_F6 = sdRequest.emplaceStage(PEU_Stage::AFBLD_F6, frameNumber);

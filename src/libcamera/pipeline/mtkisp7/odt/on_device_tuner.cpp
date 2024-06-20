@@ -1429,7 +1429,7 @@ void OnDeviceTuner::tuneMsbld(
 		namedFrames.push_back({ Dump::Id::MSBLD_F6_TNRSO, msbldF6_.out.tnrso[i]->get() });
 		namedFrames.push_back({ Dump::Id::MSBLD_F6_IMG4O, msbldF6_.out.img4o[i]->get() });
 
-		tune(internalRequestId, internalRequestId + order[i + 1], namedFrames, true);
+		tune(internalRequestId, internalRequestId + order[i], namedFrames, true);
 	}
 }
 
@@ -1568,7 +1568,7 @@ void OnDeviceTuner::tuneAfbld(
 	namedFrames.push_back({ Dump::Id::AFBLD_F6_TNRSO, afbldF6_.out.tnrso[i]->get() });
 	namedFrames.push_back({ Dump::Id::AFBLD_F6_IMG4O, afbldF6_.out.img4o[i]->get() });
 
-	tune(internalRequestId, internalRequestId + order[order.size() - 1], namedFrames, true);
+	tune(internalRequestId, internalRequestId + order[2], namedFrames, true);
 }
 
 void OnDeviceTuner::writeStillCaptureDebugMetadata(
