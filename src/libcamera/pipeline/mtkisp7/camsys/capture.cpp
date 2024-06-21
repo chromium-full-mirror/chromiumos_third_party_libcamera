@@ -160,12 +160,25 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 	return std::make_tuple(qTask, dqTask, sofTask);
 }
 
+void SofTask::setSensorSetting()
+{
+	auto sensorSetting = data_->frames.exposureAndGain->get();
+	if (sensorSetting.exposure != 0) { // Assuming it couldn't be zero.
+		camSys_->setVBlank(sensorSetting.vblank);
+		camSys_->setExposureGain(sensorSetting.exposure, sensorSetting.gain);
+	}
+	LOG(MtkISP7, Debug) << "exposure: " << sensorSetting.exposure
+			    << ", gain: " << sensorSetting.gain;
+}
+
 void SofTask::run()
 {
 	run_ = true;
-	if (run_ && trigger_) {
+
+	if (trigger_) {
 		LOG(MtkISP7, Warning) << "Sof Task triggered before run()."
 				      << " Some previous tasks may delay the Sof task";
+		setSensorSetting();
 		notifyDone();
 	}
 }
@@ -174,22 +187,8 @@ void SofTask::trigger()
 {
 	uint64_t timestamp = getMonotonicTimestamp();
 
-	if (run_) { // Avoid race condition of AATask (in another thread) and SofTask.
-		if (!data_->frames.exposureAndGain->valid()) {
-			LOG(MtkISP7, Fatal) << "No exposureAndGain despite SofTask being run";
-		} else {
-			auto sensorSetting = data_->frames.exposureAndGain->get();
-			if (sensorSetting.exposure != 0) { // Assuming it couldn't be zero.
-				camSys_->setVBlank(sensorSetting.vblank);
-				camSys_->setExposureGain(sensorSetting.exposure, sensorSetting.gain);
-			}
-			LOG(MtkISP7, Debug) << "exposure: " << sensorSetting.exposure
-					    << ", gain: " << sensorSetting.gain;
-		}
-	} else {
-		LOG(MtkISP7, Error) << "SharedMailBox exposureAndGain not "
-				    << "set yet. Skip setting exposure and gain.";
-	}
+	if (run_)
+		setSensorSetting();
 
 	data_->frames.timestamp->put(timestamp,
 				     []([[maybe_unused]] uint64_t &timestamp) {});
