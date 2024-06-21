@@ -52,7 +52,7 @@ Hal3A::~Hal3A()
 	}
 }
 
-void Hal3A::configure(Size camsysYuvSize, bool isVideo)
+void Hal3A::configure(Size camsysYuvSize, bool isVideo, bool force3AConsistency)
 {
 	camsysYuvSize_ = camsysYuvSize;
 	isVideo_ = isVideo;
@@ -71,6 +71,7 @@ void Hal3A::configure(Size camsysYuvSize, bool isVideo)
 	startInternal();
 
 	inited_ = true;
+	force3AConsistency_ = force3AConsistency;
 }
 
 void Hal3A::start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer)
@@ -419,6 +420,9 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		 mtk::hal3a::Mtk3AActiveItem::kFlash | mtk::hal3a::Mtk3AActiveItem::kFlicker |
 		 mtk::hal3a::Mtk3AActiveItem::kShading);
 
+	if (force3AConsistency_)
+		r_3a_param.ae_meter_mode = 1;
+
 	m_hal3a_->SetParam(r_3a_param);
 
 	mtk::hal3a::v1_0::mtk_3a_request r_3a_request = {};
@@ -427,7 +431,7 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 		return;
 	}
 
-	if (isStillCapture)
+	if (isStillCapture && !force3AConsistency_)
 		r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kCaptureP1;
 	else
 		r_3a_request.scenario = mtk::hal3a::Mtk3AScenario::kPreview;

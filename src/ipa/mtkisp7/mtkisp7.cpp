@@ -162,7 +162,13 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 
 	onDeviceTuner_.configure(sensorId, camsysIndex, sessionTimestamp);
 
-	hal3A_->configure(camsysYuvSize, isVideo);
+	// If only still capture stream is configured. Force 3A to progress
+	// with still capture frames.
+	bool force3AConsistency = false;
+	if (maxVideoSize.isNull())
+		force3AConsistency = true;
+
+	hal3A_->configure(camsysYuvSize, isVideo, force3AConsistency);
 	halIsp_->configure(maxVideoSize, maxStillSize, isVideo);
 
 	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> swme = halIsp_->getIspSwmeParam();
