@@ -373,7 +373,8 @@ void OnDeviceTuner::notifyVideoOnly(int requestNumber)
 
 	ImagiqAdapter::configureScenarioRecorder(
 		requestNumber, requestNumber,
-		sessionTimestamp_, false, false, Feature::NUM);
+		sessionTimestamp_, false, false,
+		Feature::NUM, "", EStage_NUM, sensorId_);
 }
 
 void OnDeviceTuner::notifyStillCapture(int baseRequestNumber, int frameNumber)
@@ -593,9 +594,10 @@ bool OnDeviceTuner::tuneCamsysHalIsp(
 		baseRequestId = stillCaptureFrames_.at(internalRequestId);
 	}
 	ImagiqAdapter::configureScenarioRecorder(
-		baseRequestId, internalRequestId,
-		sessionTimestamp_, highIsoMode && !enforceLowIsoLpnr_,
-		isStillCaptureRequest(internalRequestId), feature);
+		baseRequestId, internalRequestId, sessionTimestamp_,
+		highIsoMode && !enforceLowIsoLpnr_,
+		isStillCaptureRequest(internalRequestId), feature,
+		"", EStage_NUM, sensorId_);
 
 	ImagiqAdapter::writeScenarioRecorderSettings(
 		tuningParam.cam_info->sr_para, getMtkMetadata(internalRequestId),
@@ -1636,4 +1638,21 @@ void OnDeviceTuner::writeStillCaptureDebugMetadata(
 	out.set(controls::JpegApplicationSegmentContent, jpegAppSegmentContent);
 }
 
+void OnDeviceTuner::writeLogScenarioRecorder(
+	uint32_t requestId, uint32_t frameNumber,
+	EStage_T stage, std::string logMessage)
+{
+	if (!enabled_) {
+		return;
+	}
+
+	if (isIpa_) {
+		ImagiqAdapter::configureScenarioRecorder(
+			requestId, frameNumber, sessionTimestamp_, false,
+			isStillCaptureRequest(requestId), Feature::NUM,
+			logMessage, stage, sensorId_);
+	} else {
+		LOG(MtkISP7, Error) << "writeLogScenarioRecorder should be called in ipa";
+	}
+}
 } // namespace libcamera

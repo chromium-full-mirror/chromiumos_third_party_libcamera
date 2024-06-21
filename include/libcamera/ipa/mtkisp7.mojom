@@ -164,7 +164,7 @@ interface IPAMtkISP7Interface {
 	                            array<ImgMetaRequestData> imgMetaRequests,
                                     libcamera.ControlList controls);
 
-        [async] doBss(uint64 cookie, BssFramesData bssFramesData);
+        [async] doBss(uint64 cookie, BssFramesData bssFramesData, uint32 internalRequestId);
         [async] doSwme(uint64 cookie, array<SwmeFramesData> swmeFramesData);
 };
 

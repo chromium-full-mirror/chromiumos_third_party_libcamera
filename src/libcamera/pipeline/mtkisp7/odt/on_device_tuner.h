@@ -176,6 +176,10 @@ public:
 		ControlList &out, mtk::hal3a::v1_0::mtk_3a_result *result,
 		std::map<int, int> mfnrExifData);
 
+	void writeLogScenarioRecorder(
+		uint32_t requestId, uint32_t frameNumber,
+		EStage_T stage, std::string logMessage);
+
 private:
 	static bool isStillCaptureFeature(Feature feature);
 

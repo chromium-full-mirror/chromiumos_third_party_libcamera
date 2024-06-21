@@ -257,7 +257,7 @@ void MfnrTunBssTask::run()
 	auto aaaIspExchange = aaaIspExchange_->get();
 	bssFramesData.exposure = aaaIspExchange.aaaMetadata.get(controls::ExposureTime).value_or(333333);
 	bssFramesData.iso = aaaIspExchange.aaaMetadata.get(controls::AnalogueGain).value_or(100);
-	manager_->ipa_->doBss(this, bssFramesData);
+	manager_->ipa_->doBss(this, bssFramesData, internalRequestId_);
 }
 
 void MfnrTunBssTask::notifyBssResult(

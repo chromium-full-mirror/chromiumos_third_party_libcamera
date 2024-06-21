@@ -681,9 +681,13 @@ void IPAMtkISP7::doSwme(
 	SwmeResultReady.emit(cookie);
 }
 
-void IPAMtkISP7::doBss(const uint64_t cookie, const BssFramesData &bssFramesData)
+void IPAMtkISP7::doBss(const uint64_t cookie, const BssFramesData &bssFramesData,
+		       const uint32_t internalRequestId)
 {
 	const int kInputRawCount = 4;
+	uint64_t startTime = std::chrono::duration_cast<std::chrono::nanoseconds>(
+				  std::chrono::system_clock::now().time_since_epoch())
+				  .count();
 
 	BssFramesBuffers bssFramesBuffers;
 
@@ -810,6 +814,19 @@ void IPAMtkISP7::doBss(const uint64_t cookie, const BssFramesData &bssFramesData
 	mfnrExifData_[MF_TAG_ISO] = bssFramesData.iso;
 	for (auto &item : bssWrapper_->getExifData())
 		mfnrExifData_[item.first] = item.second;
+
+	uint64_t endTime = std::chrono::duration_cast<std::chrono::nanoseconds>(
+				  std::chrono::system_clock::now().time_since_epoch())
+				  .count();
+	uint64_t bssExecTime = endTime - startTime;
+	std::stringstream sstream;
+	sstream << "BSS execute time: " << bssExecTime / 1000000 << "ms, frame order: ";
+
+	for (auto order : bssOrder) {
+		sstream << "F" << order + internalRequestId << " ";
+	}
+	onDeviceTuner_.writeLogScenarioRecorder(internalRequestId, internalRequestId, EStage_BSS, sstream.str());
+
 	BssResultReady.emit(cookie, bssOrder);
 }
 

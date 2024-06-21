@@ -97,7 +97,8 @@ public:
 		const ControlList &controls);
 
 	void doBss(MfnrTunBssTask *mfnrTunbssTask,
-		   const ipa::mtkisp7::BssFramesData &bssFramesData);
+		   const ipa::mtkisp7::BssFramesData &bssFramesData,
+		   const uint32_t internalRequestId);
 	void doSwme(
 		MfnrTunSwmeTask *swmeTask,
 		const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData);

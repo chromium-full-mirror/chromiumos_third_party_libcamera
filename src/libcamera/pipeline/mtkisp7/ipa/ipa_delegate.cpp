@@ -204,14 +204,16 @@ void IPADelegate::getImgSysMetaTuning(
 }
 
 void IPADelegate::doBss(MfnrTunBssTask *mfnrTunBssTask,
-			const ipa::mtkisp7::BssFramesData &bssFramesData)
+			const ipa::mtkisp7::BssFramesData &bssFramesData,
+			const uint32_t internalRequestId)
 {
 	uint64_t cookie = bssCookieCounter_++;
 	bssTasks_.emplace(cookie, mfnrTunBssTask);
 
 	ipaProxy_->invokeMethod(&ipa::mtkisp7::IPAProxyMtkISP7::doBss,
 				ConnectionTypeBlocking,
-				cookie, bssFramesData);
+				cookie, bssFramesData,
+				internalRequestId);
 }
 
 void IPADelegate::doSwme(

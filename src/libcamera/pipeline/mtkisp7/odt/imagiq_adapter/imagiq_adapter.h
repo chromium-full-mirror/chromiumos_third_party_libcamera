@@ -38,7 +38,8 @@ public:
 	static void configureScenarioRecorder(
 		int requestNumber, int frameNumber,
 		int timestamp, bool highIsoMode,
-		bool isStillCapture, Feature feature);
+		bool isStillCapture, Feature feature,
+		std::string logMessage, EStage_T stage, std::string sensorId);
 
 	static int enableMtkTuningTool(std::filesystem::path workDir);
 

@@ -83,8 +83,10 @@ std::string ImagiqAdapter::createImportConfigId(const Dump &dump)
 }
 
 void ImagiqAdapter::configureScenarioRecorder(
-	int requestNumber, int frameNumber, int timestamp,
-	bool highIsoMode, bool isStillCapture, Feature feature)
+	int requestNumber, int frameNumber,
+	int timestamp, bool highIsoMode,
+	bool isStillCapture, Feature feature,
+	std::string logMessage, EStage_T stage, std::string sensorId)
 {
 	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
 	if (!IScenarioRecorder::getInstance()->isScenarioRecorderOn()) {
@@ -102,37 +104,61 @@ void ImagiqAdapter::configureScenarioRecorder(
 	NSCam::TuningUtils::scenariorecorder::ExecResultInput resultParam;
 	resultParam.decisionType =
 		NSCam::TuningUtils::scenariorecorder::DECISION_FEATURE;
-	resultParam.writeToHeadline = true;
-	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
-	std::stringstream ss;
-	ss << "trigger feature:";
-	if (isStillCapture) {
-		ss << kFeatureStrMap.at(feature);
-		if (feature == Feature::Capture_lpnr) {
-			if (highIsoMode) {
-				ss << ", mode: high iso";
-			} else {
-				ss << ", mode: low iso";
-			}
-			resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_CAPTURE;
-		}
-		// In case of still capture, must notify NDD as well to
-		// enable scenario recorder.
-		NSCam::IMetadata::IEntry entry(MTK_TUNING_FEATURE_CAPTURE_HINT);
-		entry.push_back(1, NSCam::Type2Type<MINT64>());
-		metadata.update(entry.tag(), entry);
-		using NSCam::TuningUtils::INdd;
-		eCategory outputCategory;
-		NddData outputNddData;
 
-		// The notification: seems like const function, but not!
-		INdd::getInstance()->query_ndd_info(
-			metadata, outputCategory, outputNddData);
-	} else {
-		ss << kFeatureStrMap.at(Feature::Preview) << ","
-		   << "camera_act:CamActPrv";
-		resultParam.staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_STREAMING;
+	using NSCam::TuningUtils::scenariorecorder::IScenarioRecorder;
+	NSCam::TuningUtils::scenariorecorder::UserStaticInfo &staticInfo =
+		resultParam.staticInfo;
+
+	eCategory outputCategory;
+	NddData outputNddData;
+	uint32_t tuningFeatureTag = 0;
+	int32_t mtkSensorId =
+		static_cast<int32_t>(ImagiqAdapter::sensorIdMap.at(sensorId));
+
+	std::stringstream ss;
+	switch (stage) {
+	case EStage_NUM:
+		resultParam.writeToHeadline = true;
+		ss << "trigger feature:";
+		if (isStillCapture) {
+			ss << kFeatureStrMap.at(feature);
+			if (feature == Feature::Capture_lpnr) {
+				if (highIsoMode) {
+					ss << ", mode: high iso";
+				} else {
+					ss << ", mode: low iso";
+				}
+			}
+			staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_CAPTURE;
+			tuningFeatureTag = MTK_TUNING_FEATURE_CAPTURE_HINT;
+		} else {
+			staticInfo.moduleId = NSCam::Utils::ULog::MOD_FPIPE_STREAMING;
+			ss << kFeatureStrMap.at(Feature::Preview) << ","
+			   << "camera_act:CamActPrv";
+		}
+		break;
+	case EStage_BSS:
+		staticInfo.moduleId = NSCam::Utils::ULog::MOD_CAPTURE_BSS;
+		ss << logMessage;
+		staticInfo.sensorId = mtkSensorId;
+		resultParam.stageId = NSIspTuning::EStage_BSS;
+		// hack a magicNum
+		resultParam.magicNum = requestNumber;
+		resultParam.writeToHeadline = false;
+		break;
+	default:
+		break;
 	}
+	// In case of still capture, must notify NDD as well to
+	// enable scenario recorder.
+	NSCam::IMetadata::IEntry entry(tuningFeatureTag);
+	entry.push_back(1, NSCam::Type2Type<MINT64>());
+	metadata.update(entry.tag(), entry);
+	using NSCam::TuningUtils::INdd;
+	// The notification: seems like const function, but not!
+	INdd::getInstance()->query_ndd_info(
+		metadata, outputCategory, outputNddData);
+
 	if (requestNumber == frameNumber) {
 		IScenarioRecorder::getInstance()->submitExecutionRecord(
 			&metadata, resultParam, ss.str().c_str());

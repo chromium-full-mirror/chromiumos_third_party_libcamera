@@ -101,7 +101,8 @@ public:
 		const ControlList &controls) override;
 
 	void doBss(const uint64_t cookie,
-		   const BssFramesData &bssFramesData) override;
+		   const BssFramesData &bssFramesData,
+		   const uint32_t internalRequestId) override;
 	void doSwme(
 		const uint64_t cookie,
 		const std::vector<ipa::mtkisp7::SwmeFramesData> &swmeFramesData) override;
