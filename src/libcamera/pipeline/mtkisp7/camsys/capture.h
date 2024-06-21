@@ -127,6 +127,7 @@ public:
 
 	virtual void run() override final;
 	void trigger();
+	void setSensorSetting();
 
 	Request *request_;
 	uint32_t internalRequestId_;
