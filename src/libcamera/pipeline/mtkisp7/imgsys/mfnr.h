@@ -218,7 +218,6 @@ struct MFNRFrames {
 	AfbldFrames afbldF5;
 	AfbldFrames afbldF6;
 	SwmeFrames swmeFrames;
-	SharedMailBox<InfoFrame> msbld_tnrso;
 	SharedMailBox<std::vector<int>> bss_order;
 	FrameBuffer *still1Output = nullptr;
 	FrameBuffer *still2Output = nullptr;
@@ -255,7 +254,7 @@ public:
 			    FrameBuffer *output2Frame);
 	std::vector<Size> mfnrSizes_;
 	Size mfnrSize_aligned16_;
-	std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
+	std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, MsbldTask *, AfbldTask *>
 	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
 		      uint32_t internalRequestId, ImgSysDevice *imgSys);
@@ -428,7 +427,7 @@ class MsbldTask : public Task
 {
 public:
 	MsbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
-		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager, int msbldIdx);
 
 	void run() override;
 	void notifyDone() override;
@@ -447,8 +446,8 @@ private:
 	MsbldFrames msbldF2_;
 	MsbldFrames msbldF1_;
 	MsbldFrames msbldF0_;
-	SharedMailBox<InfoFrame> tnrso_;
 	MFNRFrames mfnr_;
+	int msbldIdx_;
 };
 
 class AfbldTask : public Task
@@ -474,7 +473,6 @@ private:
 	AfbldFrames afbldF4_;
 	AfbldFrames afbldF5_;
 	AfbldFrames afbldF6_;
-	SharedMailBox<InfoFrame> tnrso_;
 	MFNRFrames mfnr_;
 
 	FrameBuffer *stillOutput1_;

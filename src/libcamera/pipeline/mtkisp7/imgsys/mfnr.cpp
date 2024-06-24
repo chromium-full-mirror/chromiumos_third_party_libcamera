@@ -304,19 +304,16 @@ void MfnrTasksManager::makeMFNRFrames(
 
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_Tnrwi = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tun = makeMailBoxVector<InfoFrame>(7);
-	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrsi = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrci = makeMailBoxVector<InfoFrame>(1);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Img4o = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrwo = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrmo = makeMailBoxVector<InfoFrame>(7);
-	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrso = makeMailBoxVector<InfoFrame>(7);
 
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tun = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tnrci = makeMailBoxVector<InfoFrame>(1);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Img4o = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tnrwo = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tnrmo = makeMailBoxVector<InfoFrame>(7);
-	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tnrso = makeMailBoxVector<InfoFrame>(7);
 
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tun = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Wroto = makeMailBoxVector<InfoFrame>(7);
@@ -325,7 +322,6 @@ void MfnrTasksManager::makeMFNRFrames(
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Img4o = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrwo = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrmo = makeMailBoxVector<InfoFrame>(7);
-	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrso = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrci = makeMailBoxVector<InfoFrame>(1);
 
 	/* Frames used by MfnrTunBsstask */
@@ -500,33 +496,46 @@ void MfnrTasksManager::makeMFNRFrames(
 	msbldFx_1Tnrci[0] = swmeFrame.out.conf_map[1];
 	afbldFx_Tnrci[0] = swmeFrame.out.conf_map[2];
 
-	SharedMailBox<InfoFrame> tnrsi = makeMailBox<InfoFrame>();
-	mfnr.msbld_tnrso = makeMailBox<InfoFrame>();
-	fourBytes_pool_.fetch(tnrsi);
-	fourBytes_pool_.fetch(mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF6, 6, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF5, 5, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF4, 4, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF3, 3, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF2, 2, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF1, 1, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF0, 0, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], mfnr.msbld_tnrso);
+	// Create ping-pong buffer for tnrsi/tnrso
+	std::vector<SharedMailBox<InfoFrame>> tnrsi = makeMailBoxVector<InfoFrame>(2);
+	fourBytes_pool_.fetch(tnrsi[0]);
+	fourBytes_pool_.fetch(tnrsi[1]);
+	SharedMailBox<InfoFrame> firstMsbld_tnrsi = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> secondMsbld_tnrsi = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> afbld_tnrsi = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> firstMsbld_tnrso = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> secondMsbld_tnrso = makeMailBox<InfoFrame>();
+	SharedMailBox<InfoFrame> afbld_tnrso = makeMailBox<InfoFrame>();
+	firstMsbld_tnrsi = tnrsi[0];
+	secondMsbld_tnrsi = tnrsi[1];
+	afbld_tnrsi = tnrsi[0];
+	firstMsbld_tnrso = tnrsi[1];
+	secondMsbld_tnrso = tnrsi[0];
+	afbld_tnrso = tnrsi[1];
 
-	constructMsbldMailBox(msbldF6, 6, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF5, 5, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF4, 4, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF3, 3, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF2, 2, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF1, 1, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], mfnr.msbld_tnrso);
-	constructMsbldMailBox(msbldF0, 0, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], mfnr.msbld_tnrso);
+	constructMsbldMailBox(msbldF6, 6, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], firstMsbld_tnrso);
+	constructMsbldMailBox(msbldF5, 5, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], firstMsbld_tnrso);
+	constructMsbldMailBox(msbldF4, 4, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], firstMsbld_tnrso);
+	constructMsbldMailBox(msbldF3, 3, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], firstMsbld_tnrso);
+	constructMsbldMailBox(msbldF2, 2, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], firstMsbld_tnrso);
+	constructMsbldMailBox(msbldF1, 1, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], firstMsbld_tnrso);
+	constructMsbldMailBox(msbldF0, 0, msbldFx_0Tun, msbldFx_0Img4o, msbldFx_0Tnrmo, msbldFx_0Tnrwo, swmeFrame.out.conf_map[0], firstMsbld_tnrso);
 
-	constructAfbldMailBox(afbldF6, 6, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], mfnr.msbld_tnrso);
-	constructAfbldMailBox(afbldF5, 5, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], mfnr.msbld_tnrso);
-	constructAfbldMailBox(afbldF4, 4, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], mfnr.msbld_tnrso);
-	constructAfbldMailBox(afbldF3, 3, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], mfnr.msbld_tnrso);
-	constructAfbldMailBox(afbldF2, 2, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], mfnr.msbld_tnrso);
-	constructAfbldMailBox(afbldF1, 1, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], mfnr.msbld_tnrso);
-	constructAfbldMailBox(afbldF0, 0, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], mfnr.msbld_tnrso);
+	constructMsbldMailBox(msbldF6, 6, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], secondMsbld_tnrso);
+	constructMsbldMailBox(msbldF5, 5, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], secondMsbld_tnrso);
+	constructMsbldMailBox(msbldF4, 4, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], secondMsbld_tnrso);
+	constructMsbldMailBox(msbldF3, 3, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], secondMsbld_tnrso);
+	constructMsbldMailBox(msbldF2, 2, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], secondMsbld_tnrso);
+	constructMsbldMailBox(msbldF1, 1, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], secondMsbld_tnrso);
+	constructMsbldMailBox(msbldF0, 0, msbldFx_1Tun, msbldFx_1Img4o, msbldFx_1Tnrmo, msbldFx_1Tnrwo, swmeFrame.out.conf_map[1], secondMsbld_tnrso);
+
+	constructAfbldMailBox(afbldF6, 6, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
+	constructAfbldMailBox(afbldF5, 5, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
+	constructAfbldMailBox(afbldF4, 4, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
+	constructAfbldMailBox(afbldF3, 3, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
+	constructAfbldMailBox(afbldF2, 2, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
+	constructAfbldMailBox(afbldF1, 1, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
+	constructAfbldMailBox(afbldF0, 0, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
 
 	//tnrciPool_.fetch(msbldFx_0Tnrci[0]);
 	//tnrciPool_.fetch(msbldFx_1Tnrci[0]);
@@ -542,7 +551,6 @@ void MfnrTasksManager::makeMFNRFrames(
 	y8_1_2_pool_.fetch(msbldFx_Tnrwi[1]);
 	y8_1_1_pool_.fetch(msbldFx_Tnrwi[0]);
 
-	msbldF6.in.tnrsi.push_back(tnrsi); // 4BYTE:40x1
 	afbldF0.tncso = bfbldFrames.out.p2stto[0];
 	zeroImage(msbldFx_Tnrwi[5]);
 	zeroImage(msbldFx_Tnrwi[4]);
@@ -550,7 +558,9 @@ void MfnrTasksManager::makeMFNRFrames(
 	zeroImage(msbldFx_Tnrwi[2]);
 	zeroImage(msbldFx_Tnrwi[1]);
 	zeroImage(msbldFx_Tnrwi[0]);
-	zeroImage(msbldF6.in.tnrsi[0]);
+	zeroImage(tnrsi[0]);
+	zeroImage(tnrsi[1]);
+
 	msbldF5.in.tnrwi.push_back(msbldFx_Tnrwi[5]);
 	msbldF4.in.tnrwi.push_back(msbldFx_Tnrwi[4]);
 	msbldF3.in.tnrwi.push_back(msbldFx_Tnrwi[3]);
@@ -561,11 +571,12 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F6(0)
 	msbldF6.in.vipi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	msbldF6.in.imgi.push_back(dsFrames.out.ltyuv4o[2]); //MTK_YUV_P012:52x40
+	msbldF6.in.tnrsi.push_back(firstMsbld_tnrsi); // 4BYTE:40x1
 
 	//MSBLD_F5(0)
 	msbldF5.in.vipi.push_back(dsFrames.out.ltyuv3o[1]); //MTK_YUV_P012:102x78
 	msbldF5.in.imgi.push_back(dsFrames.out.ltyuv3o[2]); //MTK_YUV_P012:102x78
-	msbldF5.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF5.in.tnrsi.push_back(firstMsbld_tnrso); //4BYTE:40x1
 	msbldF5.in.rec_dsi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	msbldF5.in.tnrvbi.push_back(dsVbiFramesV5.out.tyuv2o[0]); //Y8:102x78
 	msbldF5.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -573,7 +584,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F4(0)
 	msbldF4.in.vipi.push_back(dsFrames.out.ltyuv2o[1]); //MTK_YUV_P012:204x154
 	msbldF4.in.imgi.push_back(dsFrames.out.ltyuv2o[2]); //MTK_YUV_P012:204x154
-	msbldF4.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF4.in.tnrsi.push_back(firstMsbld_tnrso); //4BYTE:40x1
 	msbldF4.in.rec_dsi.push_back(msbldF5.out.img4o[0]); //MTK_YUV_P012:102x78
 	msbldF4.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv4o[0]); //Y8:204x154
 	msbldF4.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -582,7 +593,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F3(0)
 	msbldF3.in.vipi.push_back(dsFrames.out.ltyuv4o[0]); //MTK_YUV_P012:408x306
 	msbldF3.in.imgi.push_back(mcdsF1Frames.out.ltyuv4o[0]); //MTK_YUV_P012:408x306
-	msbldF3.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF3.in.tnrsi.push_back(firstMsbld_tnrso); //4BYTE:40x1
 	msbldF3.in.rec_dsi.push_back(msbldF4.out.img4o[0]); //MTK_YUV_P012:204x154
 	msbldF3.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv3o[0]); //Y8:408x306
 	msbldF3.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -591,7 +602,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F2(0)
 	msbldF2.in.vipi.push_back(dsFrames.out.ltyuv3o[0]); //MTK_YUV_P012:816x612
 	msbldF2.in.imgi.push_back(mcdsF1Frames.out.ltyuv3o[0]); //MTK_YUV_P012:816x612
-	msbldF2.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF2.in.tnrsi.push_back(firstMsbld_tnrso); //4BYTE:40x1
 	msbldF2.in.rec_dsi.push_back(msbldF3.out.img4o[0]); //MTK_YUV_P012:408x306
 	msbldF2.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv2o[0]); //Y8:816x612
 	msbldF2.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -600,7 +611,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F1(0)
 	msbldF1.in.vipi.push_back(dsFrames.out.ltyuv2o[0]); //MTK_YUV_P012:1632x1224
 	msbldF1.in.imgi.push_back(mcdsF1Frames.out.ltyuv2o[0]); //MTK_YUV_P012:1632x1224
-	msbldF1.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF1.in.tnrsi.push_back(firstMsbld_tnrso); //4BYTE:40x1
 	msbldF1.in.rec_dsi.push_back(msbldF2.out.img4o[0]); //MTK_YUV_P012:816x612
 	msbldF1.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[0]); //Y8:1632x1224
 	msbldF1.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -609,7 +620,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F0(0)
 	msbldF0.in.vipi.push_back(bfbldFrames.out.img3o[0]); //MTK_YUV_P010:3264x2448
 	msbldF0.in.imgi.push_back(mcdsF1Frames.out.wpe_wpeo[0]); //MTK_YUV_P010:3264x2448
-	msbldF0.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF0.in.tnrsi.push_back(firstMsbld_tnrso); //4BYTE:40x1
 	msbldF0.in.rec_dsi.push_back(msbldF1.out.img4o[0]); //MTK_YUV_P012:1632x1224
 	msbldF0.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[0]); //Y8:1632x1224
 	msbldF0.in.tnrlfdi.push_back(msbldF6.out.img4o[0]); //NV21:52x40
@@ -618,12 +629,12 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F6(1)
 	msbldF6.in.vipi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	msbldF6.in.imgi.push_back(dsFrames.out.ltyuv4o[3]); //MTK_YUV_P012:52x40
-	msbldF6.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF6.in.tnrsi.push_back(secondMsbld_tnrsi); //4BYTE:40x1
 
 	//MSBLD_F5(1)
 	msbldF5.in.vipi.push_back(msbldF5.out.img4o[0]); //MTK_YUV_P012:102x78
 	msbldF5.in.imgi.push_back(dsFrames.out.ltyuv3o[3]); //MTK_YUV_P012:102x78
-	msbldF5.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF5.in.tnrsi.push_back(secondMsbld_tnrso); //4BYTE:40x1
 	msbldF5.in.rec_dsi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	msbldF5.in.tnrwi.push_back(msbldF5.out.tnrwo[0]); //Y8:102x78
 	msbldF5.in.tnrvbi.push_back(dsVbiFramesV5.out.tyuv2o[1]); //Y8:102x78
@@ -632,7 +643,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F4(1)
 	msbldF4.in.vipi.push_back(msbldF4.out.img4o[0]); //MTK_YUV_P012:204x154
 	msbldF4.in.imgi.push_back(dsFrames.out.ltyuv2o[3]); //MTK_YUV_P012:204x154
-	msbldF4.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF4.in.tnrsi.push_back(secondMsbld_tnrso); //4BYTE:40x1
 	msbldF4.in.rec_dsi.push_back(msbldF5.out.img4o[1]); //MTK_YUV_P012:102x78
 	msbldF4.in.tnrwi.push_back(msbldF4.out.tnrwo[0]); //Y8:204x154
 	msbldF4.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv4o[1]); //Y8:204x154
@@ -642,7 +653,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F3(1)
 	msbldF3.in.vipi.push_back(msbldF3.out.img4o[0]); //MTK_YUV_P012:408x306
 	msbldF3.in.imgi.push_back(mcdsF1Frames.out.ltyuv4o[1]); //MTK_YUV_P012:408x306
-	msbldF3.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF3.in.tnrsi.push_back(secondMsbld_tnrso); //4BYTE:40x1
 	msbldF3.in.rec_dsi.push_back(msbldF4.out.img4o[1]); //MTK_YUV_P012:204x154
 	msbldF3.in.tnrwi.push_back(msbldF3.out.tnrwo[0]); //Y8:408x306
 	msbldF3.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv3o[1]); //Y8:408x306
@@ -652,7 +663,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F2(1)
 	msbldF2.in.vipi.push_back(msbldF2.out.img4o[0]); //MTK_YUV_P012:816x612
 	msbldF2.in.imgi.push_back(mcdsF1Frames.out.ltyuv3o[1]); //MTK_YUV_P012:816x612
-	msbldF2.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF2.in.tnrsi.push_back(secondMsbld_tnrso); //4BYTE:40x1
 	msbldF2.in.rec_dsi.push_back(msbldF3.out.img4o[1]); //MTK_YUV_P012:408x306
 	msbldF2.in.tnrwi.push_back(msbldF2.out.tnrwo[0]); //Y8:816x612
 	msbldF2.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv2o[1]); //Y8:816x612
@@ -662,7 +673,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F1(1)
 	msbldF1.in.vipi.push_back(msbldF1.out.img4o[0]); //MTK_YUV_P012:1632x1224
 	msbldF1.in.imgi.push_back(mcdsF1Frames.out.ltyuv2o[1]); //MTK_YUV_P012:1632x1224
-	msbldF1.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF1.in.tnrsi.push_back(secondMsbld_tnrso); //4BYTE:40x1
 	msbldF1.in.rec_dsi.push_back(msbldF2.out.img4o[1]); //MTK_YUV_P012:816x612
 	msbldF1.in.tnrwi.push_back(msbldF1.out.tnrwo[0]); //Y8:1632x1224
 	msbldF1.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[1]); //Y8:1632x1224
@@ -672,7 +683,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//MSBLD_F0(1)
 	msbldF0.in.vipi.push_back(msbldF0.out.img4o[0]); //MTK_YUV_P010:3264x2448
 	msbldF0.in.imgi.push_back(mcdsF1Frames.out.wpe_wpeo[1]); //MTK_YUV_P010:3264x2448
-	msbldF0.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	msbldF0.in.tnrsi.push_back(secondMsbld_tnrso); //4BYTE:40x1
 	msbldF0.in.rec_dsi.push_back(msbldF1.out.img4o[1]); //MTK_YUV_P012:1632x1224
 	msbldF0.in.tnrwi.push_back(msbldF0.out.tnrwo[0]); //Y8:3264x2448
 	msbldF0.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[1]); //Y8:1632x1224
@@ -682,12 +693,12 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F6(0)
 	afbldF6.in.vipi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	afbldF6.in.imgi.push_back(dsFrames.out.ltyuv4o[4]); //MTK_YUV_P012:52x40
-	afbldF6.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	afbldF6.in.tnrsi.push_back(afbld_tnrsi); //4BYTE:40x1
 
 	//AFBLD_F5(0)
 	afbldF5.in.vipi.push_back(msbldF5.out.img4o[1]); //MTK_YUV_P012:102x78
 	afbldF5.in.imgi.push_back(dsFrames.out.ltyuv3o[4]); //MTK_YUV_P012:102x78
-	afbldF5.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	afbldF5.in.tnrsi.push_back(afbld_tnrso); //4BYTE:40x1
 	afbldF5.in.rec_dsi.push_back(dsFrames.out.ltyuv4o[1]); //MTK_YUV_P012:52x40
 	afbldF5.in.tnrwi.push_back(msbldF5.out.tnrwo[1]); //Y8:102x78
 	afbldF5.in.tnrvbi.push_back(dsVbiFramesV5.out.tyuv2o[2]); //Y8:102x78
@@ -696,7 +707,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F4(0)
 	afbldF4.in.vipi.push_back(msbldF4.out.img4o[1]); //MTK_YUV_P012:204x154
 	afbldF4.in.imgi.push_back(dsFrames.out.ltyuv2o[4]); //MTK_YUV_P012:204x154
-	afbldF4.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	afbldF4.in.tnrsi.push_back(afbld_tnrso); //4BYTE:40x1
 	afbldF4.in.rec_dsi.push_back(afbldF5.out.img3o[0]); //MTK_YUV_P012:102x78
 	afbldF4.in.tnrwi.push_back(msbldF4.out.tnrwo[1]); //Y8:204x154
 	afbldF4.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv4o[2]); //Y8:204x154
@@ -706,7 +717,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F3(0)
 	afbldF3.in.vipi.push_back(msbldF3.out.img4o[1]); //MTK_YUV_P012:408x306
 	afbldF3.in.imgi.push_back(mcdsF1Frames.out.ltyuv4o[2]); //MTK_YUV_P012:408x306
-	afbldF3.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	afbldF3.in.tnrsi.push_back(afbld_tnrso); //4BYTE:40x1
 	afbldF3.in.rec_dsi.push_back(afbldF4.out.img3o[0]); //MTK_YUV_P012:204x154
 	afbldF3.in.tnrwi.push_back(msbldF3.out.tnrwo[1]); //Y8:408x306
 	afbldF3.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv3o[2]); //Y8:408x306
@@ -716,7 +727,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F2(0)
 	afbldF2.in.vipi.push_back(msbldF2.out.img4o[1]); //MTK_YUV_P012:816x612
 	afbldF2.in.imgi.push_back(mcdsF1Frames.out.ltyuv3o[2]); //MTK_YUV_P012:816x612
-	afbldF2.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	afbldF2.in.tnrsi.push_back(afbld_tnrso); //4BYTE:40x1
 	afbldF2.in.rec_dsi.push_back(afbldF3.out.img3o[0]); //MTK_YUV_P012:408x306
 	afbldF2.in.tnrwi.push_back(msbldF2.out.tnrwo[1]); //Y8:816x612
 	afbldF2.in.tnrvbi.push_back(dsVbiFramesV2.out.tyuv2o[2]); //Y8:816x612
@@ -726,7 +737,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F1(0)
 	afbldF1.in.vipi.push_back(msbldF1.out.img4o[1]); //MTK_YUV_P012:1632x1224
 	afbldF1.in.imgi.push_back(mcdsF1Frames.out.ltyuv2o[2]); //MTK_YUV_P012:1632x1224
-	afbldF1.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	afbldF1.in.tnrsi.push_back(afbld_tnrso); //4BYTE:40x1
 	afbldF1.in.rec_dsi.push_back(afbldF2.out.img3o[0]); //MTK_YUV_P012:816x612
 	afbldF1.in.tnrwi.push_back(msbldF1.out.tnrwo[1]); //Y8:1632x1224
 	afbldF1.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[2]); //Y8:1632x1224
@@ -736,7 +747,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	//AFBLD_F0(0)
 	afbldF0.in.vipi.push_back(msbldF0.out.img4o[1]); //MTK_YUV_P010:3264x2448
 	afbldF0.in.imgi.push_back(mcdsF1Frames.out.wpe_wpeo[2]); //MTK_YUV_P010:3264x2448
-	afbldF0.in.tnrsi.push_back(mfnr.msbld_tnrso); //4BYTE:40x1
+	afbldF0.in.tnrsi.push_back(afbld_tnrso); //4BYTE:40x1
 	afbldF0.in.rec_dsi.push_back(afbldF1.out.img3o[0]); //MTK_YUV_P012:1632x1224
 	afbldF0.in.tnrwi.push_back(msbldF0.out.tnrwo[1]); //Y8:3264x2448
 	afbldF0.in.tnrvbi.push_back(mcdsF1Frames.out.ltyuv5o[2]); //Y8:1632x1224
@@ -744,7 +755,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	afbldF0.in.tnrmi.push_back(afbldF1.out.tnrmo[0]); //Y8:1632x1224
 }
 
-std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, AfbldTask *>
+std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, MsbldTask *, AfbldTask *>
 MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
 				uint32_t internalRequestId, ImgSysDevice *imgSys)
@@ -754,10 +765,11 @@ MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 	McdsF1Task *mcdsF1Task = new McdsF1Task(scheduler, id + " MCDSF1", request, internalRequestId, imgSys, mfnr, this);
 	DsTask *dsTask = new DsTask(scheduler, id + " DS", request, internalRequestId, imgSys, mfnr, this);
 	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id + " DSVBI", request, internalRequestId, imgSys, mfnr, this);
-	MsbldTask *msbldTask = new MsbldTask(scheduler, id + " MSBLD", request, internalRequestId, imgSys, mfnr, this);
+	MsbldTask *msbldTask1st = new MsbldTask(scheduler, id + " MSBLD_1st", request, internalRequestId, imgSys, mfnr, this, 0);
+	MsbldTask *msbldTask2nd = new MsbldTask(scheduler, id + " MSBLD_2nd", request, internalRequestId, imgSys, mfnr, this, 1);
 	AfbldTask *afbldTask = new AfbldTask(scheduler, id + " AFBLD", request, internalRequestId, imgSys, mfnr, this);
 
-	return std::make_tuple(bfbldTask, bfmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask, afbldTask);
+	return std::make_tuple(bfbldTask, bfmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask1st, msbldTask2nd, afbldTask);
 }
 
 BfbldTask::BfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
@@ -1096,9 +1108,10 @@ void DsVbiTask::run()
 }
 
 MsbldTask::MsbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
-		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
+		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager, int msbldIdx)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager),
+	  msbldIdx_(msbldIdx)
 {
 	msbldF6_ = mfnr.msbldF6;
 	msbldF5_ = mfnr.msbldF5;
@@ -1107,39 +1120,37 @@ MsbldTask::MsbldTask(Scheduler *scheduler, const std::string &id, Request *reque
 	msbldF2_ = mfnr.msbldF2;
 	msbldF1_ = mfnr.msbldF1;
 	msbldF0_ = mfnr.msbldF0;
-	tnrso_ = mfnr.msbld_tnrso;
 	mfnr_ = mfnr;
 }
 
 void MsbldTask::allocateOutputBuffers()
 {
-	for (auto i = 0; i < 2; i++) {
-		auto &msbldF6_out = msbldF6_.out;
-		manager_->nv21_1_64_pool_.fetch(msbldF6_out.img4o[i]);
-		auto &msbldF5_out = msbldF5_.out;
-		manager_->yuvp012_1_32_pool_.fetch(msbldF5_out.img4o[i]);
-		manager_->y8_1_32_pool_.fetch(msbldF5_out.tnrwo[i]);
-		manager_->y8_1_32_pool_.fetch(msbldF5_out.tnrmo[i]);
-		auto &msbldF4_out = msbldF4_.out;
-		manager_->yuvp012_1_16_pool_.fetch(msbldF4_out.img4o[i]);
-		manager_->y8_1_16_pool_.fetch(msbldF4_out.tnrwo[i]);
-		manager_->y8_1_16_pool_.fetch(msbldF4_out.tnrmo[i]);
-		auto &msbldF3_out = msbldF3_.out;
-		manager_->yuvp012_1_8_pool_.fetch(msbldF3_out.img4o[i]);
-		manager_->y8_1_8_pool_.fetch(msbldF3_out.tnrwo[i]);
-		manager_->y8_1_8_pool_.fetch(msbldF3_out.tnrmo[i]);
-		auto &msbldF2_out = msbldF2_.out;
-		manager_->yuvp012_1_4_pool_.fetch(msbldF2_out.img4o[i]);
-		manager_->y8_1_4_pool_.fetch(msbldF2_out.tnrwo[i]);
-		manager_->y8_1_4_pool_.fetch(msbldF2_out.tnrmo[i]);
-		auto &msbldF1_out = msbldF1_.out;
-		manager_->yuvp012_1_2_pool_.fetch(msbldF1_out.img4o[i]);
-		manager_->y8_1_2_pool_.fetch(msbldF1_out.tnrwo[i]);
-		manager_->y8_1_2_pool_.fetch(msbldF1_out.tnrmo[i]);
-		auto &msbldF0_out = msbldF0_.out;
-		manager_->yuvp010_1_1_pool_.fetch(msbldF0_out.img4o[i]);
-		manager_->y8_1_1_pool_.fetch(msbldF0_out.tnrwo[i]);
-	}
+	int i = msbldIdx_;
+	auto &msbldF6_out = msbldF6_.out;
+	manager_->nv21_1_64_pool_.fetch(msbldF6_out.img4o[i]);
+	auto &msbldF5_out = msbldF5_.out;
+	manager_->yuvp012_1_32_pool_.fetch(msbldF5_out.img4o[i]);
+	manager_->y8_1_32_pool_.fetch(msbldF5_out.tnrwo[i]);
+	manager_->y8_1_32_pool_.fetch(msbldF5_out.tnrmo[i]);
+	auto &msbldF4_out = msbldF4_.out;
+	manager_->yuvp012_1_16_pool_.fetch(msbldF4_out.img4o[i]);
+	manager_->y8_1_16_pool_.fetch(msbldF4_out.tnrwo[i]);
+	manager_->y8_1_16_pool_.fetch(msbldF4_out.tnrmo[i]);
+	auto &msbldF3_out = msbldF3_.out;
+	manager_->yuvp012_1_8_pool_.fetch(msbldF3_out.img4o[i]);
+	manager_->y8_1_8_pool_.fetch(msbldF3_out.tnrwo[i]);
+	manager_->y8_1_8_pool_.fetch(msbldF3_out.tnrmo[i]);
+	auto &msbldF2_out = msbldF2_.out;
+	manager_->yuvp012_1_4_pool_.fetch(msbldF2_out.img4o[i]);
+	manager_->y8_1_4_pool_.fetch(msbldF2_out.tnrwo[i]);
+	manager_->y8_1_4_pool_.fetch(msbldF2_out.tnrmo[i]);
+	auto &msbldF1_out = msbldF1_.out;
+	manager_->yuvp012_1_2_pool_.fetch(msbldF1_out.img4o[i]);
+	manager_->y8_1_2_pool_.fetch(msbldF1_out.tnrwo[i]);
+	manager_->y8_1_2_pool_.fetch(msbldF1_out.tnrmo[i]);
+	auto &msbldF0_out = msbldF0_.out;
+	manager_->yuvp010_1_1_pool_.fetch(msbldF0_out.img4o[i]);
+	manager_->y8_1_1_pool_.fetch(msbldF0_out.tnrwo[i]);
 }
 
 void MsbldTask::notifyDone()
@@ -1147,7 +1158,7 @@ void MsbldTask::notifyDone()
 	auto bssOrder = mfnr_.bss_order->get();
 	manager_->onDeviceTuner_->tuneMsbld(
 		internalRequestId_, msbldF0_, msbldF1_, msbldF2_,
-		msbldF3_, msbldF4_, msbldF5_, msbldF6_, bssOrder);
+		msbldF3_, msbldF4_, msbldF5_, msbldF6_, bssOrder, msbldIdx_);
 	//MSBLD Precheck
 	if (MfnrTasksManager::mfnrPrecheck()) {
 		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_MSBLD_F0:1";
@@ -1164,7 +1175,7 @@ void MsbldTask::notifyDone()
 void MsbldTask::run()
 {
 	allocateOutputBuffers();
-
+	auto bssOrder = mfnr_.bss_order->get();
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
@@ -1172,144 +1183,143 @@ void MsbldTask::run()
 
 	sdRequest.init(internalRequestId_, timestampMili, "MSBLD");
 
-	for (auto i = 0; i < 2; i++) {
-		auto bssOrder = mfnr_.bss_order->get();
+	int i = msbldIdx_;
 
-		int frameNumber = internalRequestId_ + bssOrder[i];
-		StageEx &MSBLD_F6 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F6, frameNumber);
-		auto &msbldF6_in = msbldF6_.in;
-		auto &msbldF6_out = msbldF6_.out;
-		MSBLD_F6.input(msbldF6_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
-		MSBLD_F6.input(msbldF6_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		MSBLD_F6.input(msbldF6_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F6.input(msbldF6_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
-		MSBLD_F6.output(msbldF6_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
-		MSBLD_F6.output(msbldF6_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[6]);
-		MSBLD_F6.setMultiScale(IMG_MULTI_SCALE_DOWN2, 6, 7);
-		MSBLD_F6.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	int frameNumber = internalRequestId_ + bssOrder[i];
+	StageEx &MSBLD_F6 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F6, frameNumber);
+	auto &msbldF6_in = msbldF6_.in;
+	auto &msbldF6_out = msbldF6_.out;
+	MSBLD_F6.input(msbldF6_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	MSBLD_F6.input(msbldF6_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	MSBLD_F6.input(msbldF6_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	MSBLD_F6.input(msbldF6_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	MSBLD_F6.output(msbldF6_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	MSBLD_F6.output(msbldF6_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[6]);
+	MSBLD_F6.setMultiScale(IMG_MULTI_SCALE_DOWN2, 6, 7);
+	MSBLD_F6.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
 
-		StageEx &MSBLD_F5 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F5, frameNumber);
-		auto &msbldF5_in = msbldF5_.in;
-		auto &msbldF5_out = msbldF5_.out;
-		MSBLD_F5.input(msbldF5_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
-		MSBLD_F5.input(msbldF5_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		MSBLD_F5.input(msbldF5_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F5.input(msbldF5_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[6]);
-		MSBLD_F5.input(msbldF5_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
-		MSBLD_F5.input(msbldF5_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[5]);
-		MSBLD_F5.input(msbldF5_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[5]);
-		MSBLD_F5.input(msbldF5_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
-		MSBLD_F5.input(msbldF5_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	StageEx &MSBLD_F5 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F5, frameNumber);
+	auto &msbldF5_in = msbldF5_.in;
+	auto &msbldF5_out = msbldF5_.out;
+	MSBLD_F5.input(msbldF5_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	MSBLD_F5.input(msbldF5_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	MSBLD_F5.input(msbldF5_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	MSBLD_F5.input(msbldF5_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[6]);
+	MSBLD_F5.input(msbldF5_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
+	MSBLD_F5.input(msbldF5_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[5]);
+	MSBLD_F5.input(msbldF5_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[5]);
+	MSBLD_F5.input(msbldF5_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
+	MSBLD_F5.input(msbldF5_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
-		MSBLD_F5.output(msbldF5_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[5]);
-		MSBLD_F5.output(msbldF5_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[5]);
-		MSBLD_F5.output(msbldF5_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[5]);
-		MSBLD_F5.output(msbldF5_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
-		MSBLD_F5.setMultiScale(IMG_MULTI_SCALE_DOWN2, 5, 7);
-		MSBLD_F5.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F5.output(msbldF5_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[5]);
+	MSBLD_F5.output(msbldF5_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[5]);
+	MSBLD_F5.output(msbldF5_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[5]);
+	MSBLD_F5.output(msbldF5_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	MSBLD_F5.setMultiScale(IMG_MULTI_SCALE_DOWN2, 5, 7);
+	MSBLD_F5.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
 
-		StageEx &MSBLD_F4 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F4, frameNumber);
-		auto &msbldF4_in = msbldF4_.in;
-		auto &msbldF4_out = msbldF4_.out;
-		MSBLD_F4.input(msbldF4_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
-		MSBLD_F4.input(msbldF4_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		MSBLD_F4.input(msbldF4_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F4.input(msbldF4_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[5]);
-		MSBLD_F4.input(msbldF4_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
-		MSBLD_F4.input(msbldF4_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[4]);
-		MSBLD_F4.input(msbldF4_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[4]);
-		MSBLD_F4.input(msbldF4_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
-		MSBLD_F4.input(msbldF4_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[5]);
-		MSBLD_F4.input(msbldF4_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	StageEx &MSBLD_F4 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F4, frameNumber);
+	auto &msbldF4_in = msbldF4_.in;
+	auto &msbldF4_out = msbldF4_.out;
+	MSBLD_F4.input(msbldF4_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	MSBLD_F4.input(msbldF4_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	MSBLD_F4.input(msbldF4_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	MSBLD_F4.input(msbldF4_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[5]);
+	MSBLD_F4.input(msbldF4_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
+	MSBLD_F4.input(msbldF4_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[4]);
+	MSBLD_F4.input(msbldF4_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[4]);
+	MSBLD_F4.input(msbldF4_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
+	MSBLD_F4.input(msbldF4_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[5]);
+	MSBLD_F4.input(msbldF4_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
-		MSBLD_F4.output(msbldF4_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[4]);
-		MSBLD_F4.output(msbldF4_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[4]);
-		MSBLD_F4.output(msbldF4_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[4]);
-		MSBLD_F4.output(msbldF4_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
-		MSBLD_F4.setMultiScale(IMG_MULTI_SCALE_DOWN2, 4, 7);
-		MSBLD_F4.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
-		StageEx &MSBLD_F3 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F3, frameNumber);
-		auto &msbldF3_in = msbldF3_.in;
-		auto &msbldF3_out = msbldF3_.out;
-		MSBLD_F3.input(msbldF3_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
-		MSBLD_F3.input(msbldF3_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		MSBLD_F3.input(msbldF3_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F3.input(msbldF3_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[4]);
-		MSBLD_F3.input(msbldF3_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
-		MSBLD_F3.input(msbldF3_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[3]);
-		MSBLD_F3.input(msbldF3_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[3]);
-		MSBLD_F3.input(msbldF3_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
-		MSBLD_F3.input(msbldF3_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[4]);
-		MSBLD_F3.input(msbldF3_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	MSBLD_F4.output(msbldF4_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[4]);
+	MSBLD_F4.output(msbldF4_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[4]);
+	MSBLD_F4.output(msbldF4_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[4]);
+	MSBLD_F4.output(msbldF4_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	MSBLD_F4.setMultiScale(IMG_MULTI_SCALE_DOWN2, 4, 7);
+	MSBLD_F4.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	StageEx &MSBLD_F3 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F3, frameNumber);
+	auto &msbldF3_in = msbldF3_.in;
+	auto &msbldF3_out = msbldF3_.out;
+	MSBLD_F3.input(msbldF3_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	MSBLD_F3.input(msbldF3_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	MSBLD_F3.input(msbldF3_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	MSBLD_F3.input(msbldF3_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[4]);
+	MSBLD_F3.input(msbldF3_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
+	MSBLD_F3.input(msbldF3_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[3]);
+	MSBLD_F3.input(msbldF3_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[3]);
+	MSBLD_F3.input(msbldF3_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
+	MSBLD_F3.input(msbldF3_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[4]);
+	MSBLD_F3.input(msbldF3_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
-		MSBLD_F3.output(msbldF3_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[3]);
-		MSBLD_F3.output(msbldF3_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[3]);
-		MSBLD_F3.output(msbldF3_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[3]);
-		MSBLD_F3.output(msbldF3_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
-		MSBLD_F3.setMultiScale(IMG_MULTI_SCALE_DOWN2, 3, 7);
-		MSBLD_F3.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
-		StageEx &MSBLD_F2 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F2, frameNumber);
-		auto &msbldF2_in = msbldF2_.in;
-		auto &msbldF2_out = msbldF2_.out;
+	MSBLD_F3.output(msbldF3_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[3]);
+	MSBLD_F3.output(msbldF3_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[3]);
+	MSBLD_F3.output(msbldF3_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[3]);
+	MSBLD_F3.output(msbldF3_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	MSBLD_F3.setMultiScale(IMG_MULTI_SCALE_DOWN2, 3, 7);
+	MSBLD_F3.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	StageEx &MSBLD_F2 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F2, frameNumber);
+	auto &msbldF2_in = msbldF2_.in;
+	auto &msbldF2_out = msbldF2_.out;
 
-		MSBLD_F2.input(msbldF2_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
-		MSBLD_F2.input(msbldF2_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		MSBLD_F2.input(msbldF2_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F2.input(msbldF2_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[3]);
-		MSBLD_F2.input(msbldF2_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
-		MSBLD_F2.input(msbldF2_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[2]);
-		MSBLD_F2.input(msbldF2_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[2]);
-		MSBLD_F2.input(msbldF2_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
-		MSBLD_F2.input(msbldF2_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[3]);
-		MSBLD_F2.input(msbldF2_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	MSBLD_F2.input(msbldF2_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	MSBLD_F2.input(msbldF2_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	MSBLD_F2.input(msbldF2_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	MSBLD_F2.input(msbldF2_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[3]);
+	MSBLD_F2.input(msbldF2_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
+	MSBLD_F2.input(msbldF2_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[2]);
+	MSBLD_F2.input(msbldF2_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[2]);
+	MSBLD_F2.input(msbldF2_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
+	MSBLD_F2.input(msbldF2_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[3]);
+	MSBLD_F2.input(msbldF2_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 
-		MSBLD_F2.output(msbldF2_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[2]);
-		MSBLD_F2.output(msbldF2_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[2]);
-		MSBLD_F2.output(msbldF2_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[2]);
-		MSBLD_F2.output(msbldF2_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
-		MSBLD_F2.setMultiScale(IMG_MULTI_SCALE_DOWN2, 2, 7);
-		MSBLD_F2.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F2.output(msbldF2_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[2]);
+	MSBLD_F2.output(msbldF2_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[2]);
+	MSBLD_F2.output(msbldF2_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[2]);
+	MSBLD_F2.output(msbldF2_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	MSBLD_F2.setMultiScale(IMG_MULTI_SCALE_DOWN2, 2, 7);
+	MSBLD_F2.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
 
-		StageEx &MSBLD_F1 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F1, frameNumber);
-		auto &msbldF1_in = msbldF1_.in;
-		auto &msbldF1_out = msbldF1_.out;
-		MSBLD_F1.input(msbldF1_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
-		MSBLD_F1.input(msbldF1_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		MSBLD_F1.input(msbldF1_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F1.input(msbldF1_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[2]);
-		MSBLD_F1.input(msbldF1_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
-		MSBLD_F1.input(msbldF1_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[1]);
-		MSBLD_F1.input(msbldF1_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[1]);
-		MSBLD_F1.input(msbldF1_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
-		MSBLD_F1.input(msbldF1_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[2]);
-		MSBLD_F1.input(msbldF1_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
-		MSBLD_F1.output(msbldF1_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[1]);
-		MSBLD_F1.output(msbldF1_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[1]);
-		MSBLD_F1.output(msbldF1_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[1]);
-		MSBLD_F1.output(msbldF1_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
-		MSBLD_F1.setMultiScale(IMG_MULTI_SCALE_DOWN2, 1, 7);
-		MSBLD_F1.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	StageEx &MSBLD_F1 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F1, frameNumber);
+	auto &msbldF1_in = msbldF1_.in;
+	auto &msbldF1_out = msbldF1_.out;
+	MSBLD_F1.input(msbldF1_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	MSBLD_F1.input(msbldF1_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	MSBLD_F1.input(msbldF1_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	MSBLD_F1.input(msbldF1_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[2]);
+	MSBLD_F1.input(msbldF1_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
+	MSBLD_F1.input(msbldF1_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[1]);
+	MSBLD_F1.input(msbldF1_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[1]);
+	MSBLD_F1.input(msbldF1_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
+	MSBLD_F1.input(msbldF1_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[2]);
+	MSBLD_F1.input(msbldF1_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	MSBLD_F1.output(msbldF1_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[1]);
+	MSBLD_F1.output(msbldF1_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[1]);
+	MSBLD_F1.output(msbldF1_out.tnrmo[i]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[1]);
+	MSBLD_F1.output(msbldF1_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	MSBLD_F1.setMultiScale(IMG_MULTI_SCALE_DOWN2, 1, 7);
+	MSBLD_F1.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
 
-		StageEx &MSBLD_F0 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F0, frameNumber);
-		auto &msbldF0_in = msbldF0_.in;
-		auto &msbldF0_out = msbldF0_.out;
+	StageEx &MSBLD_F0 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F0, frameNumber);
+	auto &msbldF0_in = msbldF0_.in;
+	auto &msbldF0_out = msbldF0_.out;
 
-		MSBLD_F0.input(msbldF0_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
-		MSBLD_F0.input(msbldF0_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		MSBLD_F0.input(msbldF0_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
-		MSBLD_F0.input(msbldF0_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[1]);
-		MSBLD_F0.input(msbldF0_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
-		MSBLD_F0.input(msbldF0_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[0]);
-		MSBLD_F0.input(msbldF0_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[1]);
-		MSBLD_F0.input(msbldF0_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
-		MSBLD_F0.input(msbldF0_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[1]);
-		MSBLD_F0.input(msbldF0_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
-		MSBLD_F0.output(msbldF0_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[0]);
-		MSBLD_F0.output(msbldF0_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[0]);
-		MSBLD_F0.output(msbldF0_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
-		MSBLD_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
-		MSBLD_F0.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
-	}
+	MSBLD_F0.input(msbldF0_in.vipi[i]->get(), IMG_PORT_VIPI, 0, Size{ 0, 0 });
+	MSBLD_F0.input(msbldF0_in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
+	MSBLD_F0.input(msbldF0_in.tnrsi[i]->get(), IMG_PORT_TNRSI, 0, Size{ 0, 0 });
+	MSBLD_F0.input(msbldF0_in.rec_dsi[i]->get(), IMG_PORT_REC_DSI, 2, mfnrSizes_[1]);
+	MSBLD_F0.input(msbldF0_in.tnrci[i]->get(), IMG_PORT_TNRCI, 2, manager_->confMapSize_);
+	MSBLD_F0.input(msbldF0_in.tnrwi[i]->get(), IMG_PORT_TNRWI, 2, mfnrSizes_[0]);
+	MSBLD_F0.input(msbldF0_in.tnrvbi[i]->get(), IMG_PORT_TNRVBI, 2, mfnrSizes_[1]);
+	MSBLD_F0.input(msbldF0_in.tnrlfdi[i]->get(), IMG_PORT_TNRLFDI, 2, mfnrSizes_[6]);
+	MSBLD_F0.input(msbldF0_in.tnrmi[i]->get(), IMG_PORT_TNRMI, 2, mfnrSizes_[1]);
+	MSBLD_F0.input(msbldF0_in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+	MSBLD_F0.output(msbldF0_out.img4o[i]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[0]);
+	MSBLD_F0.output(msbldF0_out.tnrwo[i]->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[0]);
+	MSBLD_F0.output(msbldF0_out.tnrso[i]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
+	MSBLD_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
+	MSBLD_F0.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+
 	requestHelper_.queueRequest(UserIdMfnr, sdRequest);
 }
 
@@ -1325,7 +1335,6 @@ AfbldTask::AfbldTask(Scheduler *scheduler, const std::string &id, Request *reque
 	afbldF4_ = mfnr.afbldF4;
 	afbldF5_ = mfnr.afbldF5;
 	afbldF6_ = mfnr.afbldF6;
-	tnrso_ = mfnr.msbld_tnrso;
 	stillOutput1_ = mfnr.still1Output;
 	stillOutput2_ = mfnr.still2Output;
 	mfnr_ = mfnr;

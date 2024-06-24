@@ -164,7 +164,8 @@ public:
 	void tuneDsVbi(uint32_t internalRequestId, DsVbiFrames &ds_vbi_v2, DsVbiFrames &ds_vbi_v5, std::vector<int> order);
 	void tuneMsbld(
 		uint32_t internalRequestId, MsbldFrames msbldF0_, MsbldFrames msbldF1_, MsbldFrames msbldF2_,
-		MsbldFrames msbldF3_, MsbldFrames msbldF4_, MsbldFrames msbldF5_, MsbldFrames msbldF6_, std::vector<int> order);
+		MsbldFrames msbldF3_, MsbldFrames msbldF4_, MsbldFrames msbldF5_, MsbldFrames msbldF6_, std::vector<int> order,
+		int msbldIdx);
 	void tuneAfbld(
 		Request *request, uint32_t internalRequestId,
 		AfbldFrames afbldF0_, AfbldFrames afbldF1_, AfbldFrames afbldF2_,

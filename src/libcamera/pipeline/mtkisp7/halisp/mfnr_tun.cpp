@@ -161,7 +161,7 @@ int MfnrTunManager::configure(const Size &bayerInputSize,
 
 std::tuple<MfnrTunBssTask *, MfnrTunBfbldTask *, MfnrTunBfmeTask *,
 	   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *, MfnrTunMcdsF1Task *,
-	   MfnrTunMsbldTask *, MfnrTunAfbldTask *>
+	   MfnrTunMsbldTask *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
 MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 				 SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
 				 uint32_t camSysMetaRequestId,
@@ -190,15 +190,18 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 	MfnrTunMcdsF1Task *mfnrTunMcdsF1Task = new MfnrTunMcdsF1Task(
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
-	MfnrTunMsbldTask *mfnrTunMsbldTask = new MfnrTunMsbldTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+	MfnrTunMsbldTask *mfnrTunMsbldTask1st = new MfnrTunMsbldTask(
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId, 0);
+
+	MfnrTunMsbldTask *mfnrTunMsbldTask2nd = new MfnrTunMsbldTask(
+		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId, 1);
 
 	MfnrTunAfbldTask *mfnrTunAfbldTask = new MfnrTunAfbldTask(
 		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
 
 	return std::make_tuple(mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			       mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
-			       mfnrTunMsbldTask, mfnrTunAfbldTask);
+			       mfnrTunMsbldTask1st, mfnrTunMsbldTask2nd, mfnrTunAfbldTask);
 }
 
 MfnrTunBssTask::MfnrTunBssTask(MFNRFrames &mfnr,
@@ -609,27 +612,19 @@ MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
 				   uint32_t camSysMetaRequestId,
 				   Scheduler *scheduler,
 				   const std::string &id, Request *request, MfnrTunManager *manager,
-				   uint32_t internalRequestId)
+				   uint32_t internalRequestId, int msbldIdx)
 	: ImgSysTask(scheduler, id, camSysMetaRequestId, internalRequestId,
 		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
-	  request_(request), manager_(manager)
+	  request_(request), manager_(manager), msbldIdx_(msbldIdx)
 {
-	msbldF0Tun_.resize(kInputRawCount - 2);
-	msbldF1Tun_.resize(kInputRawCount - 2);
-	msbldF2Tun_.resize(kInputRawCount - 2);
-	msbldF3Tun_.resize(kInputRawCount - 2);
-	msbldF4Tun_.resize(kInputRawCount - 2);
-	msbldF5Tun_.resize(kInputRawCount - 2);
-	msbldF6Tun_.resize(kInputRawCount - 2);
-	for (auto i = 0; i < kInputRawCount - 2; i++) {
-		msbldF0Tun_[i] = mfnr.msbldF0.in.tunbufi[i];
-		msbldF1Tun_[i] = mfnr.msbldF1.in.tunbufi[i];
-		msbldF2Tun_[i] = mfnr.msbldF2.in.tunbufi[i];
-		msbldF3Tun_[i] = mfnr.msbldF3.in.tunbufi[i];
-		msbldF4Tun_[i] = mfnr.msbldF4.in.tunbufi[i];
-		msbldF5Tun_[i] = mfnr.msbldF5.in.tunbufi[i];
-		msbldF6Tun_[i] = mfnr.msbldF6.in.tunbufi[i];
-	}
+	msbldF0Tun_ = mfnr.msbldF0.in.tunbufi[msbldIdx];
+	msbldF1Tun_ = mfnr.msbldF1.in.tunbufi[msbldIdx];
+	msbldF2Tun_ = mfnr.msbldF2.in.tunbufi[msbldIdx];
+	msbldF3Tun_ = mfnr.msbldF3.in.tunbufi[msbldIdx];
+	msbldF4Tun_ = mfnr.msbldF4.in.tunbufi[msbldIdx];
+	msbldF5Tun_ = mfnr.msbldF5.in.tunbufi[msbldIdx];
+	msbldF6Tun_ = mfnr.msbldF6.in.tunbufi[msbldIdx];
+
 	bssOrder_ = mfnr.bss_order;
 }
 
@@ -637,18 +632,15 @@ void MfnrTunMsbldTask::run()
 {
 	ipa::mtkisp7::ImgMetaRequestData request;
 	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
+	manager_->mfnrTun_.fetch(msbldF0Tun_);
+	manager_->mfnrTun_.fetch(msbldF1Tun_);
+	manager_->mfnrTun_.fetch(msbldF2Tun_);
+	manager_->mfnrTun_.fetch(msbldF3Tun_);
+	manager_->mfnrTun_.fetch(msbldF4Tun_);
+	manager_->mfnrTun_.fetch(msbldF5Tun_);
+	manager_->mfnrTun_.fetch(msbldF6Tun_);
 
-	for (auto i = 0; i < kInputRawCount - 2; i++) {
-		manager_->mfnrTun_.fetch(msbldF0Tun_[i]);
-		manager_->mfnrTun_.fetch(msbldF1Tun_[i]);
-		manager_->mfnrTun_.fetch(msbldF2Tun_[i]);
-		manager_->mfnrTun_.fetch(msbldF3Tun_[i]);
-		manager_->mfnrTun_.fetch(msbldF4Tun_[i]);
-		manager_->mfnrTun_.fetch(msbldF5Tun_[i]);
-		manager_->mfnrTun_.fetch(msbldF6Tun_[i]);
-	}
-
-	std::map<EStage_T, std::vector<SharedMailBox<InfoFrame>>, std::greater<EStage_T>> stageToTuningMap = {
+	std::map<EStage_T, SharedMailBox<InfoFrame>, std::greater<EStage_T>> stageToTuningMap = {
 		{ NSIspTuning::EStage_MSBLD_F0, msbldF0Tun_ },
 		{ NSIspTuning::EStage_MSBLD_F1, msbldF1Tun_ },
 		{ NSIspTuning::EStage_MSBLD_F2, msbldF2Tun_ },
@@ -659,19 +651,17 @@ void MfnrTunMsbldTask::run()
 	};
 
 	auto bssOrder = bssOrder_->get();
-	for (auto i = 0; i < kInputRawCount - 2; i++) {
-		for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
-			int size_idx = it->first - EStage_MSBLD_F0;
-			int frameNumber = internalRequestId_ + bssOrder[i];
-			request = ipa::mtkisp7::ImgMetaRequestData(
-				true, it->first,
-				it->second[i]->get().buffer()->cookie(),
-				0, 0, manager_->mfnrSizes_[size_idx],
-				manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
-				manager_->mfnrSizes_[0], {}, true, i,
-				kInputRawCount, true, frameNumber);
-			requests.push_back(std::move(request));
-		}
+	for (auto it = stageToTuningMap.begin(); it != stageToTuningMap.end(); it++) {
+		int size_idx = it->first - EStage_MSBLD_F0;
+		int frameNumber = internalRequestId_ + bssOrder[msbldIdx_];
+		request = ipa::mtkisp7::ImgMetaRequestData(
+			true, it->first,
+			it->second->get().buffer()->cookie(),
+			0, 0, manager_->mfnrSizes_[size_idx],
+			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
+			manager_->mfnrSizes_[0], {}, true, msbldIdx_,
+			kInputRawCount, true, frameNumber);
+		requests.push_back(std::move(request));
 	}
 
 	getImgSysMetaTuning(manager_->needCropTNC16x9_, requests);
@@ -686,20 +676,13 @@ MfnrTunAfbldTask::MfnrTunAfbldTask(MFNRFrames &mfnr,
 		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager)
 {
-	afbldF0Tun_.resize(1);
-	afbldF1Tun_.resize(1);
-	afbldF2Tun_.resize(1);
-	afbldF3Tun_.resize(1);
-	afbldF4Tun_.resize(1);
-	afbldF5Tun_.resize(1);
-	afbldF6Tun_.resize(1);
-	afbldF0Tun_[0] = mfnr.afbldF0.in.tunbufi[0];
-	afbldF1Tun_[0] = mfnr.afbldF1.in.tunbufi[0];
-	afbldF2Tun_[0] = mfnr.afbldF2.in.tunbufi[0];
-	afbldF3Tun_[0] = mfnr.afbldF3.in.tunbufi[0];
-	afbldF4Tun_[0] = mfnr.afbldF4.in.tunbufi[0];
-	afbldF5Tun_[0] = mfnr.afbldF5.in.tunbufi[0];
-	afbldF6Tun_[0] = mfnr.afbldF6.in.tunbufi[0];
+	afbldF0Tun_ = mfnr.afbldF0.in.tunbufi[0];
+	afbldF1Tun_ = mfnr.afbldF1.in.tunbufi[0];
+	afbldF2Tun_ = mfnr.afbldF2.in.tunbufi[0];
+	afbldF3Tun_ = mfnr.afbldF3.in.tunbufi[0];
+	afbldF4Tun_ = mfnr.afbldF4.in.tunbufi[0];
+	afbldF5Tun_ = mfnr.afbldF5.in.tunbufi[0];
+	afbldF6Tun_ = mfnr.afbldF6.in.tunbufi[0];
 	bssOrder_ = mfnr.bss_order;
 	tncso_ = mfnr.afbldF0.tncso;
 }
@@ -709,15 +692,15 @@ void MfnrTunAfbldTask::run()
 	ipa::mtkisp7::ImgMetaRequestData request;
 	std::vector<ipa::mtkisp7::ImgMetaRequestData> requests;
 
-	manager_->mfnrTun_.fetch(afbldF0Tun_[0]);
-	manager_->mfnrTun_.fetch(afbldF1Tun_[0]);
-	manager_->mfnrTun_.fetch(afbldF2Tun_[0]);
-	manager_->mfnrTun_.fetch(afbldF3Tun_[0]);
-	manager_->mfnrTun_.fetch(afbldF4Tun_[0]);
-	manager_->mfnrTun_.fetch(afbldF5Tun_[0]);
-	manager_->mfnrTun_.fetch(afbldF6Tun_[0]);
+	manager_->mfnrTun_.fetch(afbldF0Tun_);
+	manager_->mfnrTun_.fetch(afbldF1Tun_);
+	manager_->mfnrTun_.fetch(afbldF2Tun_);
+	manager_->mfnrTun_.fetch(afbldF3Tun_);
+	manager_->mfnrTun_.fetch(afbldF4Tun_);
+	manager_->mfnrTun_.fetch(afbldF5Tun_);
+	manager_->mfnrTun_.fetch(afbldF6Tun_);
 
-	std::map<EStage_T, std::vector<SharedMailBox<InfoFrame>>, std::greater<EStage_T>> stageToTuningMap = {
+	std::map<EStage_T, SharedMailBox<InfoFrame>, std::greater<EStage_T>> stageToTuningMap = {
 		{ NSIspTuning::EStage_AFBLD_F6, afbldF6Tun_ },
 		{ NSIspTuning::EStage_AFBLD_F5, afbldF5Tun_ },
 		{ NSIspTuning::EStage_AFBLD_F4, afbldF4Tun_ },
@@ -734,7 +717,7 @@ void MfnrTunAfbldTask::run()
 		if (it->first == NSIspTuning::EStage_AFBLD_F0) {
 			request = ipa::mtkisp7::ImgMetaRequestData(
 				true, it->first,
-				it->second[0]->get().buffer()->cookie(),
+				it->second->get().buffer()->cookie(),
 				tncso_->get().buffer()->cookie(), 0,
 				manager_->mfnrSizes_[size_idx],
 				manager_->yuvOutput1Size_,
@@ -745,7 +728,7 @@ void MfnrTunAfbldTask::run()
 		} else {
 			request = ipa::mtkisp7::ImgMetaRequestData(
 				true, it->first,
-				it->second[0]->get().buffer()->cookie(),
+				it->second->get().buffer()->cookie(),
 				0, 0, manager_->mfnrSizes_[size_idx],
 				manager_->yuvOutput1Size_,
 				manager_->yuvOutput2Size_,

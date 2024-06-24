@@ -64,7 +64,8 @@ public:
 
 	std::tuple<MfnrTunBssTask *, MfnrTunBfbldTask *, MfnrTunBfmeTask *,
 		   MfnrTunSwmeTask *, MfnrTunDsTask *, MfnrTunDsVbiTask *,
-		   MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunAfbldTask *>
+		   MfnrTunMcdsF1Task *, MfnrTunMsbldTask *, MfnrTunMsbldTask *,
+		   MfnrTunAfbldTask *>
 	makeMfnrTunTasks(
 		MFNRFrames &mfnr,
 		SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
@@ -262,22 +263,24 @@ public:
 			 uint32_t camSysMetaRequestId,
 			 Scheduler *scheduler, const std::string &id,
 			 Request *request, MfnrTunManager *manager,
-			 uint32_t internalRequestId);
+			 uint32_t internalRequestId, int msbldInd);
 
 	virtual void run() override final;
 
-	std::vector<SharedMailBox<InfoFrame>> msbldF0Tun_;
-	std::vector<SharedMailBox<InfoFrame>> msbldF1Tun_;
-	std::vector<SharedMailBox<InfoFrame>> msbldF2Tun_;
-	std::vector<SharedMailBox<InfoFrame>> msbldF3Tun_;
-	std::vector<SharedMailBox<InfoFrame>> msbldF4Tun_;
-	std::vector<SharedMailBox<InfoFrame>> msbldF5Tun_;
-	std::vector<SharedMailBox<InfoFrame>> msbldF6Tun_;
+	SharedMailBox<InfoFrame> msbldF0Tun_;
+	SharedMailBox<InfoFrame> msbldF1Tun_;
+	SharedMailBox<InfoFrame> msbldF2Tun_;
+	SharedMailBox<InfoFrame> msbldF3Tun_;
+	SharedMailBox<InfoFrame> msbldF4Tun_;
+	SharedMailBox<InfoFrame> msbldF5Tun_;
+	SharedMailBox<InfoFrame> msbldF6Tun_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 
 	Request *request_;
 
 	MfnrTunManager *manager_;
+
+	int msbldIdx_;
 };
 
 class MfnrTunAfbldTask : public ImgSysTask
@@ -291,13 +294,13 @@ public:
 
 	virtual void run() override final;
 
-	std::vector<SharedMailBox<InfoFrame>> afbldF0Tun_;
-	std::vector<SharedMailBox<InfoFrame>> afbldF1Tun_;
-	std::vector<SharedMailBox<InfoFrame>> afbldF2Tun_;
-	std::vector<SharedMailBox<InfoFrame>> afbldF3Tun_;
-	std::vector<SharedMailBox<InfoFrame>> afbldF4Tun_;
-	std::vector<SharedMailBox<InfoFrame>> afbldF5Tun_;
-	std::vector<SharedMailBox<InfoFrame>> afbldF6Tun_;
+	SharedMailBox<InfoFrame> afbldF0Tun_;
+	SharedMailBox<InfoFrame> afbldF1Tun_;
+	SharedMailBox<InfoFrame> afbldF2Tun_;
+	SharedMailBox<InfoFrame> afbldF3Tun_;
+	SharedMailBox<InfoFrame> afbldF4Tun_;
+	SharedMailBox<InfoFrame> afbldF5Tun_;
+	SharedMailBox<InfoFrame> afbldF6Tun_;
 	SharedMailBox<std::vector<int>> bssOrder_;
 
 	SharedMailBox<InfoFrame> tncso_;
