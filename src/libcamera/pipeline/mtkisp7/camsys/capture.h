@@ -106,7 +106,7 @@ private:
 	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
 
-	LazyInfoFramePool rawPool_;
+	InfoFramePool rawPool_;
 	InfoFramePool yuvo1Pool_;
 	InfoFramePool yuvo2Pool_;
 	InfoFramePool yuvo3Pool_;
