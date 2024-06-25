@@ -29,10 +29,6 @@ class DmaHeap;
 class PipelineHandler;
 class ImgSysDevice;
 
-constexpr uint32_t UserIdMcnr = 1;
-constexpr uint32_t UserIdLpnr = 2;
-constexpr uint32_t UserIdMfnr = 3;
-
 // TODO: Re-design the ImgSysBufferCache and ImgsysVideoDevice to merge
 // the features introduced here to V4L2VideoDevice.
 class ImgSysBufferCache : public V4L2BufferCache
@@ -51,12 +47,14 @@ public:
 
 	bool formatReady(V4L2DeviceFormat &fmt, uint32_t userId);
 	void addCurrentFormat(size_t count, uint64_t offset);
-	void addFormat(V4L2DeviceFormat &fmt, uint32_t userId, size_t count, uint64_t offset);
+	void addFormat(V4L2DeviceFormat &fmt, uint32_t userId, size_t count,
+		       uint64_t offset, bool dynamic = false);
 
 	struct FormatCache {
 	public:
 		FormatCache(const V4L2DeviceFormat &format,
-			    uint32_t userId, size_t count, uint64_t offset);
+			    uint32_t userId, size_t count, uint64_t offset,
+			    bool dynamic);
 		~FormatCache();
 
 		V4L2DeviceFormat format_;
@@ -64,6 +62,7 @@ public:
 		uint64_t count_;
 		uint64_t offset_;
 		SimpleV4L2BufferCache *cache_;
+		bool dynamic_ = false;
 	};
 
 	std::optional<uint64_t> getFormatIdx(const V4L2DeviceFormat &fmt, uint32_t userId);
@@ -87,12 +86,17 @@ public:
 		unsigned int count,
 		std::vector<std::unique_ptr<FrameBuffer>> *buffers) = delete;
 	int importBuffers(unsigned int count);
-	int importBuffersWithFormat(uint32_t userId, unsigned int count, V4L2DeviceFormat *fmt);
+	int importBuffersWithFormat(uint32_t userId, unsigned int count,
+				    V4L2DeviceFormat *fmt, bool dynamic);
 	int releaseBuffers();
 	int setFormat(V4L2DeviceFormat *format);
 	int getFormat(V4L2DeviceFormat *format);
 
+	void resetBuffers(uint32_t userId);
+
 private:
+	int v4l2CreateBuffers(unsigned int count, V4L2DeviceFormat *format,
+			      uint32_t *output_index, uint32_t *output_count);
 	int resizeRatio_;
 	Rectangle crop_;
 	ImgSysBufferCache *getCache();
@@ -103,6 +107,10 @@ class ImgSysDevice
 public:
 	static Rectangle getCrop(Size inSize, Size outSize);
 	static Rectangle cropNoisyBorder(const Rectangle &rect);
+
+	const static uint32_t kUserIdMcnr = 1;
+	const static uint32_t kUserIdLpnr = 2;
+	const static uint32_t kUserIdMfnr = 3;
 
 	enum FdCtrl {
 		Add = 0,
@@ -141,6 +149,8 @@ public:
 
 	TokenPool &syncPool() { return syncPool_; }
 
+	void resetBuffers(uint32_t userId);
+
 private:
 	// 1 format x 1 port
 	struct PortBuffers {
@@ -150,6 +160,7 @@ private:
 		size_t count;
 		uint32_t strideAlign;
 		uint32_t scanAlign;
+		bool dynamic = false;
 	};
 	friend class ImgSysRequestHelper;
 

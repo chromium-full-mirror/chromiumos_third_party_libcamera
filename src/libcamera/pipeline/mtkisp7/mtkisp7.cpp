@@ -299,6 +299,8 @@ private:
 	uint32_t ipaBufferCnt_;
 
 	ipa::mtkisp7::SensorSetting initSensorSetting_;
+
+	uint32_t latestStillCapture_ = 0;
 };
 
 class MtkISP7CameraConfiguration : public CameraConfiguration
@@ -1519,6 +1521,16 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool onlyStillCapture = hasStillCapture && (!video1Buffer && !video2Buffer);
 
 	uint32_t internalRequestId = requestCount_++;
+	if (hasStillCapture) {
+		latestStillCapture_ = internalRequestId;
+	} else {
+		if (latestStillCapture_ != 0 &&
+		    internalRequestId == latestStillCapture_ + 100) {
+			LOG(MtkISP7, Debug) << "Resetting still capture buffers";
+			pipeline->imgSysDev_.resetBuffers(ImgSysDevice::kUserIdMfnr);
+		}
+	}
+
 	// todo(yerlandinata): check whether we need Feature::video or not.
 	Feature feature = Feature::Preview;
 	if (hasStillCapture) {

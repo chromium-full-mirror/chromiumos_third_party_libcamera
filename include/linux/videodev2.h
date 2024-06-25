@@ -2523,6 +2523,29 @@ struct v4l2_create_buffers {
 	__u32			reserved[6];
 };
 
+/**
+ * struct v4l2_remove_buffers - VIDIOC_REMOVE_BUFS argument
+ * @index:	The starting buffer index to remove. This field is ignored
+ *		count == 0.
+ * @count:	The number of buffers to be removed with indices 'index' until
+ *		'index + count - 1'.
+ *		All buffers in this range must be valid and in DEQUEUED state.
+ *		:ref:`VIDIOC_REMOVE_BUFS` will always check the validity of
+ *		``type`, if it is invalid it returns ``EINVAL`` error code.
+ *		If count is set to 0 :ref:`VIDIOC_REMOVE_BUFS` will do nothing
+ *		and return 0.
+ * @type:	Type of the stream or buffers, this is the same as the struct
+ *		:c:type:`v4l2_format` ``type`` field. See
+ *		:c:type:`v4l2_buf_type` for valid values.
+ * @reserved:	future extensions
+ */
+struct v4l2_remove_buffers {
+	__u32 index;
+	__u32 count;
+	__u32 type;
+	__u32 reserved[13];
+};
+
 /*
  *	I O C T L   C O D E S   F O R   V I D E O   D E V I C E S
  *
@@ -2614,6 +2637,7 @@ struct v4l2_create_buffers {
 #define VIDIOC_QUERY_DV_TIMINGS  _IOR('V', 99, struct v4l2_dv_timings)
 #define VIDIOC_DV_TIMINGS_CAP   _IOWR('V', 100, struct v4l2_dv_timings_cap)
 #define VIDIOC_ENUM_FREQ_BANDS	_IOWR('V', 101, struct v4l2_frequency_band)
+#define VIDIOC_REMOVE_BUFS _IOWR('V', 104, struct v4l2_remove_buffers)
 
 /*
  * Experimental, meant for debugging, testing and internal use.

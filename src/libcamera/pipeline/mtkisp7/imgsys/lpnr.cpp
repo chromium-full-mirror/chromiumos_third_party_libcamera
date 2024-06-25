@@ -199,7 +199,7 @@ void XTRTask::run()
 	TR_R2Y.output(out.dipImgi[3]->get(), IMG_PORT_TYUV4O, 1, lpnrSizes[2]);
 	TR_R2Y.output(out.xtrStt->get(), IMG_PORT_IMGSTATO, 0, lpnrSizes[0]);
 
-	requestHelper_.queueRequest(UserIdLpnr, sdRequest);
+	requestHelper_.queueRequest(ImgSysDevice::kUserIdLpnr, sdRequest);
 }
 
 LpnrDipTask::LpnrDipTask(Scheduler *scheduler, const std::string &id,
@@ -286,7 +286,7 @@ void LpnrDipTask::run()
 	else
 		LowIsoStages(sdRequest);
 
-	requestHelper_.queueRequest(UserIdLpnr, sdRequest);
+	requestHelper_.queueRequest(ImgSysDevice::kUserIdLpnr, sdRequest);
 }
 
 void LpnrDipTask::LowIsoStages(SingleDeviceRequest &sdRequest)

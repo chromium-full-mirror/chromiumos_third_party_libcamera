@@ -75,9 +75,9 @@ static IMG_PORT getDevicePort(uint32_t portIdx)
 
 ImgSysBufferCache::FormatCache::FormatCache(
 	const V4L2DeviceFormat &format,
-	uint32_t userId, size_t count, uint64_t offset)
+	uint32_t userId, size_t count, uint64_t offset, bool dynamic)
 	: format_(format), userId_(userId), count_(count), offset_(offset),
-	  cache_(new SimpleV4L2BufferCache(count, offset))
+	  cache_(new SimpleV4L2BufferCache(count, offset)), dynamic_(dynamic)
 {
 }
 
@@ -164,14 +164,14 @@ void ImgSysBufferCache::addCurrentFormat(size_t count, uint64_t offset)
 }
 
 void ImgSysBufferCache::addFormat(V4L2DeviceFormat &fmt, uint32_t userId,
-				  size_t count, uint64_t offset)
+				  size_t count, uint64_t offset, bool dynamic)
 {
 	if (formatReady(fmt, userId)) {
 		LOG(MtkISP7, Fatal) << "Format initialized: "
 				    << fmt;
 		return;
 	}
-	FormatCache *cache = new FormatCache(fmt, userId, count, offset);
+	FormatCache *cache = new FormatCache(fmt, userId, count, offset, dynamic);
 	formatCaches_.push_back(cache);
 }
 
@@ -254,8 +254,9 @@ int ImgsysVideoDevice::importBuffers(unsigned int count)
 	return 0;
 }
 
-int ImgsysVideoDevice::importBuffersWithFormat(uint32_t userId, unsigned int count,
-					       V4L2DeviceFormat *format)
+int ImgsysVideoDevice::importBuffersWithFormat(
+	uint32_t userId, unsigned int count, V4L2DeviceFormat *format,
+	bool dynamic)
 {
 	if (caps().isMeta())
 		return importBuffers(count);
@@ -272,7 +273,21 @@ int ImgsysVideoDevice::importBuffersWithFormat(uint32_t userId, unsigned int cou
 
 	memoryType_ = V4L2_MEMORY_DMABUF;
 
-	struct v4l2_create_buffers cb = {};
+	uint32_t output_index, output_count;
+	int ret = v4l2CreateBuffers(count, format, &output_index, &output_count);
+	if (ret)
+		LOG(MtkISP7, Fatal) << "Failed to restore v4l2 buffer: " << ret;
+
+	getCache()->addFormat(*format, userId, output_count, output_index, dynamic);
+
+	return 0;
+}
+
+int ImgsysVideoDevice::v4l2CreateBuffers(unsigned int count, V4L2DeviceFormat *format,
+					 uint32_t *output_index,
+					 uint32_t *output_count)
+{
+	struct v4l2_create_buffers cb;
 	cb.count = count;
 	cb.memory = memoryType_;
 	cb.format.type = bufferType_;
@@ -304,9 +319,44 @@ int ImgsysVideoDevice::importBuffersWithFormat(uint32_t userId, unsigned int cou
 				      << " buffers, but got " << cb.count;
 	}
 
-	getCache()->addFormat(*format, userId, cb.count, cb.index);
+	*output_index = cb.index;
+	*output_count = cb.count;
 
 	return 0;
+}
+
+void ImgsysVideoDevice::resetBuffers(uint32_t userId)
+{
+	for (ImgSysBufferCache::FormatCache *formatCache : getCache()->formatCaches_) {
+		if (!formatCache->dynamic_ || formatCache->userId_ != userId)
+			continue;
+
+		uint64_t count = formatCache->count_;
+
+		struct v4l2_remove_buffers rb = {};
+		rb.index = formatCache->offset_;
+		rb.count = count;
+		rb.type = bufferType_;
+		int ret = ioctl(VIDIOC_REMOVE_BUFS, &rb);
+		if (ret) {
+			LOG(MtkISP7, Error) << "Unable to remove " << rb.count
+					    << " buffers: " << strerror(-ret);
+			return;
+		}
+
+		auto *format = &formatCache->format_;
+
+		uint32_t output_index, output_count;
+		ret = v4l2CreateBuffers(count, format, &output_index, &output_count);
+		if (ret) {
+			LOG(MtkISP7, Error) << "Unable to create " << count
+					    << " buffers: " << strerror(-ret);
+			return;
+		}
+
+		formatCache->count_ = output_count;
+		formatCache->offset_ = output_index;
+	}
 }
 
 int ImgsysVideoDevice::releaseBuffers()
@@ -823,7 +873,7 @@ void ImgSysDevice::importBufferByList(std::vector<PortBuffers> &portBufs, uint32
 		// the fourcc. Remove the translation.
 		deviceFormat.fourcc = getImgSysV4L2PixelFormat(portBuf.pixelFmt);
 		int ret = allVideoDevices_[adjustedPort]->importBuffersWithFormat(
-			userId, portBuf.count, &deviceFormat);
+			userId, portBuf.count, &deviceFormat, portBuf.dynamic);
 		if (ret)
 			LOG(MtkISP7, Fatal) << "Failed to import buffer: " << ret;
 	}
@@ -1103,200 +1153,200 @@ int ImgSysDevice::importBuffers(
 	}
 	portBufsMfnr = {
 		// Used by BFBLD:4
-		{ IMG_PORT_TIMGI, formats::SRGGB10_MTISP, mfnrSizes[0], 4, 1, 1 },
-		{ IMG_PORT_TIMGI, formats::SGRBG10_MTISP, mfnrSizes[0], 4, 1, 1 },
+		{ IMG_PORT_TIMGI, formats::SRGGB10_MTISP, mfnrSizes[0], 4, 1, 1, true },
+		{ IMG_PORT_TIMGI, formats::SGRBG10_MTISP, mfnrSizes[0], 4, 1, 1, true },
 		// Used by BFBLD:4
-		{ IMG_PORT_IMG3O, formats::NV12_10P_MTISP, mfnrSizes[0], 4, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_10P_MTISP, mfnrSizes[0], 4, 1, 1, true },
 		// Used by BFBLD:4, BFME:4
-		{ IMG_PORT_IMG2O, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 8, 1, 1 },
+		{ IMG_PORT_IMG2O, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 8, 1, 1, true },
 		// Used by BFME:4
-		{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 4, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 4, 1, 1, true },
 		// Used by BFME:4
-		{ IMG_PORT_IMG2O, formats::Y8_MTISP, mfnrSizes_aligned16[2], 4, 1, 1 },
+		{ IMG_PORT_IMG2O, formats::Y8_MTISP, mfnrSizes_aligned16[2], 4, 1, 1, true },
 		// Used by MCDS_F1:3
-		{ IMG_PORT_WPE_WPEI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		{ IMG_PORT_WPE_WPEI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1, true },
 		// Used by MCDS_F1:3
-		{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, wrappingMapSize, 3, 1, 1 },
+		{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, wrappingMapSize, 3, 1, 1, false },
 		// Used by MCDS_F1:3
-		{ IMG_PORT_WPE_WPEO, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		{ IMG_PORT_WPE_WPEO, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1, true },
 		// Used by MCDS_F1:3, DS:1
-		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by  MCDS_F1:3, DS:1
-		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MCDS_F1:3, DS:1
-		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MCDS_F1:3
-		{ IMG_PORT_TYUV5O, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_TYUV5O, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1, true },
 
 		// Used by DS:1
-		{ IMG_PORT_TIMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 1, 1, 1 },
+		{ IMG_PORT_TIMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 1, 1, 1, true },
 		// Used by DS:1
-		{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 4, 1, 1 },
+		{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 4, 1, 1, true },
 		// Used by DS:4
-		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[4], 4, 1, 1 },
+		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[4], 4, 1, 1, true },
 		// Used by DS:4
-		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[5], 4, 1, 1 },
+		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[5], 4, 1, 1, true },
 		// Used by DS:4
-		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[6], 4, 1, 1 },
+		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[6], 4, 1, 1, true },
 
 		// Used by DSVBI_V2:3
-		{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by DSVBI_V2:3
-		{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by DSVBI_V2:3
-		{ IMG_PORT_TYUV3O, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_TYUV3O, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by DSVBI_V2:3
-		{ IMG_PORT_TYUV4O, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_TYUV4O, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by DSVBI_V5:3
-		{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by DSVBI_V5:3
-		{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1, true },
 
 		// Used by MSBLD/AFBLD:18
-		{ IMG_PORT_TNRSI, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1 },
+		{ IMG_PORT_TNRSI, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1, true },
 		// Used by MSBLD/AFBLD:18
-		{ IMG_PORT_TNRSO, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1 },
+		{ IMG_PORT_TNRSO, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1, true },
 		// Used by MSBLD/AFBLD;15
-		{ IMG_PORT_TNRLFDI, formats::NV21, mfnrSizes[6], 15, 1, 1 },
+		{ IMG_PORT_TNRLFDI, formats::NV21, mfnrSizes[6], 15, 1, 1, true },
 		// Used by MSBLD/AFBLD;18
-		{ IMG_PORT_TNRCI, formats::Y8_MTISP, confMapSize, 18, 1, 1 },
+		{ IMG_PORT_TNRCI, formats::Y8_MTISP, confMapSize, 18, 1, 1, false },
 
 		// Used by MSBLD_F6:2, AFBLD_F6:1
-		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1, true },
 		// Used by MSBLD_F6:2, AFBLD_F6:1
-		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1, true },
 		// Used by MSBLD_F6:2, AFBLD_F6:1
-		{ IMG_PORT_IMG4O, formats::NV21, mfnrSizes[6], 3, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV21, mfnrSizes[6], 3, 1, 1, true },
 
 		// Used by MSBLD_F5:2, AFBLD_F5:1
-		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1, true },
 		// Used by MSBLD_F5:2, AFBLD_F5:1
-		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1, true },
 		// Used by MSBLD_F5:2, AFBLD_F5:1
-		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1, true },
 		// Used by MSBLD_F5:2, AFBLD_F5:1
-		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1, true },
 		// Used by MSBLD_F5:2, AFBLD_F5:1
-		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1, true },
 		// Used by MSBLD_F5:2
-		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[5], 2, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[5], 2, 1, 1, true },
 		// Used by AFBLD_F5:1
-		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[5], 1, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[5], 1, 1, 1, true },
 		// Used by MSBLD_F5:2, AFBLD_F5:1
-		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1, true },
 		// Used by MSBLD_F5:2, AFBLD_F5:1
-		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1, true },
 
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1, true },
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1, true },
 		// Used by MSBLD_F4:2
-		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[4], 2, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[4], 2, 1, 1, true },
 		// Used by AFBLD_F4:1
-		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[4], 1, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[4], 1, 1, 1, true },
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by MSBLD_F4:2, AFBLD_F4:1
-		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1, true },
 
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1, true },
 		// Used by MSBLD_F3:2
-		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[3], 2, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[3], 2, 1, 1, true },
 		// Used by AFBLD_F3:1
-		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[3], 1, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[3], 1, 1, 1, true },
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MSBLD_F3:2, AFBLD_F3:1
-		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1, true },
 
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1, true },
 		// Used by MSBLD_F2:2
-		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[2], 2, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[2], 2, 1, 1, true },
 		// Used by AFBLD_F2:1
-		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[2], 1, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[2], 1, 1, 1, true },
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MSBLD_F2:2, AFBLD_F2:1
-		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1, true },
 
 		// Used by MSBLD_F1:2, AFBLD_F1:1
-		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by MSBLD_F1:2, AFBLD_F1:1
-		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by MSBLD_F1:2, AFBLD_F1:1
-		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MSBLD_F1:2, AFBLD_F1:1
-		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by MSBLD_F1:2, AFBLD_F1:1, MSBLD_F0:2, AFBLD_F0:1
-		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[1], 6, 1, 1 },
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[1], 6, 1, 1, true },
 		// Used by MSBLD_F1:2, AFBLD_F1:1
-		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1, true },
 		// Used by MSBLD_F1:2
-		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[1], 2, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[1], 2, 1, 1, true },
 		// Used by AFBLD_F1:1
-		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[1], 1, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[1], 1, 1, 1, true },
 		// Used by MSBLD_F1:2, AFBLD_F1:1
-		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by MSBLD_F1:2, AFBLD_F1:1
-		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1, true },
 
 		// Used by MSBLD_F0:2, AFBLD_F0:1
-		{ IMG_PORT_VIPI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		{ IMG_PORT_VIPI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1, true },
 		// Used by MSBLD_F0:2, AFBLD_F0:1
-		{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1, true },
 		// Used by MSBLD_F0:2, AFBLD_F0:1
-		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by MSBLD_F0:2, AFBLD_F0:1
-		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1 },
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1, true },
 		// Used by MSBLD_F0:2, AFBLD_F0:1
-		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1, true },
 		// Used by MSBLD_F0:2
-		{ IMG_PORT_IMG4O, formats::NV12_10P_MTISP, mfnrSizes[0], 2, 1, 1 },
+		{ IMG_PORT_IMG4O, formats::NV12_10P_MTISP, mfnrSizes[0], 2, 1, 1, true },
 		// Used by AFBLD_F0:1
-		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[0], 2, 1, 1 },
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[0], 2, 1, 1, true },
 		// Used by MSBLD_F0:2, AFBLD_F0:1
-		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1 },
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1, true },
 	};
 
 	if (!still1.isNull()) {
 		portBufsLpnr.push_back({ IMG_PORT_WDMAO, formats::NV12, still1, 3, 64, 1 });
-		portBufsMfnr.push_back({ IMG_PORT_WDMAO, formats::NV12, still1, 3, 64, 1 });
+		portBufsMfnr.push_back({ IMG_PORT_WDMAO, formats::NV12, still1, 3, 64, 1, true });
 	}
 
 	if (!still2.isNull()) {
 		portBufsLpnr.push_back({ IMG_PORT_WROTO, formats::NV12, still2, 3, 64, 1 });
-		portBufsMfnr.push_back({ IMG_PORT_WROTO, formats::NV12, still2, 3, 64, 1 });
+		portBufsMfnr.push_back({ IMG_PORT_WROTO, formats::NV12, still2, 3, 64, 1, true });
 	}
 
 	std::vector<PortBuffers> portBufsCommon = {
@@ -1305,10 +1355,10 @@ int ImgSysDevice::importBuffers(
 		{ IMG_PORT_DRV_CTRLMETAI, formats::MTFD_MTISP, kCtrlMetaSize, kCtrlMetaPoolSize, 1, 1 },
 	};
 
-	importBufferByList(portBufsMcnr, UserIdMcnr);
-	importBufferByList(portBufsLpnr, UserIdLpnr);
-	importBufferByList(portBufsMfnr, UserIdMfnr);
-	importBufferByList(portBufsCommon, UserIdMcnr);
+	importBufferByList(portBufsMcnr, kUserIdMcnr);
+	importBufferByList(portBufsLpnr, kUserIdLpnr);
+	importBufferByList(portBufsMfnr, kUserIdMfnr);
+	importBufferByList(portBufsCommon, kUserIdMcnr);
 
 	std::set<IMG_PORT> activePorts;
 	for (auto &portBuf : portBufsMcnr) {
@@ -1348,6 +1398,13 @@ int ImgSysDevice::releaseAllBuffers()
 		ret |= device->releaseBuffers();
 	}
 	return ret;
+}
+
+void ImgSysDevice::resetBuffers(uint32_t userId)
+{
+	for (auto &[_, videoDevice] : allVideoDevices_) {
+		videoDevice->resetBuffers(userId);
+	}
 }
 
 void ImgSysRequestHelper::queueRequest(uint32_t userId, SingleDeviceRequest &sdRequest)

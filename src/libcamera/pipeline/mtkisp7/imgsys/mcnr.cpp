@@ -697,7 +697,7 @@ void MeATask::run()
 	/* Set wait fence for HW_ME_3PASS_MODE_0 from HW_TR_ME_L1 */
 	HW_ME_3PASS_MODE_0.addWait(syncLtrMeA_);
 
-	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
+	requestHelper_.queueRequest(ImgSysDevice::kUserIdMcnr, sdRequest);
 }
 
 MeBTask::MeBTask(Scheduler *scheduler, const std::string &id,
@@ -757,7 +757,7 @@ void MeBTask::run()
 
 	HW_ME_3PASS_MODE_1.setMeInfo(NSCam::NSImgStream::EME_MODE_1);
 
-	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
+	requestHelper_.queueRequest(ImgSysDevice::kUserIdMcnr, sdRequest);
 }
 
 TrTask::TrTask(Scheduler *scheduler, const std::string &id,
@@ -853,7 +853,7 @@ void TrTask::run()
 
 	HW_TR_CONF5.setMvFrame(mcnrSizes[0], kMeL0Size);
 
-	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
+	requestHelper_.queueRequest(ImgSysDevice::kUserIdMcnr, sdRequest);
 }
 
 Dip1Task::Dip1Task(Scheduler *scheduler, const std::string &id,
@@ -1038,7 +1038,7 @@ void Dip1Task::run()
 	StageEx &HW_DIP_F1 = sdRequest.emplaceStage(PEU_Stage::HW_DIP_F1);
 	setDipParams(HW_DIP_F1, 1);
 
-	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
+	requestHelper_.queueRequest(ImgSysDevice::kUserIdMcnr, sdRequest);
 }
 
 void Dip1Task::setWpeParams(StageEx &stage, unsigned int level)
@@ -1195,7 +1195,7 @@ void Dip2Task::run()
 	HW_DIP_F0.setCostLevel();
 	HW_DIP_F0.setImg4oCrop(tncCropAlign);
 
-	requestHelper_.queueRequest(UserIdMcnr, sdRequest);
+	requestHelper_.queueRequest(ImgSysDevice::kUserIdMcnr, sdRequest);
 }
 
 } /* namespace libcamera */
