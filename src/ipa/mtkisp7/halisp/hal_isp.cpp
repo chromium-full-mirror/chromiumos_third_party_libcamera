@@ -133,6 +133,7 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 	provider_ = mtk::isphal::v1_0::TuningDataProvider::createInstance(
 		sensorIdx_, sensorDev_, 0);
 
+	pPluginNotifier_ = mtk::ispcf::IPluginNotifier::createInstance(sensorDev_, sensorIdx_);
 	return 0;
 }
 
@@ -956,6 +957,70 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 	mtk::isphal::IspTuningStatisticsP2 tuning_statistics = {};
 	mtk::isphal::IspTuningBufferP2 tuning_data = {};
 
+	NSCam::IMetadata appMeta, appMeta2;
+	NSCam::IMetadata imgsSysHalMeta;
+	NSCam::IMetadata camSysHalMeta;
+	if (is_mfnr) {
+		int scale = 0;
+		bool isBlending = true;
+		int mfnrIndex = imgMetaRequest.index;
+		bool isGolden = imgMetaRequest.isGolden;
+		switch (imgMetaRequest.stage) {
+		case EStage_AFBLD_F0:
+		case EStage_MSBLD_F0:
+			scale = 0;
+			break;
+		case EStage_MSBLD_F1:
+		case EStage_AFBLD_F1:
+			scale = 1;
+			break;
+		case EStage_MSBLD_F2:
+		case EStage_AFBLD_F2:
+			scale = 2;
+			break;
+		case EStage_MSBLD_F3:
+		case EStage_AFBLD_F3:
+			scale = 3;
+			break;
+		case EStage_MSBLD_F4:
+		case EStage_AFBLD_F4:
+			scale = 4;
+			break;
+		case EStage_MSBLD_F5:
+		case EStage_AFBLD_F5:
+			scale = 5;
+			break;
+		case EStage_MSBLD_F6:
+		case EStage_AFBLD_F6:
+			scale = 6;
+			break;
+		default:
+			scale = 0;
+			isBlending = false;
+			break;
+		}
+		NSCam::IMetadata::setEntry<MINT64>(&camSysHalMeta, MTK_TUNING_FEATURE_CAPTURE_HINT, NSIspTuning::EFeature_Capture_mfnr);
+		NSCam::IMetadata::setEntry<MINT64>(&camSysHalMeta, MTK_TUNING_FEATURE_STREAMING_HINT, 0);
+		NSCam::IMetadata::setEntry<MINT32>(&camSysHalMeta, MTK_HAL_REQUEST_INDEX, mfnrIndex);
+		if (isGolden)
+			NSCam::IMetadata::setEntry<BOOL>(&camSysHalMeta, MTK_FEATURE_BSS_ISGOLDEN, isGolden);
+		NSCam::IMetadata::Memory qry_info;
+		qry_info.resize(sizeof(CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO));
+		CamInfo *prevCamInfo = queryHistory(frameNumber);
+		CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO qry = prevCamInfo->cam_info.rMapping_Info_with_sys_info;
+		memcpy(qry_info.editArray(), &qry, sizeof(CAM_IDX_QRY_COMB_WITH_SYSTEM_INFO));
+		NSCam::IMetadata::setEntry<NSCam::IMetadata::Memory>(&camSysHalMeta, MTK_ISP_ATMS_MAPPING_INFO_WITH_SYSTEM_INFO, qry_info);
+		if (isBlending) {
+			NSCam::IMetadata::setEntry<MINT32>(&imgsSysHalMeta, MTK_ISP_TNR_FRAME_INDEX, imgMetaRequest.tnr_frameIndex);
+			NSCam::IMetadata::setEntry<MINT32>(&imgsSysHalMeta, MTK_ISP_TNR_FRAME_TOTAL, 4);
+			NSCam::IMetadata::setEntry<MINT32>(&imgsSysHalMeta, MTK_ISP_TNR_SCALE_INDEX, scale);
+			NSCam::IMetadata::setEntry<MINT32>(&imgsSysHalMeta, MTK_ISP_TNR_TOTAL_SCALE, 7);
+		}
+		// pre-processing for plugin
+	}
+	mtk_halisp_metaset control_from_camsys(&appMeta, &camSysHalMeta);
+	mtk_halisp_metaset control_imgsys(&appMeta2, &imgsSysHalMeta);
+
 	tuning_control.stage = imgMetaRequest.stage;
 	tuning_control.mock = false;
 	tuning_control.update_mode = mtk::isphal::kIspUpdateModeAuto;
@@ -1019,6 +1084,19 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		hal3A_->resultHistory_.query(camSysMetaRequestId);
 
 	CamInfo *camInfo = queryHistory(camSysMetaRequestId);
+
+	if (is_mfnr) {
+		std::vector<
+			std::pair<std::string,
+				  std::vector<std::pair<mtk::ispcf::kISPPLUGIN_BUF_T, mtk::isphal::Buffer>>>>
+			buf_list_in;
+		bool plugin_ret1 = pPluginNotifier_->doAllImgSysPreproc(
+			control_from_camsys, control_imgsys, tuning_control, tuning_statistics,
+			*result_p2.tuning_data[0], buf_list_in);
+		if (plugin_ret1) {
+			LOG(MtkISP7, Debug) << "There are some plugin available for pre-processing";
+		}
+	}
 
 	/* parsePipelineMetadata */
 	{
@@ -1196,6 +1274,15 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 	onDeviceTuner_->tuneExif(
 		internalRequestId, frameNumber, tuning_param_p2.exif_3a,
 		result_p2.exif, imgsys_info.rMapping_Info.eStage, feature);
+	if (is_mfnr) {
+		bool plugin_ret2 = pPluginNotifier_->doAllImgSysPostProc(
+			control_from_camsys, control_imgsys, tuning_control, tuning_statistics,
+			*result_p2.tuning_data[0], result_p2.exif);
+
+		if (plugin_ret2) {
+			LOG(MtkISP7, Debug) << "There are some plugin available for post-processing";
+		}
+	}
 
 	return 0;
 }

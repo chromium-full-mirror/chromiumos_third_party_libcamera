@@ -31,6 +31,8 @@ libmtkcam_stdutils = cc.find_library('libmtkcam_stdutils', required : true)
 libcamalgo_bss = cc.find_library('camalgo.bss', required : true)
 libcamalgo_mfnr = cc.find_library('camalgo.mfnr', required : true)
 
+libcam_halisp_plugin = cc.find_library('cam.halisp.plugin', required : true)
+
 mtkisp7_deps = [
     libcamalgo_fdft,
     libcam_hal3a,
@@ -47,7 +49,8 @@ mtkisp7_deps = [
     libmtkcam_stdutils,
     libcamalgo_bss,
     libcamalgo_mfnr,
-    libcamera_private
+    libcamera_private,
+    libcam_halisp_plugin
 ]
 
 mod = shared_module(ipa_name,

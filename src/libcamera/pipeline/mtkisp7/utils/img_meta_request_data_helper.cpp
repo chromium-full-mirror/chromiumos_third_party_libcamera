@@ -18,7 +18,7 @@ ipa::mtkisp7::ImgMetaRequestData makeImgMetaRequestDataNonMfnr(
 	return ipa::mtkisp7::ImgMetaRequestData(
 		_isCapture, _stage, _tuningBufferId, _statisticsBufferId,
 		_swHistBufferId, _inputSize, _outputSize, _outputSize2,
-		_fullDipSize, _reserved, false, 0, 1, false, 0);
+		_fullDipSize, _reserved, false, 0, 1, 0, false, false, 0);
 }
 
 } /* namespace libcamera */

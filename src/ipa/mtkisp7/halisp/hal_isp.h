@@ -21,6 +21,7 @@
 #include "platform/mtkisp7/halisp/IHalIsp.h"
 #include "platform/mtkisp7/halisp/ITuningDataProvider.h"
 #include "platform/mtkisp7/utils/history.h"
+#include "mtkcam-core/aaa/isphal/src/include/plugin/IPluginNotifier.h"
 
 #include "mtkisp7_ipa_interface.h"
 #include "stdint.h"
@@ -48,6 +49,8 @@ struct ImgMetaRequest {
 	Size fullDipSize;
 	int tnr_frameIndex = 0;
 	int tnr_frameTotal = 1;
+	int index = 0;
+	bool isGolden = false;
 
 	std::unordered_map<mtk::isphal::kISPExtBuf,
 			   std::pair<FrameBuffer *, MappedFrameBuffer *>>
@@ -132,6 +135,8 @@ private:
 	Hal3A *hal3A_;
 
 	History<CamInfo> camInfoHistory_;
+
+	mtk::ispcf::IPluginNotifier *pPluginNotifier_;
 
 public:
 	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> isp_swme_Param_ = nullptr;

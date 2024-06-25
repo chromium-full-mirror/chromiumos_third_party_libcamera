@@ -976,6 +976,8 @@ void IPAMtkISP7::IspManager::getImgSysMetaTuning(
 			.fullDipSize = requestData.fullDipSize,
 			.tnr_frameIndex = requestData.tnr_frameIndex,
 			.tnr_frameTotal = requestData.tnr_frameTotal,
+			.index = requestData.index,
+			.isGolden = requestData.isGolden,
 			.reserved = {}
 		};
 

@@ -73,6 +73,8 @@ struct ImgMetaRequestData {
 	bool isMfnr;
 	int32 tnr_frameIndex;
 	int32 tnr_frameTotal;
+	int32 index;
+	bool isGolden;
 
 	bool hasFrameNumber;
 	uint32 frameNumber;

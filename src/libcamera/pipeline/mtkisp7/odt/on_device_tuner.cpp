@@ -1215,13 +1215,11 @@ void OnDeviceTuner::tuneBfbld(uint32_t internalRequestId, BfbldFrames &frames, s
 			namedFrames.push_back({ Dump::Id::BFBLD_BASE_TUNBUF, frames.in.tunbufi[i]->get() });
 			namedFrames.push_back({ Dump::Id::BFBLD_BASE_IMG2O, frames.out.img2o[i]->get() });
 			namedFrames.push_back({ Dump::Id::BFBLD_BASE_IMG3O, frames.out.img3o[i]->get() });
-			//namedFrames.push_back({ Dump::Id::BFBLD_BASE_P2STTO, frames.out.p2stto[i]->get() });
 		} else {
 			namedFrames.push_back({ Dump::Id::BFBLD_REF_TIMGI, frames.in.timgi[i]->get() });
 			namedFrames.push_back({ Dump::Id::BFBLD_REF_TUNBUF, frames.in.tunbufi[i]->get() });
 			namedFrames.push_back({ Dump::Id::BFBLD_REF_IMG2O, frames.out.img2o[i]->get() });
 			namedFrames.push_back({ Dump::Id::BFBLD_REF_IMG3O, frames.out.img3o[i]->get() });
-			//namedFrames.push_back({ Dump::Id::BFBLD_REF_P2STTO, frames.out.p2stto[i]->get() });
 		}
 		tune(internalRequestId, internalRequestId + order[i], namedFrames, true);
 	}

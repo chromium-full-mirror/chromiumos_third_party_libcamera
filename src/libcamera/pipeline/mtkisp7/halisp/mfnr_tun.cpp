@@ -349,7 +349,8 @@ void MfnrTunBfbldTask::run()
 			bfbldTun_[i]->get().buffer()->cookie(),
 			0, 0, manager_->mfnrSizes_[0],
 			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
-			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+			manager_->mfnrSizes_[0], {}, true, 0, 1,
+			bssOrder[i], i == 0, true, frameNumber);
 		requests.push_back(std::move(request));
 	}
 
@@ -389,7 +390,8 @@ void MfnrTunBfmeTask::run()
 			tncso_->get().buffer()->cookie(), 0,
 			manager_->mfnrSizes_[2],
 			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
-			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+			manager_->mfnrSizes_[0], {}, true, 0, 1,
+			bssOrder[i], i == 0, true, frameNumber);
 		requests.push_back(std::move(request));
 	}
 
@@ -511,7 +513,8 @@ void MfnrTunDsTask::run()
 			dsTun[i]->get().buffer()->cookie(),
 			0, 0, manager_->mfnrSizes_[0],
 			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
-			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+			manager_->mfnrSizes_[0], {}, true, 0, 1,
+			frameNumber - internalRequestId_, (i == 0 || i == 1), true, frameNumber);
 		requests.push_back(std::move(request));
 	}
 
@@ -551,7 +554,8 @@ void MfnrTunMcdsF1Task::run()
 			mcdsF1Tun_[i]->get().buffer()->cookie(),
 			0, 0, manager_->mfnrSizes_[0],
 			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
-			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+			manager_->mfnrSizes_[0], {}, true, 0, 1,
+			bssOrder[i + 1], false, true, frameNumber);
 		requests.push_back(std::move(request));
 	}
 
@@ -593,7 +597,8 @@ void MfnrTunDsVbiTask::run()
 			dsVbiV2Tun_[i]->get().buffer()->cookie(),
 			0, 0, manager_->mfnrSizes_[1],
 			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
-			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+			manager_->mfnrSizes_[0], {}, true, 0, 1,
+			bssOrder[i + 1], false, true, frameNumber);
 		requests.push_back(std::move(request));
 
 		request = ipa::mtkisp7::ImgMetaRequestData(
@@ -601,7 +606,8 @@ void MfnrTunDsVbiTask::run()
 			dsVbiV5Tun_[i]->get().buffer()->cookie(),
 			0, 0, manager_->mfnrSizes_[4],
 			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
-			manager_->mfnrSizes_[0], {}, true, 0, 1, true, frameNumber);
+			manager_->mfnrSizes_[0], {}, true, 0, 1,
+			bssOrder[i + 1], false, true, frameNumber);
 		requests.push_back(std::move(request));
 	}
 
@@ -660,7 +666,9 @@ void MfnrTunMsbldTask::run()
 			0, 0, manager_->mfnrSizes_[size_idx],
 			manager_->yuvOutput1Size_, manager_->yuvOutput2Size_,
 			manager_->mfnrSizes_[0], {}, true, msbldIdx_,
-			kInputRawCount, true, frameNumber);
+			kInputRawCount,
+			bssOrder[msbldIdx_], msbldIdx_ == 0,
+			true, frameNumber);
 		requests.push_back(std::move(request));
 	}
 
@@ -723,8 +731,9 @@ void MfnrTunAfbldTask::run()
 				manager_->yuvOutput1Size_,
 				manager_->yuvOutput2Size_,
 				manager_->mfnrSizes_[0], {}, true,
-				kInputRawCount - 2, kInputRawCount, true,
-				frameNumber);
+				kInputRawCount - 2, kInputRawCount,
+				bssOrder[2], false,
+				true, frameNumber);
 		} else {
 			request = ipa::mtkisp7::ImgMetaRequestData(
 				true, it->first,
@@ -733,8 +742,9 @@ void MfnrTunAfbldTask::run()
 				manager_->yuvOutput1Size_,
 				manager_->yuvOutput2Size_,
 				manager_->mfnrSizes_[0], {}, true,
-				kInputRawCount - 2, kInputRawCount, true,
-				frameNumber);
+				kInputRawCount - 2, kInputRawCount,
+				bssOrder[2], false,
+				true, frameNumber);
 		}
 
 		requests.push_back(std::move(request));
