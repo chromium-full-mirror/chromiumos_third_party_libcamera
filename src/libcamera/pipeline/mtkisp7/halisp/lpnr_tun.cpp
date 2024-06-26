@@ -56,13 +56,12 @@ LpnrTunTasksManager::LpnrTunTasksManager(
 
 void LpnrTunTasksManager::allocateBuffers()
 {
-	lpnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 16, DmaHeap::CMA);
-	lpnrTun_.mmap();
+	// In enforced lowIsoMode, it's 15. In highIsoMode though, it's 18.
+	lpnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 15, DmaHeap::CMA);
 }
 
 void LpnrTunTasksManager::releaseBuffers()
 {
-	lpnrTun_.unmap();
 	lpnrTun_.release();
 }
 

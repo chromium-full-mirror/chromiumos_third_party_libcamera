@@ -48,7 +48,7 @@ int LpnrTasksManager::configure(const Size &bayerInputSize,
 	}
 
 	/* Allocate buffer pools */
-	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 5, DmaHeap::CMA);
+	lpnrStt_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTrawSttSize, 2, DmaHeap::CMA);
 
 	/* Level 0 uses NV12_10P_MTISP */
 	lpnr_[0].setFormat(dmaHeap_, formats::NV12_10P_MTISP, lpnrSizes[0]);
@@ -138,9 +138,9 @@ LpnrTasksManager::makeLpnrTasks(LPNRFrames &lpnr, Scheduler *scheduler,
 				uint32_t internalRequestId, ImgSysDevice *imgSys)
 {
 	XTRTask *xtrTask = new XTRTask(
-			scheduler, id, request, internalRequestId, imgSys, lpnr, this);
+		scheduler, id, request, internalRequestId, imgSys, lpnr, this);
 	LpnrDipTask *dipTask = new LpnrDipTask(
-			scheduler, id, request, internalRequestId, imgSys, lpnr, this);
+		scheduler, id, request, internalRequestId, imgSys, lpnr, this);
 	return std::make_tuple(xtrTask, dipTask);
 }
 
