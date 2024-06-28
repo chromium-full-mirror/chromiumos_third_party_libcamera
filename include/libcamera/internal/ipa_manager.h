@@ -33,7 +33,8 @@ public:
 	static std::unique_ptr<T> createIPA(PipelineHandler *pipe,
 					    uint32_t minVersion,
 					    uint32_t maxVersion,
-					    bool useUnixSocketConnection = false)
+					    bool useUnixSocketConnection = false,
+					    std::string unixSocketPath = "")
 	{
 		IPAModule *m = self_->module(pipe, minVersion, maxVersion);
 		if (!m)
@@ -47,7 +48,8 @@ public:
 		else
 			ipaIsolation = IPAProxy::IPAIsolation::ForkProcess;
 
-		std::unique_ptr<T> proxy = std::make_unique<T>(m, ipaIsolation);
+		std::unique_ptr<T> proxy = std::make_unique<T>(m, ipaIsolation,
+							       unixSocketPath);
 		if (!proxy->isValid()) {
 			LOG(IPAManager, Error) << "Failed to load proxy";
 			return nullptr;

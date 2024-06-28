@@ -21,8 +21,11 @@ class Process;
 class IPCPipeUnixSocket : public IPCPipe, public Object
 {
 public:
+	constexpr static char kCpuPath[] = "/run/camera/camera-algo-libcamera.sock";
+	constexpr static char kGpuPath[] = "/run/camera/camera-algo-gpu-libcamera.sock";
+
 	IPCPipeUnixSocket(const char *ipaModulePath, const char *ipaProxyWorkerPath);
-	IPCPipeUnixSocket();
+	IPCPipeUnixSocket(std::string path);
 	~IPCPipeUnixSocket();
 
 	int sendSync(const IPCMessage &in,
