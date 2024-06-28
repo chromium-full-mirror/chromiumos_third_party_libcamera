@@ -53,7 +53,7 @@ IPCPipeUnixSocket::IPCPipeUnixSocket(const char *ipaModulePath,
 	connected_ = true;
 }
 
-IPCPipeUnixSocket::IPCPipeUnixSocket()
+IPCPipeUnixSocket::IPCPipeUnixSocket(std::string path)
 	: IPCPipe(), inCall_(false)
 {
 	std::vector<int> fds;
@@ -62,7 +62,7 @@ IPCPipeUnixSocket::IPCPipeUnixSocket()
 
 	// TODO(chenghaoyang): Design a more general API to allow other use
 	// cases than CrOS.
-	int success = socket_->connectRemote("/run/camera/camera-algo-libcamera.sock");
+	int success = socket_->connectRemote(path);
 	if (!success) {
 		LOG(IPCPipe, Error) << "Failed to create socket";
 		return;

@@ -45,7 +45,7 @@ namespace {{ns}} {
 {% endfor %}
 {%- endif %}
 
-{{proxy_name}}::{{proxy_name}}(IPAModule *ipam, IPAIsolation ipaIsolation)
+{{proxy_name}}::{{proxy_name}}(IPAModule *ipam, IPAIsolation ipaIsolation, std::string path)
 	: IPAProxy(ipam), isolate_(ipaIsolation != IPAIsolation::InThread),
 	  controlSerializer_(ControlSerializer::Role::Proxy), seq_(0)
 {
@@ -65,7 +65,7 @@ namespace {{ns}} {
 			ipc_ = std::make_unique<IPCPipeUnixSocket>(ipam->path().c_str(),
 								   proxyWorkerPath.c_str());
 		} else if (ipaIsolation == IPAIsolation::UnixSocketProcess) {
-			ipc_ = std::make_unique<IPCPipeUnixSocket>();
+			ipc_ = std::make_unique<IPCPipeUnixSocket>(path);
 		}
 		if (!ipc_->isConnected()) {
 			LOG(IPAProxy, Error) << "Failed to create IPCPipe";

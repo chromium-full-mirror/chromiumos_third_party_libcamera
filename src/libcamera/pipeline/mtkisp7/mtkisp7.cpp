@@ -968,7 +968,7 @@ bool MtkISP7CameraData::loadIPA()
 
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 
-	auto ipa = IPAManager::createIPA<ipa::mtkisp7::IPAProxyMtkISP7>(pipe(), 1, 1, true);
+	auto ipa = IPAManager::createIPA<ipa::mtkisp7::IPAProxyMtkISP7>(pipe(), 1, 1, true, IPCPipeUnixSocket::kCpuPath);
 	if (!ipa) {
 		LOG(MtkISP7, Error) << "Failed to load IPA";
 		return false;
