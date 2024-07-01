@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 project('libcamera', 'c', 'cpp',
-    meson_version : '>= 0.57',
-    version : '0.1.0',
+    meson_version : '>= 0.60',
+    version : '0.3.0',
     default_options : [
         'werror=true',
         'warning_level=2',
@@ -74,6 +74,10 @@ cc = meson.get_compiler('c')
 cxx = meson.get_compiler('cpp')
 config_h = configuration_data()
 
+if cc.has_header_symbol('fcntl.h', 'F_ADD_SEALS', prefix : '#define _GNU_SOURCE')
+    config_h.set('HAVE_FILE_SEALS', 1)
+endif
+
 if cc.has_header_symbol('unistd.h', 'issetugid')
     config_h.set('HAVE_ISSETUGID', 1)
 endif
@@ -82,11 +86,16 @@ if cc.has_header_symbol('locale.h', 'locale_t', prefix : '#define _GNU_SOURCE')
     config_h.set('HAVE_LOCALE_T', 1)
 endif
 
+if cc.has_header_symbol('sys/mman.h', 'memfd_create', prefix : '#define _GNU_SOURCE')
+    config_h.set('HAVE_MEMFD_CREATE', 1)
+endif
+
 if cc.has_header_symbol('stdlib.h', 'secure_getenv', prefix : '#define _GNU_SOURCE')
     config_h.set('HAVE_SECURE_GETENV', 1)
 endif
 
 common_arguments = [
+    '-Wmissing-declarations',
     '-Wshadow',
     '-include', meson.current_build_dir() / 'config.h',
 ]
@@ -198,6 +207,7 @@ arch_x86 = ['x86', 'x86_64']
 pipelines_support = {
     'imx8-isi':     arch_arm,
     'ipu3':         arch_x86,
+    'mali-c55':     arch_arm,
     'rkisp1':       arch_arm,
     'rpi/vc4':      arch_arm,
     'simple':       arch_arm,
@@ -267,6 +277,8 @@ py_mod.find_installation('python3', modules : py_modules)
 summary({
             'Enabled pipelines': pipelines,
             'Enabled IPA modules': enabled_ipa_names,
+            'Controls files': controls_files,
+            'Properties files': properties_files,
             'Hotplug support': libudev.found(),
             'Tracing support': tracing_enabled,
             'Android support': android_enabled,

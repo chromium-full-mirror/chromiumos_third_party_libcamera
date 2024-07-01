@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2019, Google Inc.
  *
- * viewfinder_qt.cpp - qcam - QPainter-based ViewFinder
+ * qcam - QPainter-based ViewFinder
  */
 
 #include "viewfinder_qt.h"
@@ -36,6 +36,7 @@ static const QMap<libcamera::PixelFormat, QImage::Format> nativeFormats
 	{ libcamera::formats::RGB888, QImage::Format_BGR888 },
 #endif
 	{ libcamera::formats::BGR888, QImage::Format_RGB888 },
+	{ libcamera::formats::RGB565, QImage::Format_RGB16 },
 };
 
 ViewFinderQt::ViewFinderQt(QWidget *parent)

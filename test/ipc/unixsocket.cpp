@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2019, Google Inc.
  *
- * unixsocket.cpp - Unix socket IPC test
+ * Unix socket IPC test
  */
 
 #include <algorithm>
@@ -34,6 +34,8 @@ using namespace libcamera;
 using namespace std;
 using namespace std::chrono_literals;
 
+namespace {
+
 int calculateLength(int fd)
 {
 	lseek(fd, 0, 0);
@@ -42,6 +44,8 @@ int calculateLength(int fd)
 
 	return size;
 }
+
+} /* namespace */
 
 class UnixSocketTestSlave
 {
@@ -431,7 +435,7 @@ private:
 		if (ret)
 			return ret;
 
-		timeout.start(200ms);
+		timeout.start(2s);
 		while (!callDone_) {
 			if (!timeout.isRunning()) {
 				cerr << "Call timeout!" << endl;

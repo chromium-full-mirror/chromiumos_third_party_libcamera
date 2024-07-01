@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2019, Google Inc.
  *
- * main.cpp - qcam - The libcamera GUI test application
+ * qcam - The libcamera GUI test application
  */
 
 #include <signal.h>
@@ -20,6 +20,8 @@
 #include "message_handler.h"
 
 using namespace libcamera;
+
+namespace {
 
 void signalHandler([[maybe_unused]] int signal)
 {
@@ -51,6 +53,8 @@ OptionsParser::Options parseOptions(int argc, char *argv[])
 
 	return options;
 }
+
+} /* namespace */
 
 int main(int argc, char **argv)
 {

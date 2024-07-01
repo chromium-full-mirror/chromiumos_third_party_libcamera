@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2019, Google Inc.
  *
- * ipa_interface.h - Image Processing Algorithm interface
+ * Image Processing Algorithm interface
  */
 
 #pragma once
@@ -33,8 +33,8 @@ public:
 	virtual ~IPAInterface() = default;
 };
 
-} /* namespace libcamera */
-
 extern "C" {
 libcamera::IPAInterface *ipaCreate();
 }
+
+} /* namespace libcamera */

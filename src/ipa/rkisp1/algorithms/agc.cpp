@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2021-2022, Ideas On Board
  *
- * agc.cpp - AGC/AEC mean-based control algorithm
+ * AGC/AEC mean-based control algorithm
  */
 
 #include "agc.h"
@@ -10,12 +10,16 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <tuple>
+#include <vector>
 
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 
 #include <libcamera/control_ids.h>
 #include <libcamera/ipa/core_ipa_interface.h>
+
+#include "libcamera/internal/yaml_parser.h"
 
 #include "libipa/histogram.h"
 
@@ -36,32 +40,118 @@ namespace ipa::rkisp1::algorithms {
 
 LOG_DEFINE_CATEGORY(RkISP1Agc)
 
-/* Minimum limit for analogue gain value */
-static constexpr double kMinAnalogueGain = 1.0;
+int Agc::parseMeteringModes(IPAContext &context, const YamlObject &tuningData)
+{
+	if (!tuningData.isDictionary())
+		LOG(RkISP1Agc, Warning)
+			<< "'AeMeteringMode' parameter not found in tuning file";
 
-/* \todo Honour the FrameDurationLimits control instead of hardcoding a limit */
-static constexpr utils::Duration kMaxShutterSpeed = 60ms;
+	for (const auto &[key, value] : tuningData.asDict()) {
+		if (controls::AeMeteringModeNameValueMap.find(key) ==
+		    controls::AeMeteringModeNameValueMap.end()) {
+			LOG(RkISP1Agc, Warning)
+				<< "Skipping unknown metering mode '" << key << "'";
+			continue;
+		}
 
-/* Number of frames to wait before calculating stats on minimum exposure */
-static constexpr uint32_t kNumStartupFrames = 10;
+		std::vector<uint8_t> weights =
+			value.getList<uint8_t>().value_or(std::vector<uint8_t>{});
+		if (weights.size() != context.hw->numHistogramWeights) {
+			LOG(RkISP1Agc, Warning)
+				<< "Failed to read metering mode'" << key << "'";
+			continue;
+		}
 
-/* Target value to reach for the top 2% of the histogram */
-static constexpr double kEvGainTarget = 0.5;
+		meteringModes_[controls::AeMeteringModeNameValueMap.at(key)] = weights;
+	}
 
-/*
- * Relative luminance target.
- *
- * It's a number that's chosen so that, when the camera points at a grey
- * target, the resulting image brightness is considered right.
- *
- * \todo Why is the value different between IPU3 and RkISP1 ?
- */
-static constexpr double kRelativeLuminanceTarget = 0.4;
+	if (meteringModes_.empty()) {
+		LOG(RkISP1Agc, Warning)
+			<< "No metering modes read from tuning file; defaulting to matrix";
+		int32_t meteringModeId = controls::AeMeteringModeNameValueMap.at("MeteringMatrix");
+		std::vector<uint8_t> weights(context.hw->numHistogramWeights, 1);
+
+		meteringModes_[meteringModeId] = weights;
+	}
+
+	std::vector<ControlValue> meteringModes;
+	std::vector<int> meteringModeKeys = utils::map_keys(meteringModes_);
+	std::transform(meteringModeKeys.begin(), meteringModeKeys.end(),
+		       std::back_inserter(meteringModes),
+		       [](int x) { return ControlValue(x); });
+	context.ctrlMap[&controls::AeMeteringMode] = ControlInfo(meteringModes);
+
+	return 0;
+}
+
+uint8_t Agc::computeHistogramPredivider(const Size &size,
+					enum rkisp1_cif_isp_histogram_mode mode)
+{
+	/*
+	 * The maximum number of pixels that could potentially be in one bin is
+	 * if all the pixels of the image are in it, multiplied by 3 for the
+	 * three color channels. The counter for each bin is 16 bits wide, so
+	 * `factor` thus contains the number of times we'd wrap around. This is
+	 * obviously the number of pixels that we need to skip to make sure
+	 * that we don't wrap around, but we compute the square root of it
+	 * instead, as the skip that we need to program is for both the x and y
+	 * directions.
+	 *
+	 * Even though it looks like dividing into a counter of 65536 would
+	 * overflow by 1, this is apparently fine according to the hardware
+	 * documentation, and this successfully gets the expected documented
+	 * predivider size for cases where:
+	 * (width / predivider) * (height / predivider) * 3 == 65536.
+	 *
+	 * There's a bit of extra rounding math to make sure the rounding goes
+	 * the correct direction so that the square of the step is big enough
+	 * to encompass the `factor` number of pixels that we need to skip.
+	 *
+	 * \todo Take into account weights. That is, if the weights are low
+	 * enough we can potentially reduce the predivider to increase
+	 * precision. This needs some investigation however, as this hardware
+	 * behavior is undocumented and is only an educated guess.
+	 */
+	int count = mode == RKISP1_CIF_ISP_HISTOGRAM_MODE_RGB_COMBINED ? 3 : 1;
+	double factor = size.width * size.height * count / 65536.0;
+	double root = std::sqrt(factor);
+	uint8_t predivider = static_cast<uint8_t>(std::ceil(root));
+
+	return std::clamp<uint8_t>(predivider, 3, 127);
+}
 
 Agc::Agc()
-	: frameCount_(0), numCells_(0), numHistBins_(0), filteredExposure_(0s)
 {
 	supportsRaw_ = true;
+}
+
+/**
+ * \brief Initialise the AGC algorithm from tuning files
+ * \param[in] context The shared IPA context
+ * \param[in] tuningData The YamlObject containing Agc tuning data
+ *
+ * This function calls the base class' tuningData parsers to discover which
+ * control values are supported.
+ *
+ * \return 0 on success or errors from the base class
+ */
+int Agc::init(IPAContext &context, const YamlObject &tuningData)
+{
+	int ret;
+
+	ret = parseTuningData(tuningData);
+	if (ret)
+		return ret;
+
+	const YamlObject &yamlMeteringModes = tuningData["AeMeteringMode"];
+	ret = parseMeteringModes(context, yamlMeteringModes);
+	if (ret)
+		return ret;
+
+	context.ctrlMap[&controls::AeEnable] = ControlInfo(false, true);
+	context.ctrlMap.merge(controls());
+
+	return 0;
 }
 
 /**
@@ -81,18 +171,19 @@ int Agc::configure(IPAContext &context, const IPACameraSensorInfo &configInfo)
 	context.activeState.agc.manual.exposure = context.activeState.agc.automatic.exposure;
 	context.activeState.agc.autoEnabled = !context.configuration.raw;
 
+	context.activeState.agc.constraintMode =
+		static_cast<controls::AeConstraintModeEnum>(constraintModes().begin()->first);
+	context.activeState.agc.exposureMode =
+		static_cast<controls::AeExposureModeEnum>(exposureModeHelpers().begin()->first);
+	context.activeState.agc.meteringMode =
+		static_cast<controls::AeMeteringModeEnum>(meteringModes_.begin()->first);
+
 	/*
-	 * According to the RkISP1 documentation:
-	 * - versions < V12 have RKISP1_CIF_ISP_AE_MEAN_MAX_V10 entries,
-	 * - versions >= V12 have RKISP1_CIF_ISP_AE_MEAN_MAX_V12 entries.
+	 * \todo This should probably come from FrameDurationLimits instead,
+	 * except it's computed in the IPA and not here so we'd have to
+	 * recompute it.
 	 */
-	if (context.configuration.hw.revision < RKISP1_V12) {
-		numCells_ = RKISP1_CIF_ISP_AE_MEAN_MAX_V10;
-		numHistBins_ = RKISP1_CIF_ISP_HIST_BIN_N_MAX_V10;
-	} else {
-		numCells_ = RKISP1_CIF_ISP_AE_MEAN_MAX_V12;
-		numHistBins_ = RKISP1_CIF_ISP_HIST_BIN_N_MAX_V12;
-	}
+	context.activeState.agc.maxFrameDuration = context.configuration.sensor.maxShutterSpeed;
 
 	/*
 	 * Define the measurement window for AGC as a centered rectangle
@@ -103,11 +194,13 @@ int Agc::configure(IPAContext &context, const IPACameraSensorInfo &configInfo)
 	context.configuration.agc.measureWindow.h_size = 3 * configInfo.outputSize.width / 4;
 	context.configuration.agc.measureWindow.v_size = 3 * configInfo.outputSize.height / 4;
 
-	/*
-	 * \todo Use the upcoming per-frame context API that will provide a
-	 * frame index
-	 */
-	frameCount_ = 0;
+	setLimits(context.configuration.sensor.minShutterSpeed,
+		  context.configuration.sensor.maxShutterSpeed,
+		  context.configuration.sensor.minAnalogueGain,
+		  context.configuration.sensor.maxAnalogueGain);
+
+	resetFrameCount();
+
 	return 0;
 }
 
@@ -154,6 +247,34 @@ void Agc::queueRequest(IPAContext &context,
 		frameContext.agc.exposure = agc.manual.exposure;
 		frameContext.agc.gain = agc.manual.gain;
 	}
+
+	const auto &meteringMode = controls.get(controls::AeMeteringMode);
+	if (meteringMode) {
+		frameContext.agc.updateMetering = agc.meteringMode != *meteringMode;
+		agc.meteringMode =
+			static_cast<controls::AeMeteringModeEnum>(*meteringMode);
+	}
+	frameContext.agc.meteringMode = agc.meteringMode;
+
+	const auto &exposureMode = controls.get(controls::AeExposureMode);
+	if (exposureMode)
+		agc.exposureMode =
+			static_cast<controls::AeExposureModeEnum>(*exposureMode);
+	frameContext.agc.exposureMode = agc.exposureMode;
+
+	const auto &constraintMode = controls.get(controls::AeConstraintMode);
+	if (constraintMode)
+		agc.constraintMode =
+			static_cast<controls::AeConstraintModeEnum>(*constraintMode);
+	frameContext.agc.constraintMode = agc.constraintMode;
+
+	const auto &frameDurationLimits = controls.get(controls::FrameDurationLimits);
+	if (frameDurationLimits) {
+		utils::Duration maxFrameDuration =
+			std::chrono::milliseconds((*frameDurationLimits).back());
+		agc.maxFrameDuration = maxFrameDuration;
+	}
+	frameContext.agc.maxFrameDuration = agc.maxFrameDuration;
 }
 
 /**
@@ -167,7 +288,7 @@ void Agc::prepare(IPAContext &context, const uint32_t frame,
 		frameContext.agc.gain = context.activeState.agc.automatic.gain;
 	}
 
-	if (frame > 0)
+	if (frame > 0 && !frameContext.agc.updateMetering)
 		return;
 
 	/* Configure the measurement window. */
@@ -185,11 +306,20 @@ void Agc::prepare(IPAContext &context, const uint32_t frame,
 	params->meas.hst_config.meas_window = context.configuration.agc.measureWindow;
 	/* Produce the luminance histogram. */
 	params->meas.hst_config.mode = RKISP1_CIF_ISP_HISTOGRAM_MODE_Y_HISTOGRAM;
+
 	/* Set an average weighted histogram. */
-	for (unsigned int histBin = 0; histBin < numHistBins_; histBin++)
-		params->meas.hst_config.hist_weight[histBin] = 1;
-	/* Step size can't be less than 3. */
-	params->meas.hst_config.histogram_predivider = 4;
+	Span<uint8_t> weights{
+		params->meas.hst_config.hist_weight,
+		context.hw->numHistogramWeights
+	};
+	std::vector<uint8_t> &modeWeights = meteringModes_.at(frameContext.agc.meteringMode);
+	std::copy(modeWeights.begin(), modeWeights.end(), weights.begin());
+
+	struct rkisp1_cif_isp_window window = params->meas.hst_config.meas_window;
+	Size windowSize = { window.h_size, window.v_size };
+	params->meas.hst_config.histogram_predivider =
+		computeHistogramPredivider(windowSize,
+					   static_cast<rkisp1_cif_isp_histogram_mode>(params->meas.hst_config.mode));
 
 	/* Update the configuration for histogram. */
 	params->module_cfg_update |= RKISP1_CIF_ISP_MODULE_HST;
@@ -198,127 +328,29 @@ void Agc::prepare(IPAContext &context, const uint32_t frame,
 	params->module_en_update |= RKISP1_CIF_ISP_MODULE_HST;
 }
 
-/**
- * \brief Apply a filter on the exposure value to limit the speed of changes
- * \param[in] exposureValue The target exposure from the AGC algorithm
- *
- * The speed of the filter is adaptive, and will produce the target quicker
- * during startup, or when the target exposure is within 20% of the most recent
- * filter output.
- *
- * \return The filtered exposure
- */
-utils::Duration Agc::filterExposure(utils::Duration exposureValue)
+void Agc::fillMetadata(IPAContext &context, IPAFrameContext &frameContext,
+		       ControlList &metadata)
 {
-	double speed = 0.2;
+	utils::Duration exposureTime = context.configuration.sensor.lineDuration
+				     * frameContext.sensor.exposure;
+	metadata.set(controls::AnalogueGain, frameContext.sensor.gain);
+	metadata.set(controls::ExposureTime, exposureTime.get<std::micro>());
+	metadata.set(controls::AeEnable, frameContext.agc.autoEnabled);
 
-	/* Adapt instantly if we are in startup phase. */
-	if (frameCount_ < kNumStartupFrames)
-		speed = 1.0;
+	/* \todo Use VBlank value calculated from each frame exposure. */
+	uint32_t vTotal = context.configuration.sensor.size.height
+			+ context.configuration.sensor.defVBlank;
+	utils::Duration frameDuration = context.configuration.sensor.lineDuration
+				      * vTotal;
+	metadata.set(controls::FrameDuration, frameDuration.get<std::micro>());
 
-	/*
-	 * If we are close to the desired result, go faster to avoid making
-	 * multiple micro-adjustments.
-	 * \todo Make this customisable?
-	 */
-	if (filteredExposure_ < 1.2 * exposureValue &&
-	    filteredExposure_ > 0.8 * exposureValue)
-		speed = sqrt(speed);
-
-	filteredExposure_ = speed * exposureValue +
-			    filteredExposure_ * (1.0 - speed);
-
-	LOG(RkISP1Agc, Debug) << "After filtering, exposure " << filteredExposure_;
-
-	return filteredExposure_;
-}
-
-/**
- * \brief Estimate the new exposure and gain values
- * \param[inout] context The shared IPA Context
- * \param[in] frameContext The FrameContext for this frame
- * \param[in] yGain The gain calculated on the current brightness level
- * \param[in] iqMeanGain The gain calculated based on the relative luminance target
- */
-void Agc::computeExposure(IPAContext &context, IPAFrameContext &frameContext,
-			  double yGain, double iqMeanGain)
-{
-	IPASessionConfiguration &configuration = context.configuration;
-	IPAActiveState &activeState = context.activeState;
-
-	/* Get the effective exposure and gain applied on the sensor. */
-	uint32_t exposure = frameContext.sensor.exposure;
-	double analogueGain = frameContext.sensor.gain;
-
-	/* Use the highest of the two gain estimates. */
-	double evGain = std::max(yGain, iqMeanGain);
-
-	utils::Duration minShutterSpeed = configuration.sensor.minShutterSpeed;
-	utils::Duration maxShutterSpeed = std::min(configuration.sensor.maxShutterSpeed,
-						   kMaxShutterSpeed);
-
-	double minAnalogueGain = std::max(configuration.sensor.minAnalogueGain,
-					  kMinAnalogueGain);
-	double maxAnalogueGain = configuration.sensor.maxAnalogueGain;
-
-	/* Consider within 1% of the target as correctly exposed. */
-	if (utils::abs_diff(evGain, 1.0) < 0.01)
-		return;
-
-	/* extracted from Rpi::Agc::computeTargetExposure. */
-
-	/* Calculate the shutter time in seconds. */
-	utils::Duration currentShutter = exposure * configuration.sensor.lineDuration;
-
-	/*
-	 * Update the exposure value for the next computation using the values
-	 * of exposure and gain really used by the sensor.
-	 */
-	utils::Duration effectiveExposureValue = currentShutter * analogueGain;
-
-	LOG(RkISP1Agc, Debug) << "Actual total exposure " << currentShutter * analogueGain
-			      << " Shutter speed " << currentShutter
-			      << " Gain " << analogueGain
-			      << " Needed ev gain " << evGain;
-
-	/*
-	 * Calculate the current exposure value for the scene as the latest
-	 * exposure value applied multiplied by the new estimated gain.
-	 */
-	utils::Duration exposureValue = effectiveExposureValue * evGain;
-
-	/* Clamp the exposure value to the min and max authorized. */
-	utils::Duration maxTotalExposure = maxShutterSpeed * maxAnalogueGain;
-	exposureValue = std::min(exposureValue, maxTotalExposure);
-	LOG(RkISP1Agc, Debug) << "Target total exposure " << exposureValue
-			      << ", maximum is " << maxTotalExposure;
-
-	/*
-	 * Divide the exposure value as new exposure and gain values.
-	 * \todo estimate if we need to desaturate
-	 */
-	exposureValue = filterExposure(exposureValue);
-
-	/*
-	 * Push the shutter time up to the maximum first, and only then
-	 * increase the gain.
-	 */
-	utils::Duration shutterTime = std::clamp<utils::Duration>(exposureValue / minAnalogueGain,
-								  minShutterSpeed, maxShutterSpeed);
-	double stepGain = std::clamp(exposureValue / shutterTime,
-				     minAnalogueGain, maxAnalogueGain);
-	LOG(RkISP1Agc, Debug) << "Divided up shutter and gain are "
-			      << shutterTime << " and "
-			      << stepGain;
-
-	/* Update the estimated exposure and gain. */
-	activeState.agc.automatic.exposure = shutterTime / configuration.sensor.lineDuration;
-	activeState.agc.automatic.gain = stepGain;
+	metadata.set(controls::AeMeteringMode, frameContext.agc.meteringMode);
+	metadata.set(controls::AeExposureMode, frameContext.agc.exposureMode);
+	metadata.set(controls::AeConstraintMode, frameContext.agc.constraintMode);
 }
 
 /**
  * \brief Estimate the relative luminance of the frame with a given gain
- * \param[in] ae The RkISP1 statistics and ISP results
  * \param[in] gain The gain to apply to the frame
  *
  * This function estimates the average relative luminance of the frame that
@@ -332,8 +364,6 @@ void Agc::computeExposure(IPAContext &context, IPAFrameContext &frameContext,
  * YUV doesn't take into account the fact that the R, G and B components
  * contribute differently to the relative luminance.
  *
- * \todo Have a dedicated YUV algorithm ?
- *
  * The values are normalized to the [0.0, 1.0] range, where 1.0 corresponds to a
  * theoretical perfect reflector of 100% reference white.
  *
@@ -342,46 +372,17 @@ void Agc::computeExposure(IPAContext &context, IPAFrameContext &frameContext,
  *
  * \return The relative luminance
  */
-double Agc::estimateLuminance(const rkisp1_cif_isp_ae_stat *ae,
-			      double gain)
+double Agc::estimateLuminance(double gain) const
 {
 	double ySum = 0.0;
 
 	/* Sum the averages, saturated to 255. */
-	for (unsigned int aeCell = 0; aeCell < numCells_; aeCell++)
-		ySum += std::min(ae->exp_mean[aeCell] * gain, 255.0);
+	for (uint8_t expMean : expMeans_)
+		ySum += std::min(expMean * gain, 255.0);
 
 	/* \todo Weight with the AWB gains */
 
-	return ySum / numCells_ / 255;
-}
-
-/**
- * \brief Estimate the mean value of the top 2% of the histogram
- * \param[in] hist The histogram statistics computed by the ImgU
- * \return The mean value of the top 2% of the histogram
- */
-double Agc::measureBrightness(const rkisp1_cif_isp_hist_stat *hist) const
-{
-	Histogram histogram{ Span<const uint32_t>(hist->hist_bins, numHistBins_) };
-	/* Estimate the quantile mean of the top 2% of the histogram. */
-	return histogram.interQuantileMean(0.98, 1.0);
-}
-
-void Agc::fillMetadata(IPAContext &context, IPAFrameContext &frameContext,
-		       ControlList &metadata)
-{
-	utils::Duration exposureTime = context.configuration.sensor.lineDuration
-				     * frameContext.sensor.exposure;
-	metadata.set(controls::AnalogueGain, frameContext.sensor.gain);
-	metadata.set(controls::ExposureTime, exposureTime.get<std::micro>());
-
-	/* \todo Use VBlank value calculated from each frame exposure. */
-	uint32_t vTotal = context.configuration.sensor.size.height
-			+ context.configuration.sensor.defVBlank;
-	utils::Duration frameDuration = context.configuration.sensor.lineDuration
-				      * vTotal;
-	metadata.set(controls::FrameDuration, frameDuration.get<std::micro>());
+	return ySum / expMeans_.size() / 255;
 }
 
 /**
@@ -415,38 +416,47 @@ void Agc::process(IPAContext &context, [[maybe_unused]] const uint32_t frame,
 	const rkisp1_cif_isp_stat *params = &stats->params;
 	ASSERT(stats->meas_type & RKISP1_CIF_ISP_STAT_AUTOEXP);
 
-	const rkisp1_cif_isp_ae_stat *ae = &params->ae;
-	const rkisp1_cif_isp_hist_stat *hist = &params->hist;
+	/* The lower 4 bits are fractional and meant to be discarded. */
+	Histogram hist({ params->hist.hist_bins, context.hw->numHistogramBins },
+		       [](uint32_t x) { return x >> 4; });
+	expMeans_ = { params->ae.exp_mean, context.hw->numAeCells };
 
-	double iqMean = measureBrightness(hist);
-	double iqMeanGain = kEvGainTarget * numHistBins_ / iqMean;
+	utils::Duration maxShutterSpeed =
+		std::clamp(frameContext.agc.maxFrameDuration,
+			   context.configuration.sensor.minShutterSpeed,
+			   context.configuration.sensor.maxShutterSpeed);
+	setLimits(context.configuration.sensor.minShutterSpeed,
+		  maxShutterSpeed,
+		  context.configuration.sensor.minAnalogueGain,
+		  context.configuration.sensor.maxAnalogueGain);
 
 	/*
-	 * Estimate the gain needed to achieve a relative luminance target. To
-	 * account for non-linearity caused by saturation, the value needs to be
-	 * estimated in an iterative process, as multiplying by a gain will not
-	 * increase the relative luminance by the same factor if some image
-	 * regions are saturated.
+	 * The Agc algorithm needs to know the effective exposure value that was
+	 * applied to the sensor when the statistics were collected.
 	 */
-	double yGain = 1.0;
-	double yTarget = kRelativeLuminanceTarget;
+	utils::Duration exposureTime = context.configuration.sensor.lineDuration
+				       * frameContext.sensor.exposure;
+	double analogueGain = frameContext.sensor.gain;
+	utils::Duration effectiveExposureValue = exposureTime * analogueGain;
 
-	for (unsigned int i = 0; i < 8; i++) {
-		double yValue = estimateLuminance(ae, yGain);
-		double extra_gain = std::min(10.0, yTarget / (yValue + .001));
+	utils::Duration shutterTime;
+	double aGain, dGain;
+	std::tie(shutterTime, aGain, dGain) =
+		calculateNewEv(frameContext.agc.constraintMode,
+			       frameContext.agc.exposureMode,
+			       hist, effectiveExposureValue);
 
-		yGain *= extra_gain;
-		LOG(RkISP1Agc, Debug) << "Y value: " << yValue
-				      << ", Y target: " << yTarget
-				      << ", gives gain " << yGain;
-		if (extra_gain < 1.01)
-			break;
-	}
+	LOG(RkISP1Agc, Debug)
+		<< "Divided up shutter, analogue gain and digital gain are "
+		<< shutterTime << ", " << aGain << " and " << dGain;
 
-	computeExposure(context, frameContext, yGain, iqMeanGain);
-	frameCount_++;
+	IPAActiveState &activeState = context.activeState;
+	/* Update the estimated exposure and gain. */
+	activeState.agc.automatic.exposure = shutterTime / context.configuration.sensor.lineDuration;
+	activeState.agc.automatic.gain = aGain;
 
 	fillMetadata(context, frameContext, metadata);
+	expMeans_ = {};
 }
 
 REGISTER_IPA_ALGORITHM(Agc, "Agc")

@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2019-2021, Raspberry Pi Ltd
  *
- * metadata.h - general metadata class
+ * general metadata class
  */
 #pragma once
 
@@ -116,6 +116,7 @@ public:
 	 * e.g. std::lock_guard<RPiController::Metadata> lock(metadata)
 	 */
 	void lock() LIBCAMERA_TSA_ACQUIRE() { mutex_.lock(); }
+	auto try_lock() LIBCAMERA_TSA_ACQUIRE() { return mutex_.try_lock(); }
 	void unlock() LIBCAMERA_TSA_RELEASE() { mutex_.unlock(); }
 
 private:

@@ -2,13 +2,15 @@
 /*
  * Copyright (C) 2019, Raspberry Pi Ltd
  *
- * agc_status.h - AGC/AEC control algorithm status
+ * AGC/AEC control algorithm status
  */
 #pragma once
 
 #include <string>
 
 #include <libcamera/base/utils.h>
+
+#include "hdr_status.h"
 
 /*
  * The AGC algorithm process method should post an AgcStatus into the image
@@ -37,6 +39,7 @@ struct AgcStatus {
 	libcamera::utils::Duration fixedShutter;
 	double fixedAnalogueGain;
 	unsigned int channel;
+	HdrStatus hdr;
 };
 
 struct AgcPrepareStatus {

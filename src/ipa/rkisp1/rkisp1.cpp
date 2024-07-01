@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2019, Google Inc.
  *
- * rkisp1.cpp - RkISP1 Image Processing Algorithms
+ * RkISP1 Image Processing Algorithms
  */
 
 #include <algorithm>
@@ -81,12 +81,6 @@ private:
 
 	ControlInfoMap sensorControls_;
 
-	/* revision-specific data */
-	rkisp1_cif_isp_version hwRevision_;
-	unsigned int hwHistBinNMax_;
-	unsigned int hwGammaOutMaxSamples_;
-	unsigned int hwHistogramWeightGridsSize_;
-
 	/* Interface to the Camera Helper */
 	std::unique_ptr<CameraSensorHelper> camHelper_;
 
@@ -96,14 +90,24 @@ private:
 
 namespace {
 
+const IPAHwSettings ipaHwSettingsV10{
+	RKISP1_CIF_ISP_AE_MEAN_MAX_V10,
+	RKISP1_CIF_ISP_HIST_BIN_N_MAX_V10,
+	RKISP1_CIF_ISP_HISTOGRAM_WEIGHT_GRIDS_SIZE_V10,
+	RKISP1_CIF_ISP_GAMMA_OUT_MAX_SAMPLES_V10,
+};
+
+const IPAHwSettings ipaHwSettingsV12{
+	RKISP1_CIF_ISP_AE_MEAN_MAX_V12,
+	RKISP1_CIF_ISP_HIST_BIN_N_MAX_V12,
+	RKISP1_CIF_ISP_HISTOGRAM_WEIGHT_GRIDS_SIZE_V12,
+	RKISP1_CIF_ISP_GAMMA_OUT_MAX_SAMPLES_V12,
+};
+
 /* List of controls handled by the RkISP1 IPA */
 const ControlInfoMap::Map rkisp1Controls{
-	{ &controls::AeEnable, ControlInfo(false, true) },
 	{ &controls::AwbEnable, ControlInfo(false, true) },
 	{ &controls::ColourGains, ControlInfo(0.0f, 3.996f, 1.0f) },
-	{ &controls::Brightness, ControlInfo(-1.0f, 0.993f, 0.0f) },
-	{ &controls::Contrast, ControlInfo(0.0f, 1.993f, 1.0f) },
-	{ &controls::Saturation, ControlInfo(0.0f, 1.993f, 1.0f) },
 	{ &controls::Sharpness, ControlInfo(0.0f, 10.0f, 1.0f) },
 	{ &controls::draft::NoiseReductionMode, ControlInfo(controls::draft::NoiseReductionModeValues) },
 };
@@ -111,7 +115,7 @@ const ControlInfoMap::Map rkisp1Controls{
 } /* namespace */
 
 IPARkISP1::IPARkISP1()
-	: context_({ {}, {}, { kMaxFrameContexts } })
+	: context_({ {}, {}, {}, { kMaxFrameContexts }, {} })
 {
 }
 
@@ -128,14 +132,11 @@ int IPARkISP1::init(const IPASettings &settings, unsigned int hwRevision,
 	/* \todo Add support for other revisions */
 	switch (hwRevision) {
 	case RKISP1_V10:
-		hwHistBinNMax_ = RKISP1_CIF_ISP_HIST_BIN_N_MAX_V10;
-		hwGammaOutMaxSamples_ = RKISP1_CIF_ISP_GAMMA_OUT_MAX_SAMPLES_V10;
-		hwHistogramWeightGridsSize_ = RKISP1_CIF_ISP_HISTOGRAM_WEIGHT_GRIDS_SIZE_V10;
+	case RKISP1_V_IMX8MP:
+		context_.hw = &ipaHwSettingsV10;
 		break;
 	case RKISP1_V12:
-		hwHistBinNMax_ = RKISP1_CIF_ISP_HIST_BIN_N_MAX_V12;
-		hwGammaOutMaxSamples_ = RKISP1_CIF_ISP_GAMMA_OUT_MAX_SAMPLES_V12;
-		hwHistogramWeightGridsSize_ = RKISP1_CIF_ISP_HISTOGRAM_WEIGHT_GRIDS_SIZE_V12;
+		context_.hw = &ipaHwSettingsV12;
 		break;
 	default:
 		LOG(IPARkISP1, Error)
@@ -145,9 +146,6 @@ int IPARkISP1::init(const IPASettings &settings, unsigned int hwRevision,
 	}
 
 	LOG(IPARkISP1, Debug) << "Hardware revision is " << hwRevision;
-
-	/* Cache the value to set it in configure. */
-	hwRevision_ = static_cast<rkisp1_cif_isp_version>(hwRevision);
 
 	camHelper_ = CameraSensorHelperFactoryBase::create(settings.sensorModel);
 	if (!camHelper_) {
@@ -231,9 +229,6 @@ int IPARkISP1::configure(const IPAConfigInfo &ipaConfig,
 	context_.configuration = {};
 	context_.activeState = {};
 	context_.frameContexts.clear();
-
-	/* Set the hardware revision for the algorithms. */
-	context_.configuration.hw.revision = hwRevision_;
 
 	const IPACameraSensorInfo &info = ipaConfig.sensorInfo;
 	const ControlInfo vBlank = sensorControls_.find(V4L2_CID_VBLANK)->second;
@@ -428,6 +423,7 @@ void IPARkISP1::updateControls(const IPACameraSensorInfo &sensorInfo,
 							      frameDurations[1],
 							      frameDurations[2]);
 
+	ctrlMap.insert(context_.ctrlMap.begin(), context_.ctrlMap.end());
 	*ipaControls = ControlInfoMap(std::move(ctrlMap), controls::controls);
 }
 
@@ -459,7 +455,7 @@ extern "C" {
 const struct IPAModuleInfo ipaModuleInfo = {
 	IPA_MODULE_API_VERSION,
 	1,
-	"PipelineHandlerRkISP1",
+	"rkisp1",
 	"rkisp1",
 };
 

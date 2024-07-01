@@ -18,7 +18,7 @@ if [ "$line" != "# Kbuild for top-level directory of the kernel" ] ; then
 	exit 1
 fi
 
-if [ ! -d "${kernel_dir}/.git" ] ; then
+if [ ! -e "${kernel_dir}/.git" ] ; then
 	echo "Directory ${kernel_dir} doesn't contain a git tree"
 	exit 1
 fi
@@ -52,6 +52,7 @@ headers="
 	linux/media-bus-format.h
 	linux/media.h
 	linux/rkisp1-config.h
+	linux/udmabuf.h
 	linux/v4l2-common.h
 	linux/v4l2-controls.h
 	linux/v4l2-mediabus.h

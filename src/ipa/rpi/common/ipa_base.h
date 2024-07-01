@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2023, Raspberry Pi Ltd
  *
- * ipa_base.h - Raspberry Pi IPA base class
+ * Raspberry Pi IPA base class
  */
 #pragma once
 
@@ -22,6 +22,7 @@
 #include "controller/agc_status.h"
 #include "controller/camera_mode.h"
 #include "controller/controller.h"
+#include "controller/hdr_status.h"
 #include "controller/metadata.h"
 
 namespace libcamera {
@@ -48,6 +49,11 @@ public:
 	void processStats(const ProcessParams &params) override;
 
 protected:
+	bool monoSensor() const
+	{
+		return monoSensor_;
+	}
+
 	/* Raspberry Pi controller specific defines. */
 	std::unique_ptr<RPiController::CamHelper> helper_;
 	RPiController::Controller controller_;
@@ -61,12 +67,21 @@ protected:
 	/* Track the frame length times over FrameLengthsQueueSize frames. */
 	std::deque<utils::Duration> frameLengths_;
 	utils::Duration lastTimeout_;
+	ControlList libcameraMetadata_;
+	bool statsMetadataOutput_;
+
+	/* Remember the HDR status after a mode switch. */
+	HdrStatus hdrStatus_;
+
+	/* Whether the stitch block (if available) needs to swap buffers. */
+	bool stitchSwapBuffers_;
 
 private:
 	/* Number of metadata objects available in the context list. */
 	static constexpr unsigned int numMetadataContexts = 16;
 
 	virtual int32_t platformInit(const InitParams &params, InitResult *result) = 0;
+	virtual int32_t platformStart(const ControlList &controls, StartResult *result) = 0;
 	virtual int32_t platformConfigure(const ConfigParams &params, ConfigResult *result) = 0;
 
 	virtual void platformPrepareIsp(const PrepareParams &params,
@@ -88,7 +103,6 @@ private:
 
 	bool lensPresent_;
 	bool monoSensor_;
-	ControlList libcameraMetadata_;
 
 	std::array<RPiController::Metadata, numMetadataContexts> rpiMetadata_;
 

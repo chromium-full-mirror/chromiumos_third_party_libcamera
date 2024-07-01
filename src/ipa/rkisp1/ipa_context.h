@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2021-2022, Ideas On Board
  *
- * ipa_context.h - RkISP1 IPA Context
+ * RkISP1 IPA Context
  *
  */
 
@@ -12,13 +12,23 @@
 
 #include <libcamera/base/utils.h>
 
+#include <libcamera/control_ids.h>
+#include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 
 #include <libipa/fc_queue.h>
+#include <libipa/matrix.h>
 
 namespace libcamera {
 
 namespace ipa::rkisp1 {
+
+struct IPAHwSettings {
+	unsigned int numAeCells;
+	unsigned int numHistogramBins;
+	unsigned int numHistogramWeights;
+	unsigned int numGammaOutSamples;
+};
 
 struct IPASessionConfiguration {
 	struct {
@@ -45,10 +55,6 @@ struct IPASessionConfiguration {
 		Size size;
 	} sensor;
 
-	struct {
-		rkisp1_cif_isp_version revision;
-	} hw;
-
 	bool raw;
 };
 
@@ -64,6 +70,10 @@ struct IPAActiveState {
 		} automatic;
 
 		bool autoEnabled;
+		controls::AeConstraintModeEnum constraintMode;
+		controls::AeExposureModeEnum exposureMode;
+		controls::AeMeteringModeEnum meteringMode;
+		utils::Duration maxFrameDuration;
 	} agc;
 
 	struct {
@@ -98,6 +108,10 @@ struct IPAActiveState {
 		uint8_t denoise;
 		uint8_t sharpness;
 	} filter;
+
+	struct {
+		double gamma;
+	} goc;
 };
 
 struct IPAFrameContext : public FrameContext {
@@ -105,6 +119,11 @@ struct IPAFrameContext : public FrameContext {
 		uint32_t exposure;
 		double gain;
 		bool autoEnabled;
+		controls::AeConstraintModeEnum constraintMode;
+		controls::AeExposureModeEnum exposureMode;
+		controls::AeMeteringModeEnum meteringMode;
+		utils::Duration maxFrameDuration;
+		bool updateMetering;
 	} agc;
 
 	struct {
@@ -137,16 +156,28 @@ struct IPAFrameContext : public FrameContext {
 	} filter;
 
 	struct {
+		double gamma;
+		bool update;
+	} goc;
+
+	struct {
 		uint32_t exposure;
 		double gain;
 	} sensor;
+
+	struct {
+		Matrix<float, 3, 3> ccm;
+	} ccm;
 };
 
 struct IPAContext {
+	const IPAHwSettings *hw;
 	IPASessionConfiguration configuration;
 	IPAActiveState activeState;
 
 	FCQueue<IPAFrameContext> frameContexts;
+
+	ControlInfoMap::Map ctrlMap;
 };
 
 } /* namespace ipa::rkisp1 */

@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2019, Raspberry Pi Ltd
  *
- * agc.cpp - AGC/AEC control algorithm
+ * AGC/AEC control algorithm
  */
 
 #include "agc.h"
@@ -74,22 +74,22 @@ int Agc::checkChannel(unsigned int channelIndex) const
 	return 0;
 }
 
-void Agc::disableAuto(unsigned int channelIndex)
+void Agc::disableAuto()
 {
-	if (checkChannel(channelIndex))
-		return;
+	LOG(RPiAgc, Debug) << "disableAuto";
 
-	LOG(RPiAgc, Debug) << "disableAuto for channel " << channelIndex;
-	channelData_[channelIndex].channel.disableAuto();
+	/* All channels are enabled/disabled together. */
+	for (auto &data : channelData_)
+		data.channel.disableAuto();
 }
 
-void Agc::enableAuto(unsigned int channelIndex)
+void Agc::enableAuto()
 {
-	if (checkChannel(channelIndex))
-		return;
+	LOG(RPiAgc, Debug) << "enableAuto";
 
-	LOG(RPiAgc, Debug) << "enableAuto for channel " << channelIndex;
-	channelData_[channelIndex].channel.enableAuto();
+	/* All channels are enabled/disabled together. */
+	for (auto &data : channelData_)
+		data.channel.enableAuto();
 }
 
 unsigned int Agc::getConvergenceFrames() const
@@ -118,14 +118,13 @@ void Agc::setEv(unsigned int channelIndex, double ev)
 	channelData_[channelIndex].channel.setEv(ev);
 }
 
-void Agc::setFlickerPeriod(unsigned int channelIndex, Duration flickerPeriod)
+void Agc::setFlickerPeriod(Duration flickerPeriod)
 {
-	if (checkChannel(channelIndex))
-		return;
+	LOG(RPiAgc, Debug) << "setFlickerPeriod " << flickerPeriod;
 
-	LOG(RPiAgc, Debug) << "setFlickerPeriod " << flickerPeriod
-			   << " for channel " << channelIndex;
-	channelData_[channelIndex].channel.setFlickerPeriod(flickerPeriod);
+	/* Flicker period will be the same across all channels. */
+	for (auto &data : channelData_)
+		data.channel.setFlickerPeriod(flickerPeriod);
 }
 
 void Agc::setMaxShutter(Duration maxShutter)
@@ -162,22 +161,22 @@ void Agc::setMeteringMode(std::string const &meteringModeName)
 		data.channel.setMeteringMode(meteringModeName);
 }
 
-void Agc::setExposureMode(unsigned int channelIndex, std::string const &exposureModeName)
+void Agc::setExposureMode(std::string const &exposureModeName)
 {
-	if (checkChannel(channelIndex))
-		return;
+	LOG(RPiAgc, Debug) << "setExposureMode " << exposureModeName;
 
-	LOG(RPiAgc, Debug) << "setExposureMode " << exposureModeName
-			   << " for channel " << channelIndex;
-	channelData_[channelIndex].channel.setExposureMode(exposureModeName);
+	/* Exposure mode will be the same across all channels. */
+	for (auto &data : channelData_)
+		data.channel.setExposureMode(exposureModeName);
 }
 
-void Agc::setConstraintMode(unsigned int channelIndex, std::string const &constraintModeName)
+void Agc::setConstraintMode(std::string const &constraintModeName)
 {
-	if (checkChannel(channelIndex))
-		return;
+	LOG(RPiAgc, Debug) << "setConstraintMode " << constraintModeName;
 
-	channelData_[channelIndex].channel.setConstraintMode(constraintModeName);
+	/* Constraint mode will be the same across all channels. */
+	for (auto &data : channelData_)
+		data.channel.setConstraintMode(constraintModeName);
 }
 
 template<typename T>
@@ -203,6 +202,7 @@ void Agc::setActiveChannels(const std::vector<unsigned int> &activeChannels)
 
 	LOG(RPiAgc, Debug) << "setActiveChannels " << activeChannels;
 	activeChannels_ = activeChannels;
+	index_ = 0;
 }
 
 void Agc::switchMode(CameraMode const &cameraMode,
@@ -311,15 +311,16 @@ void Agc::process(StatisticsPtr &stats, Metadata *imageMetadata)
 	 * exist, and call process(). We must make the agc.status metadata record correctly
 	 * which channel this is.
 	 */
+	StatisticsPtr *statsPtr = &stats;
 	if (channelData.statistics && channelData.deviceStatus) {
 		deviceStatus = *channelData.deviceStatus;
-		stats = channelData.statistics;
+		statsPtr = &channelData.statistics;
 	} else {
 		/* Can also happen when new channels start. */
 		LOG(RPiAgc, Debug) << "process: channel " << channelIndex << " not seen yet";
 	}
 
-	channelData.channel.process(stats, deviceStatus, imageMetadata, channelTotalExposures_);
+	channelData.channel.process(*statsPtr, deviceStatus, imageMetadata, channelTotalExposures_);
 	auto dur = setCurrentChannelIndexGetExposure(imageMetadata, "process: no AGC status found",
 						     channelIndex);
 	if (dur)
