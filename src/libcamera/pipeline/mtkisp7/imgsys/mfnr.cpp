@@ -40,7 +40,6 @@ namespace libcamera {
 
 LOG_DECLARE_CATEGORY(MtkISP7)
 
-constexpr const char *kEnforceMfnr = "/run/camera/enforce_mfnr";
 constexpr const char *kMfnrPrecheck = "/run/camera/mfnr_precheck";
 
 constexpr Size kP2sttoSize{ 738624, 1 };
@@ -216,14 +215,6 @@ int MfnrTasksManager::releaseBuffers()
 		pool->release();
 
 	return 0;
-}
-
-bool MfnrTasksManager::forceMfnr()
-{
-	if (std::filesystem::exists(kEnforceMfnr)) {
-		return true;
-	}
-	return false;
 }
 
 bool MfnrTasksManager::mfnrPrecheck()

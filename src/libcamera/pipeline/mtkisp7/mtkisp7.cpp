@@ -68,10 +68,6 @@ static const ControlInfoMap::Map MtkISP7Controls = {
 // Ciri's big cores are CPU 6 and 7.
 static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
 
-//TODO implement strategy to choose between mfnr and lpnr
-static const bool useMfnr = false;
-static const bool useLpnr = true;
-
 enum MtkISP7TaskGroup {
 	SofGroup = 0,
 	CaptureQueueGroup,
@@ -244,7 +240,8 @@ public:
 		   AAATask *, uint32_t>
 	makeTasks(const std::string &id, Request *request,
 		  CaptureFrames &captureFrames, uint32_t internalRequestId,
-		  bool hasStillCapture, bool needRaw, bool hasVideo);
+		  bool hasStillCapture, bool needRaw, bool hasVideo,
+		  bool useMfnr);
 	void setTasksDependencies(QueueTask *taskQBuf, DequeueTask *taskDQBuf,
 				  SofTask *sofTask, AAATask *aaaTask);
 
@@ -829,6 +826,10 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::SceneMode] = ControlInfo(supportedSceneModes);
 
 		controls[&controls::EdgeMode] = ControlInfo(controls::EdgeModeValues);
+
+		controls[&controls::StillCaptureMultiFrameNoiseReduction] =
+			ControlInfo(false, true, false);
+
 		// Create CameraData
 		std::unique_ptr<MtkISP7CameraData> data =
 			std::make_unique<MtkISP7CameraData>(
@@ -999,8 +1000,7 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 	lpnrManager.start();
 	faceDetector_->start();
 
-	if (useMfnr)
-		mfnrManager.start();
+	mfnrManager.start();
 
 	if (gyroSensor_)
 		gyroSensor_->startReading(30); // Assume FPS == 30
@@ -1027,13 +1027,14 @@ int MtkISP7CameraData::start([[maybe_unused]] const ControlList *controls)
 std::tuple<QueueTask *, DequeueTask *, SofTask *, AAATask *, uint32_t>
 MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 			     CaptureFrames &captureFrames,
-			     uint32_t internalRequestId, bool hasStillCapture, bool needRaw, bool hasVideo)
+			     uint32_t internalRequestId, bool hasStillCapture,
+			     bool needRaw, bool hasVideo, bool useMfnr)
 {
 	auto *pipeline = static_cast<PipelineHandlerMtkISP7 *>(pipe());
 	auto *scheduler = pipeline->scheduler_.get();
 
 	captureManager.makeCaptureFrames(
-		captureFrames, needRaw || (useLpnr && hasStillCapture) || onDeviceTuner_->isEnabled(),
+		captureFrames, needRaw || onDeviceTuner_->isEnabled(),
 		(useMfnr && needRaw) || hasVideo, hasVideo);
 
 	if (internalRequestId >= CaptureTasksManager::kAAToSofDelay) {
@@ -1266,8 +1267,7 @@ void MtkISP7CameraData::stopDevice()
 	mcnrManager.stop();
 	lpnrManager.stop();
 
-	if (useMfnr)
-		mfnrManager.stop();
+	mfnrManager.stop();
 
 	faceDetector_->stop();
 
@@ -1307,10 +1307,8 @@ void MtkISP7CameraData::releaseDevice()
 	lpnrTunManager.releaseBuffers();
 	mcnrTunManager.releaseBuffers();
 
-	if (useMfnr) {
-		mfnrManager.releaseBuffers();
-		mfnrTunManager.releaseBuffers();
-	}
+	mfnrManager.releaseBuffers();
+	mfnrTunManager.releaseBuffers();
 }
 
 /*
@@ -1424,20 +1422,18 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 			MfnrTasksManager::getSizeAligned(sensorFullSize_),
 			&wrappingMapSize, &confMapSize);
 
-	if (useMfnr) {
-		mfnrManager.configure(sensorFullSize_,
-				      still1, still2,
-				      video1, video2,
-				      confMapSize,
-				      sensor_idx_);
-		mfnrTunManager.configure(sensorFullSize_, still1, still2,
-					 MfnrTasksManager::getSizeAligned(sensorFullSize_),
-					 wrappingMapSize,
-					 confMapSize);
-	}
+	mfnrManager.configure(sensorFullSize_,
+			      still1, still2,
+			      video1, video2,
+			      confMapSize,
+			      sensor_idx_);
+	mfnrTunManager.configure(sensorFullSize_, still1, still2,
+				 MfnrTasksManager::getSizeAligned(sensorFullSize_),
+				 wrappingMapSize,
+				 confMapSize);
 
 	imgSysDev_->configure(sensorFullSize_, camsysYuvSize,
-			      video1, video2, still1, still2, useMfnr, wrappingMapSize, confMapSize);
+			      video1, video2, still1, still2, wrappingMapSize, confMapSize);
 
 	int32_t pipelineDepth = controlInfo_.at(&controls::draft::PipelineDepth)
 					.max()
@@ -1481,6 +1477,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool nddEnabled = onDeviceTuner_->isEnabled();
 	bool hasStillCapture = still1Buffer || still2Buffer;
 
+	bool useMfnr = request->controls().get(controls::StillCaptureMultiFrameNoiseReduction).value_or(false);
+
 	if (requestCount_ == 0 || aaControlChanged || nddEnabled || (useMfnr && hasStillCapture)) {
 		size_t needed = 0;
 
@@ -1503,7 +1501,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			makeTasks("Padding capture", nullptr, captureFrames,
 				  requestCount_++, false,
 				  useMfnr && hasStillCapture && needed <= i + 3,
-				  false);
+				  false, useMfnr);
 
 			if (useMfnr) {
 				captureRawQueue_idx += 1;
@@ -1551,7 +1549,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool hasVideo = video1Buffer || video2Buffer;
 	auto [taskQBuf, taskDQBuf, sofTask, aaaTask, camSysMetaRequestId] = makeTasks(
 		"Capture " + sequence, request, captureFrames, internalRequestId,
-		hasStillCapture, hasStillCapture, hasVideo);
+		hasStillCapture, hasStillCapture, hasVideo, useMfnr);
 	aaaTask->setPerFrameControl(
 		AAATask::PerFrameControl{
 			.delayIdx = 0,

@@ -240,7 +240,6 @@ public:
 	int stop();
 	int releaseBuffers();
 
-	static bool forceMfnr();
 	static bool mfnrPrecheck();
 
 	static Size getSizeAligned(const Size &bayerInputSize);

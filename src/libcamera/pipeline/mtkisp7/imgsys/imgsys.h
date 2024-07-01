@@ -124,7 +124,7 @@ public:
 	int configure(const Size sensorFullSize, const Size CamSysYuv,
 		      const Size video1, const Size video2,
 		      const Size still1, const Size still2,
-		      const bool useMfnr, const Size wrappingMapSize, const Size confMapSize);
+		      const Size wrappingMapSize, const Size confMapSize);
 	int start();
 	int stop();
 
@@ -158,7 +158,7 @@ private:
 	int importBuffers(const Size sensorFullSize, const Size CamSysYuv,
 			  const Size video1, const Size video2,
 			  const Size still1, const Size still2,
-			  const bool useMfnr, const Size wrappingMapSize, const Size confMapSize);
+			  const Size wrappingMapSize, const Size confMapSize);
 
 	void importBufferByList(std::vector<PortBuffers> &portBufs, uint32_t userId);
 

@@ -690,7 +690,7 @@ int ImgSysDevice::configure(
 	const Size sensorFullSize, const Size CamSysYuv,
 	const Size video1, const Size video2,
 	const Size still1, const Size still2,
-	const bool useMfnr, const Size wrappingMapSize, const Size confMapSize)
+	const Size wrappingMapSize, const Size confMapSize)
 {
 #if !V4L2_STANDARD_MODE
 	handleIova(Delete, ctrlMetaPool_);
@@ -711,7 +711,7 @@ int ImgSysDevice::configure(
 
 	int ret = importBuffers(sensorFullSize, CamSysYuv,
 				video1, video2, still1, still2,
-				useMfnr, wrappingMapSize, confMapSize);
+				wrappingMapSize, confMapSize);
 	if (ret) {
 		releaseAllBuffers();
 		LOG(MtkISP7, Fatal) << "Failed to import buffers";
@@ -840,7 +840,7 @@ int ImgSysDevice::importBuffers(
 	const Size sensorFullSize, const Size CamSysYuv,
 	const Size video1, const Size video2,
 	const Size still1, const Size still2,
-	const bool useMfnr, const Size wrappingMapSize, const Size confMapSize)
+	const Size wrappingMapSize, const Size confMapSize)
 {
 	/*
 	 * We don't need to actually get format, this is just to initilize the
@@ -1083,213 +1083,211 @@ int ImgSysDevice::importBuffers(
 		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, lpnrSizes[3], 4, 1, 1 },
 	};
 	std::vector<PortBuffers> portBufsMfnr;
-	if (useMfnr) {
-		std::vector<Size> mfnrSizes(7);
-		std::vector<Size> mfnrSizes_aligned16(3);
-		/* Assign the size to 1/2 of the previous level.
+	std::vector<Size> mfnrSizes(7);
+	std::vector<Size> mfnrSizes_aligned16(3);
+	/* Assign the size to 1/2 of the previous level.
 	 * Align to 2 for hardware's requirement */
-		size = sensorFullSize;
-		for (size_t i = 0; i < mfnrSizes.size(); i++) {
-			mfnrSizes[i] = size;
-			size.width = (size.width + 1) / 2;
-			size.height = (size.height + 1) / 2;
-			size.alignUpTo(2, 2);
-		}
-		size = sensorFullSize;
-		for (size_t i = 0; i < mfnrSizes_aligned16.size(); i++) {
-			mfnrSizes_aligned16[i] = size;
-			size.width = (size.width + 1) / 2;
-			size.height = (size.height + 1) / 2;
-			size.alignDownTo(16, 16);
-		}
-		portBufsMfnr = {
-			// Used by BFBLD:4
-			{ IMG_PORT_TIMGI, formats::SRGGB10_MTISP, mfnrSizes[0], 4, 1, 1 },
-			{ IMG_PORT_TIMGI, formats::SGRBG10_MTISP, mfnrSizes[0], 4, 1, 1 },
-			// Used by BFBLD:4
-			{ IMG_PORT_IMG3O, formats::NV12_10P_MTISP, mfnrSizes[0], 4, 1, 1 },
-			// Used by BFBLD:4, BFME:4
-			{ IMG_PORT_IMG2O, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 8, 1, 1 },
-			// Used by BFME:4
-			{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 4, 1, 1 },
-			// Used by BFME:4
-			{ IMG_PORT_IMG2O, formats::Y8_MTISP, mfnrSizes_aligned16[2], 4, 1, 1 },
-			// Used by MCDS_F1:3
-			{ IMG_PORT_WPE_WPEI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
-			// Used by MCDS_F1:3
-			{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, wrappingMapSize, 3, 1, 1 },
-			// Used by MCDS_F1:3
-			{ IMG_PORT_WPE_WPEO, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
-			// Used by MCDS_F1:3, DS:1
-			{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by  MCDS_F1:3, DS:1
-			{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MCDS_F1:3, DS:1
-			{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MCDS_F1:3
-			{ IMG_PORT_TYUV5O, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
-
-			// Used by DS:1
-			{ IMG_PORT_TIMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 1, 1, 1 },
-			// Used by DS:1
-			{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 4, 1, 1 },
-			// Used by DS:4
-			{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[4], 4, 1, 1 },
-			// Used by DS:4
-			{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[5], 4, 1, 1 },
-			// Used by DS:4
-			{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[6], 4, 1, 1 },
-
-			// Used by DSVBI_V2:3
-			{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by DSVBI_V2:3
-			{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by DSVBI_V2:3
-			{ IMG_PORT_TYUV3O, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by DSVBI_V2:3
-			{ IMG_PORT_TYUV4O, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by DSVBI_V5:3
-			{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by DSVBI_V5:3
-			{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
-
-			// Used by MSBLD/AFBLD:18
-			{ IMG_PORT_TNRSI, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1 },
-			// Used by MSBLD/AFBLD:18
-			{ IMG_PORT_TNRSO, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1 },
-			// Used by MSBLD/AFBLD;15
-			{ IMG_PORT_TNRLFDI, formats::NV21, mfnrSizes[6], 15, 1, 1 },
-			// Used by MSBLD/AFBLD;18
-			{ IMG_PORT_TNRCI, formats::Y8_MTISP, confMapSize, 18, 1, 1 },
-
-			// Used by MSBLD_F6:2, AFBLD_F6:1
-			{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
-			// Used by MSBLD_F6:2, AFBLD_F6:1
-			{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
-			// Used by MSBLD_F6:2, AFBLD_F6:1
-			{ IMG_PORT_IMG4O, formats::NV21, mfnrSizes[6], 3, 1, 1 },
-
-			// Used by MSBLD_F5:2, AFBLD_F5:1
-			{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
-			// Used by MSBLD_F5:2, AFBLD_F5:1
-			{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
-			// Used by MSBLD_F5:2, AFBLD_F5:1
-			{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
-			// Used by MSBLD_F5:2, AFBLD_F5:1
-			{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
-			// Used by MSBLD_F5:2, AFBLD_F5:1
-			{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
-			// Used by MSBLD_F5:2
-			{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[5], 2, 1, 1 },
-			// Used by AFBLD_F5:1
-			{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[5], 1, 1, 1 },
-			// Used by MSBLD_F5:2, AFBLD_F5:1
-			{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
-			// Used by MSBLD_F5:2, AFBLD_F5:1
-			{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
-
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
-			// Used by MSBLD_F4:2
-			{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[4], 2, 1, 1 },
-			// Used by AFBLD_F4:1
-			{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[4], 1, 1, 1 },
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by MSBLD_F4:2, AFBLD_F4:1
-			{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
-
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
-			// Used by MSBLD_F3:2
-			{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[3], 2, 1, 1 },
-			// Used by AFBLD_F3:1
-			{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[3], 1, 1, 1 },
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MSBLD_F3:2, AFBLD_F3:1
-			{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
-
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
-			// Used by MSBLD_F2:2
-			{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[2], 2, 1, 1 },
-			// Used by AFBLD_F2:1
-			{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[2], 1, 1, 1 },
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MSBLD_F2:2, AFBLD_F2:1
-			{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
-
-			// Used by MSBLD_F1:2, AFBLD_F1:1
-			{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by MSBLD_F1:2, AFBLD_F1:1
-			{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by MSBLD_F1:2, AFBLD_F1:1
-			{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MSBLD_F1:2, AFBLD_F1:1
-			{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by MSBLD_F1:2, AFBLD_F1:1, MSBLD_F0:2, AFBLD_F0:1
-			{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[1], 6, 1, 1 },
-			// Used by MSBLD_F1:2, AFBLD_F1:1
-			{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
-			// Used by MSBLD_F1:2
-			{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[1], 2, 1, 1 },
-			// Used by AFBLD_F1:1
-			{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[1], 1, 1, 1 },
-			// Used by MSBLD_F1:2, AFBLD_F1:1
-			{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by MSBLD_F1:2, AFBLD_F1:1
-			{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
-
-			// Used by MSBLD_F0:2, AFBLD_F0:1
-			{ IMG_PORT_VIPI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
-			// Used by MSBLD_F0:2, AFBLD_F0:1
-			{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
-			// Used by MSBLD_F0:2, AFBLD_F0:1
-			{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by MSBLD_F0:2, AFBLD_F0:1
-			{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1 },
-			// Used by MSBLD_F0:2, AFBLD_F0:1
-			{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
-			// Used by MSBLD_F0:2
-			{ IMG_PORT_IMG4O, formats::NV12_10P_MTISP, mfnrSizes[0], 2, 1, 1 },
-			// Used by AFBLD_F0:1
-			{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[0], 2, 1, 1 },
-			// Used by MSBLD_F0:2, AFBLD_F0:1
-			{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1 },
-		};
+	size = sensorFullSize;
+	for (size_t i = 0; i < mfnrSizes.size(); i++) {
+		mfnrSizes[i] = size;
+		size.width = (size.width + 1) / 2;
+		size.height = (size.height + 1) / 2;
+		size.alignUpTo(2, 2);
 	}
+	size = sensorFullSize;
+	for (size_t i = 0; i < mfnrSizes_aligned16.size(); i++) {
+		mfnrSizes_aligned16[i] = size;
+		size.width = (size.width + 1) / 2;
+		size.height = (size.height + 1) / 2;
+		size.alignDownTo(16, 16);
+	}
+	portBufsMfnr = {
+		// Used by BFBLD:4
+		{ IMG_PORT_TIMGI, formats::SRGGB10_MTISP, mfnrSizes[0], 4, 1, 1 },
+		{ IMG_PORT_TIMGI, formats::SGRBG10_MTISP, mfnrSizes[0], 4, 1, 1 },
+		// Used by BFBLD:4
+		{ IMG_PORT_IMG3O, formats::NV12_10P_MTISP, mfnrSizes[0], 4, 1, 1 },
+		// Used by BFBLD:4, BFME:4
+		{ IMG_PORT_IMG2O, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 8, 1, 1 },
+		// Used by BFME:4
+		{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes_aligned16[2], 4, 1, 1 },
+		// Used by BFME:4
+		{ IMG_PORT_IMG2O, formats::Y8_MTISP, mfnrSizes_aligned16[2], 4, 1, 1 },
+		// Used by MCDS_F1:3
+		{ IMG_PORT_WPE_WPEI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		// Used by MCDS_F1:3
+		{ IMG_PORT_WPE_VECI, formats::WARP2P_MTISP, wrappingMapSize, 3, 1, 1 },
+		// Used by MCDS_F1:3
+		{ IMG_PORT_WPE_WPEO, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		// Used by MCDS_F1:3, DS:1
+		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by  MCDS_F1:3, DS:1
+		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MCDS_F1:3, DS:1
+		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MCDS_F1:3
+		{ IMG_PORT_TYUV5O, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+
+		// Used by DS:1
+		{ IMG_PORT_TIMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 1, 1, 1 },
+		// Used by DS:1
+		{ IMG_PORT_TIMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 4, 1, 1 },
+		// Used by DS:4
+		{ IMG_PORT_TYUV2O, formats::NV12_12P_MTISP, mfnrSizes[4], 4, 1, 1 },
+		// Used by DS:4
+		{ IMG_PORT_TYUV3O, formats::NV12_12P_MTISP, mfnrSizes[5], 4, 1, 1 },
+		// Used by DS:4
+		{ IMG_PORT_TYUV4O, formats::NV12_12P_MTISP, mfnrSizes[6], 4, 1, 1 },
+
+		// Used by DSVBI_V2:3
+		{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by DSVBI_V2:3
+		{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by DSVBI_V2:3
+		{ IMG_PORT_TYUV3O, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by DSVBI_V2:3
+		{ IMG_PORT_TYUV4O, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by DSVBI_V5:3
+		{ IMG_PORT_TIMGI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by DSVBI_V5:3
+		{ IMG_PORT_TYUV2O, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+
+		// Used by MSBLD/AFBLD:18
+		{ IMG_PORT_TNRSI, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1 },
+		// Used by MSBLD/AFBLD:18
+		{ IMG_PORT_TNRSO, formats::Y32_MTISP, kTnrsoSize, 18, 1, 1 },
+		// Used by MSBLD/AFBLD;15
+		{ IMG_PORT_TNRLFDI, formats::NV21, mfnrSizes[6], 15, 1, 1 },
+		// Used by MSBLD/AFBLD;18
+		{ IMG_PORT_TNRCI, formats::Y8_MTISP, confMapSize, 18, 1, 1 },
+
+		// Used by MSBLD_F6:2, AFBLD_F6:1
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
+		// Used by MSBLD_F6:2, AFBLD_F6:1
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
+		// Used by MSBLD_F6:2, AFBLD_F6:1
+		{ IMG_PORT_IMG4O, formats::NV21, mfnrSizes[6], 3, 1, 1 },
+
+		// Used by MSBLD_F5:2, AFBLD_F5:1
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
+		// Used by MSBLD_F5:2, AFBLD_F5:1
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
+		// Used by MSBLD_F5:2, AFBLD_F5:1
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[6], 3, 1, 1 },
+		// Used by MSBLD_F5:2, AFBLD_F5:1
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		// Used by MSBLD_F5:2, AFBLD_F5:1
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		// Used by MSBLD_F5:2
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[5], 2, 1, 1 },
+		// Used by AFBLD_F5:1
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[5], 1, 1, 1 },
+		// Used by MSBLD_F5:2, AFBLD_F5:1
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		// Used by MSBLD_F5:2, AFBLD_F5:1
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[5], 3, 1, 1 },
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[5], 3, 1, 1 },
+		// Used by MSBLD_F4:2
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[4], 2, 1, 1 },
+		// Used by AFBLD_F4:1
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[4], 1, 1, 1 },
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by MSBLD_F4:2, AFBLD_F4:1
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[4], 3, 1, 1 },
+		// Used by MSBLD_F3:2
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[3], 2, 1, 1 },
+		// Used by AFBLD_F3:1
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[3], 1, 1, 1 },
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MSBLD_F3:2, AFBLD_F3:1
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[3], 3, 1, 1 },
+		// Used by MSBLD_F2:2
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[2], 2, 1, 1 },
+		// Used by AFBLD_F2:1
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[2], 1, 1, 1 },
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MSBLD_F2:2, AFBLD_F2:1
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+
+		// Used by MSBLD_F1:2, AFBLD_F1:1
+		{ IMG_PORT_VIPI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by MSBLD_F1:2, AFBLD_F1:1
+		{ IMG_PORT_IMGI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by MSBLD_F1:2, AFBLD_F1:1
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MSBLD_F1:2, AFBLD_F1:1
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by MSBLD_F1:2, AFBLD_F1:1, MSBLD_F0:2, AFBLD_F0:1
+		{ IMG_PORT_TNRVBI, formats::Y8_MTISP, mfnrSizes[1], 6, 1, 1 },
+		// Used by MSBLD_F1:2, AFBLD_F1:1
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[2], 3, 1, 1 },
+		// Used by MSBLD_F1:2
+		{ IMG_PORT_IMG4O, formats::NV12_12P_MTISP, mfnrSizes[1], 2, 1, 1 },
+		// Used by AFBLD_F1:1
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[1], 1, 1, 1 },
+		// Used by MSBLD_F1:2, AFBLD_F1:1
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by MSBLD_F1:2, AFBLD_F1:1
+		{ IMG_PORT_TNRMO, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+
+		// Used by MSBLD_F0:2, AFBLD_F0:1
+		{ IMG_PORT_VIPI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		// Used by MSBLD_F0:2, AFBLD_F0:1
+		{ IMG_PORT_IMGI, formats::NV12_10P_MTISP, mfnrSizes[0], 3, 1, 1 },
+		// Used by MSBLD_F0:2, AFBLD_F0:1
+		{ IMG_PORT_REC_DSI, formats::NV12_12P_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by MSBLD_F0:2, AFBLD_F0:1
+		{ IMG_PORT_TNRWI, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1 },
+		// Used by MSBLD_F0:2, AFBLD_F0:1
+		{ IMG_PORT_TNRMI, formats::Y8_MTISP, mfnrSizes[1], 3, 1, 1 },
+		// Used by MSBLD_F0:2
+		{ IMG_PORT_IMG4O, formats::NV12_10P_MTISP, mfnrSizes[0], 2, 1, 1 },
+		// Used by AFBLD_F0:1
+		{ IMG_PORT_IMG3O, formats::NV12_12P_MTISP, mfnrSizes[0], 2, 1, 1 },
+		// Used by MSBLD_F0:2, AFBLD_F0:1
+		{ IMG_PORT_TNRWO, formats::Y8_MTISP, mfnrSizes[0], 3, 1, 1 },
+	};
 
 	if (!still1.isNull()) {
 		portBufsLpnr.push_back({ IMG_PORT_WDMAO, formats::NV12, still1, 3, 64, 1 });
