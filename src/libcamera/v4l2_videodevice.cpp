@@ -2167,6 +2167,7 @@ void V4L2VideoDevice::changePollerThread(Thread *thread)
 		return;
 
 	fdBufferNotifier_->moveToThread(thread);
+	watchdog_.moveToThread(thread);
 }
 
 /**
