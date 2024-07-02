@@ -42,7 +42,6 @@ class SwmeWrapper
 {
 public:
 	SwmeWrapper();
-	void destroyInstance();
 	~SwmeWrapper();
 	MRESULT init();
 	void reset();
@@ -57,20 +56,11 @@ public:
 		SwmeFramesBuffers swmeFramesBuffers);
 	MRESULT swmeMain(IMFBLL_PROC_ENUM ProcId, void *pParaIn, void *pParaOut);
 	MRESULT featureCtrl(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *pParaOut);
-	void *Parser_MfbllIn(void *pParaIn);
-	void *Parser_MfbllOut(void *pParaOut);
-	//void Parser_MfbllIn_Done(void *pParaIn, void *pParaParseIn);
-	void Parser_MfbllOut_Done(void *pParaOut, void *pParaParseOut);
-	void *Parser_ParaIn(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn);
-	void *Parser_ParaOut(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut);
-	void Parser_ParaIn_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *pParaParseIn);
-	void Parser_ParaOut_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut, void *pParaParseOut);
 
 	void setMotionEstimationResolution(const Size &size)
 	{
 		m_widthMe = size.width;
 		m_heightMe = size.height;
-		//updateIsUsingFullMemc();
 	}
 
 	Size getAlgorithmWorkBufferSize()
@@ -88,25 +78,22 @@ public:
 	}
 
 private:
-	void *m_pMfbllDrv;
+	void *Parser_MfbllIn(void *pParaIn);
+	void *Parser_MfbllOut(void *pParaOut);
+	void Parser_MfbllOut_Done(void *pParaOut, void *pParaParseOut);
+	void *Parser_ParaIn(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn);
+	void *Parser_ParaOut(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut);
+	void Parser_ParaIn_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *pParaParseIn);
+	void Parser_ParaOut_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut, void *pParaParseOut);
+
+	MTKMfbll *m_pMfbllDrv;
 	int m_widthMe;
 	int m_heightMe;
-	int m_widthMc;
-	int m_heightMc;
-	IPass_MFBLL_INIT_PARAM_STRUCT m_MfbllInitParam;
 	IPass_MFBLL_GET_PROC_INFO_STRUCT m_MfbllGetProc;
 	IPass_MFBLL_SET_PROC_INFO_STRUCT m_MfbllSetProc;
-	IPass_MFBLL_SET_PROC_INFO_STRUCT_IPC m_MfbllSetProc_IPC;
 	IPass_MFBLL_PROC1_OUT_STRUCT m_MfbllProcOut;
-	IPass_MFBLL_PROC1_OUT_STRUCT_IPC m_MfbllProcOut_IPC;
 
 	IMFBLL_GET_PROC_INFO_STRUCT m_WorkingBufInfo;
-
-	SharedMailBox<InfoFrame> working_buf_;
-	SharedMailBox<InfoFrame> base_buf_;
-	SharedMailBox<InfoFrame> ref_buf_;
-	SharedMailBox<InfoFrame> warpping_buf_;
-	std::shared_ptr<mtk::isphal::v1::isp_swme_Param> m_dbParam;
 };
 
 } /* namespace libcamera */

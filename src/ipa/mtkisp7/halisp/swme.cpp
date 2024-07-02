@@ -15,15 +15,18 @@ LOG_DECLARE_CATEGORY(MtkISP7)
 
 SwmeWrapper::SwmeWrapper()
 	: m_widthMe(0),
-	  m_heightMe(0),
-	  m_widthMc(0)
+	  m_heightMe(0)
 {
 	DRVMfbllObject_s Pass_DRVMfbllObject_s = DRV_MFBLL_OBJ_SW;
-	m_pMfbllDrv = (void *)MTKMfbll::createInstance(Pass_DRVMfbllObject_s);
+	m_pMfbllDrv = MTKMfbll::createInstance(Pass_DRVMfbllObject_s);
 }
 
 SwmeWrapper::~SwmeWrapper()
 {
+	if (m_pMfbllDrv) {
+		m_pMfbllDrv->destroyInstance();
+		m_pMfbllDrv = nullptr;
+	}
 }
 
 MRESULT SwmeWrapper::init()
@@ -41,8 +44,7 @@ MRESULT SwmeWrapper::init()
 			   << ", Proc1_DSUS_mode: " << initParam.Proc1_DSUS_mode;
 
 	MRESULT ErrCode = S_MFBLL_OK;
-	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
-	ErrCode = pMTKMfbll->MfbllInit(&initParam, NULL);
+	ErrCode = m_pMfbllDrv->MfbllInit(&initParam, NULL);
 	if (ErrCode != S_MFBLL_OK) {
 		LOG(MtkISP7, Info) << "MfbllInit error!!,  ErrCode = " << ErrCode;
 	}
@@ -76,8 +78,7 @@ MRESULT SwmeWrapper::swmeMain(IMFBLL_PROC_ENUM ProcId, void *pParaIn, void *pPar
 	}
 	void *pMfbllInParse = Parser_MfbllIn(pParaIn);
 	void *pMfbllOutParse = Parser_MfbllOut(pParaOut);
-	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
-	ErrCode = pMTKMfbll->MfbllMain(Pass_MFBLL_PROC_ENUM, pMfbllInParse, pMfbllOutParse);
+	ErrCode = m_pMfbllDrv->MfbllMain(Pass_MFBLL_PROC_ENUM, pMfbllInParse, pMfbllOutParse);
 	if (ErrCode != S_MFBLL_OK) {
 		LOG(MtkISP7, Error) << "MfbllMain error!!,  ErrCode = " << ErrCode;
 	}
@@ -109,9 +110,8 @@ MRESULT SwmeWrapper::featureCtrl(IMFBLL_FTCTRL_ENUM FcId, void *pParaIn, void *p
 	}
 	void *pIn = Parser_ParaIn(FcId, pParaIn);
 	void *pOut = Parser_ParaOut(FcId, pParaOut);
-	MTKMfbll *pMTKMfbll = (MTKMfbll *)m_pMfbllDrv;
 	IMFBLL_GET_PROC_INFO_STRUCT *debug_out = &m_WorkingBufInfo;
-	ErrCode = pMTKMfbll->MfbllFeatureCtrl(Pass_MFBLL_FTCTRL_ENUM, pIn, pOut);
+	ErrCode = m_pMfbllDrv->MfbllFeatureCtrl(Pass_MFBLL_FTCTRL_ENUM, pIn, pOut);
 	if (ErrCode != S_MFBLL_OK) {
 		LOG(MtkISP7, Error) << "MfbllFeatureCtrl error!!,  ErrCode = " << ErrCode;
 	}
