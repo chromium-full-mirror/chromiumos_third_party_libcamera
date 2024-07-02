@@ -191,7 +191,7 @@ private:
 	std::unique_ptr<HalIsp> halIsp_;
 	std::unique_ptr<AieParser> aieParser_;
 
-	Thread aaThread_;
+	Thread aaaThread_;
 	std::unique_ptr<AAAManager> aaaManager_;
 
 	Thread ispThread_;
