@@ -108,7 +108,7 @@ void Scheduler::taskDone(Task *task)
 	/* Sample execution time of the task, from launch to notifyDone */
 	std::chrono::milliseconds milliseconds =
 		std::chrono::duration_cast<std::chrono::milliseconds>(
-				std::chrono::steady_clock::now() - task->launchTime_);
+			std::chrono::steady_clock::now() - task->launchTime_);
 
 	LOG(Task, Debug) << "Task " << task->id() << " executed in "
 			 << milliseconds.count() << "ms";
@@ -133,7 +133,9 @@ void Scheduler::taskDone(Task *task)
 void Scheduler::queueTask(Task *task, int32_t group)
 {
 	/* \todo: Detect cyclic dependency */
-	tasksHolder_.emplace(task, task);
+	tasksHolder_.emplace(task,
+			     std::unique_ptr<Task, decltype(&Object::Deleter)>(
+				     task, Object::Deleter));
 
 	pendingTasks_.emplace(task);
 	groupTasks_[group].emplace_back(task);

@@ -95,7 +95,9 @@ private:
 	void taskDone(Task *task);
 	Signal<Task *> taskDone_;
 
-	std::unordered_map<Task *, std::unique_ptr<Task>> tasksHolder_;
+	std::unordered_map<Task *,
+			   std::unique_ptr<Task, decltype(&Object::Deleter)>>
+		tasksHolder_;
 
 	std::map<int32_t, std::list<Task *>> groupTasks_;
 	std::unordered_set<Task *> pendingTasks_;
