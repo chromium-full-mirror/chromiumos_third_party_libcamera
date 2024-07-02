@@ -109,10 +109,10 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 	hal3A_->start(reinterpret_cast<mtk_cam_uapi_meta_raw_stats_cfg *>(
 		rawMetaBuffer->mapped->planes()[0].data()));
 
-	aaThread_.start();
-	aaThread_.setThreadAffinity(k3AThreadCpuAffinity);
+	aaaThread_.start();
+	aaaThread_.setThreadAffinity(k3AThreadCpuAffinity);
 	aaaManager_ = std::make_unique<AAAManager>(this);
-	aaaManager_->moveToThread(&aaThread_);
+	aaaManager_->moveToThread(&aaaThread_);
 
 	ispThread_.start();
 	ispThread_.setThreadAffinity(kIspThreadCpuAffinity);
@@ -131,9 +131,9 @@ void IPAMtkISP7::stop()
 {
 	aaaManager_.reset();
 
-	if (aaThread_.isRunning()) {
-		aaThread_.exit();
-		aaThread_.wait();
+	if (aaaThread_.isRunning()) {
+		aaaThread_.exit();
+		aaaThread_.wait();
 	}
 
 	ispManager_.reset();
