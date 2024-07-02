@@ -192,10 +192,10 @@ private:
 	std::unique_ptr<AieParser> aieParser_;
 
 	Thread aaaThread_;
-	std::unique_ptr<AAAManager> aaaManager_;
+	std::unique_ptr<AAAManager, decltype(&Object::Deleter)> aaaManager_;
 
 	Thread ispThread_;
-	std::unique_ptr<IspManager> ispManager_;
+	std::unique_ptr<IspManager, decltype(&Object::Deleter)> ispManager_;
 
 	// The sensor being configured.
 	int32_t sensorIdx_;

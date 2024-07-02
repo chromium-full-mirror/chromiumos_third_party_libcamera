@@ -36,6 +36,8 @@ static const std::vector<int> kIspThreadCpuAffinity{ 6, 7 };
 } // namespace
 
 IPAMtkISP7::IPAMtkISP7()
+	: aaaManager_(nullptr, Object::Deleter),
+	  ispManager_(nullptr, Object::Deleter)
 {
 }
 
@@ -113,12 +115,12 @@ void IPAMtkISP7::start(const uint32_t rawMetaBufferId,
 
 	aaaThread_.start();
 	aaaThread_.setThreadAffinity(k3AThreadCpuAffinity);
-	aaaManager_ = std::make_unique<AAAManager>(this);
+	aaaManager_.reset(new AAAManager(this));
 	aaaManager_->moveToThread(&aaaThread_);
 
 	ispThread_.start();
 	ispThread_.setThreadAffinity(kIspThreadCpuAffinity);
-	ispManager_ = std::make_unique<IspManager>(this);
+	ispManager_.reset(new IspManager(this));
 	ispManager_->moveToThread(&ispThread_);
 
 	uint32_t exposureTimeMs;
