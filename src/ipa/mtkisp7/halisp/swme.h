@@ -47,6 +47,7 @@ public:
 	void reset();
 	static void prepareParam(
 		IMFBLL_SET_PROC_INFO_STRUCT_IPC &param,
+		std::optional<MtkCameraFaceMetadata> &faceMetadata,
 		SwmeFramesBuffers swmeFramesBuffers,
 		Size frame_size,
 		Size mc_size,

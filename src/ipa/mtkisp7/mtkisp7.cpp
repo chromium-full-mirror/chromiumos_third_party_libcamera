@@ -626,6 +626,7 @@ void IPAMtkISP7::doSwme(
 		IMFBLL_SET_PROC_INFO_STRUCT_IPC paramIn;
 		SwmeWrapper::prepareParam(
 			paramIn,
+			latestFaceMetadata_,
 			swmeFramesBuffers,
 			sensorFullSize_,
 			swmeAlignedSize_,

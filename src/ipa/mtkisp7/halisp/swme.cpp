@@ -432,6 +432,7 @@ void SwmeWrapper::Parser_ParaOut_Done(IMFBLL_FTCTRL_ENUM FcId, void *pParaOut, v
 // static
 void SwmeWrapper::prepareParam(
 	IMFBLL_SET_PROC_INFO_STRUCT_IPC &param,
+	std::optional<MtkCameraFaceMetadata> &faceMetadata,
 	SwmeFramesBuffers swmeFramesBuffers,
 	Size frame_size,
 	Size mc_size,
@@ -482,6 +483,51 @@ void SwmeWrapper::prepareParam(
 		param.Proc1_me_wpe_stride, param.Proc1_me_wpe_np1_mode);
 	;
 	LOG(MtkISP7, Info) << buf;
+
+	if (faceMetadata != std::nullopt) {
+		param.Proc1_Bst_FDROI_X0 = faceMetadata->faces[0].rect[0];
+		param.Proc1_Bst_FDROI_Y0 = faceMetadata->faces[0].rect[1];
+		param.Proc1_Bst_FDROI_X1 = faceMetadata->faces[0].rect[2];
+		param.Proc1_Bst_FDROI_Y1 = faceMetadata->faces[0].rect[3];
+		param.Proc1_Ref_FDROI_X0 = faceMetadata->faces[0].rect[0];
+		param.Proc1_Ref_FDROI_Y0 = faceMetadata->faces[0].rect[1];
+		param.Proc1_Ref_FDROI_X1 = faceMetadata->faces[0].rect[2];
+		param.Proc1_Ref_FDROI_Y1 = faceMetadata->faces[0].rect[3];
+
+		param.Proc1_Bst_LEYE_X0 = faceMetadata->leyex0[0];
+		param.Proc1_Bst_LEYE_X1 = faceMetadata->leyex1[0];
+		param.Proc1_Bst_LEYE_Y0 = faceMetadata->leyey0[0];
+		param.Proc1_Bst_LEYE_Y1 = faceMetadata->leyey1[0];
+		param.Proc1_Bst_LEYE_UX = faceMetadata->leyeux[0];
+		param.Proc1_Bst_LEYE_UY = faceMetadata->leyeuy[0];
+		param.Proc1_Bst_LEYE_DX = faceMetadata->leyedx[0];
+		param.Proc1_Bst_LEYE_DY = faceMetadata->leyedy[0];
+		param.Proc1_Bst_REYE_X0 = faceMetadata->reyex0[0];
+		param.Proc1_Bst_REYE_X1 = faceMetadata->reyex1[0];
+		param.Proc1_Bst_REYE_Y0 = faceMetadata->reyey0[0];
+		param.Proc1_Bst_REYE_Y1 = faceMetadata->reyey1[0];
+		param.Proc1_Bst_REYE_UX = faceMetadata->reyeux[0];
+		param.Proc1_Bst_REYE_UY = faceMetadata->reyeuy[0];
+		param.Proc1_Bst_REYE_DX = faceMetadata->reyedx[0];
+		param.Proc1_Bst_REYE_DY = faceMetadata->reyedy[0];
+
+		param.Proc1_Ref_LEYE_X0 = faceMetadata->leyex0[0];
+		param.Proc1_Ref_LEYE_X1 = faceMetadata->leyex1[0];
+		param.Proc1_Ref_LEYE_Y0 = faceMetadata->leyey0[0];
+		param.Proc1_Ref_LEYE_Y1 = faceMetadata->leyey1[0];
+		param.Proc1_Ref_LEYE_UX = faceMetadata->leyeux[0];
+		param.Proc1_Ref_LEYE_UY = faceMetadata->leyeuy[0];
+		param.Proc1_Ref_LEYE_DX = faceMetadata->leyedx[0];
+		param.Proc1_Ref_LEYE_DY = faceMetadata->leyedy[0];
+		param.Proc1_Ref_REYE_X0 = faceMetadata->reyex0[0];
+		param.Proc1_Ref_REYE_X1 = faceMetadata->reyex1[0];
+		param.Proc1_Ref_REYE_Y0 = faceMetadata->reyey0[0];
+		param.Proc1_Ref_REYE_Y1 = faceMetadata->reyey1[0];
+		param.Proc1_Ref_REYE_UX = faceMetadata->reyeux[0];
+		param.Proc1_Ref_REYE_UY = faceMetadata->reyeuy[0];
+		param.Proc1_Ref_REYE_DX = faceMetadata->reyedx[0];
+		param.Proc1_Ref_REYE_DY = faceMetadata->reyedy[0];
+	}
 
 	sprintf(buf, "Bst_FDROI X0=%d, Y0=%d, X1=%d, Y1=%d",
 		param.Proc1_Bst_FDROI_X0, param.Proc1_Bst_FDROI_Y0,
