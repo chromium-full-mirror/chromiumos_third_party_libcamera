@@ -59,6 +59,17 @@ LOG_DEFINE_CATEGORY(Object)
  */
 
 /**
+ * \brief A deleter function that calls Object::deleteLater
+ * \param[in] obj The object itself
+ *
+ * The static deleter function that's used in smart pointers.
+ */
+void Object::Deleter(Object *obj)
+{
+	obj->deleteLater();
+}
+
+/**
  * \brief Construct an Object instance
  * \param[in] parent The object parent
  *
