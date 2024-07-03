@@ -328,8 +328,6 @@ Task *FaceDetector::makeFaceDetectionTask(
 	FaceDetectTask *fdTask = new FaceDetectTask(
 		scheduler, id, camSysMetaRequestId, this, detectorInput);
 
-	fdTask->moveToThread(&threadFaceDetect_);
-
 	return fdTask;
 }
 

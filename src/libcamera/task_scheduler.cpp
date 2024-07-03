@@ -35,7 +35,11 @@ void Task::launch()
 	running_ = true;
 	launchTime_ = std::chrono::steady_clock::now();
 
-	this->invokeMethod(&Task::run, ConnectionTypeQueued);
+	auto *method = new BoundMethodMember{
+		this, scheduler_, &Task::run, ConnectionTypeQueued
+	};
+
+	method->activate();
 }
 
 void Task::notifyDone()
@@ -133,9 +137,7 @@ void Scheduler::taskDone(Task *task)
 void Scheduler::queueTask(Task *task, int32_t group)
 {
 	/* \todo: Detect cyclic dependency */
-	tasksHolder_.emplace(task,
-			     std::unique_ptr<Task, decltype(&Object::Deleter)>(
-				     task, Object::Deleter));
+	tasksHolder_.emplace(task, std::unique_ptr<Task>(task));
 
 	pendingTasks_.emplace(task);
 	groupTasks_[group].emplace_back(task);
