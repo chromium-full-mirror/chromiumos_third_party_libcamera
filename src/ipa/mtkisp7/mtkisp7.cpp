@@ -175,7 +175,7 @@ int IPAMtkISP7::configure(const Size &camsysYuvSize, const Size &maxVideoSize,
 	if (maxVideoSize.isNull())
 		force3AConsistency = true;
 
-	hal3A_->configure(camsysYuvSize, isVideo, force3AConsistency);
+	hal3A_->configure(camsysYuvSize, maxVideoSize, isVideo, force3AConsistency);
 	halIsp_->configure(maxVideoSize, maxStillSize, isVideo);
 
 	bssWrapper_ = std::make_shared<BssWrapper>(sensorIdx_);

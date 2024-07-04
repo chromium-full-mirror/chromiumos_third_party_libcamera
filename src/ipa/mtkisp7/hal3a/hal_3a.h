@@ -33,7 +33,7 @@ public:
 	Hal3A(const uint32_t sensor_idx, HalIsp *halIsp, OnDeviceTuner *odt);
 	~Hal3A();
 
-	void configure(Size camsysYuvSize, bool isVideo, bool force3AConsistency);
+	void configure(Size camsysYuvSize, Size maxVideoSize, bool isVideo, bool force3AConsistency);
 	void start(mtk_cam_uapi_meta_raw_stats_cfg *rawMetaBuffer);
 
 	void doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
@@ -80,6 +80,7 @@ private:
 	int sensor_id_;
 	uint32_t sensor_dev_;
 	Size camsysYuvSize_;
+	Size maxVideoSize_;
 	bool isVideo_ = false;
 
 	mtk::hal3a::IHal3A *m_hal3a_ = nullptr;

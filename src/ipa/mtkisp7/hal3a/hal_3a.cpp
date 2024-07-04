@@ -52,9 +52,10 @@ Hal3A::~Hal3A()
 	}
 }
 
-void Hal3A::configure(Size camsysYuvSize, bool isVideo, bool force3AConsistency)
+void Hal3A::configure(Size camsysYuvSize, Size maxVideoSize, bool isVideo, bool force3AConsistency)
 {
 	camsysYuvSize_ = camsysYuvSize;
+	maxVideoSize_ = maxVideoSize;
 	isVideo_ = isVideo;
 	if (inited_) {
 		mtk::hal3a::v1_0::mtk_3a_stop stop = {};
@@ -752,33 +753,33 @@ mtk::hal3a::v1_0::mtk_3a_param Hal3A::get3AParam(
 	case HI1339_SENSOR_ID:
 		r_3a_param.prv_crop_region.right = 4208;
 		r_3a_param.prv_crop_region.bottom = 3120;
-
-		r_3a_param.prv_crop_normalize_region.right = 4208;
-		r_3a_param.prv_crop_normalize_region.bottom = 3120;
 		break;
 	case GC08A3_SENSOR_ID:
 		r_3a_param.prv_crop_region.right = 3264;
 		r_3a_param.prv_crop_region.bottom = 2448;
-
-		r_3a_param.prv_crop_normalize_region.right = 3264;
-		r_3a_param.prv_crop_normalize_region.bottom = 2448;
 		break;
 	case GC05A2_SENSOR_ID:
 		r_3a_param.prv_crop_region.right = 2592;
 		r_3a_param.prv_crop_region.bottom = 1944;
-
-		r_3a_param.prv_crop_normalize_region.right = 2592;
-		r_3a_param.prv_crop_normalize_region.bottom = 1944;
 		break;
 	default:
 		LOG(MtkISP7, Error) << "Un-handle sensor_id: " << sensor_id_;
 		r_3a_param.prv_crop_region.right = 2592;
 		r_3a_param.prv_crop_region.bottom = 1944;
-
-		r_3a_param.prv_crop_normalize_region.right = 2592;
-		r_3a_param.prv_crop_normalize_region.bottom = 1944;
 		break;
 	}
+
+	// When target preview/video is 16x9. Limit the 3A calculation region.
+	if (maxVideoSize_.width * 9 == maxVideoSize_.height * 16) {
+		int32_t width = r_3a_param.prv_crop_region.right - r_3a_param.prv_crop_region.left;
+		int32_t height = r_3a_param.prv_crop_region.bottom - r_3a_param.prv_crop_region.top;
+		int32_t shift = (height - (width * 9 / 16)) / 2;
+
+		r_3a_param.prv_crop_region.top += shift;
+		r_3a_param.prv_crop_region.bottom -= shift;
+	}
+
+	r_3a_param.prv_crop_normalize_region = r_3a_param.prv_crop_region;
 
 	r_3a_param.low_fps = 0;
 	r_3a_param.remosaic_enable = 0;
