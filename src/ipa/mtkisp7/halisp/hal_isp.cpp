@@ -39,6 +39,7 @@ namespace libcamera {
 LOG_DECLARE_CATEGORY(MtkISP7)
 
 std::shared_ptr<mtk::isphal::v1::IHalIsp> HalIsp::m_pHalisp;
+std::shared_ptr<mtk::isphal::v1::IHalIsp> HalIsp::m_pHalispCapture;
 
 HalIsp::HalIsp(OnDeviceTuner *odt)
 	: onDeviceTuner_(odt)
@@ -170,10 +171,20 @@ void HalIsp::configure(const Size &maxVideoSize,
 	if (m_pHalisp)
 		m_pHalisp.reset();
 
+	if (m_pHalispCapture)
+		m_pHalispCapture.reset();
+
 	m_pHalisp = mtk::isphal::v1::IHalIsp::createInstance(
 		sensorDev_, sensorIdx_, m_P1CamInfo.user_id);
+
+	m_pHalispCapture = mtk::isphal::v1::IHalIsp::createInstance(
+		sensorDev_, sensorIdx_, m_P1CamInfo.user_id + 10000);
+
 	mtk_isp_buf_info bufferInfo;
 	m_pHalisp->queryISPBufferInfo(&bufferInfo);
+
+	mtk_isp_buf_info bufferInfoCapture;
+	m_pHalispCapture->queryISPBufferInfo(&bufferInfoCapture);
 }
 
 uint32_t HalIsp::getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info)
@@ -1269,8 +1280,12 @@ int HalIsp::getImgSysMetaTuning(uint32_t camSysMetaRequestId,
 		imgsys_info.rNdd_info = cam_info.rNdd_info;
 		imgsys_info.sr_para = cam_info.sr_para;
 	}
+	if (is_capture) {
+		m_pHalispCapture->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
+	} else {
+		m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
+	}
 
-	m_pHalisp->getImgSysMetaTuning(&tuning_param_p2, &result_p2);
 	onDeviceTuner_->tuneExif(
 		internalRequestId, frameNumber, tuning_param_p2.exif_3a,
 		result_p2.exif, imgsys_info.rMapping_Info.eStage, feature);
