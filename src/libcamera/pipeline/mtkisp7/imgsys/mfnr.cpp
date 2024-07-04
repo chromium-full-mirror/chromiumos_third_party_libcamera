@@ -185,7 +185,7 @@ int MfnrTasksManager::configureBuffers()
 	y8_1_16_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[4], 10, DmaHeap::System, 16, 16);
 	y8_1_32_pool_.createBuffers(dmaHeap_, formats::Y8_MTISP, mfnrSizes_[5], 10, DmaHeap::System, 16, 16);
 
-	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 22);
+	fourBytes_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, kTnrsoSize, 2);
 	nv21_1_64_pool_.createBuffers(dmaHeap_, formats::NV21, mfnrSizes_[6], 3);
 	nv12_wroto_pool_.createBuffers(dmaHeap_, formats::NV12, kWrotoSize, 1);
 

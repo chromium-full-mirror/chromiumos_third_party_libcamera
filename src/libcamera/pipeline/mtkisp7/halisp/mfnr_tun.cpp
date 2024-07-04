@@ -64,7 +64,7 @@ MfnrTunManager::MfnrTunManager(
 
 void MfnrTunManager::allocateBuffers()
 {
-	mfnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 45, DmaHeap::CMA);
+	mfnrTun_.createBuffers(dmaHeap_, formats::MTFD_MTISP, kTunSize, 43, DmaHeap::CMA);
 	mfnrTun_.mmap();
 
 	bssParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IBSS_PARAM_STRUCT), 1), 1);
@@ -90,7 +90,7 @@ void MfnrTunManager::allocateBuffers()
 	swmeOutPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_PROC1_OUT_STRUCT), 1), kInputRawCount - 1);
 	swmeParamPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(IMFBLL_SET_PROC_INFO_STRUCT), 1), kInputRawCount - 1);
 	swmeTuningPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP, Size(sizeof(mtk::isphal::v1::isp_swme_Param), 1), kInputRawCount - 1);
-	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 4, DmaHeap::System, 1, 1);
+	wrap2pPool_.createBuffers(dmaHeap_, formats::WARP2P_MTISP, wrappingMapSize_, 3, DmaHeap::System, 1, 1);
 	tnrciPool_.createBuffers(dmaHeap_, formats::Y8_MTISP, confMapSize_, 3, DmaHeap::System);
 	fourBytes_1_16_pool_.createBuffers(dmaHeap_, formats::Y32_MTISP, mfnrSizes_[4], 3);
 
