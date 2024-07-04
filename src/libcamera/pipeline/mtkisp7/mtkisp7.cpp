@@ -806,6 +806,10 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 			controls[&controls::LensFocusDistance] =
 				ControlInfo(infiniteFocusDistance, minimumFocusDistance, 1.0f);
 			controls[&controls::LensPosition] = ControlInfo(0.0f, 1000.0f);
+		} else {
+			controls[&controls::LensFocusDistance] =
+				ControlInfo(0.0f, 0.0f);
+			controls[&controls::LensPosition] = ControlInfo(0.0f, 0.0f);
 		}
 
 		// For now these two controls are ignored.
