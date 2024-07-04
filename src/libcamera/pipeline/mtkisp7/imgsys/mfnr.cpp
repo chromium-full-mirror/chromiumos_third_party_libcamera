@@ -940,7 +940,7 @@ void BfmeTask::run()
 	for (auto i = 0; i < kInputRawCount; i++) {
 		StageEx &BFME = sdRequest.emplaceStage(PEU_Stage::BFME, internalRequestId_ + bssOrder[i]);
 		BFME.input(in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
-		BFME.input(in.tunbufi[1]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
+		BFME.input(in.tunbufi[i]->get(), IMG_PORT_METAI, 0, Size{ 0, 0 });
 		BFME.output(out.img2o[i]->get(), IMG_PORT_IMG2O, 0, mfnrSize_aligned16);
 		BFME.setMultiScale(IMG_MULTI_SCALE_DOWN4, 1, 0);
 	}
