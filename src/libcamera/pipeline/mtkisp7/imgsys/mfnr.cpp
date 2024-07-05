@@ -291,15 +291,13 @@ void MfnrTasksManager::makeMFNRFrames(
 	std::vector<SharedMailBox<InfoFrame>> dsVbiV5Tyuv4o = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 	std::vector<SharedMailBox<InfoFrame>> dsVbiV5Tyuv3o = makeMailBoxVector<InfoFrame>(kInputRawCount - 1);
 
-	std::vector<SharedMailBox<InfoFrame>> msbldFx_Tnrwi = makeMailBoxVector<InfoFrame>(7);
+	std::vector<SharedMailBox<InfoFrame>> msbldFx_Tnrwi = makeMailBoxVector<InfoFrame>(6);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tun = makeMailBoxVector<InfoFrame>(7);
-	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrci = makeMailBoxVector<InfoFrame>(1);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Img4o = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrwo = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_0Tnrmo = makeMailBoxVector<InfoFrame>(7);
 
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tun = makeMailBoxVector<InfoFrame>(7);
-	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tnrci = makeMailBoxVector<InfoFrame>(1);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Img4o = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tnrwo = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> msbldFx_1Tnrmo = makeMailBoxVector<InfoFrame>(7);
@@ -311,7 +309,6 @@ void MfnrTasksManager::makeMFNRFrames(
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Img4o = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrwo = makeMailBoxVector<InfoFrame>(7);
 	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrmo = makeMailBoxVector<InfoFrame>(7);
-	std::vector<SharedMailBox<InfoFrame>> afbldFx_Tnrci = makeMailBoxVector<InfoFrame>(1);
 
 	/* Frames used by MfnrTunBsstask */
 	BssFrames &bssFrames = mfnr.bssFrames;
@@ -476,14 +473,8 @@ void MfnrTasksManager::makeMFNRFrames(
 	AfbldFrames &afbldF1 = mfnr.afbldF1;
 	AfbldFrames &afbldF0 = mfnr.afbldF0;
 
-	msbldFx_0Tnrci[0] = swmeFrame.out.conf_map[0];
-	msbldFx_1Tnrci[0] = swmeFrame.out.conf_map[1];
-	afbldFx_Tnrci[0] = swmeFrame.out.conf_map[2];
-
 	// Create ping-pong buffer for tnrsi/tnrso
 	std::vector<SharedMailBox<InfoFrame>> tnrsi = makeMailBoxVector<InfoFrame>(2);
-	fourBytes_pool_.fetch(tnrsi[0]);
-	fourBytes_pool_.fetch(tnrsi[1]);
 	SharedMailBox<InfoFrame> firstMsbld_tnrsi = makeMailBox<InfoFrame>();
 	SharedMailBox<InfoFrame> secondMsbld_tnrsi = makeMailBox<InfoFrame>();
 	SharedMailBox<InfoFrame> afbld_tnrsi = makeMailBox<InfoFrame>();
@@ -521,29 +512,7 @@ void MfnrTasksManager::makeMFNRFrames(
 	constructAfbldMailBox(afbldF1, 1, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
 	constructAfbldMailBox(afbldF0, 0, afbldFx_Tun, afbldFx_Wroto, afbldFx_Wdmao, afbldFx_Img3o, afbldFx_Img4o, afbldFx_Tnrwo, afbldFx_Tnrmo, swmeFrame.out.conf_map[2], afbld_tnrso);
 
-	//tnrciPool_.fetch(msbldFx_0Tnrci[0]);
-	//tnrciPool_.fetch(msbldFx_1Tnrci[0]);
-	//tnrciPool_.fetch(afbldFx_Tnrci[0]);
-	//testImage(msbldFx_0Tnrci[0]);
-	//testImage(msbldFx_1Tnrci[0]);
-	//testImage(afbldFx_Tnrci[0]);
-
-	y8_1_32_pool_.fetch(msbldFx_Tnrwi[5]);
-	y8_1_16_pool_.fetch(msbldFx_Tnrwi[4]);
-	y8_1_8_pool_.fetch(msbldFx_Tnrwi[3]);
-	y8_1_4_pool_.fetch(msbldFx_Tnrwi[2]);
-	y8_1_2_pool_.fetch(msbldFx_Tnrwi[1]);
-	y8_1_1_pool_.fetch(msbldFx_Tnrwi[0]);
-
 	afbldF0.tncso = bfbldFrames.out.p2stto[0];
-	zeroImage(msbldFx_Tnrwi[5]);
-	zeroImage(msbldFx_Tnrwi[4]);
-	zeroImage(msbldFx_Tnrwi[3]);
-	zeroImage(msbldFx_Tnrwi[2]);
-	zeroImage(msbldFx_Tnrwi[1]);
-	zeroImage(msbldFx_Tnrwi[0]);
-	zeroImage(tnrsi[0]);
-	zeroImage(tnrsi[1]);
 
 	msbldF5.in.tnrwi.push_back(msbldFx_Tnrwi[5]);
 	msbldF4.in.tnrwi.push_back(msbldFx_Tnrwi[4]);
@@ -1135,6 +1104,27 @@ void MsbldTask::allocateOutputBuffers()
 	auto &msbldF0_out = msbldF0_.out;
 	manager_->yuvp010_1_1_pool_.fetch(msbldF0_out.img4o[i]);
 	manager_->y8_1_1_pool_.fetch(msbldF0_out.tnrwo[i]);
+
+	if (msbldIdx_ == 0) {
+		manager_->fourBytes_pool_.fetch(msbldF6_.in.tnrsi[0]);
+		zeroImage(msbldF6_.in.tnrsi[0]);
+		manager_->fourBytes_pool_.fetch(msbldF5_.in.tnrsi[0]);
+		zeroImage(msbldF5_.in.tnrsi[0]);
+
+		manager_->y8_1_32_pool_.fetch(msbldF5_.in.tnrwi[0]);
+		manager_->y8_1_16_pool_.fetch(msbldF4_.in.tnrwi[0]);
+		manager_->y8_1_8_pool_.fetch(msbldF3_.in.tnrwi[0]);
+		manager_->y8_1_4_pool_.fetch(msbldF2_.in.tnrwi[0]);
+		manager_->y8_1_2_pool_.fetch(msbldF1_.in.tnrwi[0]);
+		manager_->y8_1_1_pool_.fetch(msbldF0_.in.tnrwi[0]);
+
+		zeroImage(msbldF5_.in.tnrwi[0]);
+		zeroImage(msbldF4_.in.tnrwi[0]);
+		zeroImage(msbldF3_.in.tnrwi[0]);
+		zeroImage(msbldF2_.in.tnrwi[0]);
+		zeroImage(msbldF1_.in.tnrwi[0]);
+		zeroImage(msbldF0_.in.tnrwi[0]);
+	}
 }
 
 void MsbldTask::notifyDone()
