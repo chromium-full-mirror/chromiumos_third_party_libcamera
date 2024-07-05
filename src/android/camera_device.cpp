@@ -358,9 +358,7 @@ int buildStreamConfigsNoMap(const CameraCapabilities &capabilities,
 		 * GRALLOC_USAGE_HW_CAMERA_WRITE flag unconditionally, even for
 		 * streams that will be produced in software.
 		 */
-		stream->usage |= (GRALLOC_USAGE_HW_CAMERA_WRITE |
-				  GRALLOC_USAGE_SW_READ_OFTEN |
-				  GRALLOC_USAGE_SW_WRITE_NEVER);
+		stream->usage |= GRALLOC_USAGE_HW_CAMERA_WRITE;
 
 		Camera3StreamConfig streamConfig;
 		streamConfig.config.size = size;
