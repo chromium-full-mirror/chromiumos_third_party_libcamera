@@ -1595,6 +1595,11 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		scheduler->succeedPrevTaskByStep(TrGroup, 2, trTunTask);
 		scheduler->succeedPrevTaskByStep(Dip2Group, 2, dipTunTask);
 
+		// TODO: Add the dependency due to that taskMeB holds trMeTun
+		// which only used by TaskMeA. Removes the dependency once we
+		// resolve the life time.
+		scheduler->succeedPrevTaskByStep(MeATunGroup, 2, taskMeB);
+
 		Scheduler::precede(taskDQBuf, meATunTask);
 		scheduler->succeedPrevTaskByStep(MeATunGroup, 0, meATunTask);
 		scheduler->succeedPrevTaskByStep(MeBTunGroup, 0, meATunTask);
