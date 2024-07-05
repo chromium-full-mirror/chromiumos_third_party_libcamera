@@ -1386,11 +1386,11 @@ int CameraCapabilities::initializeStaticMetadata()
 		ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_CALIBRATED,
 	};
 
-	auto lensPositionIter =
+	auto lensFocusDistanceIter =
 		camera_->controls().find(controls::LensFocusDistance.id());
-	if (lensPositionIter != camera_->controls().end()) {
-		const ControlInfo &lensPositionRange = lensPositionIter->second;
-		auto minFocusDistance = lensPositionRange.max().get<float>();
+	if (lensFocusDistanceIter != camera_->controls().end()) {
+		const ControlInfo &lensFocusDistanceRange = lensFocusDistanceIter->second;
+		auto minFocusDistance = lensFocusDistanceRange.max().get<float>();
 		staticMetadata_->addEntry(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
 					  minFocusDistance);
 		if (minFocusDistance != 0.0f) {
