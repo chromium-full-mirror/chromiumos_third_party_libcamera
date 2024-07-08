@@ -113,23 +113,22 @@ struct DsVbiFrames {
 
 struct MsbldFrames {
 	struct {
-		std::vector<SharedMailBox<InfoFrame>> vipi;
-		std::vector<SharedMailBox<InfoFrame>> imgi;
-		std::vector<SharedMailBox<InfoFrame>> tnrsi;
-		std::vector<SharedMailBox<InfoFrame>> rec_dsi;
-		std::vector<SharedMailBox<InfoFrame>> tnrci;
-		std::vector<SharedMailBox<InfoFrame>> tnrwi;
-		std::vector<SharedMailBox<InfoFrame>> tnrvbi;
-		std::vector<SharedMailBox<InfoFrame>> tnrlfdi;
-		std::vector<SharedMailBox<InfoFrame>> tnrmi;
-		std::vector<SharedMailBox<InfoFrame>> tunbufi;
-
+		SharedMailBox<InfoFrame> vipi;
+		SharedMailBox<InfoFrame> imgi;
+		SharedMailBox<InfoFrame> tnrsi;
+		SharedMailBox<InfoFrame> rec_dsi;
+		SharedMailBox<InfoFrame> tnrci;
+		SharedMailBox<InfoFrame> tnrwi;
+		SharedMailBox<InfoFrame> tnrvbi;
+		SharedMailBox<InfoFrame> tnrlfdi;
+		SharedMailBox<InfoFrame> tnrmi;
+		SharedMailBox<InfoFrame> tunbufi;
 	} in;
 	struct {
-		std::vector<SharedMailBox<InfoFrame>> img4o;
-		std::vector<SharedMailBox<InfoFrame>> tnrwo;
-		std::vector<SharedMailBox<InfoFrame>> tnrmo;
-		std::vector<SharedMailBox<InfoFrame>> tnrso;
+		SharedMailBox<InfoFrame> img4o;
+		SharedMailBox<InfoFrame> tnrwo;
+		SharedMailBox<InfoFrame> tnrmo;
+		SharedMailBox<InfoFrame> tnrso;
 	} out;
 };
 
@@ -202,13 +201,15 @@ struct MFNRFrames {
 	DsFrames dsFrames;
 	DsVbiFrames dsVbiFramesV2;
 	DsVbiFrames dsVbiFramesV5;
-	MsbldFrames msbldF0;
-	MsbldFrames msbldF1;
-	MsbldFrames msbldF2;
-	MsbldFrames msbldF3;
-	MsbldFrames msbldF4;
-	MsbldFrames msbldF5;
-	MsbldFrames msbldF6;
+	struct {
+		MsbldFrames msbldF0;
+		MsbldFrames msbldF1;
+		MsbldFrames msbldF2;
+		MsbldFrames msbldF3;
+		MsbldFrames msbldF4;
+		MsbldFrames msbldF5;
+		MsbldFrames msbldF6;
+	} msbldFrames[2];
 	AfbldFrames afbldF0;
 	AfbldFrames afbldF1;
 	AfbldFrames afbldF2;

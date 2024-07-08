@@ -622,13 +622,13 @@ MfnrTunMsbldTask::MfnrTunMsbldTask(MFNRFrames &mfnr,
 		     Feature::Capture_mfnr, manager->ipa_, request->controls()),
 	  request_(request), manager_(manager), msbldIdx_(msbldIdx)
 {
-	msbldF0Tun_ = mfnr.msbldF0.in.tunbufi[msbldIdx];
-	msbldF1Tun_ = mfnr.msbldF1.in.tunbufi[msbldIdx];
-	msbldF2Tun_ = mfnr.msbldF2.in.tunbufi[msbldIdx];
-	msbldF3Tun_ = mfnr.msbldF3.in.tunbufi[msbldIdx];
-	msbldF4Tun_ = mfnr.msbldF4.in.tunbufi[msbldIdx];
-	msbldF5Tun_ = mfnr.msbldF5.in.tunbufi[msbldIdx];
-	msbldF6Tun_ = mfnr.msbldF6.in.tunbufi[msbldIdx];
+	msbldF0Tun_ = mfnr.msbldFrames[msbldIdx].msbldF0.in.tunbufi;
+	msbldF1Tun_ = mfnr.msbldFrames[msbldIdx].msbldF1.in.tunbufi;
+	msbldF2Tun_ = mfnr.msbldFrames[msbldIdx].msbldF2.in.tunbufi;
+	msbldF3Tun_ = mfnr.msbldFrames[msbldIdx].msbldF3.in.tunbufi;
+	msbldF4Tun_ = mfnr.msbldFrames[msbldIdx].msbldF4.in.tunbufi;
+	msbldF5Tun_ = mfnr.msbldFrames[msbldIdx].msbldF5.in.tunbufi;
+	msbldF6Tun_ = mfnr.msbldFrames[msbldIdx].msbldF6.in.tunbufi;
 
 	bssOrder_ = mfnr.bss_order;
 }
