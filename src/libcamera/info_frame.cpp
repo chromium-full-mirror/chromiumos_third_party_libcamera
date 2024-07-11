@@ -5,15 +5,14 @@
  * info_frame.cpp - InfoFrame and InfoFramePool
  */
 
-#include <unordered_set>
-
-#include <libcamera/internal/info_frame.h>
-
 #include <sys/mman.h>
 #include <unistd.h>
+#include <unordered_set>
 
 #include "libcamera/internal/dma_heaps.h"
 #include "libcamera/internal/formats.h"
+
+#include <libcamera/internal/info_frame.h>
 
 namespace libcamera {
 
@@ -127,7 +126,7 @@ int InfoFramePool::unmap()
 
 InfoFrame InfoFramePool::get()
 {
-	FrameBuffer* buffer = pool_.get();
+	FrameBuffer *buffer = pool_.get();
 
 	InfoFrame info(format_, size_, buffer, strideAlign_, scanAlign_);
 	for (size_t i = 0; i < buffer->planes().size(); i++) {
@@ -141,7 +140,7 @@ InfoFrame InfoFramePool::get()
 	return info;
 }
 
-void InfoFramePool::put(InfoFrame& info)
+void InfoFramePool::put(InfoFrame &info)
 {
 	pool_.put(info.buffer());
 }
@@ -193,7 +192,6 @@ int InfoFramePool::createBuffers(DmaHeap *dmaHeap,
 
 	return setBuffers(format, size, buffers, strideAlign, scanAlign);
 }
-
 
 int LazyInfoFramePool::setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
 				 const Size &size,
@@ -252,7 +250,7 @@ InfoFrame LazyInfoFramePool::get()
 	std::scoped_lock lock(mutex_);
 	allocatedBuffers_.emplace_back(std::make_unique<FrameBuffer>(planes));
 
-	FrameBuffer* buffer = allocatedBuffers_.back().get();
+	FrameBuffer *buffer = allocatedBuffers_.back().get();
 	InfoFrame infoFrame(format_, size_, buffer, strideAlign_, scanAlign_);
 	return infoFrame;
 }
@@ -269,6 +267,88 @@ void LazyInfoFramePool::put(InfoFrame &frameInfo)
 	}
 
 	LOG(InfoFrame, Fatal) << "Unknown buffer returned to LazyInfoFramePool";
+}
+
+int ElasticInfoFramePool::setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
+				    const Size &size,
+				    DmaHeap::Type type,
+				    unsigned int strideAlign, unsigned scanAlign)
+{
+	release();
+
+	dmaHeap_ = dmaHeap;
+	type_ = type;
+	size_ = size;
+	format_ = format;
+	strideAlign_ = strideAlign;
+	scanAlign_ = scanAlign;
+
+	return 0;
+}
+
+void ElasticInfoFramePool::release()
+{
+	pool_.release();
+
+	MutexLocker lock(mutex_);
+	idleCnt_ = 0;
+}
+
+void ElasticInfoFramePool::fetch(SharedMailBox<InfoFrame> &mailBox)
+{
+	auto recycler = [this](InfoFrame &info) {
+		this->put(info);
+	};
+
+	mailBox->put(get(), recycler);
+}
+
+InfoFrame ElasticInfoFramePool::get()
+{
+	{
+		MutexLocker lock(mutex_);
+		if (idleCnt_ > 0) {
+			--idleCnt_;
+			return InfoFrame(format_, size_, pool_.get(),
+					 strideAlign_, scanAlign_);
+		}
+	}
+
+	const PixelFormatInfo &info = PixelFormatInfo::info(format_);
+	uint32_t bufferSize = 0;
+	for (unsigned int i = 0; i < info.numPlanes(); i++)
+		bufferSize += info.planeSize(size_, i, strideAlign_, scanAlign_);
+
+	SharedFD fd(dmaHeap_->alloc(bufferSize, type_));
+	if (!fd.isValid()) {
+		LOG(InfoFrame, Fatal) << "fail to allocate dma buf, size " << bufferSize;
+	}
+
+	uint32_t offset = 0;
+	std::vector<FrameBuffer::Plane> planes;
+
+	for (unsigned int j = 0; j < info.numPlanes(); j++) {
+		FrameBuffer::Plane plane;
+		plane.fd = fd;
+		plane.offset = offset;
+		plane.length = info.planeSize(size_, j, strideAlign_, scanAlign_);
+		plane.stride = info.stride(size_.width, j, strideAlign_);
+		planes.emplace_back(plane);
+		offset += plane.length;
+	}
+
+	FrameBuffer *buffer = pool_.addAndGet(std::make_unique<FrameBuffer>(planes));
+
+	InfoFrame infoFrame(format_, size_, buffer, strideAlign_, scanAlign_);
+	return infoFrame;
+}
+
+void ElasticInfoFramePool::put(InfoFrame &frameInfo)
+{
+	pool_.put(frameInfo.buffer());
+
+	MutexLocker lock(mutex_);
+	++idleCnt_;
 }
 
 } /* namespace libcamera */

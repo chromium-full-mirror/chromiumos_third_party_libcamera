@@ -110,9 +110,9 @@ public:
 	~LazyInfoFramePool() = default;
 
 	int setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
-			  const Size &size,
-			  DmaHeap::Type type = DmaHeap::System,
-			  unsigned int strideAlign = 1, unsigned scanAlign = 1);
+		      const Size &size,
+		      DmaHeap::Type type = DmaHeap::System,
+		      unsigned int strideAlign = 1, unsigned scanAlign = 1);
 
 	void release();
 
@@ -132,6 +132,40 @@ private:
 	std::vector<std::unique_ptr<FrameBuffer>> allocatedBuffers_;
 
 	Mutex mutex_;
+};
+
+class ElasticInfoFramePool
+{
+public:
+	ElasticInfoFramePool() = default;
+	~ElasticInfoFramePool() = default;
+
+	int setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
+		      const Size &size,
+		      DmaHeap::Type type = DmaHeap::System,
+		      unsigned int strideAlign = 1, unsigned scanAlign = 1);
+
+	void release();
+
+	void fetch(SharedMailBox<InfoFrame> &mailBox);
+
+	InfoFrame get();
+	void put(InfoFrame &frameInfo);
+
+private:
+	LIBCAMERA_DISABLE_COPY_AND_MOVE(ElasticInfoFramePool)
+
+	DmaHeap *dmaHeap_;
+	DmaHeap::Type type_;
+	Size size_;
+	PixelFormat format_;
+	unsigned int strideAlign_;
+	unsigned int scanAlign_;
+
+	Pool<FrameBuffer *, std::unique_ptr<FrameBuffer>> pool_;
+
+	Mutex mutex_;
+	uint32_t idleCnt_ LIBCAMERA_TSA_GUARDED_BY(mutex_) = 0;
 };
 
 } /* namespace libcamera */

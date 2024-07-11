@@ -28,17 +28,20 @@
 namespace libcamera {
 
 template<typename T>
-class BasicContainer {
+class BasicContainer
+{
 public:
-	BasicContainer(T &value) : value_(value) {}
+	BasicContainer(T &value)
+		: value_(value) {}
 	T get() { return value_; }
 
 private:
 	T value_;
 };
 
-template <typename T, typename UniquePtr>
-class Pool : public Loggable {
+template<typename T, typename UniquePtr>
+class Pool : public Loggable
+{
 public:
 	Pool() = default;
 	~Pool() = default;
@@ -46,7 +49,8 @@ public:
 	/* Loggable */
 	std::string logPrefix() const override { return "Pool"; }
 
-	int setData(std::vector<UniquePtr>& pool) {
+	int setData(std::vector<UniquePtr> &pool)
+	{
 		pool_.swap(pool);
 		free_.clear();
 		inUse_.clear();
@@ -58,21 +62,35 @@ public:
 		return 0;
 	}
 
-	void release() {
+	T addAndGet(UniquePtr obj)
+	{
+		std::scoped_lock lock(mutex_);
+		T fd = obj.get();
+		inUse_.emplace_back(fd);
+		pool_.insert(pool_.end(), std::move(obj));
+
+		return fd;
+	}
+
+	void release()
+	{
 		pool_.clear();
 		free_.clear();
 		inUse_.clear();
 	}
 
-	std::vector<UniquePtr> &content() {
+	std::vector<UniquePtr> &content()
+	{
 		return pool_;
 	}
 
-	size_t size() {
+	size_t size()
+	{
 		return pool_.size();
 	}
 
-	T get() {
+	T get()
+	{
 		std::scoped_lock lock(mutex_);
 
 		if (free_.empty())
@@ -85,7 +103,8 @@ public:
 		return fd;
 	}
 
-	void put(T data) {
+	void put(T data)
+	{
 		std::scoped_lock lock(mutex_);
 
 		auto iter = std::find(inUse_.begin(), inUse_.end(), data);
@@ -103,7 +122,6 @@ private:
 	std::deque<T> free_;
 	std::deque<T> inUse_;
 	Mutex mutex_;
-
 };
 
 using TokenPool = Pool<uint32_t, BasicContainer<uint32_t>>;
