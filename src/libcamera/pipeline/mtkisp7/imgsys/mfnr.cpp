@@ -199,6 +199,12 @@ int MfnrTasksManager::releaseBuffers()
 	return 0;
 }
 
+void MfnrTasksManager::releaseElasticBuffers()
+{
+	for (auto &pool : allBufferPools_)
+		pool->release();
+}
+
 bool MfnrTasksManager::mfnrPrecheck()
 {
 	if (std::filesystem::exists(kMfnrPrecheck)) {

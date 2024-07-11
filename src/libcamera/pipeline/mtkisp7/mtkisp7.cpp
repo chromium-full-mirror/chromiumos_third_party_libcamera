@@ -1528,6 +1528,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		    internalRequestId == latestStillCapture_ + 100) {
 			LOG(MtkISP7, Debug) << "Resetting still capture buffers";
 			pipeline->imgSysDev_.resetBuffers(ImgSysDevice::kUserIdMfnr);
+			mfnrManager.releaseElasticBuffers();
 		}
 	}
 

@@ -239,6 +239,7 @@ public:
 	int start();
 	int stop();
 	int releaseBuffers();
+	void releaseElasticBuffers();
 
 	static bool mfnrPrecheck();
 
@@ -284,28 +285,28 @@ private:
 	OnDeviceTuner *onDeviceTuner_;
 
 	/* Weak ptr for above pools for easier control */
-	std::vector<LazyInfoFramePool *> allBufferPools_;
+	std::vector<ElasticInfoFramePool *> allBufferPools_;
 
 	/* MFNR intermediate buffers' pools */
 	InfoFramePool p2sttoPool_;
-	LazyInfoFramePool yuvp010_1_1_pool_;
-	LazyInfoFramePool yuvp010_1_4_pool_aligned16_;
-	LazyInfoFramePool yuvp012_1_2_pool_;
-	LazyInfoFramePool yuvp012_1_4_pool_;
-	LazyInfoFramePool yuvp012_1_8_pool_;
-	LazyInfoFramePool yuvp012_1_16_pool_;
-	LazyInfoFramePool yuvp012_1_32_pool_;
-	LazyInfoFramePool yuvp012_1_64_pool_;
-	LazyInfoFramePool y8_1_1_pool_;
-	LazyInfoFramePool y8_1_2_pool_;
-	LazyInfoFramePool y8_1_4_pool_;
+	ElasticInfoFramePool yuvp010_1_1_pool_;
+	ElasticInfoFramePool yuvp010_1_4_pool_aligned16_;
+	ElasticInfoFramePool yuvp012_1_2_pool_;
+	ElasticInfoFramePool yuvp012_1_4_pool_;
+	ElasticInfoFramePool yuvp012_1_8_pool_;
+	ElasticInfoFramePool yuvp012_1_16_pool_;
+	ElasticInfoFramePool yuvp012_1_32_pool_;
+	ElasticInfoFramePool yuvp012_1_64_pool_;
+	ElasticInfoFramePool y8_1_1_pool_;
+	ElasticInfoFramePool y8_1_2_pool_;
+	ElasticInfoFramePool y8_1_4_pool_;
 	InfoFramePool y8_1_4_pool_aligned16_;
-	LazyInfoFramePool y8_1_8_pool_;
-	LazyInfoFramePool y8_1_16_pool_;
-	LazyInfoFramePool y8_1_32_pool_;
-	LazyInfoFramePool fourBytes_pool_;
-	LazyInfoFramePool nv21_1_64_pool_;
-	LazyInfoFramePool nv12_wroto_pool_;
+	ElasticInfoFramePool y8_1_8_pool_;
+	ElasticInfoFramePool y8_1_16_pool_;
+	ElasticInfoFramePool y8_1_32_pool_;
+	ElasticInfoFramePool fourBytes_pool_;
+	ElasticInfoFramePool nv21_1_64_pool_;
+	ElasticInfoFramePool nv12_wroto_pool_;
 
 	// TODO, need to get fe from hw/sw
 	std::vector<SharedMailBox<InfoFrame>> mcdsWpeVeci;
