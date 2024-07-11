@@ -170,34 +170,34 @@ MfnrTunManager::makeMfnrTunTasks(MFNRFrames &mfnr,
 				 uint32_t internalRequestId)
 {
 	MfnrTunBssTask *mfnrTunBssTask = new MfnrTunBssTask(
-		mfnr, aaaIspExchange, scheduler, id, this, internalRequestId);
+		mfnr, aaaIspExchange, scheduler, id + " Bss", this, internalRequestId);
 
 	MfnrTunBfbldTask *mfnrTunBfbldTask = new MfnrTunBfbldTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id + " Bfbld", request, this, internalRequestId);
 
 	MfnrTunBfmeTask *mfnrTunBfmeTask = new MfnrTunBfmeTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id + " Bfme", request, this, internalRequestId);
 
 	MfnrTunSwmeTask *mfnrTunSwmeTask = new MfnrTunSwmeTask(
-		mfnr, scheduler, id, this, internalRequestId);
+		mfnr, scheduler, id + " Swme", this, internalRequestId);
 
 	MfnrTunDsTask *mfnrTunDsTask = new MfnrTunDsTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id + " Ds", request, this, internalRequestId);
 
 	MfnrTunDsVbiTask *mfnrTunDsVbiTask = new MfnrTunDsVbiTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id + " DsVbi", request, this, internalRequestId);
 
 	MfnrTunMcdsF1Task *mfnrTunMcdsF1Task = new MfnrTunMcdsF1Task(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id + " McdsF1", request, this, internalRequestId);
 
 	MfnrTunMsbldTask *mfnrTunMsbldTask1st = new MfnrTunMsbldTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId, 0);
+		mfnr, camSysMetaRequestId, scheduler, id + " Msbld1", request, this, internalRequestId, 0);
 
 	MfnrTunMsbldTask *mfnrTunMsbldTask2nd = new MfnrTunMsbldTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId, 1);
+		mfnr, camSysMetaRequestId, scheduler, id + " Msbld2", request, this, internalRequestId, 1);
 
 	MfnrTunAfbldTask *mfnrTunAfbldTask = new MfnrTunAfbldTask(
-		mfnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		mfnr, camSysMetaRequestId, scheduler, id + " Afbld", request, this, internalRequestId);
 
 	return std::make_tuple(mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			       mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
