@@ -332,7 +332,7 @@ private:
 	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 };
 
 class McdsF1Task : public Task
@@ -352,7 +352,7 @@ private:
 	[[maybe_unused]] uint32_t internalRequestId_;
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 };
 
 class BfmeTask : public Task
@@ -372,7 +372,7 @@ private:
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	BfmeFrames frames_;
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 };
 
 class DsTask : public Task
@@ -392,7 +392,7 @@ private:
 	[[maybe_unused]] ImgSysDevice *imgSys_;
 	MfnrTasksManager *manager_;
 	DsFrames frames_;
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 };
 
 class DsVbiTask : public Task
@@ -413,7 +413,7 @@ private:
 	MfnrTasksManager *manager_;
 	DsVbiFrames dsVbiFramesV2_;
 	DsVbiFrames dsVbiFramesV5_;
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 };
 
 class MsbldTask : public Task
@@ -439,7 +439,7 @@ private:
 	MsbldFrames msbldF2_;
 	MsbldFrames msbldF1_;
 	MsbldFrames msbldF0_;
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 	int msbldIdx_;
 };
 
@@ -466,7 +466,7 @@ private:
 	AfbldFrames afbldF4_;
 	AfbldFrames afbldF5_;
 	AfbldFrames afbldF6_;
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 
 	FrameBuffer *stillOutput1_;
 	FrameBuffer *stillOutput2_;

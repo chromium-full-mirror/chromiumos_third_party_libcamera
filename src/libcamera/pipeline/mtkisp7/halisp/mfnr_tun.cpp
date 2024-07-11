@@ -403,9 +403,10 @@ MfnrTunSwmeTask::MfnrTunSwmeTask(MFNRFrames &mfnr,
 				 const std::string &id,
 				 MfnrTunManager *manager,
 				 uint32_t internalRequestId)
-	: Task(scheduler, id), mfnr_(mfnr), manager_(manager),
+	: Task(scheduler, id), manager_(manager),
 	  internalRequestId_(internalRequestId)
 {
+	bssOrder_ = mfnr.bss_order;
 	swmeFrames_ = mfnr.swmeFrames;
 }
 
@@ -477,7 +478,7 @@ void MfnrTunSwmeTask::notifySwmeResultReady()
 		}
 	}
 
-	manager_->onDeviceTuner_->tuneSwme(internalRequestId_, swmeFrames_, mfnr_.bss_order->get());
+	manager_->onDeviceTuner_->tuneSwme(internalRequestId_, swmeFrames_, bssOrder_->get());
 	notifyDone();
 }
 

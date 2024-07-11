@@ -722,7 +722,7 @@ BfbldTask::BfbldTask(Scheduler *scheduler, const std::string &id, Request *reque
 	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.bfbldFrames;
-	mfnr_ = mfnr;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void BfbldTask::allocateOutputBuffers()
@@ -737,7 +737,7 @@ void BfbldTask::allocateOutputBuffers()
 
 void BfbldTask::notifyDone()
 {
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	manager_->onDeviceTuner_->tuneBfbld(internalRequestId_, frames_, bssOrder);
 	//BFBLD Precheck
 	if (MfnrTasksManager::mfnrPrecheck()) {
@@ -761,7 +761,7 @@ void BfbldTask::run()
 	auto &in = frames_.in;
 	auto &out = frames_.out;
 	auto &capturedRaws = frames_.capturedRaws;
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	for (auto i = 0; i < (int)bssOrder.size(); i++) {
 		in.timgi[i] = capturedRaws[bssOrder[i]];
 	}
@@ -793,7 +793,7 @@ McdsF1Task::McdsF1Task(Scheduler *scheduler, const std::string &id, Request *req
 	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.mcdsF1Frames;
-	mfnr_ = mfnr;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void McdsF1Task::allocateOutputBuffers()
@@ -810,7 +810,7 @@ void McdsF1Task::allocateOutputBuffers()
 
 void McdsF1Task::notifyDone()
 {
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	manager_->onDeviceTuner_->tuneMcdsF1(internalRequestId_, frames_, bssOrder);
 	//MCDS_F1 Precheck
 	if (MfnrTasksManager::mfnrPrecheck()) {
@@ -826,7 +826,7 @@ void McdsF1Task::run()
 	allocateOutputBuffers();
 
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
@@ -858,7 +858,7 @@ BfmeTask::BfmeTask(Scheduler *scheduler, const std::string &id, Request *request
 	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.bfmeFrames;
-	mfnr_ = mfnr;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void BfmeTask::allocateOutputBuffers()
@@ -872,7 +872,7 @@ void BfmeTask::allocateOutputBuffers()
 
 void BfmeTask::notifyDone()
 {
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	manager_->onDeviceTuner_->tuneBfme(internalRequestId_, frames_, bssOrder);
 	//BFME Precheck
 	if (MfnrTasksManager::mfnrPrecheck()) {
@@ -896,7 +896,7 @@ void BfmeTask::run()
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	for (auto i = 0; i < kInputRawCount; i++) {
 		StageEx &BFME = sdRequest.emplaceStage(PEU_Stage::BFME, internalRequestId_ + bssOrder[i]);
 		BFME.input(in.imgi[i]->get(), IMG_PORT_IMGI, 0, Size{ 0, 0 });
@@ -913,7 +913,7 @@ DsTask::DsTask(Scheduler *scheduler, const std::string &id, Request *request, ui
 	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
 {
 	frames_ = mfnr.dsFrames;
-	mfnr_ = mfnr;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void DsTask::allocateOutputBuffers()
@@ -931,7 +931,7 @@ void DsTask::allocateOutputBuffers()
 
 void DsTask::notifyDone()
 {
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	manager_->onDeviceTuner_->tuneDs(internalRequestId_, frames_, bssOrder);
 	//DS Precheck
 	if (MfnrTasksManager::mfnrPrecheck()) {
@@ -954,7 +954,7 @@ void DsTask::run()
 
 	auto &in = frames_.in;
 	auto &out = frames_.out;
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	for (auto i = 0; i < kInputRawCount + 1; i++) {
 		if (i == 0 || i == 1) {
 			int frameNumber = internalRequestId_ + bssOrder[0];
@@ -984,7 +984,7 @@ DsVbiTask::DsVbiTask(Scheduler *scheduler, const std::string &id, Request *reque
 {
 	dsVbiFramesV2_ = mfnr.dsVbiFramesV2;
 	dsVbiFramesV5_ = mfnr.dsVbiFramesV5;
-	mfnr_ = mfnr;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void DsVbiTask::allocateOutputBuffers()
@@ -1003,7 +1003,7 @@ void DsVbiTask::allocateOutputBuffers()
 
 void DsVbiTask::notifyDone()
 {
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	manager_->onDeviceTuner_->tuneDsVbi(internalRequestId_, dsVbiFramesV2_, dsVbiFramesV5_, bssOrder);
 	//DS_VBI Precheck
 	if (MfnrTasksManager::mfnrPrecheck()) {
@@ -1028,7 +1028,7 @@ void DsVbiTask::run()
 
 	auto &inV2 = dsVbiFramesV2_.in;
 	auto &outV2 = dsVbiFramesV2_.out;
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	for (auto i = 0; i < kInputRawCount - 1; i++) {
 		StageEx &DS_VBI_V2 = sdRequest.emplaceStage(PEU_Stage::DS_VBI_V2, internalRequestId_ + bssOrder[i + 1]);
 		DS_VBI_V2.input(inV2.timgi[i]->get(), IMG_PORT_TIMGI, 0, Size{ 0, 0 });
@@ -1064,7 +1064,7 @@ MsbldTask::MsbldTask(Scheduler *scheduler, const std::string &id, Request *reque
 	msbldF2_ = mfnr.msbldFrames[msbldIdx_].msbldF2;
 	msbldF1_ = mfnr.msbldFrames[msbldIdx_].msbldF1;
 	msbldF0_ = mfnr.msbldFrames[msbldIdx_].msbldF0;
-	mfnr_ = mfnr;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void MsbldTask::allocateOutputBuffers()
@@ -1119,7 +1119,7 @@ void MsbldTask::allocateOutputBuffers()
 
 void MsbldTask::notifyDone()
 {
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	manager_->onDeviceTuner_->tuneMsbld(
 		internalRequestId_, msbldF0_, msbldF1_, msbldF2_,
 		msbldF3_, msbldF4_, msbldF5_, msbldF6_, bssOrder, msbldIdx_);
@@ -1139,7 +1139,7 @@ void MsbldTask::notifyDone()
 void MsbldTask::run()
 {
 	allocateOutputBuffers();
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
@@ -1301,7 +1301,7 @@ AfbldTask::AfbldTask(Scheduler *scheduler, const std::string &id, Request *reque
 	afbldF6_ = mfnr.afbldF6;
 	stillOutput1_ = mfnr.still1Output;
 	stillOutput2_ = mfnr.still2Output;
-	mfnr_ = mfnr;
+	bssOrder_ = mfnr.bss_order;
 }
 
 void AfbldTask::allocateOutputBuffers()
@@ -1342,7 +1342,7 @@ void AfbldTask::allocateOutputBuffers()
 
 void AfbldTask::notifyDone()
 {
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	manager_->onDeviceTuner_->tuneAfbld(
 		request_, internalRequestId_, afbldF0_, afbldF1_, afbldF2_,
 		afbldF3_, afbldF4_, afbldF5_, afbldF6_, bssOrder, stillOutput1_, stillOutput2_);
@@ -1367,7 +1367,7 @@ void AfbldTask::run()
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
-	auto bssOrder = mfnr_.bss_order->get();
+	auto bssOrder = bssOrder_->get();
 	int frameNumber = internalRequestId_ + bssOrder[2];
 	sdRequest.init(internalRequestId_, timestampMili, "AFBLD");
 

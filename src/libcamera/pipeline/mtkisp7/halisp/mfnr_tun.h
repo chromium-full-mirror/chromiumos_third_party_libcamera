@@ -188,7 +188,7 @@ public:
 
 	void notifySwmeResultReady();
 
-	MFNRFrames mfnr_;
+	SharedMailBox<std::vector<int>> bssOrder_;
 	SwmeFrames swmeFrames_;
 
 	MfnrTunManager *manager_;
