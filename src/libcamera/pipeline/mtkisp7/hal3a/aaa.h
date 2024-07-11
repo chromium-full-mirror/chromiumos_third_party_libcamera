@@ -129,7 +129,7 @@ public:
 	struct PerFrameControl {
 		int delayIdx = 0;
 		bool isStillCapture = false;
-		ControlList controls;
+		ControlList controls = controls::controls;
 	};
 
 	AAATask(Hal3AManager *manager, Scheduler *scheduler, const std::string &id,
