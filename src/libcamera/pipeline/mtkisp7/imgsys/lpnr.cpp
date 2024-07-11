@@ -64,7 +64,7 @@ int LpnrTasksManager::configure(const Size &bayerInputSize,
 int LpnrTasksManager::releaseBuffers()
 {
 	lpnrStt_.release();
-	for (unsigned int i = 1; i < lpnr_.size(); i++)
+	for (unsigned int i = 0; i < lpnr_.size(); i++)
 		lpnr_[i].release();
 
 	return 0;
