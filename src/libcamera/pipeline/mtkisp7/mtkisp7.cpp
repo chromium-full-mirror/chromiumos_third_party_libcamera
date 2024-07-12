@@ -1123,6 +1123,8 @@ void MtkISP7CameraData::setTasksDependencies(
 	scheduler->succeedPrevTaskByStep(AAAGroup, CaptureTasksManager::kAAToSofDelay - 1, sofTask);
 	scheduler->succeedPrevTaskByStep(SofGroup, CaptureTasksManager::kExposureAndGainDelay - 1, taskQBuf);
 	scheduler->succeedPrevTaskByStep(AAAGroup, CaptureTasksManager::kRawMetaDelay - 1, taskQBuf);
+	// TODO(chenghaoyang@): Check again after we confirm the logic to switch between lpnr & mfnr.
+	scheduler->succeedPrevTaskByStep(XtrGroup, MFNR_QUEUE_SIZE - 1, taskQBuf);
 	int32_t pipelineDepth = controlInfo_.at(&controls::draft::PipelineDepth)
 					.max()
 					.get<int32_t>();
