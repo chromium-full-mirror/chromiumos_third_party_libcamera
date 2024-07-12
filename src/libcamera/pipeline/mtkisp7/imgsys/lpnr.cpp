@@ -138,9 +138,9 @@ LpnrTasksManager::makeLpnrTasks(LPNRFrames &lpnr, Scheduler *scheduler,
 				uint32_t internalRequestId, ImgSysDevice *imgSys)
 {
 	XTRTask *xtrTask = new XTRTask(
-		scheduler, id, request, internalRequestId, imgSys, lpnr, this);
+		scheduler, id + " Xtr", request, internalRequestId, imgSys, lpnr, this);
 	LpnrDipTask *dipTask = new LpnrDipTask(
-		scheduler, id, request, internalRequestId, imgSys, lpnr, this);
+		scheduler, id + " Dip", request, internalRequestId, imgSys, lpnr, this);
 	return std::make_tuple(xtrTask, dipTask);
 }
 

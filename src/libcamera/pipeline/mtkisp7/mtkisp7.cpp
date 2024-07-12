@@ -1785,7 +1785,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			lpnrManager.makeLPNRFrames(lpnr, captureFrames.raw, still1Buffer, still2Buffer);
 
 			auto [lpnrTunXtrTask, lpnrTunDipTask] = lpnrTunManager.makeLpnrTunTasks(
-				lpnr, aaaIspExchange, camSysMetaRequestId, scheduler, "Lpnr " + sequence, request, internalRequestId);
+				lpnr, aaaIspExchange, camSysMetaRequestId, scheduler, "LpnrTun " + sequence, request, internalRequestId);
 
 			auto [taskXtr, taskLpnrDip] = lpnrManager.makeLpnrTasks(
 				lpnr, scheduler, "Lpnr " + sequence, request,

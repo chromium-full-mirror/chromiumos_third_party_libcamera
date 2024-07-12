@@ -104,10 +104,10 @@ LpnrTunTasksManager::makeLpnrTunTasks(LPNRFrames &lpnr,
 				      uint32_t internalRequestId)
 {
 	LpnrTunXtrTask *lpnrTunXtrTask = new LpnrTunXtrTask(
-		lpnr, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		lpnr, camSysMetaRequestId, scheduler, id + " Xtr", request, this, internalRequestId);
 
 	LpnrTunDipTask *lpnrTunDipTask = new LpnrTunDipTask(
-		lpnr, aaaIspExchange, camSysMetaRequestId, scheduler, id, request, this, internalRequestId);
+		lpnr, aaaIspExchange, camSysMetaRequestId, scheduler, id + " Dip", request, this, internalRequestId);
 
 	return std::make_tuple(lpnrTunXtrTask, lpnrTunDipTask);
 }
