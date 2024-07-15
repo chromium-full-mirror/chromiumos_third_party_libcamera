@@ -47,7 +47,8 @@ android_hal_sources = files([
     'camera_request.cpp',
     'camera_stream.cpp',
     'hal_framebuffer.cpp',
-    'yuv/post_processor_yuv.cpp'
+    'yuv/post_processor_yuv.cpp',
+    'vendor_tag.cpp'
 ])
 
 android_cpp_args = []
