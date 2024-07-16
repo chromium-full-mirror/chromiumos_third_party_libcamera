@@ -1356,4 +1356,11 @@ controls:
             The lens position is chaning
 
             \sa ANDROID_LENS_STATE_MOVING
+
+  - StillCaptureMultiFrameNoiseReduction:
+      type: bool
+      description: |
+        Enable or disable Multi Frame Noise Reduction for Still Capture.
+
+        \sa NoiseReductionMode
 ...
