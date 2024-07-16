@@ -36,6 +36,7 @@
 #include "camera_ops.h"
 #include "camera_request.h"
 #include "hal_framebuffer.h"
+#include "vendor_tag.h"
 
 using namespace libcamera;
 
@@ -1202,6 +1203,11 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 	if (settings.getEntry(ANDROID_EDGE_MODE, &entry)) {
 		const uint8_t *data = entry.data.u8;
 		controls.set(controls::EdgeMode, static_cast<int>(data[0]));
+	}
+
+	if (settings.getEntry(VENDOR_TAG_STILL_CAPTURE_MULTI_FRAME_NOISE_REDUCTION, &entry)) {
+		const uint8_t *data = entry.data.u8;
+		controls.set(controls::StillCaptureMultiFrameNoiseReduction, static_cast<bool>(data[0]));
 	}
 
 	return 0;
