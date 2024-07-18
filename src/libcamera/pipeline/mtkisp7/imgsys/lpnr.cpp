@@ -70,6 +70,12 @@ int LpnrTasksManager::releaseBuffers()
 	return 0;
 }
 
+void LpnrTasksManager::releaseElasticBuffers()
+{
+	for (unsigned int i = 0; i < lpnr_.size(); i++)
+		lpnr_[i].release();
+}
+
 int LpnrTasksManager::start()
 {
 #if !V4L2_STANDARD_MODE

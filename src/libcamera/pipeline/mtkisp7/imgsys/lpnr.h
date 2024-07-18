@@ -64,6 +64,7 @@ public:
 	int stop();
 
 	int releaseBuffers();
+	void releaseElasticBuffers();
 
 	void makeLPNRFrames(LPNRFrames &lpnr,
 			    SharedMailBox<InfoFrame> &p1Raw,
@@ -86,7 +87,7 @@ private:
 	std::vector<Size> lpnrSizes;
 
 	InfoFramePool lpnrStt_;
-	std::array<LazyInfoFramePool, 4> lpnr_;
+	std::array<ElasticInfoFramePool, 4> lpnr_;
 
 	ImgSysDevice *imgSys_;
 	DmaHeap *dmaHeap_;
