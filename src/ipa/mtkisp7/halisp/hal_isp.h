@@ -103,7 +103,8 @@ private:
 	uint32_t getLpnrIsoThreshold(mtk::isphal::v1_0::IspPerframeControl &cam_info);
 
 	void fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
-				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo);
+				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo,
+				 NSIspTuning::CAM_IDX_QRY_COMB_ISP7 &rMapping_Info);
 	mtk::isphal::Size getTargetSize(bool isCapture);
 
 	void addHistory(uint32_t internalRequestId,

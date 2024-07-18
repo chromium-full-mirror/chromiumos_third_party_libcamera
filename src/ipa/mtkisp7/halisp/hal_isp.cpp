@@ -256,7 +256,8 @@ std::shared_ptr<mtk::isphal::v1::isp_mfnrthres_Param> HalIsp::getIspMfnrThresPar
 }
 
 void HalIsp::fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
-				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo)
+				 mtk::isphal::CAMERA_TUNING_FD_INFO_T &fdInfo,
+				 NSIspTuning::CAM_IDX_QRY_COMB_ISP7 &rMapping_Info)
 {
 	static_assert(sizeof(MtkCameraFaceMetadata::YUVsts) <=
 			      sizeof(mtk::isphal::CAMERA_TUNING_FD_INFO_T::YUVsts),
@@ -283,6 +284,11 @@ void HalIsp::fillCamInfoFaceData(MtkCameraFaceMetadata *faces,
 	fdInfo.FD_magicNo = faces->magicNo;
 	fdInfo.FaceNum = faces->number_of_faces;
 
+	if (fdInfo.FaceNum > 0) {
+		rMapping_Info.eFaceDetection = EFaceDetection_Yes;
+	} else {
+		rMapping_Info.eFaceDetection = EFaceDetection_No;
+	}
 	memcpy(&(fdInfo.YUVsts), &(faces->YUVsts), sizeof(faces->YUVsts));
 	memcpy(&(fdInfo.fld_GenderLabel), &(faces->GenderLabel), sizeof(faces->GenderLabel));
 	memcpy(&(fdInfo.fld_GenderInfo), &(faces->fld_GenderInfo), sizeof(faces->fld_GenderInfo));
@@ -354,7 +360,7 @@ int HalIsp::getCamSysMetaTuning(uint64_t frmId, uint64_t aaaFrmId,
 	tuning_data.p1_meta_buffer = regBuf1;
 
 	m_P1CamInfo.mock_camsys = false;
-	fillCamInfoFaceData(faces, m_P1CamInfo.rFdInfo);
+	fillCamInfoFaceData(faces, m_P1CamInfo.rFdInfo, m_P1CamInfo.rMapping_Info);
 
 	// Target structure
 	mtk::isphal::v1_0::TuningParamP1 tuning_param_p1 = {};
