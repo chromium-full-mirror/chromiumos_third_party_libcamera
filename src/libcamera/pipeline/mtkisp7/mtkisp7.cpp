@@ -1622,6 +1622,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		// resolve the life time.
 		scheduler->succeedPrevTaskByStep(MeATunGroup, 2, taskMeB);
 
+		// Block the taskMe until latest MFNR task to finish due to
+		// imgsys resource limit.
+		scheduler->succeedPrevTaskByStep(AfbldGroup, 0, taskMeA);
+
 		Scheduler::precede(taskDQBuf, meATunTask);
 		scheduler->succeedPrevTaskByStep(MeATunGroup, 0, meATunTask);
 		scheduler->succeedPrevTaskByStep(MeBTunGroup, 0, meATunTask);
