@@ -973,28 +973,29 @@ std::vector<int> BssWrapper::doBss(int frameNum, BssFramesBuffers &bssFramesBuff
 		IBssFaceInfo *bss_pos = reinterpret_cast<IBssFaceInfo *>(bssFramesBuffers.in.bssPosInfo[i]->planes()[0].data());
 		if (bssInData.Face[i] != nullptr) {
 			memcpy(bss_fd, reinterpret_cast<void *>(bssInData.Face[i]), sizeof(IBssFaceMetadata));
+			int numberOfFaces = bssInData.Face[i]->number_of_faces;
 			if (bssInData.Face[i]->faces != nullptr) {
-				memcpy(bss_face, reinterpret_cast<void *>(bssInData.Face[i]->faces), sizeof(IBssFaceMetadata));
+				memcpy(bss_face, reinterpret_cast<void *>(bssInData.Face[i]->faces), sizeof(IBssFace) * numberOfFaces);
 			} else {
 				LOG(MtkISP7, Info) << "bssInData.Face[" << i << "].faces is null";
 				IBssFace dummy_faces[15];
-				memcpy(bss_pos, reinterpret_cast<void *>(dummy_faces), sizeof(IBssFaceMetadata));
+				memcpy(bss_face, reinterpret_cast<void *>(dummy_faces), sizeof(IBssFace) * 15);
 			}
 			if (bssInData.Face[i]->posInfo != nullptr) {
-				memcpy(bss_pos, reinterpret_cast<void *>(bssInData.Face[i]->posInfo), sizeof(IBssFaceMetadata));
+				memcpy(bss_pos, reinterpret_cast<void *>(bssInData.Face[i]->posInfo), sizeof(IBssFaceInfo) * numberOfFaces);
 			} else {
 				LOG(MtkISP7, Info) << "bssInData.Face[" << i << "].posInfo is null";
 				IBssFaceInfo dummy_posInfo[15];
-				memcpy(bss_pos, reinterpret_cast<void *>(dummy_posInfo), sizeof(IBssFaceMetadata));
+				memcpy(bss_pos, reinterpret_cast<void *>(dummy_posInfo), sizeof(IBssFaceInfo) * 15);
 			}
 		} else {
 			LOG(MtkISP7, Info) << "bssInData.Face[" << i << "] is null";
 			IBssFaceMetadata dummy_facedata;
 			memcpy(bss_fd, reinterpret_cast<void *>(&dummy_facedata), sizeof(IBssFaceMetadata));
 			IBssFace dummy_faces[15];
-			memcpy(bss_pos, reinterpret_cast<void *>(dummy_faces), sizeof(IBssFaceMetadata));
+			memcpy(bss_face, reinterpret_cast<void *>(dummy_faces), sizeof(IBssFace) * 15);
 			IBssFaceInfo dummy_posInfo[15];
-			memcpy(bss_pos, reinterpret_cast<void *>(dummy_posInfo), sizeof(IBssFaceMetadata));
+			memcpy(bss_pos, reinterpret_cast<void *>(dummy_posInfo), sizeof(IBssFaceInfo) * 15);
 		}
 	}
 
