@@ -153,7 +153,10 @@ int CamSysDevice::start()
 		LOG(MtkISP7, Warning) << "Fail to reset test pattern";
 
 	for (V4L2VideoDevice *device : allVideoDevices_) {
-		ret |= device->importBuffers(16);
+		if (device == mainStream_.get())
+			ret |= device->importBuffers(4);
+		else
+			ret |= device->importBuffers(16);
 	}
 
 	if (ret) {
