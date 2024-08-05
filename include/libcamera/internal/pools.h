@@ -112,7 +112,7 @@ public:
 			LOG(Fatal) << "return data not belonging to the pool";
 
 		inUse_.erase(iter);
-		free_.emplace_back(data);
+		free_.emplace_front(data);
 	}
 
 private:
