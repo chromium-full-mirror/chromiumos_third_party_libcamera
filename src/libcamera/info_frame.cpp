@@ -270,15 +270,53 @@ void LazyInfoFramePool::put(InfoFrame &frameInfo)
 }
 
 int ElasticInfoFramePool::setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
-				    const Size &size,
+				    const Size &size, uint32_t minCount,
 				    DmaHeap::Type type,
 				    unsigned int strideAlign, unsigned scanAlign)
 {
 	release();
 
+	if (minCount > 0) {
+		const PixelFormatInfo &info = PixelFormatInfo::info(format);
+		uint32_t bufferSize = 0;
+		for (unsigned int i = 0; i < info.numPlanes(); i++)
+			bufferSize += info.planeSize(size, i, strideAlign, scanAlign);
+
+		std::vector<std::unique_ptr<FrameBuffer>> buffers;
+		buffers.reserve(minCount);
+		for (unsigned int i = 0; i < minCount; i++) {
+			SharedFD fd(dmaHeap->alloc(bufferSize, type));
+			if (!fd.isValid()) {
+				buffers.clear();
+				return -EBUSY;
+			}
+
+			uint32_t offset = 0;
+			std::vector<FrameBuffer::Plane> planes;
+
+			for (unsigned int j = 0; j < info.numPlanes(); j++) {
+				FrameBuffer::Plane plane;
+				plane.fd = fd;
+				plane.offset = offset;
+				plane.length = info.planeSize(size, j, strideAlign, scanAlign);
+				plane.stride = info.stride(size.width, j, strideAlign);
+				planes.emplace_back(plane);
+				offset += plane.length;
+			}
+
+			buffers.emplace_back(std::make_unique<FrameBuffer>(planes));
+		}
+
+		pool_.setData(buffers);
+
+		MutexLocker lock(mutex_);
+		idleCnt_ = minCount;
+	}
+
 	dmaHeap_ = dmaHeap;
 	type_ = type;
 	size_ = size;
+	minCount_ = minCount;
 	format_ = format;
 	strideAlign_ = strideAlign;
 	scanAlign_ = scanAlign;
@@ -289,9 +327,22 @@ int ElasticInfoFramePool::setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
 void ElasticInfoFramePool::release()
 {
 	pool_.release();
+	minCount_ = 0;
 
 	MutexLocker lock(mutex_);
 	idleCnt_ = 0;
+}
+
+void ElasticInfoFramePool::releaseElastic()
+{
+	size_t num = pool_.size() - minCount_;
+	pool_.drop(num);
+
+	MutexLocker lock(mutex_);
+	if (idleCnt_ < num)
+		LOG(InfoFrame, Fatal) << "Not enough idle buffers";
+
+	idleCnt_ -= num;
 }
 
 void ElasticInfoFramePool::fetch(SharedMailBox<InfoFrame> &mailBox)

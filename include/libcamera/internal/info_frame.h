@@ -141,11 +141,12 @@ public:
 	~ElasticInfoFramePool() = default;
 
 	int setFormat(DmaHeap *dmaHeap, const PixelFormat &format,
-		      const Size &size,
+		      const Size &size, uint32_t minCount = 0,
 		      DmaHeap::Type type = DmaHeap::System,
 		      unsigned int strideAlign = 1, unsigned scanAlign = 1);
 
 	void release();
+	void releaseElastic();
 
 	void fetch(SharedMailBox<InfoFrame> &mailBox);
 
@@ -158,6 +159,7 @@ private:
 	DmaHeap *dmaHeap_;
 	DmaHeap::Type type_;
 	Size size_;
+	uint32_t minCount_;
 	PixelFormat format_;
 	unsigned int strideAlign_;
 	unsigned int scanAlign_;

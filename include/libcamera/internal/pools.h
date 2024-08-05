@@ -72,6 +72,26 @@ public:
 		return fd;
 	}
 
+	void drop(size_t num)
+	{
+		std::scoped_lock lock(mutex_);
+		if (free_.size() < num) {
+			LOG(Fatal) << "Failed to drop " << num
+				   << " buffers. Free: " << free_.size();
+		}
+
+		for (size_t i = 0; i < num; ++i) {
+			auto it = std::find_if(pool_.begin(), pool_.end(),
+					       [&](const UniquePtr &ptr) { return ptr.get() == free_.back(); });
+
+			if (it == pool_.end())
+				LOG(Fatal) << "Failed to find buffer in pool.";
+
+			pool_.erase(it);
+			free_.pop_back();
+		}
+	}
+
 	void release()
 	{
 		pool_.clear();

@@ -73,7 +73,7 @@ int LpnrTasksManager::releaseBuffers()
 void LpnrTasksManager::releaseElasticBuffers()
 {
 	for (unsigned int i = 0; i < lpnr_.size(); i++)
-		lpnr_[i].release();
+		lpnr_[i].releaseElastic();
 }
 
 int LpnrTasksManager::start()
