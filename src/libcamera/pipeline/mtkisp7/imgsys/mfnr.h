@@ -257,7 +257,7 @@ public:
 	std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, MsbldTask *, AfbldTask *>
 	makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 		      const std::string &id, Request *request,
-		      uint32_t internalRequestId, ImgSysDevice *imgSys);
+		      uint32_t internalRequestId, ImgSysDevice *imgSys, PipelineHandler *pipe);
 
 	Size confMapSize_;
 
@@ -449,7 +449,7 @@ class AfbldTask : public Task
 {
 public:
 	AfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
-		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager);
+		  ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager, PipelineHandler *pipe);
 
 	void run() override;
 	void notifyDone() override;
@@ -472,6 +472,8 @@ private:
 
 	FrameBuffer *stillOutput1_;
 	FrameBuffer *stillOutput2_;
+
+	PipelineHandler *pipe_;
 };
 
 } /* namespace libcamera */

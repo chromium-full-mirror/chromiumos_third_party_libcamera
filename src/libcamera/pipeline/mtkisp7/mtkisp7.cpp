@@ -160,7 +160,8 @@ public:
 			    uint32_t camSysMetaRequestId, PipelineHandler *pipe,
 			    IPADelegate *ipa,
 			    OnDeviceTuner *odt, FaceDetector *faceDetector,
-			    SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange);
+			    SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
+			    std::set<const Stream *> mfnrStreams);
 
 	virtual void run() override final;
 
@@ -173,6 +174,7 @@ private:
 	IPADelegate *ipa_;
 	OnDeviceTuner *onDeviceTuner_;
 	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
+	std::set<const Stream *> mfnrStreams_;
 };
 
 CompleteRequestTask::CompleteRequestTask(
@@ -185,12 +187,13 @@ CompleteRequestTask::CompleteRequestTask(
 	IPADelegate *ipa,
 	OnDeviceTuner *odt,
 	FaceDetector *faceDetector,
-	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange)
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange,
+	std::set<const Stream *> mfnrStreams)
 	: Task(scheduler, id), pipe_(pipe), request_(request),
 	  internalRequestId_(internalRequestId),
 	  camSysMetaRequestId_(camSysMetaRequestId),
 	  faceDetector_(faceDetector), ipa_(ipa), onDeviceTuner_(odt),
-	  aaaIspExchange_(aaaIspExchange)
+	  aaaIspExchange_(aaaIspExchange), mfnrStreams_(std::move(mfnrStreams))
 {
 }
 
@@ -412,7 +415,9 @@ void CompleteRequestTask::run()
 
 	for (auto it : request_->buffers()) {
 		FrameBuffer *buffer = it.second;
-		pipe_->completeBuffer(request_, buffer);
+
+		if (mfnrStreams_.find(it.first) == mfnrStreams_.end())
+			pipe_->completeBuffer(request_, buffer);
 	}
 
 	if (onDeviceTuner_->isEnabled()) {
@@ -1580,10 +1585,15 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	auto aaaIspExchange = aaaIspExchangeResult_.query(camSysMetaRequestId)->aaaIspExchange;
 
+	std::set<const Stream *> mfnrStreams;
+	if (useMfnr) {
+		mfnrStreams.insert(&still1Stream_);
+		mfnrStreams.insert(&still2Stream_);
+	}
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, internalRequestId,
 		camSysMetaRequestId, pipeline, ipa_.get(), onDeviceTuner_,
-		faceDetector_, aaaIspExchange);
+		faceDetector_, aaaIspExchange, mfnrStreams);
 
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
@@ -1699,7 +1709,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			auto [mfnrBfbldTask, mfnrBfmeTask, mfnrMcdsF1Task,
 			      mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask1st,
 			      mfnrMsbldTask2nd, mfnrAfbldTask] =
-				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + std::to_string(mfnrRequestId), request, mfnrRequestId, imgSysDev_);
+				mfnrManager.makeMfnrTasks(mfnr, scheduler,
+							  "Mfnr " + std::to_string(mfnrRequestId),
+							  request, mfnrRequestId,
+							  imgSysDev_, pipeline);
 
 			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
 			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);

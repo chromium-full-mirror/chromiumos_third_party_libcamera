@@ -28,6 +28,7 @@
 #include "libcamera/internal/info_frame.h"
 #include "libcamera/internal/mailbox.h"
 #include "libcamera/internal/media_device.h"
+#include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -682,7 +683,7 @@ void MfnrTasksManager::makeMFNRFrames(
 std::tuple<BfbldTask *, BfmeTask *, McdsF1Task *, DsTask *, DsVbiTask *, MsbldTask *, MsbldTask *, AfbldTask *>
 MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 				const std::string &id, Request *request,
-				uint32_t internalRequestId, ImgSysDevice *imgSys)
+				uint32_t internalRequestId, ImgSysDevice *imgSys, PipelineHandler *pipe)
 {
 	BfbldTask *bfbldTask = new BfbldTask(scheduler, id + " BFBLD", request, internalRequestId, imgSys, mfnr, this);
 	BfmeTask *bfmeTask = new BfmeTask(scheduler, id + " BFME", request, internalRequestId, imgSys, mfnr, this);
@@ -691,7 +692,7 @@ MfnrTasksManager::makeMfnrTasks(MFNRFrames &mfnr, Scheduler *scheduler,
 	DsVbiTask *dsVbiTask = new DsVbiTask(scheduler, id + " DSVBI", request, internalRequestId, imgSys, mfnr, this);
 	MsbldTask *msbldTask1st = new MsbldTask(scheduler, id + " MSBLD_1st", request, internalRequestId, imgSys, mfnr, this, 0);
 	MsbldTask *msbldTask2nd = new MsbldTask(scheduler, id + " MSBLD_2nd", request, internalRequestId, imgSys, mfnr, this, 1);
-	AfbldTask *afbldTask = new AfbldTask(scheduler, id + " AFBLD", request, internalRequestId, imgSys, mfnr, this);
+	AfbldTask *afbldTask = new AfbldTask(scheduler, id + " AFBLD", request, internalRequestId, imgSys, mfnr, this, pipe);
 
 	return std::make_tuple(bfbldTask, bfmeTask, mcdsF1Task, dsTask, dsVbiTask, msbldTask1st, msbldTask2nd, afbldTask);
 }
@@ -1269,9 +1270,9 @@ void MsbldTask::run()
 }
 
 AfbldTask::AfbldTask(Scheduler *scheduler, const std::string &id, Request *request, uint32_t internalRequestId,
-		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager)
+		     ImgSysDevice *imgSys, MFNRFrames &mfnr, MfnrTasksManager *manager, PipelineHandler *pipe)
 	: Task(scheduler, id), requestHelper_(this, request, imgSys),
-	  request_(request), internalRequestId_(internalRequestId), manager_(manager)
+	  request_(request), internalRequestId_(internalRequestId), manager_(manager), pipe_(pipe)
 {
 	afbldF0_ = mfnr.afbldF0;
 	afbldF1_ = mfnr.afbldF1;
@@ -1337,6 +1338,12 @@ void AfbldTask::notifyDone()
 		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F5:1";
 		LOG(MtkISP7, Info) << "[CAT][MFNR] EStage_AFBLD_F6:1";
 	}
+
+	if (stillOutput1_)
+		pipe_->completeBuffer(request_, stillOutput1_);
+	if (stillOutput2_)
+		pipe_->completeBuffer(request_, stillOutput2_);
+
 	Task::notifyDone();
 }
 
