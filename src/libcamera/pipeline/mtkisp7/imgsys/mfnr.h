@@ -13,6 +13,8 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "../camsys/capture.h"
+#include "pipeline/mtkisp7/camsys/capture.h"
+#include "pipeline/mtkisp7/imgsys/const.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 
 #include "imgsys.h"
@@ -228,7 +230,8 @@ class MfnrTasksManager
 public:
 	MfnrTasksManager(ImgSysDevice *imgSys, DmaHeap *dmaHeap, OnDeviceTuner *odt);
 
-	int configure(const Size &bayerInputSize,
+	int configure(History<MfnrInput> *mfnrInput,
+		      const Size &bayerInputSize,
 		      const Size &yuvOutputSize1,
 		      const Size &yuvOutputSize2,
 		      const Size &videoOutputSize1,
@@ -246,9 +249,7 @@ public:
 	static Size getSizeAligned(const Size &bayerInputSize);
 
 	void makeMFNRFrames(MFNRFrames &mfnr,
-			    std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &captureRawQueue,
-			    std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &previewQueue,
-			    int captureRawQueue_idx,
+			    uint32_t internalRequestId,
 			    FrameBuffer *output1Frame,
 			    FrameBuffer *output2Frame);
 	std::vector<Size> mfnrSizes_;
@@ -272,6 +273,8 @@ private:
 	friend MtkISP7CameraData;
 
 	int configureBuffers();
+
+	History<MfnrInput> *mfnrInput_;
 
 	Size yuvOutputSize1_;
 	Size yuvOutputSize2_;

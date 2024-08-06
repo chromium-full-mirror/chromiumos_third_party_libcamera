@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <ios>
 #include <memory>
 #include <string>
 #include <sys/resource.h>
@@ -46,6 +47,7 @@
 #include "imgsys/mcnr.h"
 #include "imgsys/mfnr.h"
 #include "libfdft_lib/faces.h"
+#include "mtkcam-core/libcamera_ext/lib/libMfbllWrapper/MTKMfbllHeader/include/EMfbll.h"
 #include "pipeline/mtkisp7/face_detect/detector.h"
 #include "pipeline/mtkisp7/ipa/ipa_delegate.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
@@ -216,7 +218,7 @@ public:
 		  mfnrTunManager(dmaHeap, ipa_.get(), odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap),
-		  captureResult_(5), sensor_idx_(sensor_idx),
+		  captureResult_(5), mfnrInput_(MFNR_QUEUE_SIZE), sensor_idx_(sensor_idx),
 		  control_cache_(nullptr)
 	{
 	}
@@ -286,9 +288,7 @@ public:
 
 	uint32_t requestCount_ = 0;
 
-	std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> captureRawQueue;
-	std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> previewQueue;
-	int captureRawQueue_idx = -1;
+	History<MfnrInput> mfnrInput_;
 
 	int getSensorIdx() { return sensor_idx_; }
 
@@ -1260,9 +1260,7 @@ void MtkISP7CameraData::stopDevice()
 {
 	camSysDev_->frameStart().disconnect(this);
 
-	captureRawQueue_idx = -1;
-	captureRawQueue.fill(makeMailBox<InfoFrame>());
-	previewQueue.fill(makeMailBox<InfoFrame>());
+	mfnrInput_.release();
 
 	camSysDev_->stop();
 	imgSysDev_->stop();
@@ -1428,7 +1426,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 			MfnrTasksManager::getSizeAligned(sensorFullSize_),
 			&wrappingMapSize, &confMapSize);
 
-	mfnrManager.configure(sensorFullSize_,
+	mfnrManager.configure(&mfnrInput_, sensorFullSize_,
 			      still1, still2,
 			      video1, video2,
 			      confMapSize,
@@ -1502,16 +1500,17 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		for (size_t i = 0; i < needed; ++i) {
 			bool needRaw = needed <= i + 3;
 			CaptureFrames captureFrames;
+			uint32_t internalRequestId = requestCount_++;
 			makeTasks("Padding capture", nullptr, captureFrames,
-				  requestCount_++, false,
+				  internalRequestId, false,
 				  needRaw,
 				  false, useMfnr);
 
 			if (needRaw) {
-				captureRawQueue_idx += 1;
-				captureRawQueue_idx = captureRawQueue_idx % MFNR_QUEUE_SIZE;
-				captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
-				previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
+				MfnrInput mfnrInput;
+				mfnrInput.raw = captureFrames.raw;
+				mfnrInput.yuvo1 = captureFrames.yuvo1;
+				mfnrInput_.add(internalRequestId, mfnrInput);
 			}
 		}
 	}
@@ -1585,10 +1584,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		camSysMetaRequestId, pipeline, ipa_.get(), onDeviceTuner_,
 		faceDetector_, aaaIspExchange);
 
-	captureRawQueue_idx += 1;
-	captureRawQueue_idx = captureRawQueue_idx % MFNR_QUEUE_SIZE;
-	captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
-	previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
+	MfnrInput mfnrInput;
+	mfnrInput.raw = captureFrames.raw;
+	mfnrInput.yuvo1 = captureFrames.yuvo1;
+	mfnrInput_.add(internalRequestId, mfnrInput);
 
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
@@ -1690,7 +1689,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		if (useMfnr) {
 			LOG(MtkISP7, Info) << "[CAT][MFNR] Trigger MFNR !";
 			MFNRFrames mfnr;
-			mfnrManager.makeMFNRFrames(mfnr, captureRawQueue, previewQueue, captureRawQueue_idx, still1Buffer, still2Buffer);
+			mfnrManager.makeMFNRFrames(mfnr, internalRequestId, still1Buffer, still2Buffer);
 
 			auto [mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,

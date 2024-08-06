@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iostream>
 #include <memory>
 #include <stdio.h>
@@ -106,12 +107,14 @@ Size MfnrTasksManager::getSizeAligned(const Size &bayerInputSize)
 	return size;
 }
 
-int MfnrTasksManager::configure(const Size &bayerInputSize,
+int MfnrTasksManager::configure(History<MfnrInput> *mfnrInput,
+				const Size &bayerInputSize,
 				const Size &yuvOutputSize1, const Size &yuvOutputSize2,
 				const Size &videoOutputSize1, const Size &videoOutputSize2,
 				const Size &confMapSize,
 				int sensor_idx)
 {
+	mfnrInput_ = mfnrInput;
 	yuvOutputSize1_ = yuvOutputSize1;
 	yuvOutputSize2_ = yuvOutputSize2;
 	videoOutputSize1_ = videoOutputSize1;
@@ -215,9 +218,7 @@ bool MfnrTasksManager::mfnrPrecheck()
 
 void MfnrTasksManager::makeMFNRFrames(
 	MFNRFrames &mfnr,
-	std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &captureRawQueue,
-	std::array<SharedMailBox<InfoFrame>, MFNR_QUEUE_SIZE> &previewQueue,
-	int captureRawQueue_idx,
+	uint32_t internalRequestId,
 	FrameBuffer *output1Frame,
 	FrameBuffer *output2Frame)
 {
@@ -305,8 +306,8 @@ void MfnrTasksManager::makeMFNRFrames(
 	mfnr.bss_order = bssOrder;
 	bssFrames.out.bss_order = bssOrder;
 	for (auto i = 0; i < kInputRawCount; i++) {
-		int idx = (captureRawQueue_idx - (kInputRawCount - 1 - i) + MFNR_QUEUE_SIZE) % MFNR_QUEUE_SIZE;
-		bssFrames.in.imgi[i] = previewQueue[idx];
+		MfnrInput *mfnrInput = mfnrInput_->query(internalRequestId - (kInputRawCount - 1 - i));
+		bssFrames.in.imgi[i] = mfnrInput->yuvo1;
 		bssFrames.in.bssFdMainInfo[i] = bssFdMain[i];
 		bssFrames.in.bssFdInfo[i] = bssFd[i];
 		bssFrames.in.bssFaceInfo[i] = bssFace[i];
@@ -317,8 +318,8 @@ void MfnrTasksManager::makeMFNRFrames(
 	bfbldFrames.capturedRaws.resize(kInputRawCount);
 	bfbldFrames.in.timgi.resize(kInputRawCount);
 	for (auto i = 0; i < kInputRawCount; i++) {
-		int idx = (captureRawQueue_idx - (kInputRawCount - 1 - i) + MFNR_QUEUE_SIZE) % MFNR_QUEUE_SIZE;
-		bfbldFrames.capturedRaws[i] = captureRawQueue[idx];
+		MfnrInput *mfnrInput = mfnrInput_->query(internalRequestId - (kInputRawCount - 1 - i));
+		bfbldFrames.capturedRaws[i] = mfnrInput->raw;
 		bfbldFrames.in.tunbufi.push_back(bfbldTun[i]);
 		bfbldFrames.out.p2stto.push_back(bfbldP2stto[i]);
 		bfbldFrames.out.img2o.push_back(bfbldImg2o[i]);

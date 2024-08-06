@@ -8,6 +8,8 @@
 
 #include <cstring>
 
+#include "libcamera/internal/info_frame.h"
+
 #include "libmfnr/MTKBssType.h"
 #include "mtkcam-core/libcamera_ext/lib/libBssWrapper/MTKBssHeader/EBss.h"
 #include "mtkcam-core/libcamera_ext/lib/libBssWrapper/MTKBssHeader/IMTKBss.h"
@@ -18,6 +20,11 @@
 #include "MediaTypes.h"
 
 namespace libcamera {
+
+struct MfnrInput {
+	SharedMailBox<InfoFrame> raw;
+	SharedMailBox<InfoFrame> yuvo1;
+};
 
 constexpr int kInputRawCount = 4;
 

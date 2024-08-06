@@ -16,6 +16,7 @@
 #include "libcamera/internal/task_scheduler.h"
 
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
+#include "utils/history.h"
 
 #include "camsys.h"
 #include "mtkisp7_ipa_interface.h"
