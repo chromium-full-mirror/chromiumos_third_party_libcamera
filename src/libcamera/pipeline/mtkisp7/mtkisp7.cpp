@@ -1485,7 +1485,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 
 	bool useMfnr = request->controls().get(controls::StillCaptureMultiFrameNoiseReduction).value_or(false);
 
-	if (requestCount_ == 0 || aaControlChanged || nddEnabled || (useMfnr && hasStillCapture)) {
+	if (requestCount_ == 0 || aaControlChanged || nddEnabled) {
 		size_t needed = 0;
 
 		if (requestCount_ == 0 || aaControlChanged || nddEnabled) {
@@ -1499,17 +1499,15 @@ int MtkISP7CameraData::queueRequest(Request *request)
 				needed = CaptureTasksManager::kRawMetaDelay - numberOfPending3ATasks;
 		}
 
-		if (useMfnr && hasStillCapture && needed < 3)
-			needed = 3;
-
 		for (size_t i = 0; i < needed; ++i) {
+			bool needRaw = needed <= i + 3;
 			CaptureFrames captureFrames;
 			makeTasks("Padding capture", nullptr, captureFrames,
 				  requestCount_++, false,
-				  useMfnr && hasStillCapture && needed <= i + 3,
+				  needRaw,
 				  false, useMfnr);
 
-			if (useMfnr) {
+			if (needRaw) {
 				captureRawQueue_idx += 1;
 				captureRawQueue_idx = captureRawQueue_idx % MFNR_QUEUE_SIZE;
 				captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
@@ -1531,6 +1529,8 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			lpnrManager.releaseElasticBuffers();
 			pipeline->imgSysDev_.resetBuffers(ImgSysDevice::kUserIdMfnr);
 			mfnrManager.releaseElasticBuffers();
+
+			captureManager.releaseElasticBuffers();
 		}
 	}
 
@@ -1567,7 +1567,7 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	bool hasVideo = video1Buffer || video2Buffer;
 	auto [taskQBuf, taskDQBuf, sofTask, aaaTask, camSysMetaRequestId] = makeTasks(
 		"Capture " + sequence, request, captureFrames, internalRequestId,
-		hasStillCapture, hasStillCapture, hasVideo, useMfnr);
+		hasStillCapture, true, hasVideo, useMfnr);
 	aaaTask->setPerFrameControl(
 		AAATask::PerFrameControl{
 			.delayIdx = 0,
@@ -1585,12 +1585,10 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		camSysMetaRequestId, pipeline, ipa_.get(), onDeviceTuner_,
 		faceDetector_, aaaIspExchange);
 
-	if (useMfnr) {
-		captureRawQueue_idx += 1;
-		captureRawQueue_idx = captureRawQueue_idx % MFNR_QUEUE_SIZE;
-		captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
-		previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
-	}
+	captureRawQueue_idx += 1;
+	captureRawQueue_idx = captureRawQueue_idx % MFNR_QUEUE_SIZE;
+	captureRawQueue[captureRawQueue_idx] = captureFrames.raw;
+	previewQueue[captureRawQueue_idx] = captureFrames.yuvo1;
 
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(

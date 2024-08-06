@@ -77,9 +77,9 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 
 void CaptureTasksManager::allocateBuffers()
 {
-	rawPool_.createBuffers(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_,
-			       onDeviceTuner_->isEnabled() ? pipelineDepth_ + MFNR_QUEUE_SIZE
-							   : MFNR_QUEUE_SIZE);
+	rawPool_.setFormat(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_,
+			   onDeviceTuner_->isEnabled() ? pipelineDepth_ + MFNR_QUEUE_SIZE
+						       : MFNR_QUEUE_SIZE);
 	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, pipelineDepth_ + MFNR_QUEUE_SIZE);
 	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, pipelineDepth_);
 	// Me needs one more buffer to be kept in MCNRPrevOutput.
@@ -108,6 +108,11 @@ void CaptureTasksManager::releaseBuffers()
 	statistics1Pool_.release();
 
 	rawi2Pool_.release();
+}
+
+void CaptureTasksManager::releaseElasticBuffers()
+{
+	rawPool_.releaseElastic();
 }
 
 void CaptureTasksManager::makeCaptureFrames(CaptureFrames &captureFrames,

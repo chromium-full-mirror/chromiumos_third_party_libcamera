@@ -82,6 +82,7 @@ public:
 
 	void allocateBuffers();
 	void releaseBuffers();
+	void releaseElasticBuffers();
 
 	void makeCaptureFrames(CaptureFrames &captureFrames, bool needRaw,
 			       bool needYuvo1, bool hasVideo);
@@ -106,7 +107,7 @@ private:
 	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
 
-	InfoFramePool rawPool_;
+	ElasticInfoFramePool rawPool_;
 	InfoFramePool yuvo1Pool_;
 	InfoFramePool yuvo2Pool_;
 	InfoFramePool yuvo3Pool_;
