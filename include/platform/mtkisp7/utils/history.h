@@ -36,6 +36,13 @@ public:
 			resultHistory_.pop_front();
 	}
 
+	uint32_t lastId()
+	{
+		MutexLocker locker(lock_);
+
+		return resultHistory_.back().first;
+	}
+
 	T *query(uint32_t id)
 	{
 		MutexLocker locker(lock_);

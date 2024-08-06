@@ -15,6 +15,7 @@
 
 #include "libcamera/internal/task_scheduler.h"
 
+#include "pipeline/mtkisp7/imgsys/const.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "utils/history.h"
 
@@ -78,6 +79,7 @@ public:
 	~CaptureTasksManager() = default;
 
 	int configure(DmaHeap *dmaHeap, CamSysDevice *camSys, PipelineHandler *pipe,
+		      History<MfnrInput> *mfnrInput,
 		      const Size &rawFrameSize, const Size &yuvFrameSize,
 		      int32_t pipelineDepth);
 
@@ -107,6 +109,8 @@ private:
 	PipelineHandler *pipe_;
 	DmaHeap *dmaHeap_;
 	OnDeviceTuner *onDeviceTuner_;
+
+	History<MfnrInput> *mfnrInput_;
 
 	ElasticInfoFramePool rawPool_;
 	InfoFramePool yuvo1Pool_;

@@ -197,6 +197,10 @@ CompleteRequestTask::CompleteRequestTask(
 struct CaptureResult {
 	SharedMailBox<InfoFrame> tuningOutput;
 	SharedMailBox<ipa::mtkisp7::SensorSetting> exposureAndGainOutput;
+};
+
+struct AaaIspExchangeResult {
+	uint32_t camSysMetaRequestId;
 	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange;
 };
 
@@ -218,7 +222,9 @@ public:
 		  mfnrTunManager(dmaHeap, ipa_.get(), odt),
 		  onDeviceTuner_(odt),
 		  faceDetector_(faceDetector), dmaHeap_(dmaHeap),
-		  captureResult_(5), mfnrInput_(MFNR_QUEUE_SIZE), sensor_idx_(sensor_idx),
+		  captureResult_(5),
+		  aaaIspExchangeResult_(10 + CaptureTasksManager::kRawMetaDelay),
+		  mfnrInput_(MFNR_QUEUE_SIZE), sensor_idx_(sensor_idx),
 		  control_cache_(nullptr)
 	{
 	}
@@ -285,6 +291,7 @@ public:
 	DmaHeap *dmaHeap_;
 
 	History<CaptureResult> captureResult_;
+	History<AaaIspExchangeResult> aaaIspExchangeResult_;
 
 	uint32_t requestCount_ = 0;
 
@@ -1066,9 +1073,14 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	CaptureResult captureResult;
 	captureResult.tuningOutput = captureFrames.tuningOutput;
 	captureResult.exposureAndGainOutput = captureFrames.exposureAndGainOutput;
-	captureResult.aaaIspExchange = captureFrames.aaaIspExchange;
 
 	captureResult_.add(internalRequestId, captureResult);
+
+	AaaIspExchangeResult aaaIspExchangeResult;
+	aaaIspExchangeResult.camSysMetaRequestId = camSysMetaRequestId;
+	aaaIspExchangeResult.aaaIspExchange = captureFrames.aaaIspExchange;
+
+	aaaIspExchangeResult_.add(internalRequestId, aaaIspExchangeResult);
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
 		scheduler, id, request, captureFrames, internalRequestId, &hal3AManager_);
@@ -1443,7 +1455,7 @@ int MtkISP7CameraData::configure(CameraConfiguration *c)
 					.max()
 					.get<int32_t>();
 
-	captureManager.configure(dmaHeap_, camSysDev_, pipeline, sensorFullSize_,
+	captureManager.configure(dmaHeap_, camSysDev_, pipeline, &mfnrInput_, sensorFullSize_,
 				 camsysYuvSize, pipelineDepth);
 	faceDetector_->configure(sensorFullSize_, ipa_.get());
 	hal3AManager_.configure(dmaHeap_, camSysDev_, gyroSensor_, ipa_.get());
@@ -1505,13 +1517,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 				  internalRequestId, false,
 				  needRaw,
 				  false, useMfnr);
-
-			if (needRaw) {
-				MfnrInput mfnrInput;
-				mfnrInput.raw = captureFrames.raw;
-				mfnrInput.yuvo1 = captureFrames.yuvo1;
-				mfnrInput_.add(internalRequestId, mfnrInput);
-			}
 		}
 	}
 
@@ -1576,18 +1581,12 @@ int MtkISP7CameraData::queueRequest(Request *request)
 	Task *taskTr = nullptr;
 	Task *taskDip2 = nullptr;
 
-	CaptureResult *aaCaptureResult = captureResult_.query(camSysMetaRequestId);
-	auto aaaIspExchange = aaCaptureResult->aaaIspExchange;
+	auto aaaIspExchange = aaaIspExchangeResult_.query(camSysMetaRequestId)->aaaIspExchange;
 
 	CompleteRequestTask *completeTask = new CompleteRequestTask(
 		scheduler, "Complete " + sequence, request, internalRequestId,
 		camSysMetaRequestId, pipeline, ipa_.get(), onDeviceTuner_,
 		faceDetector_, aaaIspExchange);
-
-	MfnrInput mfnrInput;
-	mfnrInput.raw = captureFrames.raw;
-	mfnrInput.yuvo1 = captureFrames.yuvo1;
-	mfnrInput_.add(internalRequestId, mfnrInput);
 
 	/* Face Detection Task */
 	Task *faceDetectTask = faceDetector_->makeFaceDetectionTask(
@@ -1689,24 +1688,22 @@ int MtkISP7CameraData::queueRequest(Request *request)
 		if (useMfnr) {
 			LOG(MtkISP7, Info) << "[CAT][MFNR] Trigger MFNR !";
 			MFNRFrames mfnr;
-			mfnrManager.makeMFNRFrames(mfnr, internalRequestId, still1Buffer, still2Buffer);
+			uint32_t mfnrRequestId = mfnrInput_.lastId();
+			mfnrManager.makeMFNRFrames(mfnr, mfnrRequestId, still1Buffer, still2Buffer);
+
+			uint32_t prevCamSysMetaRequestId = aaaIspExchangeResult_.query(mfnrRequestId)->camSysMetaRequestId;
+			auto prevAaaIspExchange = aaaIspExchangeResult_.query(prevCamSysMetaRequestId)->aaaIspExchange;
 
 			auto [mfnrTunBssTask, mfnrTunBfbldTask, mfnrTunBfmeTask,
 			      mfnrTunSwmeTask, mfnrTunDsTask, mfnrTunDsVbiTask, mfnrTunMcdsF1Task,
 			      mfnrTunMsbldTask1st, mfnrTunMsbldTask2nd, mfnrTunAfbldTask] =
-				mfnrTunManager.makeMfnrTunTasks(mfnr, aaaIspExchange, camSysMetaRequestId, scheduler, "MfnrTun " + sequence, request, internalRequestId);
+				mfnrTunManager.makeMfnrTunTasks(mfnr, prevAaaIspExchange, prevCamSysMetaRequestId, scheduler, "MfnrTun " + std::to_string(mfnrRequestId), request, mfnrRequestId);
 
 			auto [mfnrBfbldTask, mfnrBfmeTask, mfnrMcdsF1Task,
 			      mfnrDsTask, mfnrDsVbiTask, mfnrMsbldTask1st,
 			      mfnrMsbldTask2nd, mfnrAfbldTask] =
-				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + sequence, request, internalRequestId, imgSysDev_);
+				mfnrManager.makeMfnrTasks(mfnr, scheduler, "Mfnr " + std::to_string(mfnrRequestId), request, mfnrRequestId, imgSysDev_);
 
-			if (hasVideo) {
-				Scheduler::precede(taskTr, mfnrBfbldTask);
-				Scheduler::precede(taskDip2, mfnrBfbldTask);
-			}
-
-			Scheduler::precede(taskDQBuf, mfnrTunBssTask);
 			scheduler->succeedPrevTaskByStep(BssTunTaskGroup, 0, mfnrTunBssTask);
 			scheduler->queueTask(mfnrTunBssTask, BssTunTaskGroup);
 			Scheduler::precede(mfnrTunBssTask, mfnrTunBfbldTask);

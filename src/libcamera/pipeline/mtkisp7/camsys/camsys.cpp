@@ -154,7 +154,11 @@ int CamSysDevice::start()
 
 	for (V4L2VideoDevice *device : allVideoDevices_) {
 		if (device == mainStream_.get())
-			ret |= device->importBuffers(4);
+			/*
+			 * A rough approximate number of raw buffers to support
+			 * ZSL, as we cache 4 more raw buffers.
+			 */
+			ret |= device->importBuffers(8);
 		else
 			ret |= device->importBuffers(16);
 	}

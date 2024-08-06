@@ -57,6 +57,7 @@ CaptureTasksManager::CaptureTasksManager(OnDeviceTuner *odt)
 int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 				   CamSysDevice *camSys,
 				   PipelineHandler *pipe,
+				   History<MfnrInput> *mfnrInput,
 				   const Size &rawFrameSize,
 				   const Size &yuvFrameSize,
 				   int32_t pipelineDepth)
@@ -64,6 +65,8 @@ int CaptureTasksManager::configure(DmaHeap *dmaHeap,
 	dmaHeap_ = dmaHeap;
 	camSys_ = camSys;
 	pipe_ = pipe;
+
+	mfnrInput_ = mfnrInput;
 
 	rawFrameSize_ = rawFrameSize;
 	yuvFrameSize_ = yuvFrameSize;
@@ -79,7 +82,7 @@ void CaptureTasksManager::allocateBuffers()
 {
 	rawPool_.setFormat(dmaHeap_, camSys_->bayerFormat(), rawFrameSize_,
 			   onDeviceTuner_->isEnabled() ? pipelineDepth_ + MFNR_QUEUE_SIZE
-						       : MFNR_QUEUE_SIZE);
+						       : MFNR_QUEUE_SIZE + 4);
 	yuvo1Pool_.createBuffers(dmaHeap_, formats::NV12_10P_MTISP, yuvFrameSize_, pipelineDepth_ + MFNR_QUEUE_SIZE);
 	yuvo2Pool_.createBuffers(dmaHeap_, formats::NV12_12P_MTISP, yuvFrameSize_ / 2, pipelineDepth_);
 	// Me needs one more buffer to be kept in MCNRPrevOutput.
@@ -321,6 +324,13 @@ void DequeueTask::requestReady(CamSysDevice::Request *request)
 
 void DequeueTask::done()
 {
+	if (data_->frames.raw) {
+		MfnrInput mfnrInput;
+		mfnrInput.raw = data_->frames.raw;
+		mfnrInput.yuvo1 = data_->frames.yuvo1;
+		manager_->mfnrInput_->add(internalRequestId_, mfnrInput);
+	}
+
 	if (request_)
 		manager_->onDeviceTuner_->tuneCamsys(internalRequestId_, data_->frames);
 
