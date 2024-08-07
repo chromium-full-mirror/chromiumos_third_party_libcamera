@@ -296,8 +296,8 @@ py_mod.find_installation('python3', modules : py_modules)
 summary({
             'Enabled pipelines': pipelines,
             'Enabled IPA modules': enabled_ipa_names,
-            'Controls files': controls_files,
-            'Properties files': properties_files,
+            'Controls files': controls_files_names,
+            'Properties files': properties_files_names,
             'Perfetto support': perfetto_enabled,
             'Hotplug support': libudev.found(),
             'Tracing support': tracing_enabled,

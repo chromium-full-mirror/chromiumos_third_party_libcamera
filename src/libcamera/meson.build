@@ -149,8 +149,6 @@ controls_mode_files = {
 }
 
 foreach mode, input_files : controls_mode_files
-    input_files = files(input_files)
-
     if mode == 'controls'
         template_file = files('control_ids.cpp.in')
     else
