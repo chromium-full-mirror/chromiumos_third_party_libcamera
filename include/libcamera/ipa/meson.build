@@ -28,7 +28,8 @@ ipa_mojom_core = custom_target(core_mojom_file.split('.')[0] + '_mojom_module',
                                    '--output-root', meson.project_build_root(),
                                    '--input-root', meson.project_source_root(),
                                    '--mojoms', '@INPUT@'
-                               ])
+                               ],
+                               env : py_build_env)
 
 # core_ipa_interface.h
 libcamera_generated_ipa_headers += custom_target('core_ipa_interface_h',
@@ -44,7 +45,8 @@ libcamera_generated_ipa_headers += custom_target('core_ipa_interface_h',
                       '--libcamera_generate_core_header',
                       '--libcamera_output_path=@OUTPUT@',
                       './' +'@INPUT@'
-                  ])
+                  ],
+                  env : py_build_env)
 
 # core_ipa_serializer.h
 libcamera_generated_ipa_headers += custom_target('core_ipa_serializer_h',
@@ -58,7 +60,8 @@ libcamera_generated_ipa_headers += custom_target('core_ipa_serializer_h',
                       '--libcamera_generate_core_serializer',
                       '--libcamera_output_path=@OUTPUT@',
                       './' +'@INPUT@'
-                  ])
+                  ],
+                  env : py_build_env)
 
 # Mapping from pipeline handler name to mojom file
 pipeline_ipa_mojom_mapping = {
@@ -102,7 +105,8 @@ foreach pipeline, file : pipeline_ipa_mojom_mapping
                               '--output-root', meson.project_build_root(),
                               '--input-root', meson.project_source_root(),
                               '--mojoms', '@INPUT@'
-                          ])
+                          ],
+                          env : py_build_env)
 
     # {interface}_ipa_interface.h
     header = custom_target(name + '_ipa_interface_h',
@@ -118,7 +122,8 @@ foreach pipeline, file : pipeline_ipa_mojom_mapping
                                '--libcamera_generate_header',
                                '--libcamera_output_path=@OUTPUT@',
                                './' +'@INPUT@'
-                           ])
+                           ],
+                           env : py_build_env)
 
     # {interface}_ipa_serializer.h
     serializer = custom_target(name + '_ipa_serializer_h',
@@ -132,7 +137,8 @@ foreach pipeline, file : pipeline_ipa_mojom_mapping
                                    '--libcamera_generate_serializer',
                                    '--libcamera_output_path=@OUTPUT@',
                                    './' +'@INPUT@'
-                               ])
+                               ],
+                               env : py_build_env)
 
     # {interface}_ipa_proxy.h
     proxy_header = custom_target(name + '_proxy_h',
@@ -146,7 +152,8 @@ foreach pipeline, file : pipeline_ipa_mojom_mapping
                                      '--libcamera_generate_proxy_h',
                                      '--libcamera_output_path=@OUTPUT@',
                                      './' +'@INPUT@'
-                                 ])
+                                 ],
+                                 env : py_build_env)
 
     ipa_mojoms += {
         'name': name,
