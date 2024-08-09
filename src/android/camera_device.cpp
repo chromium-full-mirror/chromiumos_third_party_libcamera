@@ -1232,7 +1232,7 @@ void CameraDevice::abortRequest(Camera3RequestDescriptor *descriptor)
 
 	result->metadataPackIndex_ = 0;
 	for (auto &buffer : descriptor->buffers_) {
-		setBufferStatus(buffer, StreamBuffer::Status::Error);
+		buffer.status = StreamBuffer::Status::Error;
 		result->buffers_.emplace_back(&buffer);
 	}
 
