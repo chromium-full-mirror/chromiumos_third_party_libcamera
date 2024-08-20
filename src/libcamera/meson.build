@@ -164,25 +164,6 @@ if ipa_sign_module
     libcamera_sources += ipa_pub_key_cpp
 endif
 
-libyuv_dep = dependency('libyuv', required : false)
-
-# Fallback to a subproject if libyuv isn't found, as it's typically not
-# provided by distributions.
-if not libyuv_dep.found()
-    cmake = import('cmake')
-
-    libyuv_vars = cmake.subproject_options()
-    libyuv_vars.add_cmake_defines({'CMAKE_POSITION_INDEPENDENT_CODE': 'ON'})
-    libyuv_vars.set_override_option('cpp_std', 'c++17')
-    libyuv_vars.append_compile_args('cpp',
-         '-Wno-sign-compare',
-         '-Wno-unused-variable',
-         '-Wno-unused-parameter')
-    libyuv_vars.append_link_args('-ljpeg')
-    libyuv = cmake.subproject('libyuv', options : libyuv_vars)
-    libyuv_dep = libyuv.dependency('yuv')
-endif
-
 libcamera_deps += [
     libatomic,
     libcamera_base,
@@ -192,7 +173,6 @@ libcamera_deps += [
     liblttng,
     libudev,
     libyaml,
-    libyuv_dep,
 ]
 
 # We add '/' to the build_rpath as a 'safe' path to act as a boolean flag.
