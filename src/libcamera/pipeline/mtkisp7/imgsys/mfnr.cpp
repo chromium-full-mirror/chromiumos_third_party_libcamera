@@ -1114,6 +1114,7 @@ void MsbldTask::run()
 	allocateOutputBuffers();
 	auto bssOrder = bssOrder_->get();
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
+	auto &mfnrSize_aligned16_ = manager_->mfnrSize_aligned16_;
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
@@ -1133,7 +1134,7 @@ void MsbldTask::run()
 	MSBLD_F6.output(msbldF6_out.tnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	MSBLD_F6.output(msbldF6_out.img4o->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[6]);
 	MSBLD_F6.setMultiScale(IMG_MULTI_SCALE_DOWN2, 6, 7);
-	MSBLD_F6.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F6.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &MSBLD_F5 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F5, frameNumber);
 	auto &msbldF5_in = msbldF5_.in;
@@ -1153,7 +1154,7 @@ void MsbldTask::run()
 	MSBLD_F5.output(msbldF5_out.tnrmo->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[5]);
 	MSBLD_F5.output(msbldF5_out.tnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	MSBLD_F5.setMultiScale(IMG_MULTI_SCALE_DOWN2, 5, 7);
-	MSBLD_F5.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F5.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &MSBLD_F4 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F4, frameNumber);
 	auto &msbldF4_in = msbldF4_.in;
@@ -1174,7 +1175,7 @@ void MsbldTask::run()
 	MSBLD_F4.output(msbldF4_out.tnrmo->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[4]);
 	MSBLD_F4.output(msbldF4_out.tnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	MSBLD_F4.setMultiScale(IMG_MULTI_SCALE_DOWN2, 4, 7);
-	MSBLD_F4.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F4.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 	StageEx &MSBLD_F3 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F3, frameNumber);
 	auto &msbldF3_in = msbldF3_.in;
 	auto &msbldF3_out = msbldF3_.out;
@@ -1194,7 +1195,7 @@ void MsbldTask::run()
 	MSBLD_F3.output(msbldF3_out.tnrmo->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[3]);
 	MSBLD_F3.output(msbldF3_out.tnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	MSBLD_F3.setMultiScale(IMG_MULTI_SCALE_DOWN2, 3, 7);
-	MSBLD_F3.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F3.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 	StageEx &MSBLD_F2 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F2, frameNumber);
 	auto &msbldF2_in = msbldF2_.in;
 	auto &msbldF2_out = msbldF2_.out;
@@ -1215,7 +1216,7 @@ void MsbldTask::run()
 	MSBLD_F2.output(msbldF2_out.tnrmo->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[2]);
 	MSBLD_F2.output(msbldF2_out.tnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	MSBLD_F2.setMultiScale(IMG_MULTI_SCALE_DOWN2, 2, 7);
-	MSBLD_F2.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F2.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &MSBLD_F1 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F1, frameNumber);
 	auto &msbldF1_in = msbldF1_.in;
@@ -1235,7 +1236,7 @@ void MsbldTask::run()
 	MSBLD_F1.output(msbldF1_out.tnrmo->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[1]);
 	MSBLD_F1.output(msbldF1_out.tnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	MSBLD_F1.setMultiScale(IMG_MULTI_SCALE_DOWN2, 1, 7);
-	MSBLD_F1.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F1.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &MSBLD_F0 = sdRequest.emplaceStage(PEU_Stage::MSBLD_F0, frameNumber);
 	auto &msbldF0_in = msbldF0_.in;
@@ -1255,7 +1256,7 @@ void MsbldTask::run()
 	MSBLD_F0.output(msbldF0_out.tnrwo->get(), IMG_PORT_TNRWO, 0, mfnrSizes_[0]);
 	MSBLD_F0.output(msbldF0_out.tnrso->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	MSBLD_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
-	MSBLD_F0.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	MSBLD_F0.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	requestHelper_.queueRequest(ImgSysDevice::kUserIdMfnr, sdRequest);
 }
@@ -1337,6 +1338,7 @@ void AfbldTask::run()
 	allocateOutputBuffers();
 
 	auto &mfnrSizes_ = manager_->mfnrSizes_;
+	auto &mfnrSize_aligned16_ = manager_->mfnrSize_aligned16_;
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
@@ -1354,7 +1356,7 @@ void AfbldTask::run()
 	AFBLD_F6.output(afbldF6_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F6.output(afbldF6_out.img4o[0]->get(), IMG_PORT_IMG4O, 0, mfnrSizes_[6]);
 	AFBLD_F6.setMultiScale(IMG_MULTI_SCALE_DOWN2, 6, 7);
-	AFBLD_F6.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	AFBLD_F6.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &AFBLD_F5 = sdRequest.emplaceStage(PEU_Stage::AFBLD_F5, frameNumber);
 	auto &afbldF5_in = afbldF5_.in;
@@ -1373,7 +1375,7 @@ void AfbldTask::run()
 	AFBLD_F5.output(afbldF5_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[5]);
 	AFBLD_F5.output(afbldF5_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F5.setMultiScale(IMG_MULTI_SCALE_DOWN2, 5, 7);
-	AFBLD_F5.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	AFBLD_F5.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &AFBLD_F4 = sdRequest.emplaceStage(PEU_Stage::AFBLD_F4, frameNumber);
 	auto &afbldF4_in = afbldF4_.in;
@@ -1393,7 +1395,7 @@ void AfbldTask::run()
 	AFBLD_F4.output(afbldF4_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[4]);
 	AFBLD_F4.output(afbldF4_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F4.setMultiScale(IMG_MULTI_SCALE_DOWN2, 4, 7);
-	AFBLD_F4.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	AFBLD_F4.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &AFBLD_F3 = sdRequest.emplaceStage(PEU_Stage::AFBLD_F3, frameNumber);
 	auto &afbldF3_in = afbldF3_.in;
@@ -1413,7 +1415,7 @@ void AfbldTask::run()
 	AFBLD_F3.output(afbldF3_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[3]);
 	AFBLD_F3.output(afbldF3_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F3.setMultiScale(IMG_MULTI_SCALE_DOWN2, 3, 7);
-	AFBLD_F3.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	AFBLD_F3.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &AFBLD_F2 = sdRequest.emplaceStage(PEU_Stage::AFBLD_F2, frameNumber);
 	auto &afbldF2_in = afbldF2_.in;
@@ -1433,7 +1435,7 @@ void AfbldTask::run()
 	AFBLD_F2.output(afbldF2_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[2]);
 	AFBLD_F2.output(afbldF2_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F2.setMultiScale(IMG_MULTI_SCALE_DOWN2, 2, 7);
-	AFBLD_F2.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	AFBLD_F2.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &AFBLD_F1 = sdRequest.emplaceStage(PEU_Stage::AFBLD_F1, frameNumber);
 	auto &afbldF1_in = afbldF1_.in;
@@ -1453,7 +1455,7 @@ void AfbldTask::run()
 	AFBLD_F1.output(afbldF1_out.tnrmo[0]->get(), IMG_PORT_TNRMO, 0, mfnrSizes_[1]);
 	AFBLD_F1.output(afbldF1_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 	AFBLD_F1.setMultiScale(IMG_MULTI_SCALE_DOWN2, 1, 7);
-	AFBLD_F1.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	AFBLD_F1.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	StageEx &AFBLD_F0 = sdRequest.emplaceStage(PEU_Stage::AFBLD_F0, frameNumber);
 	auto &afbldF0_in = afbldF0_.in;
@@ -1474,7 +1476,7 @@ void AfbldTask::run()
 	AFBLD_F0.output(afbldF0_out.tnrso[0]->get(), IMG_PORT_TNRSO, 0, Size{ 0, 0 });
 
 	AFBLD_F0.setMultiScale(IMG_MULTI_SCALE_DOWN2, 0, 7);
-	AFBLD_F0.setMvFrame(mfnrSizes_[0], mfnrSizes_[2], 8);
+	AFBLD_F0.setMvFrame(mfnrSizes_[0], mfnrSize_aligned16_, 8);
 
 	if (stillOutput1_) {
 		InfoFrame info(formats::NV12, manager_->yuvOutputSize1_, stillOutput1_, 64);
