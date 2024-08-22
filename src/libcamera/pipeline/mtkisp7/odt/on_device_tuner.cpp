@@ -902,7 +902,7 @@ void OnDeviceTuner::tuneMeA(uint32_t internalRequestId, MeFrames &frames)
 				   });
 }
 
-void OnDeviceTuner::tuneMeB(uint32_t internalRequestId, MeFrames &frames)
+void OnDeviceTuner::tuneMeB(uint32_t internalRequestId, MeBFrames &frames)
 {
 	uint32_t requestNumber = internalRequestId;
 	if (!enabled_ || (!shouldExportDumpNow(requestNumber) &&

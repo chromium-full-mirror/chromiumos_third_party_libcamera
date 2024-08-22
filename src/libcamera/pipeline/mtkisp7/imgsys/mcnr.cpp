@@ -628,15 +628,7 @@ void MeATask::allocateOutputBuffers()
 	manager_->meFmb0_.fetch(out.meAFmb0);
 	manager_->meFmb1_.fetch(out.meAFmb1);
 
-	manager_->meFst_.fetch(out.meBFst);
-	manager_->meLmi_.fetch(out.meBLmi);
-
 	manager_->meConf0_.fetch(out.meConf0);
-
-	manager_->meMmap0_.fetch(out.meMmap[0]);
-	manager_->meMmap1_.fetch(out.meMmap[1]);
-	manager_->meMmap2_.fetch(out.meMmap[2]);
-	manager_->meMmap3_.fetch(out.meMmap[3]);
 
 	syncLtrMeA_ = imgSys_->syncPool().get();
 }
@@ -707,12 +699,33 @@ MeBTask::MeBTask(Scheduler *scheduler, const std::string &id,
 	  request_(request), internalRequestId_(internalRequestId), manager_(manager), imgSys_(imgSys)
 {
 	/* Collect MailBoxes used for the task */
-	frames_ = mcnr.meFrames;
+	frames_.in.prevMeL0 = mcnr.meFrames.in.prevMeL0;
+	frames_.in.prevMeL1 = mcnr.meFrames.in.prevMeL1;
+	frames_.in.meL0 = mcnr.meFrames.in.meL0;
+	frames_.in.meBTun = mcnr.meFrames.in.meBTun;
+	frames_.in.meMil = mcnr.meFrames.in.meMil;
+
+	frames_.out.meL1 = mcnr.meFrames.out.meL1;
+	frames_.out.meAMv0 = mcnr.meFrames.out.meAMv0;
+	frames_.out.meAFmb0 = mcnr.meFrames.out.meAFmb0;
+	frames_.out.meAFmb1 = mcnr.meFrames.out.meAFmb1;
+
+	frames_.out.meBMv0 = mcnr.meFrames.out.meBMv0;
+	frames_.out.meBMv1 = mcnr.meFrames.out.meBMv1;
+	frames_.out.meBFst = mcnr.meFrames.out.meBFst;
+	frames_.out.meBFmb0 = mcnr.meFrames.out.meBFmb0;
+	frames_.out.meBFmb1 = mcnr.meFrames.out.meBFmb1;
+	frames_.out.meBLmi = mcnr.meFrames.out.meBLmi;
+	frames_.out.meConf0 = mcnr.meFrames.out.meConf0;
+	frames_.out.meMmap = mcnr.meFrames.out.meMmap;
 }
 
 void MeBTask::allocateOutputBuffers()
 {
-	// TODO: Move corresponding allocation to here.
+	manager_->meFst_.fetch(frames_.out.meBFst);
+	manager_->meLmi_.fetch(frames_.out.meBLmi);
+
+	manager_->meMmap0_.fetch(frames_.out.meMmap[0]);
 }
 
 void MeBTask::notifyDone()
@@ -723,7 +736,7 @@ void MeBTask::notifyDone()
 
 void MeBTask::run()
 {
-	//allocateOutputBuffers();
+	allocateOutputBuffers();
 
 	MUINT32 timestampMili = request_->metadata().get(controls::SensorTimestamp).value_or(0);
 	SingleDeviceRequest sdRequest;
@@ -773,6 +786,10 @@ TrTask::TrTask(Scheduler *scheduler, const std::string &id,
 void TrTask::allocateOutputBuffers()
 {
 	auto &out = frames_.out;
+
+	manager_->meMmap1_.fetch(frames_.in.meMmap[1]);
+	manager_->meMmap2_.fetch(frames_.in.meMmap[2]);
+	manager_->meMmap3_.fetch(frames_.in.meMmap[3]);
 
 	/* dipImgi[0] (p1F0) and dipImgi[1] (p1F1) are from P1 */
 	manager_->img3o_[2].fetch(out.dipImgi[2]);

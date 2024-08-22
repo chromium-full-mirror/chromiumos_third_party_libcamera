@@ -39,6 +39,7 @@ namespace libcamera {
 
 struct CaptureFrames;
 struct MeFrames;
+struct MeBFrames;
 struct TrFrames;
 struct Dip1Frames;
 struct Dip2Frames;
@@ -137,7 +138,7 @@ public:
 	// MCNR
 	void tuneMeA(uint32_t internalRequestId, MeFrames &frames);
 	void tuneMeMM(uint32_t internalRequestId, SharedMailBox<InfoFrame> tuning);
-	void tuneMeB(uint32_t internalRequestId, MeFrames &frames);
+	void tuneMeB(uint32_t internalRequestId, MeBFrames &frames);
 	void tuneTr(uint32_t internalRequestId, TrFrames &frames);
 	void tuneDip1(uint32_t internalRequestId, Dip1Frames &frames);
 	void tuneDip2(

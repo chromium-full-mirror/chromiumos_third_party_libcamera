@@ -104,6 +104,31 @@ struct MeFrames {
 	} out;
 };
 
+struct MeBFrames {
+	struct {
+		SharedMailBox<InfoFrame> prevMeL0;
+		SharedMailBox<InfoFrame> prevMeL1;
+		SharedMailBox<InfoFrame> meL0;
+		SharedMailBox<InfoFrame> meBTun;
+		SharedMailBox<InfoFrame> meMil;
+	} in;
+	struct {
+		SharedMailBox<InfoFrame> meL1;
+		SharedMailBox<InfoFrame> meAMv0;
+		SharedMailBox<InfoFrame> meAFmb0;
+		SharedMailBox<InfoFrame> meAFmb1;
+
+		SharedMailBox<InfoFrame> meBMv0;
+		SharedMailBox<InfoFrame> meBMv1;
+		SharedMailBox<InfoFrame> meBFst;
+		SharedMailBox<InfoFrame> meBFmb0;
+		SharedMailBox<InfoFrame> meBFmb1;
+		SharedMailBox<InfoFrame> meBLmi;
+		SharedMailBox<InfoFrame> meConf0;
+		std::vector<SharedMailBox<InfoFrame>> meMmap;
+	} out;
+};
+
 struct TrFrames {
 	struct {
 		SharedMailBox<InfoFrame> p1F1;
@@ -305,7 +330,7 @@ public:
 private:
 	void allocateOutputBuffers();
 
-	MeFrames frames_;
+	MeBFrames frames_;
 
 	ImgSysRequestHelper requestHelper_;
 	Request *request_;
