@@ -26,7 +26,7 @@ gst_libcamera_auto_focus_get_type()
 	static GType type = 0;
 	static const GEnumValue values[] = {
 		{
-			static_cast<gint>(libcamera::controls::AfModeManual),
+			static_cast<gint>(libcamera::controls::AfModeOff),
 			"AfModeManual",
 			"manual-focus",
 		},
@@ -36,7 +36,7 @@ gst_libcamera_auto_focus_get_type()
 			"automatic-auto-focus",
 		},
 		{
-			static_cast<gint>(libcamera::controls::AfModeContinuous),
+			static_cast<gint>(libcamera::controls::AfModeContinuousVideo),
 			"AfModeContinuous",
 			"continuous-auto-focus",
 		},

@@ -142,7 +142,7 @@ struct _GstLibcameraSrc {
 	GstTask *task;
 
 	gchar *camera_name;
-	controls::AfModeEnum auto_focus_mode = controls::AfModeManual;
+	controls::AfModeEnum auto_focus_mode = controls::AfModeOff;
 
 	GstLibcameraSrcState *state;
 	GstLibcameraAllocator *allocator;
@@ -575,7 +575,7 @@ gst_libcamera_src_task_enter(GstTask *task, [[maybe_unused]] GThread *thread,
 		gst_flow_combiner_add_pad(self->flow_combiner, srcpad);
 	}
 
-	if (self->auto_focus_mode != controls::AfModeManual) {
+	if (self->auto_focus_mode != controls::AfModeOff) {
 		const ControlInfoMap &infoMap = state->cam_->controls();
 		if (infoMap.find(&controls::AfMode) != infoMap.end()) {
 			state->initControls_.set(controls::AfMode, self->auto_focus_mode);
@@ -869,7 +869,7 @@ gst_libcamera_src_class_init(GstLibcameraSrcClass *klass)
 				 "Available options: AfModeManual, "
 				 "AfModeAuto or AfModeContinuous.",
 				 gst_libcamera_auto_focus_get_type(),
-				 static_cast<gint>(controls::AfModeManual),
+				 static_cast<gint>(controls::AfModeOff),
 				 G_PARAM_WRITABLE);
 	g_object_class_install_property(object_class, PROP_AUTO_FOCUS_MODE, spec);
 }

@@ -641,9 +641,9 @@ static const std::map<int32_t, RPiController::DenoiseMode> DenoiseModeTable = {
 };
 
 static const std::map<int32_t, RPiController::AfAlgorithm::AfMode> AfModeTable = {
-	{ controls::AfModeManual, RPiController::AfAlgorithm::AfModeManual },
+	{ controls::AfModeOff, RPiController::AfAlgorithm::AfModeManual },
 	{ controls::AfModeAuto, RPiController::AfAlgorithm::AfModeAuto },
-	{ controls::AfModeContinuous, RPiController::AfAlgorithm::AfModeContinuous },
+	{ controls::AfModeContinuousVideo, RPiController::AfAlgorithm::AfModeContinuous },
 };
 
 static const std::map<int32_t, RPiController::AfAlgorithm::AfRange> AfRangeTable = {

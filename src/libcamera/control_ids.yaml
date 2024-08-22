@@ -489,14 +489,14 @@ controls:
            Focuses the camera on close-up objects. Ideal for taking pictures
            of small objects or flowers.
            (See AF_MODE_MACRO)
-        - name: AfModeContinuosVideo
+        - name: AfModeContinuousVideo
           value: 3
           description: |
            Maintains continuous focus while recording video.
            The camera constantly adjusts the lens position to keep the subject
            in focus as it moves.
            (See AF_MODE_CONTINUOUS_VIDEO)
-        - name: AfModeContinuosPicture
+        - name: AfModeContinuousPicture
           value: 4
           description: |
            Similar to AF_MODE_CONTINUOUS_VIDEO, but optimized for taking pictures.
@@ -597,7 +597,7 @@ controls:
         This control starts an autofocus scan when AfMode is set to AfModeAuto,
         and can also be used to terminate a scan early.
 
-        It is ignored if AfMode is set to AfModeManual or AfModeContinuous.
+        It is ignored if AfMode is set to AfModeOff or AfModeContinuousVideo.
 
       enum:
         - name: AfTriggerIdle
@@ -615,7 +615,7 @@ controls:
       type: int32_t
       description: |
         This control has no effect except when in continuous autofocus mode
-        (AfModeContinuous). It can be used to pause any lens movements while
+        (AfModeContinuousVideo). It can be used to pause any lens movements while
         (for example) images are captured. The algorithm remains inactive
         until it is instructed to resume.
 
@@ -655,7 +655,7 @@ controls:
         and also reports back the position of the lens for each frame.
 
         The LensPosition control is ignored unless the AfMode is set to
-        AfModeManual, though the value is reported back unconditionally in all
+        AfModeOff, though the value is reported back unconditionally in all
         modes.
 
         This value, which is generally a non-integer, is the reciprocal of the
@@ -688,23 +688,23 @@ controls:
         value. The possible state changes are described below, though we note
         the following state transitions that occur when the AfMode is changed.
 
-        If the AfMode is set to AfModeManual, then the AfState will always
+        If the AfMode is set to AfModeOff, then the AfState will always
         report AfStateIdle (even if the lens is subsequently moved). Changing to
-        the AfModeManual state does not initiate any lens movement.
+        the AfModeOff state does not initiate any lens movement.
 
         If the AfMode is set to AfModeAuto then the AfState will report
         AfStateIdle. However, if AfModeAuto and AfTriggerStart are sent together
         then AfState will omit AfStateIdle and move straight to AfStateScanning
         (and start a scan).
 
-        If the AfMode is set to AfModeContinuous then the AfState will initially
-        report AfStateScanning.
+        If the AfMode is set to AfModeContinuousVideo then the AfState will
+        initially report AfStateScanning.
 
       enum:
         - name: AfStateIdle
           value: 0
           description: |
-            The AF algorithm is in manual mode (AfModeManual) or in auto mode
+            The AF algorithm is in manual mode (AfModeOff) or in auto mode
             (AfModeAuto) and a scan has not yet been triggered, or an
             in-progress scan was cancelled.
         - name: AfStateScanning
@@ -718,25 +718,25 @@ controls:
             AfStateFailed.
 
             Alternatively the AF algorithm could be in continuous mode
-            (AfModeContinuous) at which point it may enter this state
+            (AfModeContinuousVideo) at which point it may enter this state
             spontaneously whenever it determines that a rescan is needed.
         - name: AfStateFocused
           value: 2
           description: |
             The AF algorithm is in auto (AfModeAuto) or continuous
-            (AfModeContinuous) mode and a scan has completed with the result
+            (AfModeContinuousVideo) mode and a scan has completed with the result
             that the algorithm believes the image is now in focus.
         - name: AfStateFailed
           value: 3
           description: |
             The AF algorithm is in auto (AfModeAuto) or continuous
-            (AfModeContinuous) mode and a scan has completed with the result
+            (AfModeContinuousVideo) mode and a scan has completed with the result
             that the algorithm did not find a good focus position.
 
   - AfPauseState:
       type: int32_t
       description: |
-        Only applicable in continuous (AfModeContinuous) mode, this reports
+        Only applicable in continuous (AfModeContinuousVideo) mode, this reports
         whether the algorithm is currently running, paused or pausing (that is,
         will pause as soon as any in-progress scan completes).
 

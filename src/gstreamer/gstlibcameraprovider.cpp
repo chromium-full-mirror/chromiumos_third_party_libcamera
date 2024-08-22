@@ -43,7 +43,7 @@ G_DECLARE_FINAL_TYPE(GstLibcameraDevice, gst_libcamera_device,
 struct _GstLibcameraDevice {
 	GstDevice parent;
 	gchar *name;
-	controls::AfModeEnum auto_focus_mode = controls::AfModeManual;
+	controls::AfModeEnum auto_focus_mode = controls::AfModeOff;
 };
 
 G_DEFINE_TYPE(GstLibcameraDevice, gst_libcamera_device, GST_TYPE_DEVICE)
@@ -135,7 +135,7 @@ gst_libcamera_device_class_init(GstLibcameraDeviceClass *klass)
 				  "Available options: AfModeManual, "
 				  "AfModeAuto or AfModeContinuous.",
 				  gst_libcamera_auto_focus_get_type(),
-				  static_cast<gint>(controls::AfModeManual),
+				  static_cast<gint>(controls::AfModeOff),
 				  G_PARAM_WRITABLE);
 	g_object_class_install_property(object_class, PROP_AUTO_FOCUS_MODE, pspec);
 }
