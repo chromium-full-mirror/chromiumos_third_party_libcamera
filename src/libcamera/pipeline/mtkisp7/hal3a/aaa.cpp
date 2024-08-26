@@ -274,17 +274,6 @@ void AAATask::setPerFrameControl(PerFrameControl perFrameControl)
 	}
 }
 
-/**
- * \brief Set the related application request
- * \param[in] cfg The request coming from application layer
- *
- * For dummy frames, this function will never be called.
- */
-void AAATask::setRequest(Request *request)
-{
-	request_ = request;
-}
-
 void AAATask::setInternalRequestIdApplied(uint32_t internalRequestIdApplied)
 {
 	internalRequestIdApplied_ = internalRequestIdApplied;

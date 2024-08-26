@@ -144,7 +144,7 @@ public:
 		FocusController *focusController,
 		uint32_t internalRequestId, uint32_t camSysMetaRequestId,
 		FaceDetector *faceDetector)
-		: Task(scheduler, id), request_(nullptr), manager_(manager),
+		: Task(scheduler, id), manager_(manager),
 		  statistics0_(statistics0), statistics1_(statistics1),
 		  tuningOutput_(tuningOutput), timestamp_(timestamp),
 		  exposureAndGainOutput_(exposureAndGainOutput),
@@ -164,11 +164,9 @@ public:
 
 	void run() override final;
 
-	void setRequest(Request *request);
 	void setInternalRequestIdApplied(uint32_t internalRequestIdApplied);
 	void setFeatureApplied(Feature feature);
 
-	Request *request_;
 	std::optional<uint32_t> internalRequestIdApplied_;
 	std::optional<Feature> featureApplied_;
 

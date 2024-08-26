@@ -1546,7 +1546,6 @@ int MtkISP7CameraData::queueRequest(Request *request)
 			auto iter = capture3ATasks.rbegin();
 			for (uint32_t shift = 0; shift < CaptureTasksManager::kRawMetaDelay; ++shift) {
 				auto *prevAAATask = static_cast<AAATask *>(*iter);
-				prevAAATask->setRequest(request);
 				prevAAATask->setInternalRequestIdApplied(internalRequestId);
 				prevAAATask->setFeatureApplied(feature);
 				prevAAATask->setPerFrameControl(
