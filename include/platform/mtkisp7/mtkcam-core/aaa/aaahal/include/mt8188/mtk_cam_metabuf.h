@@ -17,11 +17,12 @@
 #ifndef AAA_AAAHAL_INCLUDE_MT8188_MTK_CAM_METABUF_H_
 #define AAA_AAAHAL_INCLUDE_MT8188_MTK_CAM_METABUF_H_
 
-#include <stdlib.h>
 #include <mtkcam-interfaces/def/BuiltinTypes.h>
 #include <linux/types.h>
-// #include <mtk_cam_3a_user.h>
-
+#include <mtk_cam_reg_user.h>
+#ifndef __packed
+#define __packed __attribute__((__packed__))
+#endif
 
 /**
  * Common stuff for all statistics
@@ -43,7 +44,7 @@ struct mtk_cam_uapi_meta_rect {
   __s32 top;
   __u32 width;
   __u32 height;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_meta_size - size info
@@ -57,7 +58,7 @@ struct mtk_cam_uapi_meta_rect {
 struct mtk_cam_uapi_meta_size {
   __u32 width;
   __u32 height;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_meta_hw_buf - hardware buffer info
@@ -73,7 +74,7 @@ struct mtk_cam_uapi_meta_size {
 struct mtk_cam_uapi_meta_hw_buf {
   __u32 offset;
   __u32 size;
-};
+} __packed;
 
 #define MTK_CAM_UAPI_MAX_CORE_NUM (2)
 
@@ -86,7 +87,7 @@ struct mtk_cam_uapi_pipeline_config {
   __u32  num_of_core;
   struct  mtk_cam_uapi_meta_size core_data_size;
   __u32  core_pxl_mode_lg2;
-};
+} __packed;
 
 /**
  *  A U T O  E X P O S U R E
@@ -113,7 +114,8 @@ struct mtk_cam_uapi_ae_hist_cfg {
   __u16 hist_y_low;
   __u16 hist_x_hi;
   __u16 hist_x_low;
-};
+  __u16 rsv;
+} __packed;
 
 #define MTK_CAM_UAPI_ROI_MAP_BLK_NUM (128*128)
 /*
@@ -140,12 +142,13 @@ struct mtk_cam_uapi_ae_param {
   struct mtk_cam_uapi_ae_hist_cfg roi_hist_cfg_se[4];
   __u8  aai_r1_enable;
   __u8  aai_roi_map[MTK_CAM_UAPI_ROI_MAP_BLK_NUM];
+  __u8  rsv;
   __u16 hdr_ratio; /* base 1 x= 1000 */
   __u32 act_win_x_start;
   __u32 act_win_x_end;
   __u32 act_win_y_start;
   __u32 act_win_y_end;
-};
+} __packed;
 
 /**
  *  A U T O  W H I T E  B A L A N C E
@@ -245,7 +248,7 @@ struct mtk_cam_uapi_awb_param {
   __u32 pregain2_r;
   __u32 pregain2_g;
   __u32 pregain2_b;
-};
+} __packed;
 
 /*
  * struct mtk_cam_uapi_dgn_param
@@ -254,7 +257,7 @@ struct mtk_cam_uapi_awb_param {
  */
 struct mtk_cam_uapi_dgn_param {
   __u32 gain;
-};
+} __packed;
 
 /*
  * struct mtk_cam_uapi_wb_param
@@ -268,7 +271,7 @@ struct mtk_cam_uapi_wb_param {
   __u32 gain_g;
   __u32 gain_b;
   __u32 clip;
-};
+} __packed;
 
 /**
  *  A U T O  F O C U S
@@ -298,13 +301,13 @@ struct mtk_cam_uapi_af_param {
   __u32 fir_type;
   __u32 iir_type;
   __u32 data_gain[7];
-};
+} __packed;
 
 enum mtk_cam_uapi_flk_hdr_path_control {
   MTKCAM_UAPI_FKLO_HDR_1ST_FRAME = 0,
   MTKCAM_UAPI_FKLO_HDR_2ND_FRAME,
   MTKCAM_UAPI_FKLO_HDR_3RD_FRAME,
-};
+} __packed;
 
 /*
  *  struct mtk_cam_uapi_flk_param
@@ -328,7 +331,7 @@ struct mtk_cam_uapi_flk_param {
   __u32 noise_thr;
   __u32 saturate_thr;
   __u32 hdr_flk_src;
-};
+} __packed;
 
 /*
  * struct mtk_cam_uapi_tsf_param
@@ -339,7 +342,7 @@ struct mtk_cam_uapi_flk_param {
 struct mtk_cam_uapi_tsf_param {
   __u32 horizontal_num;
   __u32 vertical_num;
-};
+} __packed;
 
 /*
  * struct mtk_cam_uapi_pde_param
@@ -356,7 +359,7 @@ struct mtk_cam_uapi_pde_param {
   __u32 pdo_x_size;
   __u32 pdo_y_size;
   __u32 pd_table_offset;
-};
+} __packed;
 
 /* TODO: Need to check the size of MTK_CAM_AE_HIST_MAX_BIN*/
 #define MTK_CAM_UAPI_AE_STATS_HIST_MAX_BIN (1024)
@@ -398,7 +401,7 @@ struct mtk_cam_uapi_ae_awb_stats {
   __u32 ae_stat_en_status;
   struct mtk_cam_uapi_meta_hw_buf aao_buf;
   struct mtk_cam_uapi_meta_hw_buf aaho_buf;
-};
+} __packed;
 
 /**
  *  A U T O  F O C U S
@@ -422,7 +425,7 @@ struct mtk_cam_uapi_af_stats {
   __u32 blk_num_x;
   __u32 blk_num_y;
   struct mtk_cam_uapi_meta_hw_buf afo_buf;
-};
+} __packed;
 
 /**
  *  F L I C K E R
@@ -448,7 +451,7 @@ struct mtk_cam_uapi_af_stats {
  */
 struct mtk_cam_uapi_flk_stats {
   struct mtk_cam_uapi_meta_hw_buf flko_buf;
-};
+} __packed;
 
 /**
  *  T S F
@@ -467,7 +470,7 @@ struct mtk_cam_uapi_flk_stats {
 struct mtk_cam_uapi_tsf_stats {
   struct mtk_cam_uapi_meta_hw_buf tsfo_r1_buf;
   struct mtk_cam_uapi_meta_hw_buf tsfo_r2_buf;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_pd_stats - statistics of pd
@@ -482,11 +485,11 @@ struct mtk_cam_uapi_pd_stats {
   struct  mtk_cam_uapi_meta_size stats_src;
   __u32  stride;
   struct  mtk_cam_uapi_meta_hw_buf pdo_buf;
-};
+} __packed;
 
 struct mtk_cam_uapi_timestamp {
   __u64 timestamp_buf[128];
-};
+} __packed;
 
 /**
  *  T O N E
@@ -512,7 +515,8 @@ struct mtk_cam_uapi_ltm_stats {
   struct mtk_cam_uapi_meta_hw_buf ltmso_buf;
   __u8  blk_num_x;
   __u8  blk_num_y;
-};
+  __u8  rsv[2];
+} __packed;
 
 /**
  * struct mtk_cam_uapi_tnc_stats - Tone2 statistic data for
@@ -523,7 +527,7 @@ struct mtk_cam_uapi_ltm_stats {
  */
 struct mtk_cam_uapi_tnc_stats {
   struct mtk_cam_uapi_meta_hw_buf tncso_buf;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_tnch_stats - Tone3 statistic data for Mediatek
@@ -534,7 +538,7 @@ struct mtk_cam_uapi_tnc_stats {
  */
 struct mtk_cam_uapi_tnch_stats {
   struct mtk_cam_uapi_meta_hw_buf tncsho_buf;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_tncb_stats - Tone4 statistic data for Mediatek
@@ -545,7 +549,7 @@ struct mtk_cam_uapi_tnch_stats {
  */
 struct mtk_cam_uapi_tncb_stats {
   struct mtk_cam_uapi_meta_hw_buf tncsbo_buf;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_tncy_stats - Tone3 statistic data for Mediatek
@@ -556,7 +560,7 @@ struct mtk_cam_uapi_tncb_stats {
  */
 struct mtk_cam_uapi_tncy_stats {
   struct mtk_cam_uapi_meta_hw_buf tncsyo_buf;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_act_stats - act statistic data for Mediatek
@@ -568,9 +572,144 @@ struct mtk_cam_uapi_tncy_stats {
 #define MTK_CAM_UAPI_ACTSO_SIZE (768)
 struct mtk_cam_uapi_act_stats {
   struct mtk_cam_uapi_meta_hw_buf actso_buf;
-};
+} __packed;
 
+/*
+ * struct mtk_cam_uapi_awb_param_prot - AWB parameters
+ *
+ * @rot_cos: rotation matrix (cos part)
+ * @rot_sin: rotation matrix (sin part)
+ *
+ */
+struct mtk_cam_uapi_awb_param_prot {
+  __s32 rot_cos;
+  __s32 rot_sin;
+} __packed;
+
+/**
+ *  T U N I N G S
+ */
+
+/*
+ * struct mtk_cam_uapi_bpc_param_prot - BPC parameters
+ *
+ */
+#define MTK_CAM_BPCI_TABLE_SIZE (32)
+struct mtk_cam_uapi_bpc_param_prot {
+  __u32 x_size;
+  __u32 y_size;
+  __u32 stride;
+
+  __u8  table[MTK_CAM_BPCI_TABLE_SIZE];
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_drzs8t_param_prot
+ *
+ *  @tbl_shift: adjust the computed table
+ *  @tbl_min: use to limit the min table
+ */
+struct mtk_cam_uapi_drzs8t_param_prot {
+  __u32 tbl_shift;
+  __u32 tbl_min;
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_lsc_param_prot - LSC parameters
+ *
+ */
 #define MTK_CAM_LSCI_TABLE_SIZE (32768)
+struct mtk_cam_uapi_lsc_param_prot {
+  __u32 x_blk_num;
+  __u32 y_blk_num;
+  __u32 x_size;
+  __u32 y_size;
+  __u32 stride;
+  __u8 table[MTK_CAM_LSCI_TABLE_SIZE];
+} __packed;
+
+/* *
+ * struct mtk_cam_uapi_slk_param_prot - slk tuning setting from userspace
+ *
+ */
+struct mtk_cam_uapi_slk_param_prot {
+  __u32 center_x;
+  __u32 center_y;
+  __u32 radius_0;
+  __u32 radius_1;
+  __u32 radius_2;
+  __u32 gain0;
+  __u32 gain1;
+  __u32 gain2;
+  __u32 gain3;
+  __u32 gain4;
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_wb_param_prot - WB parameters
+ *
+ */
+struct mtk_cam_uapi_wb_param_prot {
+  __u32 debug_info[39];
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_ltms_param_prot - LTMS parameters
+ *
+ *  @ratio_x_start: adjusted start point of width related to original width
+ *  @ratio_y_start: adjusted start point of height related to original height
+ *  @ratio_x_end: adjusted end point of width related to original width
+ *  @ratio_y_end: adjusted end point of height related to original height
+ */
+struct mtk_cam_uapi_ltms_param_prot {
+  __u32 ltms_gamma_en;
+  __u32 ratio_x_start;
+  __u32 ratio_y_start;
+  __u32 ratio_x_end;
+  __u32 ratio_y_end;
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_yuvo_param_prot - YUVO parameters
+ *
+ *  @drzh2n_fixed_down_ratio: down scale ratio
+ */
+struct mtk_cam_uapi_yuvo_param_prot {
+  __u32 drzh2n_fixed_down_ratio;
+} __packed;
+/* The following sw setting are generated by script */
+/*
+ * struct mtk_cam_uapi_ccm_param_prot - CCM parameters *
+ */
+struct mtk_cam_uapi_ccm_param_prot {
+  __u32 ccm_acc;
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_drzh2n_param_prot - DRZH2N parameters *
+ */
+struct mtk_cam_uapi_drzh2n_param_prot {
+  __u32 drzh2n_vert_tbl_sel;
+  __u32 drzh2n_hori_tbl_sel;
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_drzs4n_param_prot - DRZS4N parameters *
+ */
+struct mtk_cam_uapi_drzs4n_param_prot {
+  __u32 drzs4n_vert_tbl_sel;
+  __u32 drzs4n_hori_tbl_sel;
+} __packed;
+
+/*
+ * struct mtk_cam_uapi_tncs_param_prot - TNCS parameters *
+ */
+struct mtk_cam_uapi_tncs_param_prot {
+  __u32 tncs_ggm_lnr;
+  __u32 tncs_ggm_end_var;
+} __packed;
+
+/* script generation done */
 
 /**
  *  V 4 L 2  M E T A  B U F F E R  L A Y O U T
@@ -601,6 +740,7 @@ struct mtk_cam_uapi_act_stats {
  *  @tsf_param: tsf statistic configuration
  *  @wb_param:  WB settings
  *  @pde_param: pde settings
+ *  @prot: ISP tuning enables and tuning parameters
  */
 struct mtk_cam_uapi_meta_raw_stats_cfg {
   __s8 ae_awb_enable;
@@ -610,6 +750,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
   __s8 tsf_enable;
   __s8 wb_enable;
   __s8 pde_enable;
+  __u8 rsv;
 
   struct mtk_cam_uapi_ae_param ae_param;
   struct mtk_cam_uapi_awb_param awb_param;
@@ -620,8 +761,96 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
   struct mtk_cam_uapi_wb_param wb_param;
   struct mtk_cam_uapi_pde_param pde_param;
 
-  __u8 bytes[46176];
-};
+  struct mtk_cam_uapi_prot {
+    /* The following top control are generated by script */
+    __u8 drzh2n_r1_tuning_enable;
+    __u8 drzh2n_r2_tuning_enable;
+    __u8 drzh2n_r3_tuning_enable;
+    __u8 drzh2n_r4_tuning_enable;
+    __u8 drzh2n_r5_tuning_enable;
+    __u8 drzh2n_r6_tuning_enable;
+    __u8 drzh2n_r7_tuning_enable;
+    __u8 drzh2n_r8_tuning_enable;
+    __u8 drzs4n_r1_tuning_enable;
+    __u8 drzs4n_r2_tuning_enable;
+    __u8 drzs4n_r3_tuning_enable;
+    __u8 dm_tuning_enable;
+    __u8 drzs8t_r1_tuning_enable;
+    __u8 drzs8t_r2_tuning_enable;
+    __u8 ggm_r1_tuning_enable;
+    __u8 ggm_r2_tuning_enable;
+    __u8 ggm_r3_tuning_enable;
+    __u8 bpc_r1_enable;
+    __u8 bpc_r2_enable;
+    __u8 ccm_r1_enable;
+    __u8 ccm_r2_enable;
+    __u8 ccm_r3_enable;
+    __u8 fus_enable;
+    __u8 g2c_r1_enable;
+    __u8 g2c_r2_enable;
+    __u8 g2c_r3_enable;
+    __u8 hlr_enable;
+    __u8 lsc_enable;
+    __u8 ltm_enable;
+    __u8 ltms_enable;
+    __u8 obc_r1_enable;
+    __u8 obc_r2_enable;
+    __u8 tcy_r1_enable;
+    __u8 tcy_r2_enable;
+    __u8 tcy_r3_enable;
+    __u8 tncs_r1_enable;
+
+    struct mtk_cam_uapi_ccm_param_prot ccm_r1_param;
+    struct mtk_cam_uapi_ccm_param_prot ccm_r2_param;
+    struct mtk_cam_uapi_ccm_param_prot ccm_r3_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r1_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r2_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r3_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r4_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r5_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r6_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r7_param;
+    struct mtk_cam_uapi_drzh2n_param_prot drzh2n_r8_param;
+    struct mtk_cam_uapi_drzs4n_param_prot drzs4n_r1_param;
+    struct mtk_cam_uapi_drzs4n_param_prot drzs4n_r2_param;
+    struct mtk_cam_uapi_drzs4n_param_prot drzs4n_r3_param;
+    struct mtk_cam_uapi_tncs_param_prot tncs_param;
+    /* script generation done */
+    struct mtk_cam_uapi_drzs8t_param_prot drzs8t_r1_param;
+    struct mtk_cam_uapi_drzs8t_param_prot drzs8t_r2_param;
+    struct mtk_cam_uapi_awb_param_prot awb_param;
+    struct mtk_cam_uapi_bpc_param_prot bpc_param;
+    struct mtk_cam_uapi_lsc_param_prot lsc_param;
+    struct mtk_cam_uapi_slk_param_prot slk_param;
+    struct mtk_cam_uapi_wb_param_prot wb_param;
+    struct mtk_cam_uapi_ltms_param_prot ltms_param;
+    struct mtk_cam_uapi_yuvo_param_prot yuvo_r2_param;
+    struct mtk_cam_uapi_yuvo_param_prot yuvo_r4_param;
+    /* The following module stuctures are generated by script */
+    struct mtk_cam_uapi_regmap_raw_bpc bpc_r1;
+    struct mtk_cam_uapi_regmap_raw_bpc bpc_r2;
+    struct mtk_cam_uapi_regmap_raw_ccm ccm_r1;
+    struct mtk_cam_uapi_regmap_raw_ccm ccm_r2;
+    struct mtk_cam_uapi_regmap_raw_ccm ccm_r3;
+    struct mtk_cam_uapi_regmap_raw_dm dm_r1;
+    __u8 rsv1[116];
+    struct mtk_cam_uapi_regmap_raw_g2c g2c_r1;
+    struct mtk_cam_uapi_regmap_raw_g2c g2c_r2;
+    struct mtk_cam_uapi_regmap_raw_g2c g2c_r3;
+    struct mtk_cam_uapi_regmap_raw_ggm ggm_r1;
+    struct mtk_cam_uapi_regmap_raw_ggm ggm_r2;
+    struct mtk_cam_uapi_regmap_raw_ggm ggm_r3;
+    __u8 rsv2[68];
+    struct mtk_cam_uapi_regmap_raw_lsc lsc_r1;
+    struct mtk_cam_uapi_regmap_raw_ltm ltm_r1;
+    struct mtk_cam_uapi_regmap_raw_ltms ltms_r1;
+    struct mtk_cam_uapi_regmap_raw_obc obc_r1;
+    struct mtk_cam_uapi_regmap_raw_obc obc_r2;
+    __u8 rsv3[1420];
+    struct mtk_cam_uapi_regmap_raw_tsfs tsfs_r1;
+    /* script generation done */
+  } prot __packed;
+} __packed;
 
 /**
  * struct mtk_cam_uapi_meta_raw_stats_0 - capture buffer returns from camsys
@@ -648,6 +877,7 @@ struct mtk_cam_uapi_meta_raw_stats_0 {
   __u8 tsf_stats_enabled;
   __u8 tncy_stats_enabled;
   __u8 pde_stats_enabled;
+  __u8 rsv[2];
 
   struct mtk_cam_uapi_pipeline_config pipeline_config;
 
@@ -658,7 +888,7 @@ struct mtk_cam_uapi_meta_raw_stats_0 {
   struct mtk_cam_uapi_tncy_stats tncy_stats;
   struct mtk_cam_uapi_pd_stats pde_stats;
   struct mtk_cam_uapi_timestamp timestamp;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_meta_raw_stats_1 - statistics before frame done
@@ -673,8 +903,9 @@ struct mtk_cam_uapi_meta_raw_stats_0 {
 struct mtk_cam_uapi_meta_raw_stats_1 {
   __u8 af_stats_enabled;
   __u8 af_qbn_r6_enabled;
+  __u8 rsv[2];
   struct mtk_cam_uapi_af_stats af_stats;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_meta_raw_stats_2 - shared statistics buffer
@@ -689,9 +920,10 @@ struct mtk_cam_uapi_meta_raw_stats_1 {
  */
 struct mtk_cam_uapi_meta_raw_stats_2 {
   __u8 act_stats_enabled;
+  __u8 rsv[3];
 
   struct mtk_cam_uapi_act_stats act_stats;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_meta_camsv_stats_0 - capture buffer returns from
@@ -703,9 +935,10 @@ struct mtk_cam_uapi_meta_raw_stats_2 {
  */
 struct mtk_cam_uapi_meta_camsv_stats_0 {
   __u8   pd_stats_enabled;
+  __u8   rsv[3];
 
   struct mtk_cam_uapi_pd_stats pd_stats;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_pdp_stats - statistics of pd
@@ -720,7 +953,7 @@ struct mtk_cam_uapi_pdp_stats {
   struct  mtk_cam_uapi_meta_size stats_src;
   __u32   stride;
   struct  mtk_cam_uapi_meta_hw_buf pdo_buf;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_cpi_stats - statistics of pd
@@ -735,7 +968,7 @@ struct mtk_cam_uapi_cpi_stats {
   struct  mtk_cam_uapi_meta_size stats_src;
   __u32   stride;
   struct  mtk_cam_uapi_meta_hw_buf cpio_buf;
-};
+} __packed;
 
 /**
  * struct mtk_cam_uapi_meta_mraw_stats_0 - capture buffer returns from
@@ -753,10 +986,10 @@ struct mtk_cam_uapi_meta_mraw_stats_0 {
   struct mtk_cam_uapi_pdp_stats pdp_0_stats;
   struct mtk_cam_uapi_pdp_stats pdp_1_stats;
   struct mtk_cam_uapi_cpi_stats cpi_stats;
-};
+} __packed;
 
 #define MTK_CAM_META_VERSION_MAJOR 2
-#define MTK_CAM_META_VERSION_MINOR 3
+#define MTK_CAM_META_VERSION_MINOR 4
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt8188"
 
