@@ -264,12 +264,13 @@ public:
 	{
 	}
 
-	constexpr Rectangle(const Point &topLeft, const Point &bottomRight)
-		: x(topLeft.x), y(topLeft.y),
-		  width(bottomRight.x - x),
-		  height(bottomRight.y - y)
+	constexpr Rectangle(const Point &point1, const Point &point2)
+		: Rectangle(std::min(point1.x, point2.x), std::min(point1.y, point2.y),
+			    static_cast<unsigned int>(std::max(point1.x, point2.x)) -
+				    static_cast<unsigned int>(std::min(point1.x, point2.x)),
+			    static_cast<unsigned int>(std::max(point1.y, point2.y)) -
+				    static_cast<unsigned int>(std::min(point1.y, point2.y)))
 	{
-		assert(bottomRight.x >= x && bottomRight.y >= y);
 	}
 
 	int x;

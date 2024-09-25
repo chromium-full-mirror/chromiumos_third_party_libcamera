@@ -630,10 +630,10 @@ std::ostream &operator<<(std::ostream &out, const SizeRange &sr)
  */
 
 /**
- * \fn Rectangle::Rectangle(const Point &topLeft, const Point &bottomRight)
- * \brief Construct a Rectangle with the two given points.
- * \param[in] topLeft The top-left corner
- * \param[in] bottomRight The bottom-right corner
+ * \fn Rectangle::Rectangle(const Point &point1, const Point &point2)
+ * \brief Construct a Rectangle from two opposite corners
+ * \param[in] point1 One of corners of the rectangle
+ * \param[in] point2 The opposite corner of \a point1
  */
 
 /**
