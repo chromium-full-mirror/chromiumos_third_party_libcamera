@@ -772,10 +772,10 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		controls[&controls::draft::TestPatternMode] = ControlInfo(patterns);
 
 		std::vector<ControlValue> supportedFaceDetectModes{
-			static_cast<uint8_t>(controls::FaceDetectModeOff),
-			static_cast<uint8_t>(controls::FaceDetectModeSimple)
+			static_cast<int32_t>(controls::draft::FaceDetectModeOff),
+			static_cast<int32_t>(controls::draft::FaceDetectModeSimple)
 		};
-		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
+		controls[&controls::draft::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
 		controls[&controls::draft::AeMode] = ControlInfo(controls::draft::AeModeValues);
 		controls[&controls::AeLocked] = ControlInfo(true, false);
 		controls[&controls::draft::AeAntiBandingMode] = ControlInfo(controls::draft::AeAntiBandingModeValues);

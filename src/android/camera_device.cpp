@@ -997,10 +997,10 @@ int CameraDevice::processControls(Camera3RequestDescriptor *descriptor)
 	}
 
 	if (settings.getEntry(ANDROID_STATISTICS_FACE_DETECT_MODE, &entry)) {
-		const uint8_t *data = entry.data.u8;
-		controls.set(controls::FaceDetectMode, data[0]);
-		if (!controls.get(controls::FaceDetectMode)) {
-			LOG(HAL, Warning) << "Pipeline doesn't support controls::FaceDetectMode";
+		const int32_t *data = entry.data.i32;
+		controls.set(controls::draft::FaceDetectMode, data[0]);
+		if (!controls.get(controls::draft::FaceDetectMode)) {
+			LOG(HAL, Warning) << "Pipeline doesn't support controls::draft::FaceDetectMode";
 		}
 	}
 
@@ -2043,7 +2043,7 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 	}
 
 	const auto &faceDetectRectangles =
-		metadata.get(controls::FaceDetectFaceRectangles);
+		metadata.get(controls::draft::FaceDetectFaceRectangles);
 	if (faceDetectRectangles) {
 		const Span<const Rectangle> rectangles = *faceDetectRectangles;
 		std::vector<int32_t> flatRectangles;
@@ -2058,7 +2058,7 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 	}
 
 	const auto &faceDetectFaceScores =
-		metadata.get(controls::FaceDetectFaceScores);
+		metadata.get(controls::draft::FaceDetectFaceScores);
 	if (faceDetectRectangles && faceDetectFaceScores) {
 		const Span<const uint8_t> &scores = *faceDetectFaceScores;
 		if (scores.size() != faceDetectRectangles->size()) {
@@ -2071,7 +2071,7 @@ CameraDevice::getPartialResultMetadata(const ControlList &metadata) const
 	}
 
 	const auto &faceDetectFaceLandmarks =
-		metadata.get(controls::FaceDetectFaceLandmark);
+		metadata.get(controls::draft::FaceDetectFaceLandmarks);
 	if (faceDetectFaceScores && faceDetectRectangles &&
 	    faceDetectFaceLandmarks) {
 		const auto &landmarks = *faceDetectFaceLandmarks;

@@ -60,9 +60,9 @@ ConfigParser::parseConfigFile(File &file, PipelineHandler *pipe)
 				    1000000 / data->config_.resolutions[0].frameRates[0]);
 
 		std::vector<ControlValue> supportedFaceDetectModes{
-			static_cast<uint8_t>(controls::FaceDetectModeOff),
+			static_cast<uint8_t>(controls::draft::FaceDetectModeOff),
 		};
-		controls[&controls::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
+		controls[&controls::draft::FaceDetectMode] = ControlInfo(supportedFaceDetectModes);
 
 		data->controlInfo_ = ControlInfoMap(std::move(controls), controls::controls);
 		configurations.push_back(std::move(data));

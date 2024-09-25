@@ -1266,27 +1266,27 @@ int CameraCapabilities::initializeStaticMetadata()
 	/* Statistics static metadata. */
 	int32_t maxFaceCount = 0;
 	auto faceDetectIter =
-		camera_->controls().find(controls::FaceDetectMode.id());
+		camera_->controls().find(controls::draft::FaceDetectMode.id());
 	if (faceDetectIter != camera_->controls().end()) {
 		const ControlInfo &faceDetectCtrlInfo = faceDetectIter->second;
 		std::vector<uint8_t> faceDetectModes;
 		bool hasFaceDetection = false;
 		for (const auto &value : faceDetectCtrlInfo.values()) {
-			auto mode = value.get<uint8_t>();
-			uint8_t androidMode = 0;
+			auto mode = value.get<int32_t>();
+			int32_t androidMode = 0;
 			switch (mode) {
-			case controls::FaceDetectModeOff:
+			case controls::draft::FaceDetectModeOff:
 				androidMode = ANDROID_STATISTICS_FACE_DETECT_MODE_OFF;
 				break;
-			case controls::FaceDetectModeSimple:
+			case controls::draft::FaceDetectModeSimple:
 				androidMode = ANDROID_STATISTICS_FACE_DETECT_MODE_SIMPLE;
 				hasFaceDetection = true;
 				break;
 			default:
 				LOG(HAL, Fatal) << "Received invalid face detect mode: "
-						<< static_cast<int>(mode);
+						<< mode;
 			}
-			faceDetectModes.push_back(androidMode);
+			faceDetectModes.push_back(static_cast<uint8_t>(androidMode));
 		}
 		if (hasFaceDetection) {
 			// todo(yerlandinata): Create new libcamera controls

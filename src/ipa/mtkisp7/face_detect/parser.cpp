@@ -523,9 +523,9 @@ void AieParser::convertFaceMetadata(MtkCameraFaceMetadata *faceMetadata, Control
 		};
 		faceLandmarks.push_back(mouth);
 	}
-	out.set(controls::FaceDetectFaceScores, faceScores);
-	out.set(controls::FaceDetectFaceRectangles, faceRectangles);
-	out.set(controls::FaceDetectFaceLandmark, faceLandmarks);
+	out.set(controls::draft::FaceDetectFaceScores, faceScores);
+	out.set(controls::draft::FaceDetectFaceRectangles, faceRectangles);
+	out.set(controls::draft::FaceDetectFaceLandmarks, faceLandmarks);
 }
 
 } /* namespace libcamera */
