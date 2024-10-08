@@ -927,4 +927,9 @@ controls:
             Unlike the other scene modes, AeMode, AwbMode, and AfMode should
             remain active when SceneModeFacePriority is set.
 
+  - DebugMetadataEnable:
+      type: bool
+      description: |
+        Enable or disable the debug metadata.
+
 ...
