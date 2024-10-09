@@ -449,10 +449,19 @@ const std::string V4L2DeviceFormat::toString() const
  */
 bool operator==(const V4L2DeviceFormat &lhs, const V4L2DeviceFormat &rhs)
 {
-	return lhs.fourcc == rhs.fourcc &&
-	       lhs.size == rhs.size &&
-	       lhs.colorSpace == rhs.colorSpace &&
-	       lhs.planesCount == rhs.planesCount;
+	if (!(lhs.fourcc == rhs.fourcc &&
+	      lhs.size == rhs.size &&
+	      lhs.colorSpace == rhs.colorSpace &&
+	      lhs.planesCount == rhs.planesCount))
+		return false;
+
+	for (unsigned int i = 0; i < lhs.planesCount; ++i) {
+		if (lhs.planes[i].size != rhs.planes[i].size ||
+		    lhs.planes[i].bpl != rhs.planes[i].bpl)
+			return false;
+	}
+
+	return true;
 }
 
 /**
