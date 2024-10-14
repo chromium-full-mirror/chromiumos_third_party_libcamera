@@ -582,6 +582,7 @@ int Logger::logSetTarget(enum LoggingTarget target)
 		break;
 	case LoggingTargetCros:
 		std::atomic_store(&output_, std::make_shared<LogOutput>(true));
+		break;
 	default:
 		return -EINVAL;
 	}
