@@ -74,6 +74,8 @@ public:
 	InfoFramePool resultMetadataPool_;
 
 private:
+	int initOnThread(MediaDevice *media);
+
 	void cancelPendingRequests();
 	void queueHardwareRequest(FrameBuffer *input, FrameBuffer *result,
 				  int requestFd, FdDrv_input_struct &config);
@@ -92,7 +94,7 @@ private:
 
 	IPADelegate *ipa_;
 
-	AieDevice aieDev_;
+	std::unique_ptr<AieDevice> aieDev_;
 	const uint32_t period_;
 
 	SharedMailBox<FdDrv_input_struct> faceToneConfig_;

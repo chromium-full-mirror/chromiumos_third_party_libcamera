@@ -103,11 +103,11 @@ void FaceDetector::resultMetaReady(FrameBuffer *bufferWithRequest)
 
 void FaceDetector::notifyHardwareDone()
 {
-	aieDev_.media_->reInitRequest(runningRequest_->faceDetectRequestFd);
+	aieDev_->media_->reInitRequest(runningRequest_->faceDetectRequestFd);
 	requestFDPool_.put(runningRequest_->faceDetectRequestFd);
 
 	if (runningRequest_->toneClassifyRequestFd >= 0) {
-		aieDev_.media_->reInitRequest(runningRequest_->toneClassifyRequestFd);
+		aieDev_->media_->reInitRequest(runningRequest_->toneClassifyRequestFd);
 		requestFDPool_.put(runningRequest_->toneClassifyRequestFd);
 	}
 
@@ -149,32 +149,32 @@ void FaceDetector::queueHardwareRequest(FrameBuffer *input, FrameBuffer *result,
 					int requestFd, FdDrv_input_struct &config)
 {
 	struct v4l2_ext_control extControl{
-		.id = aieDev_.inferenceParamControlId_,
+		.id = aieDev_->inferenceParamControlId_,
 		.size = sizeof(FdDrv_input_struct),
 		.reserved2 = {},
 		.p_u32 = reinterpret_cast<__u32 *>(&config)
 	};
 
-	int ret = aieDev_.sourceVideo_->setExtControl(&extControl, requestFd);
+	int ret = aieDev_->sourceVideo_->setExtControl(&extControl, requestFd);
 	if (ret != 0) {
 		LOG(MtkISP7, Fatal) << "Failed to set ext controls: " << ret;
 		return;
 	}
 
-	ret = aieDev_.sourceVideo_->queueBuffer(input, requestFd);
+	ret = aieDev_->sourceVideo_->queueBuffer(input, requestFd);
 
 	if (ret) {
 		LOG(MtkISP7, Fatal) << "Failed to queue image buf: " << ret;
 		return;
 	}
 
-	ret = aieDev_.resultMeta_->queueBuffer(result);
+	ret = aieDev_->resultMeta_->queueBuffer(result);
 	if (ret) {
 		LOG(MtkISP7, Fatal) << "Failed to queue metadata buf: " << ret;
 		return;
 	}
 
-	ret = aieDev_.media_->queueRequest(requestFd);
+	ret = aieDev_->media_->queueRequest(requestFd);
 	if (ret) {
 		LOG(MtkISP7, Fatal) << "Failed to queue request: " << ret;
 		return;
@@ -204,7 +204,7 @@ void FaceDetector::triggerNextRequest()
 
 	runningRequest_->pending = 2;
 
-	FdDrv_input_struct config = aieDev_.createFaceDetectionDriverConfig();
+	FdDrv_input_struct config = aieDev_->createFaceDetectionDriverConfig();
 	queueHardwareRequest(runningRequest_->detectorInput->get().buffer(),
 			     runningRequest_->faceResultMeta->get().buffer(),
 			     runningRequest_->faceDetectRequestFd, config);
@@ -220,7 +220,7 @@ void FaceDetector::triggerNextRequest()
 
 	runningRequest_->pending += 2;
 
-	config = aieDev_.createFaceToneClassificationDriverConfig();
+	config = aieDev_->createFaceToneClassificationDriverConfig();
 
 	config.src_roi.x1 = latestFaceToneROI->x1;
 	config.src_roi.y1 = latestFaceToneROI->y1;
@@ -274,22 +274,22 @@ int FaceDetector::configure(Size currentSensorSize, IPADelegate *ipa)
 
 	latestFaceToneROI.reset();
 
-	aieDev_.configure();
+	aieDev_->configure();
 
-	aieDev_.sourceVideo_->requestBufferReady.disconnect();
-	aieDev_.resultMeta_->bufferReady.disconnect();
+	aieDev_->sourceVideo_->requestBufferReady.disconnect();
+	aieDev_->resultMeta_->bufferReady.disconnect();
 
-	aieDev_.sourceVideo_->requestBufferReady.connect(this, &FaceDetector::sourceVideoReady);
-	aieDev_.resultMeta_->bufferReady.connect(this, &FaceDetector::resultMetaReady);
+	aieDev_->sourceVideo_->requestBufferReady.connect(this, &FaceDetector::sourceVideoReady);
+	aieDev_->resultMeta_->bufferReady.connect(this, &FaceDetector::resultMetaReady);
 
 	V4L2DeviceFormat metaFormat;
-	aieDev_.resultMeta_->getFormat(&metaFormat);
+	aieDev_->resultMeta_->getFormat(&metaFormat);
 
 	resultMetadataPool_.createBuffers(dmaHeap_, formats::MTFD_MTISP,
 					  { metaFormat.planes[0].size, 1 }, 8);
 
 	std::vector<UniqueFD> requests;
-	aieDev_.media_->allocateRequests(8, requests);
+	aieDev_->media_->allocateRequests(8, requests);
 
 	requestFDPool_.setData(requests);
 
@@ -341,13 +341,20 @@ int FaceDetector::init(MediaDevice *media, DmaHeap *dmaHeap)
 {
 	dmaHeap_ = dmaHeap;
 
-	int ret = aieDev_.init(media);
+	moveToThread(&threadFaceDetect_);
+	threadFaceDetect_.start();
+
+	return this->invokeMethod(&FaceDetector::initOnThread,
+				  ConnectionTypeBlocking, media);
+}
+
+int FaceDetector::initOnThread(MediaDevice *media)
+{
+	aieDev_ = std::make_unique<AieDevice>();
+
+	int ret = aieDev_->init(media);
 	if (ret)
 		return -ENODEV;
-
-	moveToThread(&threadFaceDetect_);
-	aieDev_.changeWorkingThread(&threadFaceDetect_);
-	threadFaceDetect_.start();
 
 	return 0;
 }
@@ -355,7 +362,7 @@ int FaceDetector::init(MediaDevice *media, DmaHeap *dmaHeap)
 // Called from main thread
 int FaceDetector::start()
 {
-	return aieDev_.invokeMethod(&AieDevice::start, ConnectionTypeBlocking);
+	return aieDev_->invokeMethod(&AieDevice::start, ConnectionTypeBlocking);
 }
 
 // Called from main thread
@@ -371,7 +378,7 @@ int FaceDetector::stop()
 			locker, [&]() LIBCAMERA_TSA_REQUIRES(isProcessingMutex_) { return !isProcessing_; });
 	}
 
-	return aieDev_.invokeMethod(&AieDevice::stop, ConnectionTypeBlocking);
+	return aieDev_->invokeMethod(&AieDevice::stop, ConnectionTypeBlocking);
 }
 
 } /* namespace libcamera */

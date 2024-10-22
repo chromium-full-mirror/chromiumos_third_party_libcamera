@@ -37,8 +37,6 @@ public:
 	int releaseBuffers();
 	int requestBuffers();
 
-	void changeWorkingThread(Thread *thread);
-
 	const Size inputSize_;
 	const unsigned int bufferNum_;
 

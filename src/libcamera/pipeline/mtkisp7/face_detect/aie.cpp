@@ -173,14 +173,6 @@ int AieDevice::init(MediaDevice *media)
 	return 0;
 }
 
-void AieDevice::changeWorkingThread(Thread *thread)
-{
-	Object::moveToThread(thread);
-
-	sourceVideo_->changePollerThread(thread);
-	resultMeta_->changePollerThread(thread);
-}
-
 int AieDevice::releaseBuffers()
 {
 	int retSrcVideo = sourceVideo_->releaseBuffers();
