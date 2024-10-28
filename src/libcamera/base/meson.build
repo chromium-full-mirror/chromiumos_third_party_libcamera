@@ -20,6 +20,7 @@ libcamera_base_sources = files([
     'timer.cpp',
     'unique_fd.cpp',
     'utils.cpp',
+    'memfd.cpp',
 ])
 
 libdw = dependency('libdw', required : false)
