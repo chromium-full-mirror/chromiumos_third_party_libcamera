@@ -35,8 +35,8 @@ namespace ipa::mtkisp7 {
 namespace {
 // TODO(chenghaoyang): Set a big core according to models.
 // Ciri's big cores are CPU 6 and 7.
-static const std::vector<int> k3AThreadCpuAffinity{ 6, 7 };
-static const std::vector<int> kIspThreadCpuAffinity{ 6, 7 };
+static const std::vector<int> k3AThreadCpuAffinity{ 0, 1, 2, 3, 4, 5 };
+static const std::vector<int> kIspThreadCpuAffinity{ 0, 1, 2, 3, 4, 5 };
 } // namespace
 
 IPAMtkISP7::IPAMtkISP7()
@@ -690,8 +690,8 @@ void IPAMtkISP7::doBss(const uint64_t cookie, const BssFramesData &bssFramesData
 {
 	const int kInputRawCount = 4;
 	uint64_t startTime = std::chrono::duration_cast<std::chrono::nanoseconds>(
-				  std::chrono::system_clock::now().time_since_epoch())
-				  .count();
+				     std::chrono::system_clock::now().time_since_epoch())
+				     .count();
 
 	BssFramesBuffers bssFramesBuffers;
 
@@ -820,8 +820,8 @@ void IPAMtkISP7::doBss(const uint64_t cookie, const BssFramesData &bssFramesData
 		mfnrExifData_[item.first] = item.second;
 
 	uint64_t endTime = std::chrono::duration_cast<std::chrono::nanoseconds>(
-				  std::chrono::system_clock::now().time_since_epoch())
-				  .count();
+				   std::chrono::system_clock::now().time_since_epoch())
+				   .count();
 	uint64_t bssExecTime = endTime - startTime;
 	std::stringstream sstream;
 	sstream << "BSS execute time: " << bssExecTime / 1000000 << "ms, frame order: ";

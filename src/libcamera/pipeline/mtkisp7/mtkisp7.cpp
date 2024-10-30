@@ -66,7 +66,7 @@ static const ControlInfoMap::Map MtkISP7Controls = {
 
 // TODO(chenghaoyang): Set a big core according to models.
 // Ciri's big cores are CPU 6 and 7.
-static const std::vector<int> kMainThreadCpuAffinity{ 6, 7 };
+static const std::vector<int> kMainThreadCpuAffinity{ 0, 1, 2, 3, 4, 5 };
 
 enum MtkISP7TaskGroup {
 	SofGroup = 0,
