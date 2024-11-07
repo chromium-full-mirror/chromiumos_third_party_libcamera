@@ -322,8 +322,8 @@ int CamSysDevice::queueRequest(Request *request)
 
 int CamSysDevice::claimCompletedRequest(Request *request)
 {
-	auto iter = completedRequests_.begin();
-	while (iter != completedRequests_.end()) {
+	for (auto iter = completedRequests_.begin();
+	     iter != completedRequests_.end(); ++iter) {
 		if (*iter == request) {
 			completedRequests_.erase(iter);
 			return 0;
