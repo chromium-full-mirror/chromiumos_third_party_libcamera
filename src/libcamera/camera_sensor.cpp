@@ -6,7 +6,6 @@
  */
 
 #include "libcamera/internal/camera_sensor.h"
-#include "libcamera/internal/media_device.h"
 
 #include <algorithm>
 #include <float.h>
@@ -15,15 +14,16 @@
 #include <math.h>
 #include <string.h>
 
+#include <libcamera/base/utils.h>
+
 #include <libcamera/camera.h>
 #include <libcamera/property_ids.h>
-
-#include <libcamera/base/utils.h>
 
 #include "libcamera/internal/bayer_format.h"
 #include "libcamera/internal/camera_lens.h"
 #include "libcamera/internal/camera_sensor_properties.h"
 #include "libcamera/internal/formats.h"
+#include "libcamera/internal/media_device.h"
 #include "libcamera/internal/sysfs.h"
 
 /**
@@ -761,7 +761,6 @@ V4L2SubdeviceFormat CameraSensor::getFormat(const std::vector<unsigned int> &mbu
 		.mbus_code = bestCode,
 		.size = *bestSize,
 		.colorSpace = ColorSpace::Raw,
-		.subdevFmt = {},
 	};
 
 	return format;

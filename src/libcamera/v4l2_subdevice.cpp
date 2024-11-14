@@ -536,7 +536,6 @@ int V4L2Subdevice::getFormat(unsigned int pad, V4L2SubdeviceFormat *format,
 	format->size.height = subdevFmt.format.height;
 	format->mbus_code = subdevFmt.format.code;
 	format->colorSpace = toColorSpace(subdevFmt.format);
-	format->subdevFmt = subdevFmt;
 
 	return 0;
 }
@@ -583,7 +582,6 @@ int V4L2Subdevice::setFormat(unsigned int pad, V4L2SubdeviceFormat *format,
 	format->size.height = subdevFmt.format.height;
 	format->mbus_code = subdevFmt.format.code;
 	format->colorSpace = toColorSpace(subdevFmt.format);
-	format->subdevFmt = subdevFmt;
 
 	return 0;
 }

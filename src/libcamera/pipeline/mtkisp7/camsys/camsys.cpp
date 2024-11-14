@@ -368,7 +368,11 @@ int CamSysDevice::setupResource()
 	}
 
 	struct mtk_cam_resource camsysResource;
-	camsysResource.sink_fmt = (__u64)&format.subdevFmt.format;
+
+	struct v4l2_mbus_framefmt framefmt;
+	framefmt.width = format.size.width;
+	framefmt.height = format.size.height;
+	camsysResource.sink_fmt = (__u64)&framefmt;
 
 	auto &sensorResource = camsysResource.sensor_res;
 
@@ -416,7 +420,7 @@ int CamSysDevice::setupResource()
 int CamSysDevice::setFormat(V4L2Subdevice *device, int pad,
 			    uint32_t mbus_code, Size size)
 {
-	V4L2SubdeviceFormat format = { mbus_code, size, {}, {} };
+	V4L2SubdeviceFormat format = { mbus_code, size, {} };
 	int ret = device->setFormat(pad, &format);
 	if (ret)
 		LOG(MtkISP7, Error) << "Fail to set format to "
