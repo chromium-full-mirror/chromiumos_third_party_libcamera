@@ -1808,8 +1808,8 @@ void CameraDevice::completeRequestDescriptor(Camera3RequestDescriptor *request)
 		 * Android requires the final result of each request returns in
 		 * their submission order.
 		 */
-		if (descriptor->finalResult_)
-			sendCaptureResult(descriptor->finalResult_.get());
+		ASSERT(descriptor->finalResult_);
+		sendCaptureResult(descriptor->finalResult_.get());
 
 		/*
 		 * Call notify with CAMERA3_MSG_ERROR_RESULT to indicate some
