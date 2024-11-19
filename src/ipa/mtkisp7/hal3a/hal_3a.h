@@ -16,6 +16,7 @@
 #include "libcamera/controls.h"
 #include "libcamera/framebuffer.h"
 #include "libcamera/geometry.h"
+#include "libipa/camera_sensor_helper.h"
 #include "mtkcam-core/include/mtkcam-core/aaahal/aaa_hal/IHal3A.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
 #include "platform/mtkisp7/utils/history.h"
@@ -92,6 +93,8 @@ private:
 
 	OnDeviceTuner *onDeviceTuner_;
 	std::shared_ptr<SensorInfo> sensor_info_ = nullptr;
+
+	std::unique_ptr<ipa::CameraSensorHelper> camHelper_;
 };
 
 } /* namespace libcamera */

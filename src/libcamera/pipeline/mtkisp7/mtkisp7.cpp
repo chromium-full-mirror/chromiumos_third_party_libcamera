@@ -752,7 +752,7 @@ bool PipelineHandlerMtkISP7::match(DeviceEnumerator *enumerator)
 		// todo: Fix the AnalogueGain for now. It should be updated from
 		// sensor config
 		controls[&controls::AnalogueGain] = ControlInfo((float)100,
-								(float)3200,
+								(float)1600,
 								(float)100);
 
 		// todo: Assign correct crop range

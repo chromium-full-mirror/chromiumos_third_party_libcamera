@@ -16,6 +16,7 @@
 #include "libcamera/internal/mapped_framebuffer.h"
 
 #include "../halisp/hal_isp.h"
+#include "libipa/camera_sensor_helper.h"
 #include "mtkcam-core/aaa/include/nvbuf_util.h"
 #include "pipeline/mtkisp7/odt/imagiq_adapter/static_metadata/feature.h"
 #include "pipeline/mtkisp7/odt/on_device_tuner.h"
@@ -98,6 +99,9 @@ void Hal3A::init()
 			_sensorIdxInfo.sensorName = "HI1339_MIPI_RAW";
 			sensor_id_ = HI1339_SENSOR_ID;
 
+			// HI1339 is deprecated and will not be upstreamed.
+			// Using an arbitrary algorithm to prevent crashing only.
+			camHelper_ = ipa::CameraSensorHelperFactoryBase::create("gc08a3");
 		} else { // front camera
 			sensor_dev_ = 2;
 			_sensorIdxInfo.sensorId = 2211;
@@ -105,6 +109,8 @@ void Hal3A::init()
 			_sensorIdxInfo.moduleId = 0;
 			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
 			sensor_id_ = GC08A3_SENSOR_ID;
+
+			camHelper_ = ipa::CameraSensorHelperFactoryBase::create("gc08a3");
 		}
 		break;
 
@@ -116,6 +122,8 @@ void Hal3A::init()
 			_sensorIdxInfo.moduleId = 0;
 			_sensorIdxInfo.sensorName = "GC08A3_MIPI_RAW";
 			sensor_id_ = GC08A3_SENSOR_ID;
+
+			camHelper_ = ipa::CameraSensorHelperFactoryBase::create("gc08a3");
 		} else { // front camera
 			sensor_dev_ = 2;
 			_sensorIdxInfo.sensorId = 1442;
@@ -123,6 +131,8 @@ void Hal3A::init()
 			_sensorIdxInfo.moduleId = 0;
 			_sensorIdxInfo.sensorName = "GC05A2_MIPI_RAW";
 			sensor_id_ = GC05A2_SENSOR_ID;
+
+			camHelper_ = ipa::CameraSensorHelperFactoryBase::create("gc05a2");
 		}
 		break;
 	}
@@ -466,11 +476,8 @@ void Hal3A::doCalculation(FrameBuffer *statistics0, uint64_t timestamp,
 	uint32_t exposureTimeMs;
 	getExposureAndGain(exposureAndGain, exposureTimeMs);
 
-	// ISO sensitivity = analogue gain multiplied by digital gain.
-	// However, for now libcamera is assuming that ISO sensitivity
-	// is simply equal to analogue gain.
-	float floatIso = static_cast<float>(r3AResult_.ae_result.sensor_sensitivity);
-	aaaIspExchange->aaaMetadata.set(controls::AnalogueGain, floatIso);
+	aaaIspExchange->aaaMetadata.set(controls::AnalogueGain,
+					camHelper_->gain(exposureAndGain->gain));
 	aaaIspExchange->aaaMetadata.set(controls::ExposureTime, exposureTimeMs);
 
 	uint8_t mtk_ae_state = static_cast<uint8_t>(r3AResult_.ae_result.ae_state);
