@@ -93,7 +93,8 @@ public:
 	std::tuple<QueueTask *, DequeueTask *, SofTask *>
 	makeCaptureTasks(Scheduler *scheduler, const std::string &id,
 			 Request *request, CaptureFrames &captureFrames,
-			 uint32_t internalRequestId, Hal3AManager *hal3AManager);
+			 uint32_t internalRequestId, Hal3AManager *hal3AManager,
+			 SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange);
 
 private:
 	friend QueueTask;
@@ -158,9 +159,10 @@ public:
 	QueueTask(CaptureTasksManager *manager,
 		  Scheduler *scheduler, const std::string &id,
 		  Request *request, uint32_t internalRequestId,
-		  std::shared_ptr<CaptureData> &data)
+		  std::shared_ptr<CaptureData> &data,
+		  SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange)
 		: Task(scheduler, id), request_(request), internalRequestId_(internalRequestId),
-		  manager_(manager), data_(data) {}
+		  manager_(manager), data_(data), aaaIspExchange_(aaaIspExchange) {}
 
 	void run() override final;
 
@@ -169,6 +171,8 @@ public:
 
 	CaptureTasksManager *manager_;
 	std::shared_ptr<CaptureData> data_;
+
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange_;
 };
 
 class DequeueTask : public Task

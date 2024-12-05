@@ -399,22 +399,13 @@ void CompleteRequestTask::run()
 
 	metadata.merge(faceControls);
 
-	if (aaaIspExchange_->valid()) {
-		auto aaaIspExchange = aaaIspExchange_->get();
-		metadata.merge(aaaIspExchange.aaaMetadata);
-		if (onDeviceTuner_->isEnabled() &&
-		    onDeviceTuner_->isStillCaptureRequest(internalRequestId_)) {
-			ControlList debugMetadata;
-			ipa_->writeStillCaptureDebugMetadata(
-				camSysMetaRequestId_, &debugMetadata);
-			metadata.merge(debugMetadata);
-		}
-	} else {
-		metadata.set(controls::ExposureTime, (int64_t)66'666);
-	}
-
-	if (!metadata.contains(controls::AF_STATE)) {
-		metadata.set(controls::AfState, 0);
+	if (aaaIspExchange_->valid() &&
+	    onDeviceTuner_->isEnabled() &&
+	    onDeviceTuner_->isStillCaptureRequest(internalRequestId_)) {
+		ControlList debugMetadata;
+		ipa_->writeStillCaptureDebugMetadata(
+			camSysMetaRequestId_, &debugMetadata);
+		metadata.merge(debugMetadata);
 	}
 
 	pipe_->completeMetadata(request_, metadata);
@@ -1081,9 +1072,15 @@ MtkISP7CameraData::makeTasks(const std::string &id, Request *request,
 	aaaIspExchangeResult.aaaIspExchange = captureFrames.aaaIspExchange;
 
 	aaaIspExchangeResult_.add(internalRequestId, aaaIspExchangeResult);
+	SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange;
+	if (request) {
+		aaaIspExchange = aaaIspExchangeResult_.query(camSysMetaRequestId)
+					 ->aaaIspExchange;
+	}
 
 	auto [taskQBuf, taskDQBuf, sofTask] = captureManager.makeCaptureTasks(
-		scheduler, id, request, captureFrames, internalRequestId, &hal3AManager_);
+		scheduler, id, request, captureFrames, internalRequestId,
+		&hal3AManager_, aaaIspExchange);
 
 	if (onDeviceTuner_->isEnabled()) {
 		onDeviceTuner_->notifyRequestBegin(internalRequestId);

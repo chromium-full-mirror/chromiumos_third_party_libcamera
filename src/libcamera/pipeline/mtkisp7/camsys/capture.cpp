@@ -154,7 +154,8 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 				      Request *request,
 				      CaptureFrames &captureFrames,
 				      uint32_t internalRequestId,
-				      Hal3AManager *hal3AManager)
+				      Hal3AManager *hal3AManager,
+				      SharedMailBox<ipa::mtkisp7::AaaIspExchange> aaaIspExchange)
 {
 	(void)id;
 
@@ -171,7 +172,7 @@ CaptureTasksManager::makeCaptureTasks(Scheduler *scheduler,
 
 	QueueTask *qTask = new QueueTask(
 		this, scheduler, "Queue " + sequence, request,
-		internalRequestId, data);
+		internalRequestId, data, aaaIspExchange);
 	DequeueTask *dqTask = new DequeueTask(
 		this, scheduler, "Dequeue " + sequence, request,
 		internalRequestId, data);
@@ -235,6 +236,23 @@ void SofTask::trigger()
 
 void QueueTask::run()
 {
+	if (request_ && aaaIspExchange_) {
+		ControlList metadata;
+		if (aaaIspExchange_->valid()) {
+			auto aaaIspExchange = aaaIspExchange_->get();
+			metadata.merge(aaaIspExchange.aaaMetadata);
+		} else {
+			// Set to 15 fps by default.
+			metadata.set(controls::ExposureTime, (int64_t)66'666);
+		}
+
+		if (!metadata.contains(controls::AF_STATE)) {
+			metadata.set(controls::AfState, 0);
+		}
+
+		manager_->pipe_->completeMetadata(request_, metadata);
+	}
+
 	CamSysDevice *camSys = manager_->camSys_;
 	auto &frames = data_->frames;
 	auto &camSysRequest = data_->request;
