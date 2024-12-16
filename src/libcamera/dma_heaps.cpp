@@ -14,6 +14,9 @@
 #include <linux/dma-heap.h>
 
 #include <libcamera/base/log.h>
+#include <libcamera/base/shared_fd.h>
+
+#include <libcamera/framebuffer.h>
 
 namespace libcamera {
 
@@ -54,7 +57,7 @@ DmaHeap::~DmaHeap() = default;
 
 UniqueFD DmaHeap::alloc(std::size_t size, Type type)
 {
-	struct dma_heap_allocation_data heap_data {
+	struct dma_heap_allocation_data heap_data{
 		.len = size,
 		.fd = 0,
 		.fd_flags = O_RDWR | O_CLOEXEC,
@@ -116,6 +119,60 @@ void DmaHeap::sync(int fd, SyncStep step, SyncType type)
 		LOG(DmaHeap, Error) << "Unable to sync dma fd " << fd
 				    << " step " << step;
 	}
+}
+
+/**
+ * \brief Allocate and export buffers from the DmaBufAllocator
+ * \param[in] count The number of requested FrameBuffers
+ * \param[in] planeSizes The sizes of planes in each FrameBuffer
+ * \param[out] buffers Array of buffers successfully allocated
+ *
+ * Planes in a FrameBuffer are allocated with a single dma buf.
+ * \todo Add the option to allocate each plane with a dma buf respectively.
+ *
+ * \return The number of allocated buffers on success or a negative error code
+ * otherwise
+ */
+int DmaHeap::exportBuffers(unsigned int count,
+			   const std::vector<unsigned int> &planeSizes,
+			   std::vector<std::unique_ptr<FrameBuffer>> *buffers,
+			   Type type)
+{
+	for (unsigned int i = 0; i < count; ++i) {
+		std::unique_ptr<FrameBuffer> buffer =
+			createBuffer(planeSizes, type);
+		if (!buffer) {
+			LOG(DmaHeap, Error) << "Unable to create buffer";
+
+			buffers->clear();
+			return -EINVAL;
+		}
+
+		buffers->push_back(std::move(buffer));
+	}
+
+	return count;
+}
+
+std::unique_ptr<FrameBuffer>
+DmaHeap::createBuffer(const std::vector<unsigned int> &planeSizes, Type type)
+{
+	std::vector<FrameBuffer::Plane> planes;
+
+	unsigned int frameSize = 0, offset = 0;
+	for (auto planeSize : planeSizes)
+		frameSize += planeSize;
+
+	SharedFD fd(alloc(frameSize, type));
+	if (!fd.isValid())
+		return nullptr;
+
+	for (auto planeSize : planeSizes) {
+		planes.emplace_back(FrameBuffer::Plane{ fd, offset, planeSize, 0 });
+		offset += planeSize;
+	}
+
+	return std::make_unique<FrameBuffer>(planes);
 }
 
 } /* namespace libcamera */

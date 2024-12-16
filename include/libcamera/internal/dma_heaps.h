@@ -7,9 +7,14 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include <libcamera/base/unique_fd.h>
 
 namespace libcamera {
+
+class FrameBuffer;
 
 class DmaHeap
 {
@@ -37,7 +42,15 @@ public:
 	bool isValid() { return valid_; }
 	UniqueFD alloc(std::size_t size, Type type);
 
+	int exportBuffers(unsigned int count,
+			  const std::vector<unsigned int> &planeSizes,
+			  std::vector<std::unique_ptr<FrameBuffer>> *buffers,
+			  Type type);
+
 private:
+	std::unique_ptr<FrameBuffer> createBuffer(
+		const std::vector<unsigned int> &planeSizes, Type type);
+
 	bool valid_;
 	UniqueFD dmaHeapHandle_;
 	UniqueFD dmaHeapCmaHandle_;
