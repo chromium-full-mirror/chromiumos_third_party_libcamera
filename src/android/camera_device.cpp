@@ -1652,7 +1652,8 @@ void CameraDevice::requestComplete(Request *request)
 	 * the submission order of the requests. Create a result as the final
 	 * result which is guranteed be sent in order by CompleteRequestDescriptor().
 	 */
-	result->resultMetadata_ = getFinalResultMetadata(camera3Request->settings_);
+	result->resultMetadata_ = getFinalResultMetadata(camera3Request->settings_,
+							 request->metadata());
 	result->metadataPackIndex_ = CameraCapabilities::MaxMetadataPackIndex;
 
 	/*
@@ -2161,7 +2162,8 @@ void CameraDevice::generateJpegExifMetadata(Camera3RequestDescriptor *request,
  * Produce a result metadata for the final result.
  */
 std::unique_ptr<CameraMetadata>
-CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
+CameraDevice::getFinalResultMetadata(const CameraMetadata &settings,
+				     const libcamera::ControlList &metadata) const
 {
 	camera_metadata_ro_entry_t entry;
 	bool found;
@@ -2180,12 +2182,31 @@ CameraDevice::getFinalResultMetadata(const CameraMetadata &settings) const
 	 * Total bytes: 16
 	 */
 	std::unique_ptr<CameraMetadata> resultMetadata =
-		std::make_unique<CameraMetadata>(64, 8192);
+		std::make_unique<CameraMetadata>(69, 8212);
 	if (!resultMetadata->isValid()) {
 		LOG(HAL, Error) << "Failed to allocate result metadata";
 		return nullptr;
 	}
 
+	if (!metadata.contains(controls::AE_STATE))
+		resultMetadata->addEntry(ANDROID_CONTROL_AE_STATE,
+					 ANDROID_CONTROL_AE_STATE_CONVERGED);
+
+	if (!metadata.contains(controls::AF_STATE))
+		resultMetadata->addEntry(ANDROID_CONTROL_AF_STATE,
+					 ANDROID_CONTROL_AF_STATE_INACTIVE);
+
+	if (!metadata.contains(controls::AWB_STATE))
+		resultMetadata->addEntry(ANDROID_CONTROL_AWB_STATE,
+					 ANDROID_CONTROL_AWB_STATE_CONVERGED);
+
+	if (!metadata.contains(controls::LENS_STATE))
+		resultMetadata->addEntry(ANDROID_LENS_STATE,
+					 ANDROID_LENS_STATE_STATIONARY);
+
+	if (!metadata.get(controls::draft::TestPatternMode))
+		resultMetadata->addEntry(ANDROID_SENSOR_TEST_PATTERN_MODE,
+					 ANDROID_SENSOR_TEST_PATTERN_MODE_OFF);
 	/*
 	 * \todo The value of the results metadata copied from the settings
 	 * will have to be passed to the libcamera::Camera and extracted

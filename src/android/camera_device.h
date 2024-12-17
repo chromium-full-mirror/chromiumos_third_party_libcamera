@@ -120,7 +120,8 @@ private:
 	std::unique_ptr<CameraMetadata> getPartialResultMetadata(
 		const libcamera::ControlList &metadata) const;
 	std::unique_ptr<CameraMetadata> getFinalResultMetadata(
-		const CameraMetadata &settings) const;
+		const CameraMetadata &settings,
+		const libcamera::ControlList &metadata) const;
 
 	void cameraDisconnected();
 	void queryManufacturerInfo();
