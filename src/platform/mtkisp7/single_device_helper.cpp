@@ -1858,7 +1858,7 @@ bool HandleCtrlMeta(RequestInfo *pReqInfo,
 		    const FrameParams &pFrmParam,
 		    struct ctrl_meta_t *pCtrlMeta,
 		    MUINT32 CtrlMetaOffset,
-		    struct buf_info *pBufInfo,
+		    struct frameparams *pBufInfo,
 		    int DeviceTuningEn,
 		    [[maybe_unused]] bool bMEExist)
 {
@@ -2292,16 +2292,16 @@ bool HandleCtrlMeta(RequestInfo *pReqInfo,
 			pCtrlMeta->common.dl_table[HW_ADL_B].src_wd,
 			pCtrlMeta->common.dl_table[HW_ADL_B].src_ht);
 	}
-	pBufInfo->buf.planes[0].m.dma_buf.fd = pReqInfo->mpCMBuf->mFd; // img_fd
+
 	pBufInfo->buf.planes[0].m.dma_buf.offset =
 		pReqInfo->mpCMBuf->mOffset + CtrlMetaOffset;
-	pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].bytesperline =
+	pBufInfo->fmt.plane_fmt[0].bytesperline =
 		pReqInfo->mpCMBuf->mBufSize;
-	pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].sizeimage = pReqInfo->mpCMBuf->mBufSize;
+	pBufInfo->fmt.plane_fmt[0].sizeimage = pReqInfo->mpCMBuf->mBufSize;
 	pBufInfo->buf.num_planes = 1; // imgi
-	pBufInfo->fmt.fmt.pix_mp.width = pReqInfo->mpCMBuf->mBufSize;
-	pBufInfo->fmt.fmt.pix_mp.height = 1;
-	pBufInfo->fmt.fmt.pix_mp.pixelformat = V4L2_META_FMT_MTISP_PARAMS;
+	pBufInfo->fmt.width = pReqInfo->mpCMBuf->mBufSize;
+	pBufInfo->fmt.height = 1;
+	pBufInfo->fmt.pixelformat = V4L2_META_FMT_MTISP_PARAMS;
 	pBufInfo->rotation = 0;
 	pBufInfo->hflip = 0; // use hflip to flip
 	pBufInfo->vflip = 0;
@@ -2325,9 +2325,9 @@ bool HandleCtrlMeta(RequestInfo *pReqInfo,
 		"Ctrl Meta - num_planes:%d, width:%d, height:%d, "
 		"fmt:0x%x,rot:%d, "
 		"hf:%d, vf:%d, ratio:%d\n, crop(%d_%d_%d_%d), "
-		"fcrop(%d_%d_%d_%d)\nPlane[0]-fd:%d, ofset:%d, stride:%d, "
-		"bufsize:%d\nPlane[1]-fd:%d, ofset:%d, stride:%d, "
-		"bufsize:%d\nPlane[2]-fd:%d, ofset:%d, stride:%d, "
+		"fcrop(%d_%d_%d_%d)\nPlane[0] ofset:%d, stride:%d, "
+		"bufsize:%d\nPlane[1] ofset:%d, stride:%d, "
+		"bufsize:%d\nPlane[2] ofset:%d, stride:%d, "
 		"bufsize:%d\n",
 		frm, TotalFrm, pCtrlMeta->common.unique_key, pCtrlMeta->common.frame_no,
 		pCtrlMeta->common.stage, pCtrlMeta->common.request_fd,
@@ -2336,26 +2336,23 @@ bool HandleCtrlMeta(RequestInfo *pReqInfo,
 		pCtrlMeta->common.is_early_cb, pCtrlMeta->common.fps,
 		pCtrlMeta->common.sync_prev, pCtrlMeta->common.sync_next,
 		pCtrlMeta->common.syncid, pFrmParam.mFrameOwner.c_str(), userid.c_str(),
-		wpemode, pBufInfo->buf.num_planes, pBufInfo->fmt.fmt.pix_mp.width,
-		pBufInfo->fmt.fmt.pix_mp.height, pBufInfo->fmt.fmt.pix_mp.pixelformat,
+		wpemode, pBufInfo->buf.num_planes, pBufInfo->fmt.width,
+		pBufInfo->fmt.height, pBufInfo->fmt.pixelformat,
 		pBufInfo->rotation, pBufInfo->hflip, pBufInfo->vflip,
 		pBufInfo->resizeratio, pBufInfo->crop.c.left, pBufInfo->crop.c.top,
 		pBufInfo->crop.c.width, pBufInfo->crop.c.height,
 		pBufInfo->crop.left_subpix.numerator, pBufInfo->crop.top_subpix.numerator,
 		pBufInfo->crop.width_subpix.numerator,
 		pBufInfo->crop.height_subpix.numerator,
-		pBufInfo->buf.planes[0].m.dma_buf.fd,
 		pBufInfo->buf.planes[0].m.dma_buf.offset,
-		pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
-		pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].sizeimage,
-		pBufInfo->buf.planes[1].m.dma_buf.fd,
+		pBufInfo->fmt.plane_fmt[0].bytesperline,
+		pBufInfo->fmt.plane_fmt[0].sizeimage,
 		pBufInfo->buf.planes[1].m.dma_buf.offset,
-		pBufInfo->fmt.fmt.pix_mp.plane_fmt[1].bytesperline,
-		pBufInfo->fmt.fmt.pix_mp.plane_fmt[1].sizeimage,
-		pBufInfo->buf.planes[2].m.dma_buf.fd,
+		pBufInfo->fmt.plane_fmt[1].bytesperline,
+		pBufInfo->fmt.plane_fmt[1].sizeimage,
 		pBufInfo->buf.planes[2].m.dma_buf.offset,
-		pBufInfo->fmt.fmt.pix_mp.plane_fmt[2].bytesperline,
-		pBufInfo->fmt.fmt.pix_mp.plane_fmt[2].sizeimage);
+		pBufInfo->fmt.plane_fmt[2].bytesperline,
+		pBufInfo->fmt.plane_fmt[2].sizeimage);
 
 	LOG_DBG("Ctrl Meta End!!\n");
 	return true;
@@ -2886,13 +2883,10 @@ bool HandleInputPort(RequestInfo *pReqInfo,
 	uint32_t k = 0;
 	IMG_PORT PortIdx;
 	[[maybe_unused]] IMG_PORT ReMapPortIdx;
-	int s = 0;
-	struct header_desc *desc = NULL;
 	struct header_desc_norm *desc_norm = NULL;
-	singlenode_desc *singledevice_desc = NULL;
 	singlenode_desc_norm *singledevice_desc_norm = NULL;
 	imgsys_video_nodes_id VidoeNodeHwId;
-	struct buf_info *pBufInfo = NULL;
+	struct frameparams *pBufInfo = NULL;
 
 	for (auto const &in : frmParams.mvIn) {
 		PortIdx = (IMG_PORT)in.mPortIdx;
@@ -2913,7 +2907,7 @@ bool HandleInputPort(RequestInfo *pReqInfo,
 				singledevice_desc_norm->dmas_enable[VidoeNodeHwId][frm] = 1;
 				desc_norm = &singledevice_desc_norm->dmas[VidoeNodeHwId];
 				desc_norm->fparams_tnum = totalfrm;
-				pBufInfo = &desc_norm->fparams[frm][s].bufs[0];
+				pBufInfo = &desc_norm->fparams[frm];
 
 			} else {
 				singledevice_desc_norm
@@ -2922,52 +2916,18 @@ bool HandleInputPort(RequestInfo *pReqInfo,
 				desc_norm =
 					(struct header_desc_norm *)&singledevice_desc_norm->tuning_meta;
 				desc_norm->fparams_tnum = totalfrm;
-				pBufInfo = &desc_norm->fparams[frm][s].bufs[0];
-			}
-		} else {
-			singledevice_desc = reinterpret_cast<singlenode_desc *>(pSingleDev);
-			if (PortIdx != IMG_PORT_METAI) {
-				if (!NSCam::NSImgStream::IMG_PORT_MAP_HW_VIDEONODE_ID(&VidoeNodeHwId,
-										      PortIdx)) {
-					LOG_ERR(
-						"HandleTuningHelper fail"
-						"IMG_PORT(%d) in Input Port!!",
-						PortIdx);
-					return false;
-				}
-				singledevice_desc->dmas_enable[VidoeNodeHwId][frm] = 1;
-				desc = &singledevice_desc->dmas[VidoeNodeHwId];
-				desc->fparams_tnum = totalfrm;
-				pBufInfo = &desc->fparams[frm][s].bufs[0];
-			} else {
-				singledevice_desc
-					->dmas_enable[MTK_IMGSYS_VIDEO_NODE_ID_TUNING_OUT][frm] = 1;
-				desc = (struct header_desc *)&singledevice_desc->tuning_meta;
-				desc->fparams_tnum = totalfrm;
-				pBufInfo = &desc->fparams[frm][s].bufs[0];
+				pBufInfo = &desc_norm->fparams[frm];
 			}
 		}
 
 		pBufInfo->buf.num_planes = in.mBuffer->getPlaneCount();
 		for (k = 0; k < pBufInfo->buf.num_planes; k++) {
-			pBufInfo->buf.planes[k].m.dma_buf.fd =
-				in.mBuffer->getPlaneFD(k); // img_fd
-			if (pBufInfo->buf.planes[k].m.dma_buf.fd == 0) {
-				LOG_ERR(
-					"MW Input Fd is Zero! PortIndex:%d RequestFd:%d request_no:%d, "
-					"frame_no:%d",
-					PortIdx, pReqInfo->mpRequest->GetRequestFD(),
-					pReqInfo->pParams->mRequestNo, pReqInfo->pParams->mFrameNo);
-				AEE_ASSERT(HWMODULE_FD_ISZERO,
-					   "MW Input Fd is Zero!! Please check MW Input Setting!!");
-			}
-
 			pBufInfo->buf.planes[k].m.dma_buf.offset =
 				in.mBuffer->getPlaneOffsetInBytes(k); // Byte as unit
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[k].bytesperline =
+			pBufInfo->fmt.plane_fmt[k].bytesperline =
 				in.mBuffer->getBufStridesInBytes(k);
 
-			if (pBufInfo->fmt.fmt.pix_mp.plane_fmt[k].bytesperline == 0) {
+			if (pBufInfo->fmt.plane_fmt[k].bytesperline == 0) {
 				LOG_ERR(
 					"MW Input Stride is Zero! PortIndex:%d RequestFd:%d request_no:%d, "
 					"frame_no:%d",
@@ -2977,16 +2937,15 @@ bool HandleInputPort(RequestInfo *pReqInfo,
 					   "MW Input Stride is Zero!! Please check MW Input Setting!!");
 			}
 
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[k].sizeimage =
+			pBufInfo->fmt.plane_fmt[k].sizeimage =
 				in.mBuffer->getBufSizeInBytes(k);
 		}
-		pBufInfo->secu = static_cast<utype>(in.mBuffer->getSecType());
 
 		// pBufInfo->buf.num_planes = in.mBuffer->getPlaneCount();
-		pBufInfo->fmt.fmt.pix_mp.width = in.mBuffer->getImgSize().w;
-		pBufInfo->fmt.fmt.pix_mp.height = in.mBuffer->getImgSize().h;
+		pBufInfo->fmt.width = in.mBuffer->getImgSize().w;
+		pBufInfo->fmt.height = in.mBuffer->getImgSize().h;
 
-		if (pBufInfo->fmt.fmt.pix_mp.width == 0) {
+		if (pBufInfo->fmt.width == 0) {
 			LOG_ERR(
 				"MW Input Width is Zero! PortIndex:%d RequestFd:%d request_no:%d, "
 				"frame_no:%d",
@@ -2995,7 +2954,7 @@ bool HandleInputPort(RequestInfo *pReqInfo,
 			AEE_ASSERT(HWMODULE_WIDTH_ISZERO,
 				   "MW Input Width is Zero!! Please check MW Input Setting!!");
 		}
-		if (pBufInfo->fmt.fmt.pix_mp.height == 0) {
+		if (pBufInfo->fmt.height == 0) {
 			LOG_ERR(
 				"MW Input Height is Zero! PortIndex:%d RequestFd:%d request_no:%d, "
 				"frame_no:%d",
@@ -3005,7 +2964,7 @@ bool HandleInputPort(RequestInfo *pReqInfo,
 				   "MW Input Height is Zero!! Please check MW Input Setting!!");
 		}
 
-		pBufInfo->fmt.fmt.pix_mp.pixelformat =
+		pBufInfo->fmt.pixelformat =
 			NSCam::NSImgStream::ImgBufFmtMappingToV4L2Fmt(
 				(NSCam::EImageFormat)in.mBuffer->getImgFormat(),
 				(NSCam::EImageFormat)in.mBuffer->getColorArrangement());
@@ -3030,32 +2989,29 @@ bool HandleInputPort(RequestInfo *pReqInfo,
 			"height:%d, "
 			"fmt:0x%x,rot:%d, "
 			"hf:%d, vf:%d, ratio:%d, crop(%d_%d_%d_%d), "
-			"fcrop(%d_%d_%d_%d) cs:%d Plane[0]-fd:%d, ofset:%d, stride:%d, "
-			"bufsize:%d Plane[1]-fd:%d, ofset:%d, stride:%d, "
-			"bufsize:%d Plane[2]-fd:%d, ofset:%d, stride:%d, "
+			"fcrop(%d_%d_%d_%d) cs:%d Plane[0] ofset:%d, stride:%d, "
+			"bufsize:%d Plane[1] ofset:%d, stride:%d, "
+			"bufsize:%d Plane[2] ofset:%d, stride:%d, "
 			"bufsize:%d, oriidx:%d",
 			(PortIdx - MTK_ISP_IMGSYS_NODE_ID_BASE), frm,
 			pReqInfo->mpRequest->GetRequestFD(), pBufInfo->buf.num_planes,
-			pBufInfo->fmt.fmt.pix_mp.width, pBufInfo->fmt.fmt.pix_mp.height,
-			pBufInfo->fmt.fmt.pix_mp.pixelformat, pBufInfo->rotation,
+			pBufInfo->fmt.width, pBufInfo->fmt.height,
+			pBufInfo->fmt.pixelformat, pBufInfo->rotation,
 			pBufInfo->hflip, pBufInfo->vflip, pBufInfo->resizeratio,
 			pBufInfo->crop.c.left, pBufInfo->crop.c.top, pBufInfo->crop.c.width,
 			pBufInfo->crop.c.height, pBufInfo->crop.left_subpix.numerator,
 			pBufInfo->crop.top_subpix.numerator,
 			pBufInfo->crop.width_subpix.numerator,
 			pBufInfo->crop.height_subpix.numerator, in.mBuffer->getColorSpace(),
-			pBufInfo->buf.planes[0].m.dma_buf.fd,
 			pBufInfo->buf.planes[0].m.dma_buf.offset,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].sizeimage,
-			pBufInfo->buf.planes[1].m.dma_buf.fd,
+			pBufInfo->fmt.plane_fmt[0].bytesperline,
+			pBufInfo->fmt.plane_fmt[0].sizeimage,
 			pBufInfo->buf.planes[1].m.dma_buf.offset,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[1].bytesperline,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[1].sizeimage,
-			pBufInfo->buf.planes[2].m.dma_buf.fd,
+			pBufInfo->fmt.plane_fmt[1].bytesperline,
+			pBufInfo->fmt.plane_fmt[1].sizeimage,
 			pBufInfo->buf.planes[2].m.dma_buf.offset,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[2].bytesperline,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[2].sizeimage, PortIdx);
+			pBufInfo->fmt.plane_fmt[2].bytesperline,
+			pBufInfo->fmt.plane_fmt[2].sizeimage, PortIdx);
 	}
 	return true;
 }
@@ -3069,13 +3025,10 @@ bool HandleOutputPort(RequestInfo *pReqInfo,
 	int k = 0;
 	IMG_PORT PortIdx;
 	[[maybe_unused]] IMG_PORT ReMapPortIdx;
-	int s = 0;
-	struct header_desc *desc = NULL;
 	struct header_desc_norm *desc_norm = NULL;
-	singlenode_desc *singledevice_desc = NULL;
 	singlenode_desc_norm *singledevice_desc_norm = NULL;
 	imgsys_video_nodes_id VidoeNodeHwId;
-	struct buf_info *pBufInfo = NULL;
+	struct frameparams *pBufInfo = NULL;
 	imgsysrotation ImgRot = imgsysrotation_0;
 	imgsysflip ImgFlip = imgsysflip_off;
 
@@ -3098,36 +3051,17 @@ bool HandleOutputPort(RequestInfo *pReqInfo,
 			desc_norm = (struct header_desc_norm *)&singledevice_desc_norm
 					    ->dmas[VidoeNodeHwId];
 			desc_norm->fparams_tnum = totalfrm;
-			pBufInfo = &desc_norm->fparams[frm][s].bufs[0];
-		} else {
-			singledevice_desc = reinterpret_cast<singlenode_desc *>(pSingleDev);
-			singledevice_desc->dmas_enable[VidoeNodeHwId][frm] = 1;
-
-			desc = (struct header_desc *)&singledevice_desc->dmas[VidoeNodeHwId];
-			desc->fparams_tnum = totalfrm;
-			pBufInfo = &desc->fparams[frm][s].bufs[0];
+			pBufInfo = &desc_norm->fparams[frm];
 		}
 
 		pBufInfo->buf.num_planes = out.mBuffer->getPlaneCount();
 		for (k = 0; (uint32_t)k < pBufInfo->buf.num_planes; k++) {
-			pBufInfo->buf.planes[k].m.dma_buf.fd =
-				out.mBuffer->getPlaneFD(k); // img_fd
-			if (pBufInfo->buf.planes[k].m.dma_buf.fd == 0) {
-				LOG_ERR(
-					"MW Output Fd is Zero! PortIndex:%d RequestFd:%d request_no:%d, "
-					"frame_no:%d",
-					PortIdx, pReqInfo->mpRequest->GetRequestFD(),
-					pReqInfo->pParams->mRequestNo, pReqInfo->pParams->mFrameNo);
-				AEE_ASSERT(HWMODULE_FD_ISZERO,
-					   "MW Output Fd is Zero!! Please check MW Output Setting!!");
-			}
-
 			pBufInfo->buf.planes[k].m.dma_buf.offset =
 				out.mBuffer->getPlaneOffsetInBytes(k); // Byte as unit
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[k].bytesperline =
+			pBufInfo->fmt.plane_fmt[k].bytesperline =
 				out.mBuffer->getBufStridesInBytes(k);
 
-			if (pBufInfo->fmt.fmt.pix_mp.plane_fmt[k].bytesperline == 0) {
+			if (pBufInfo->fmt.plane_fmt[k].bytesperline == 0) {
 				LOG_ERR(
 					"MW Output Stride is Zero! PortIndex:%d RequestFd:%d "
 					"request_no:%d, "
@@ -3138,14 +3072,14 @@ bool HandleOutputPort(RequestInfo *pReqInfo,
 					HWMODULE_STRIDE_ISZERO,
 					"MW Output Stride is Zero!! Please check MW Output Setting!!");
 			}
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[k].sizeimage =
+			pBufInfo->fmt.plane_fmt[k].sizeimage =
 				out.mBuffer->getBufSizeInBytes(k);
 		}
-		pBufInfo->secu = static_cast<utype>(out.mBuffer->getSecType());
+
 		// pBufInfo->buf.num_planes = out.mBuffer->getPlaneCount();
-		pBufInfo->fmt.fmt.pix_mp.width = out.mBuffer->getImgSize().w;
-		pBufInfo->fmt.fmt.pix_mp.height = out.mBuffer->getImgSize().h;
-		if (pBufInfo->fmt.fmt.pix_mp.width == 0) {
+		pBufInfo->fmt.width = out.mBuffer->getImgSize().w;
+		pBufInfo->fmt.height = out.mBuffer->getImgSize().h;
+		if (pBufInfo->fmt.width == 0) {
 			LOG_ERR(
 				"MW Output Width is Zero! PortIndex:%d RequestFd:%d request_no:%d, "
 				"frame_no:%d",
@@ -3154,7 +3088,7 @@ bool HandleOutputPort(RequestInfo *pReqInfo,
 			AEE_ASSERT(HWMODULE_WIDTH_ISZERO,
 				   "MW Output Width is Zero!! Please check MW Output Setting!!");
 		}
-		if (pBufInfo->fmt.fmt.pix_mp.height == 0) {
+		if (pBufInfo->fmt.height == 0) {
 			LOG_ERR(
 				"MW Output Height is Zero! PortIndex:%d RequestFd:%d request_no:%d, "
 				"frame_no:%d",
@@ -3164,7 +3098,7 @@ bool HandleOutputPort(RequestInfo *pReqInfo,
 				   "MW Output Height is Zero!! Please check MW Output Setting!!");
 		}
 
-		pBufInfo->fmt.fmt.pix_mp.pixelformat =
+		pBufInfo->fmt.pixelformat =
 			NSCam::NSImgStream::ImgBufFmtMappingToV4L2Fmt(
 				(NSCam::EImageFormat)out.mBuffer->getImgFormat(),
 				(NSCam::EImageFormat)out.mBuffer->getColorArrangement());
@@ -3198,32 +3132,29 @@ bool HandleOutputPort(RequestInfo *pReqInfo,
 			"height:%d, "
 			"fmt:0x%x,rot:%d, "
 			"hf:%d, vf:%d, ratio:%d\n, crop(%d_%d_%d_%d), "
-			"fcrop(%d_%d_%d_%d) cs:%d Plane[0]-fd:%d, ofset:%d, stride:%d, "
-			"bufsize:%d Plane[1]-fd:%d, ofset:%d, stride:%d, "
-			"bufsize:%d Plane[2]-fd:%d, ofset:%d, stride:%d, "
+			"fcrop(%d_%d_%d_%d) cs:%d Plane[0] ofset:%d, stride:%d, "
+			"bufsize:%d Plane[1] ofset:%d, stride:%d, "
+			"bufsize:%d Plane[2] ofset:%d, stride:%d, "
 			"bufsize:%d, oriidx:%d",
 			(PortIdx - MTK_ISP_IMGSYS_NODE_ID_BASE), frm,
 			pReqInfo->mpRequest->GetRequestFD(), pBufInfo->buf.num_planes,
-			pBufInfo->fmt.fmt.pix_mp.width, pBufInfo->fmt.fmt.pix_mp.height,
-			pBufInfo->fmt.fmt.pix_mp.pixelformat, pBufInfo->rotation,
+			pBufInfo->fmt.width, pBufInfo->fmt.height,
+			pBufInfo->fmt.pixelformat, pBufInfo->rotation,
 			pBufInfo->hflip, pBufInfo->vflip, pBufInfo->resizeratio,
 			pBufInfo->crop.c.left, pBufInfo->crop.c.top, pBufInfo->crop.c.width,
 			pBufInfo->crop.c.height, pBufInfo->crop.left_subpix.numerator,
 			pBufInfo->crop.top_subpix.numerator,
 			pBufInfo->crop.width_subpix.numerator,
 			pBufInfo->crop.height_subpix.numerator, out.mBuffer->getColorSpace(),
-			pBufInfo->buf.planes[0].m.dma_buf.fd,
 			pBufInfo->buf.planes[0].m.dma_buf.offset,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[0].sizeimage,
-			pBufInfo->buf.planes[1].m.dma_buf.fd,
+			pBufInfo->fmt.plane_fmt[0].bytesperline,
+			pBufInfo->fmt.plane_fmt[0].sizeimage,
 			pBufInfo->buf.planes[1].m.dma_buf.offset,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[1].bytesperline,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[1].sizeimage,
-			pBufInfo->buf.planes[2].m.dma_buf.fd,
+			pBufInfo->fmt.plane_fmt[1].bytesperline,
+			pBufInfo->fmt.plane_fmt[1].sizeimage,
 			pBufInfo->buf.planes[2].m.dma_buf.offset,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[2].bytesperline,
-			pBufInfo->fmt.fmt.pix_mp.plane_fmt[2].sizeimage, PortIdx);
+			pBufInfo->fmt.plane_fmt[2].bytesperline,
+			pBufInfo->fmt.plane_fmt[2].sizeimage, PortIdx);
 	}
 	return true;
 }
@@ -3235,13 +3166,12 @@ bool createSingleDevBuffer(RequestInfo *pReqInfo,
 			   VNDescBuf *pVNDescBuf)
 {
 	int i = 0;
-	int s = 0;
 	struct header_desc_norm *norm_desc = NULL;
 	struct singlenode_desc_norm *singledevice_desc_norm = NULL;
 	void *pSingleDev = NULL;
 	struct ctrl_meta_t *pCtrlMeta =
 		(struct ctrl_meta_t *)pReqInfo->mpCMBuf->mpBufVa;
-	struct buf_info *pBufInfo = NULL;
+	struct frameparams *pBufInfo = NULL;
 
 	if (pCtrlMeta == NULL) {
 		LOG_ERR("pCtrlMeta is NULL!!");
@@ -3262,11 +3192,11 @@ bool createSingleDevBuffer(RequestInfo *pReqInfo,
 			return false;
 		}
 	} else {
-		if ((TotalFrm > TIME_MAX) || (TotalFrm == 0)) {
+		if ((TotalFrm > TMAX) || (TotalFrm == 0)) {
 			LOG_ERR(
 				"ERROR!! size(%d) of mvFrameParams exceed %d or small than 0 !! We "
 				"can't support now\n",
-				TotalFrm, TIME_MAX);
+				TotalFrm, TMAX);
 			return false;
 		}
 	}
@@ -3350,7 +3280,7 @@ bool createSingleDevBuffer(RequestInfo *pReqInfo,
 		}
 
 		if (pReqInfo->mMemMode == MEMORY_MODE_NORMAL) {
-			pBufInfo = &norm_desc->fparams[i][s].bufs[0];
+			pBufInfo = &norm_desc->fparams[i];
 		}
 
 		// Handle Per frame control meta
