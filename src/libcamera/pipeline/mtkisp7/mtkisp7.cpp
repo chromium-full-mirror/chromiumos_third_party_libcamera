@@ -1305,6 +1305,7 @@ bool MtkISP7CameraData::acquireDevice()
 void MtkISP7CameraData::releaseDevice()
 {
 	captureResult_.release();
+	aaaIspExchangeResult_.release();
 	requestCount_ = 0;
 
 	ipa_->releaseProxy();
