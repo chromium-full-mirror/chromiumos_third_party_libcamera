@@ -31,6 +31,15 @@ public:
 	{
 		MutexLocker locker(lock_);
 
+		// Remove the potentially existing element with the same id.
+		for (auto it = resultHistory_.begin(); it != resultHistory_.end();
+		     ++it) {
+			if (it->first == id) {
+				resultHistory_.erase(it);
+				break;
+			}
+		}
+
 		resultHistory_.push_back(std::make_pair(id, std::move(t)));
 		if (resultHistory_.size() > size_)
 			resultHistory_.pop_front();
