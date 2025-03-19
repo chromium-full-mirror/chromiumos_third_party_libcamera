@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: ((GPL-2.0+ WITH Linux-syscall-note) OR BSD-3-Clause) */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2025 MediaTek Inc.
  */
 
 #ifndef __MTK_CAMERA_V4l2_CONTROLS_H
