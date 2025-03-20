@@ -22,7 +22,6 @@
 
 #define IMGSYS_VER_ISP71
 
-#include "kernel-headers/mtk_cam-meta-mt8188.h"
 #include "kernel-headers/mtk_header_desc.h"
 #include "kernel-headers/mtk_imgsys-vnode_id.h"
 #include "kernel-headers/mtk_imgsys.h"
@@ -32,7 +31,6 @@
 #include "mtkcam-halif/def/UITypes.h"
 #include "platform/mtkisp7/IImgStreamDef.h"
 #include "platform/mtkisp7/ImgPortDef.h"
-#include "platform/mtkisp7/Tuning_Helper.h"
 #include "platform/mtkisp7/eightcc.h"
 #include "platform/mtkisp7/single_device_helper.h"
 
@@ -51,7 +49,6 @@ namespace NSCam {
 namespace NSImgStream {
 
 static int m_DeviceTuningEn = 0;
-static TuningHelper mTuningHelper;
 
 enum IMG_OUTPUT_SEL_ENUM {
 	IMG_OUTPUT_SEL_NONE,
@@ -2775,44 +2772,21 @@ bool DirectLinkTableUpdate(dltb_t *pdlTable,
 	}
 
 	// Handle Metai
-	for (auto const &mIn : frmParams.mvIn) {
+	for (auto const& mIn : frmParams.mvIn) {
 		PortIdx = (IMG_PORT)mIn.mPortIdx;
 		switch (PortIdx) {
-		case IMG_PORT_METAI: {
-			mtk_img_uapi_meta_raw_stats_cfg *pMetaCfg =
-				reinterpret_cast<mtk_img_uapi_meta_raw_stats_cfg *>(
-					mIn.mBuffer->getBufVA(0));
-			if (pMetaCfg != NULL) {
-				if (pMetaCfg->prot.traw_tuning_enable == MTRUE) {
-					traw_tuning_enable = true;
-					if ((pdlTable[HW_TRAW].on == 0) && (pdlTable[HW_LTRAW].on == 0) &&
-					    (pdlTable[HW_XTRAW].on == 0)) {
-						pdlTable[HW_TRAW].on = 1;
-					}
+			case IMG_PORT_METAI:
+				{
+					pdlTable[HW_TRAW].src_fmt = dl_head_fmt;
+					pdlTable[HW_TRAW].src_wd = dl_head_wd;
+					pdlTable[HW_TRAW].src_ht = dl_head_ht;
+					pdlTable[HW_DIP].src_fmt = dl_head_fmt;
+					pdlTable[HW_DIP].src_wd = dl_head_wd;
+					pdlTable[HW_DIP].src_ht = dl_head_ht;
+					break;
 				}
-				if (pMetaCfg->prot.dip_tuning_enable == MTRUE) {
-					pdlTable[HW_DIP].on = 1;
-					dip_tuning_enable = true;
-				}
-				pq_dip_tuning_enable = pMetaCfg->prot.pq_dip_tuning_enable;
-				if ((pMetaCfg->prot.tdshp_p1a_enable == MTRUE) &&
-				    (pMetaCfg->prot.tdshp_p1b_enable == MTRUE)) {
-					tdshp_p1a_enable = true;
-					tdshp_p1b_enable = true;
-				}
-				if ((pMetaCfg->prot.tdshp_p1a_enable == MTRUE) &&
-				    (pMetaCfg->prot.tdshp_p1b_enable == MFALSE)) {
-					tdshp_p1a_enable = true;
-				}
-				if ((pMetaCfg->prot.tdshp_p1a_enable == MFALSE) &&
-				    (pMetaCfg->prot.tdshp_p1b_enable == MTRUE)) {
-					tdshp_p1b_enable = true;
-				}
-			}
-			break;
-		}
-		default:
-			break;
+			default:
+				break;
 		}
 	}
 
