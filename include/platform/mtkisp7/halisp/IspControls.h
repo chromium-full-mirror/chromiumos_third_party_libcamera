@@ -618,7 +618,7 @@ struct IspPerframeControl {
         tnr_tcy_curve{} {
     memset(&color_correction_transform, 0, sizeof(ColorCorrectionTransform));
     memset(&tone_map_curve, 0, sizeof(ToneMapCurve));
-    memset(&rNdd_info, 0, sizeof(rNdd_info));
+    memset(static_cast<void*>(&rNdd_info), 0, sizeof(rNdd_info));
     memset(&rFdInfo, 0, sizeof(CAMERA_TUNING_FD_INFO_T));
     memset(&(obc_ofst[0]), 0, sizeof(int32_t) * 4);
     memset(&ggm_info, 0, sizeof(ggm_info));
@@ -779,7 +779,7 @@ struct IspImgSysControl {
     memset(&tnc_roi, 0, sizeof(tnc_roi));
     memset(&rWrappingInfo, 0, sizeof(WrappingParam));
     memset(&tnr_fw_config, 0, sizeof(TNRFWConfig));
-    memset(&rNdd_info, 0, sizeof(rNdd_info));
+    memset(static_cast<void*>(&rNdd_info), 0, sizeof(rNdd_info));
     memset(&sr_para, 0, sizeof(sr_para));
     memset(&rFdInfo_afterWarp, 0, sizeof(CAMERA_TUNING_FD_INFO_T));
   }
