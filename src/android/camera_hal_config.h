@@ -15,6 +15,7 @@
 struct CameraConfigData {
 	int facing = -1;
 	int rotation = -1;
+	bool mirrored = false;
 };
 
 class CameraHalConfig final : public libcamera::Extensible

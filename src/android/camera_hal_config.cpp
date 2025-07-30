@@ -33,6 +33,7 @@ private:
 	int parseCameraConfigData(const std::string &cameraId, const YamlObject &);
 	int parseLocation(const YamlObject &, CameraConfigData &cameraConfigData);
 	int parseRotation(const YamlObject &, CameraConfigData &cameraConfigData);
+	int parseMirrored(const YamlObject &, CameraConfigData &cameraConfigData);
 
 	std::map<std::string, CameraConfigData> *cameras_;
 };
@@ -106,6 +107,7 @@ int CameraHalConfig::Private::parseCameraConfigData(const std::string &cameraId,
 	if (parseRotation(cameraObject, cameraConfigData))
 		return -EINVAL;
 
+	parseMirrored(cameraObject, cameraConfigData);
 	return 0;
 }
 
@@ -143,6 +145,16 @@ int CameraHalConfig::Private::parseRotation(const YamlObject &cameraObject,
 
 	cameraConfigData.rotation = rotation;
 	return 0;
+}
+
+int CameraHalConfig::Private::parseMirrored(const YamlObject &cameraObject,
+                                           CameraConfigData &cameraConfigData)
+{
+       if (!cameraObject.contains("mirrored"))
+               return -EINVAL;
+
+       cameraConfigData.mirrored = cameraObject["mirrored"].get<bool>(false);
+       return 0;
 }
 
 CameraHalConfig::CameraHalConfig()
