@@ -54,7 +54,7 @@ int HalIsp::init(int32_t sensorIdx, int32_t sensorDev, Hal3A *hal3A)
 	hal3A_ = hal3A;
 
 	// TODO: implement a proper init() for m_P1CamInfo to avoid vtable pointer overwritten.
-	memset(&m_P1CamInfo, 0, sizeof(m_P1CamInfo));
+	memset(static_cast<void*>(&m_P1CamInfo), 0, sizeof(m_P1CamInfo));
 
 	NVRAM_SENSOR_IDX_INFO _sensorIdxInfo;
 
