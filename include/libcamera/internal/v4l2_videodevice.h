@@ -8,7 +8,6 @@
 #pragma once
 
 #include <array>
-#include <atomic>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -158,7 +157,7 @@ private:
 		std::vector<Plane> planes_;
 	};
 
-	std::atomic<uint64_t> lastUsedCounter_;
+	uint64_t lastUsedCounter_;
 	std::vector<Entry> cache_;
 	/* \todo Expose the miss counter through an instrumentation API. */
 	unsigned int missCounter_;
@@ -179,7 +178,7 @@ public:
 	std::array<Plane, 3> planes;
 	unsigned int planesCount = 0;
 
-	const std::string toString() const;
+	std::string toString() const;
 };
 
 std::ostream &operator<<(std::ostream &out, const V4L2DeviceFormat &f);
@@ -208,6 +207,7 @@ public:
 	int setFormat(V4L2DeviceFormat *format);
 	Formats formats(uint32_t code = 0);
 
+	int getSelection(unsigned int target, Rectangle *rect);
 	int setSelection(unsigned int target, Rectangle *rect);
 
 	int allocateBuffers(unsigned int count,

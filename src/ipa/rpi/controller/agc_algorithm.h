@@ -23,15 +23,19 @@ public:
 	virtual std::vector<double> const &getWeights() const = 0;
 	virtual void setEv(unsigned int channel, double ev) = 0;
 	virtual void setFlickerPeriod(libcamera::utils::Duration flickerPeriod) = 0;
-	virtual void setFixedShutter(unsigned int channel,
-				     libcamera::utils::Duration fixedShutter) = 0;
-	virtual void setMaxShutter(libcamera::utils::Duration maxShutter) = 0;
-	virtual void setFixedAnalogueGain(unsigned int channel, double fixedAnalogueGain) = 0;
+	virtual void setFixedExposureTime(unsigned int channel,
+					  libcamera::utils::Duration fixedExposureTime) = 0;
+	virtual void setMaxExposureTime(libcamera::utils::Duration maxExposureTime) = 0;
+	virtual void setFixedGain(unsigned int channel, double fixedGain) = 0;
 	virtual void setMeteringMode(std::string const &meteringModeName) = 0;
 	virtual void setExposureMode(std::string const &exposureModeName) = 0;
 	virtual void setConstraintMode(std::string const &contraintModeName) = 0;
-	virtual void enableAuto() = 0;
-	virtual void disableAuto() = 0;
+	virtual void enableAutoExposure() = 0;
+	virtual void disableAutoExposure() = 0;
+	virtual bool autoExposureEnabled() const = 0;
+	virtual void enableAutoGain() = 0;
+	virtual void disableAutoGain() = 0;
+	virtual bool autoGainEnabled() const = 0;
 	virtual void setActiveChannels(const std::vector<unsigned int> &activeChannels) = 0;
 };
 

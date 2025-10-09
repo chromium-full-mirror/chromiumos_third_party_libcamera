@@ -8,20 +8,25 @@
 #include "libcamera/internal/v4l2_subdevice.h"
 
 #include <fcntl.h>
-#include <iomanip>
-#include <regex>
 #include <sstream>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#pragma GCC diagnostic push
+#if defined __SANITIZE_ADDRESS__ && defined __OPTIMIZE__
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#include <regex>
+#pragma GCC diagnostic pop
+
 #include <linux/media-bus-format.h>
 #include <linux/v4l2-subdev.h>
 
-#include <libcamera/geometry.h>
-
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
+
+#include <libcamera/geometry.h>
 
 #include "libcamera/internal/formats.h"
 #include "libcamera/internal/media_device.h"
@@ -187,6 +192,20 @@ const std::map<uint32_t, MediaBusFormatInfo> mediaBusFormatInfo{
 		.code = MEDIA_BUS_FMT_RGB888_2X12_LE,
 		.type = MediaBusFormatInfo::Type::Image,
 		.bitsPerPixel = 24,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRGB,
+	} },
+	{ MEDIA_BUS_FMT_RGB121212_1X36, {
+		.name = "RGB121212_1X36",
+		.code = MEDIA_BUS_FMT_RGB121212_1X36,
+		.type = MediaBusFormatInfo::Type::Image,
+		.bitsPerPixel = 36,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRGB,
+	} },
+	{ MEDIA_BUS_FMT_RGB202020_1X60, {
+		.name = "RGB202020_1X60",
+		.code = MEDIA_BUS_FMT_RGB202020_1X60,
+		.type = MediaBusFormatInfo::Type::Image,
+		.bitsPerPixel = 60,
 		.colourEncoding = PixelFormatInfo::ColourEncodingRGB,
 	} },
 	{ MEDIA_BUS_FMT_ARGB8888_1X32, {
@@ -679,6 +698,34 @@ const std::map<uint32_t, MediaBusFormatInfo> mediaBusFormatInfo{
 		.bitsPerPixel = 16,
 		.colourEncoding = PixelFormatInfo::ColourEncodingRAW
 	} },
+	{ MEDIA_BUS_FMT_SBGGR20_1X20, {
+		.name = "SBGGR20_1X20",
+		.code = MEDIA_BUS_FMT_SBGGR20_1X20,
+		.type = MediaBusFormatInfo::Type::Image,
+		.bitsPerPixel = 20,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW
+	} },
+	{ MEDIA_BUS_FMT_SGBRG20_1X20, {
+		.name = "SGBRG20_1X20",
+		.code = MEDIA_BUS_FMT_SGBRG20_1X20,
+		.type = MediaBusFormatInfo::Type::Image,
+		.bitsPerPixel = 20,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW
+	} },
+	{ MEDIA_BUS_FMT_SGRBG20_1X20, {
+		.name = "SGRBG20_1X20",
+		.code = MEDIA_BUS_FMT_SGRBG20_1X20,
+		.type = MediaBusFormatInfo::Type::Image,
+		.bitsPerPixel = 20,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW
+	} },
+	{ MEDIA_BUS_FMT_SRGGB20_1X20, {
+		.name = "SRGGB20_1X20",
+		.code = MEDIA_BUS_FMT_SRGGB20_1X20,
+		.type = MediaBusFormatInfo::Type::Image,
+		.bitsPerPixel = 20,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW
+	} },
 	/* \todo Clarify colour encoding for HSV formats */
 	{ MEDIA_BUS_FMT_AHSV8888_1X32, {
 		.name = "AHSV8888_1X32",
@@ -698,6 +745,69 @@ const std::map<uint32_t, MediaBusFormatInfo> mediaBusFormatInfo{
 		.name = "METADATA_FIXED",
 		.code = MEDIA_BUS_FMT_METADATA_FIXED,
 		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 0,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_META_8, {
+		.name = "META_8",
+		.code = MEDIA_BUS_FMT_META_8,
+		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 8,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_META_10, {
+		.name = "META_10",
+		.code = MEDIA_BUS_FMT_META_10,
+		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 10,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_META_12, {
+		.name = "META_12",
+		.code = MEDIA_BUS_FMT_META_12,
+		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 12,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_META_14, {
+		.name = "META_14",
+		.code = MEDIA_BUS_FMT_META_14,
+		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 14,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_META_16, {
+		.name = "META_16",
+		.code = MEDIA_BUS_FMT_META_16,
+		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 16,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_META_20, {
+		.name = "META_20",
+		.code = MEDIA_BUS_FMT_META_20,
+		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 20,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_META_24, {
+		.name = "META_24",
+		.code = MEDIA_BUS_FMT_META_24,
+		.type = MediaBusFormatInfo::Type::Metadata,
+		.bitsPerPixel = 24,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_CCS_EMBEDDED, {
+		.name = "CCS_EMBEDDED",
+		.code = MEDIA_BUS_FMT_CCS_EMBEDDED,
+		.type = MediaBusFormatInfo::Type::EmbeddedData,
+		.bitsPerPixel = 0,
+		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
+	} },
+	{ MEDIA_BUS_FMT_OV2740_EMBEDDED, {
+		.name = "OV2740_EMBEDDED",
+		.code = MEDIA_BUS_FMT_CCS_EMBEDDED,
+		.type = MediaBusFormatInfo::Type::EmbeddedData,
 		.bitsPerPixel = 0,
 		.colourEncoding = PixelFormatInfo::ColourEncodingRAW,
 	} },
@@ -813,7 +923,7 @@ const MediaBusFormatInfo &MediaBusFormatInfo::info(uint32_t code)
  * \brief Assemble and return a string describing the format
  * \return A string describing the V4L2SubdeviceFormat
  */
-const std::string V4L2SubdeviceFormat::toString() const
+std::string V4L2SubdeviceFormat::toString() const
 {
 	std::stringstream ss;
 	ss << *this;
@@ -838,6 +948,8 @@ std::ostream &operator<<(std::ostream &out, const V4L2SubdeviceFormat &f)
 		out << utils::hex(f.code, 4);
 	else
 		out << it->second.name;
+
+	out << "/" << ColorSpace::toString(f.colorSpace);
 
 	return out;
 }

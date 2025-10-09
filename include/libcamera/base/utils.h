@@ -9,17 +9,19 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <iterator>
-#include <memory>
 #include <ostream>
 #include <sstream>
-#include <string>
+#include <stdint.h>
 #include <string.h>
+#include <string>
 #include <sys/time.h>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include <libcamera/base/class.h>
 #include <libcamera/base/private.h>
 
 #ifndef __DOXYGEN__
@@ -90,6 +92,30 @@ template<typename T,
 _hex hex(T value, unsigned int width = 0);
 
 #ifndef __DOXYGEN__
+template<>
+inline _hex hex<int8_t>(int8_t value, unsigned int width)
+{
+	return { static_cast<uint64_t>(value), width ? width : 2 };
+}
+
+template<>
+inline _hex hex<uint8_t>(uint8_t value, unsigned int width)
+{
+	return { static_cast<uint64_t>(value), width ? width : 2 };
+}
+
+template<>
+inline _hex hex<int16_t>(int16_t value, unsigned int width)
+{
+	return { static_cast<uint64_t>(value), width ? width : 4 };
+}
+
+template<>
+inline _hex hex<uint16_t>(uint16_t value, unsigned int width)
+{
+	return { static_cast<uint64_t>(value), width ? width : 4 };
+}
+
 template<>
 inline _hex hex<int32_t>(int32_t value, unsigned int width)
 {
@@ -180,7 +206,16 @@ public:
 
 		iterator &operator++();
 		std::string operator*() const;
-		bool operator!=(const iterator &other) const;
+
+		bool operator==(const iterator &other) const
+		{
+			return pos_ == other.pos_;
+		}
+
+		bool operator!=(const iterator &other) const
+		{
+			return !(*this == other);
+		}
 
 	private:
 		const StringSplitter *ss_;
@@ -188,8 +223,15 @@ public:
 		std::string::size_type next_;
 	};
 
-	iterator begin() const;
-	iterator end() const;
+	iterator begin() const
+	{
+		return { this, 0 };
+	}
+
+	iterator end() const
+	{
+		return { this, std::string::npos };
+	}
 
 private:
 	std::string str_;
@@ -352,6 +394,11 @@ public:
 		return c.count();
 	}
 
+	constexpr Duration operator-() const
+	{
+		return BaseDuration::operator-();
+	}
+
 	explicit constexpr operator bool() const
 	{
 		return *this != BaseDuration::zero();
@@ -374,6 +421,55 @@ constexpr std::underlying_type_t<Enum> to_underlying(Enum e) noexcept
 {
 	return static_cast<std::underlying_type_t<Enum>>(e);
 }
+
+class ScopeExitActions
+{
+public:
+	~ScopeExitActions();
+
+	void operator+=(std::function<void()> &&action);
+	void release();
+
+private:
+	std::vector<std::function<void()>> actions_;
+};
+
+#ifndef __DOXYGEN__
+template<typename EF>
+class scope_exit
+{
+public:
+	template<typename Fn,
+		 std::enable_if_t<!std::is_same_v<std::remove_cv_t<std::remove_reference_t<Fn>>, scope_exit> &&
+				  std::is_constructible_v<EF, Fn>> * = nullptr>
+	explicit scope_exit(Fn &&fn)
+		: exitFunction_(std::forward<Fn>(fn))
+	{
+		static_assert(std::is_nothrow_constructible_v<EF, Fn>);
+	}
+
+	~scope_exit()
+	{
+		if (active_)
+			exitFunction_();
+	}
+
+	void release()
+	{
+		active_ = false;
+	}
+
+private:
+	LIBCAMERA_DISABLE_COPY_AND_MOVE(scope_exit)
+
+	EF exitFunction_;
+	bool active_ = true;
+};
+
+template<typename EF>
+scope_exit(EF) -> scope_exit<EF>;
+
+#endif /* __DOXYGEN__ */
 
 } /* namespace utils */
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Copyright (C) 2023, Linaro Ltd
- * Copyright (C) 2023, Red Hat Inc.
+ * Copyright (C) 2023-2025 Red Hat Inc.
  *
  * Authors:
  * Hans de Goede <hdegoede@redhat.com>
@@ -18,6 +18,7 @@
 #include <libcamera/base/object.h>
 
 #include "libcamera/internal/bayer_format.h"
+#include "libcamera/internal/global_configuration.h"
 
 #include "debayer.h"
 #include "swstats_cpu.h"
@@ -27,16 +28,17 @@ namespace libcamera {
 class DebayerCpu : public Debayer, public Object
 {
 public:
-	DebayerCpu(std::unique_ptr<SwStatsCpu> stats);
+	DebayerCpu(std::unique_ptr<SwStatsCpu> stats, const GlobalConfiguration &configuration);
 	~DebayerCpu();
 
 	int configure(const StreamConfiguration &inputCfg,
-		      const std::vector<std::reference_wrapper<StreamConfiguration>> &outputCfgs);
+		      const std::vector<std::reference_wrapper<StreamConfiguration>> &outputCfgs,
+		      bool ccmEnabled);
 	Size patternSize(PixelFormat inputFormat);
 	std::vector<PixelFormat> formats(PixelFormat input);
 	std::tuple<unsigned int, unsigned int>
 	strideAndFrameSize(const PixelFormat &outputFormat, const Size &size);
-	void process(FrameBuffer *input, FrameBuffer *output, DebayerParams params);
+	void process(uint32_t frame, FrameBuffer *input, FrameBuffer *output, DebayerParams params);
 	SizeRange sizes(PixelFormat inputFormat, const Size &inputSize);
 
 	/**
@@ -85,28 +87,28 @@ private:
 	using debayerFn = void (DebayerCpu::*)(uint8_t *dst, const uint8_t *src[]);
 
 	/* 8-bit raw bayer format */
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer8_BGBG_BGR888(uint8_t *dst, const uint8_t *src[]);
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer8_GRGR_BGR888(uint8_t *dst, const uint8_t *src[]);
 	/* unpacked 10-bit raw bayer format */
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer10_BGBG_BGR888(uint8_t *dst, const uint8_t *src[]);
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer10_GRGR_BGR888(uint8_t *dst, const uint8_t *src[]);
 	/* unpacked 12-bit raw bayer format */
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer12_BGBG_BGR888(uint8_t *dst, const uint8_t *src[]);
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer12_GRGR_BGR888(uint8_t *dst, const uint8_t *src[]);
 	/* CSI-2 packed 10-bit raw bayer format (all the 4 orders) */
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer10P_BGBG_BGR888(uint8_t *dst, const uint8_t *src[]);
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer10P_GRGR_BGR888(uint8_t *dst, const uint8_t *src[]);
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer10P_GBGB_BGR888(uint8_t *dst, const uint8_t *src[]);
-	template<bool addAlphaByte>
+	template<bool addAlphaByte, bool ccmEnabled>
 	void debayer10P_RGRG_BGR888(uint8_t *dst, const uint8_t *src[]);
 
 	struct DebayerInputConfig {
@@ -125,19 +127,25 @@ private:
 	int getInputConfig(PixelFormat inputFormat, DebayerInputConfig &config);
 	int getOutputConfig(PixelFormat outputFormat, DebayerOutputConfig &config);
 	int setupStandardBayerOrder(BayerFormat::Order order);
-	int setDebayerFunctions(PixelFormat inputFormat, PixelFormat outputFormat);
+	int setDebayerFunctions(PixelFormat inputFormat,
+				PixelFormat outputFormat,
+				bool ccmEnabled);
 	void setupInputMemcpy(const uint8_t *linePointers[]);
 	void shiftLinePointers(const uint8_t *linePointers[], const uint8_t *src);
 	void memcpyNextLine(const uint8_t *linePointers[]);
-	void process2(const uint8_t *src, uint8_t *dst);
-	void process4(const uint8_t *src, uint8_t *dst);
+	void process2(uint32_t frame, const uint8_t *src, uint8_t *dst);
+	void process4(uint32_t frame, const uint8_t *src, uint8_t *dst);
 
 	/* Max. supported Bayer pattern height is 4, debayering this requires 5 lines */
 	static constexpr unsigned int kMaxLineBuffers = 5;
 
-	DebayerParams::ColorLookupTable red_;
-	DebayerParams::ColorLookupTable green_;
-	DebayerParams::ColorLookupTable blue_;
+	DebayerParams::LookupTable red_;
+	DebayerParams::LookupTable green_;
+	DebayerParams::LookupTable blue_;
+	DebayerParams::CcmLookupTable redCcm_;
+	DebayerParams::CcmLookupTable greenCcm_;
+	DebayerParams::CcmLookupTable blueCcm_;
+	DebayerParams::LookupTable gammaLut_;
 	debayerFn debayer0_;
 	debayerFn debayer1_;
 	debayerFn debayer2_;
@@ -146,18 +154,17 @@ private:
 	DebayerInputConfig inputConfig_;
 	DebayerOutputConfig outputConfig_;
 	std::unique_ptr<SwStatsCpu> stats_;
-	uint8_t *lineBuffers_[kMaxLineBuffers];
+	std::vector<uint8_t> lineBuffers_[kMaxLineBuffers];
 	unsigned int lineBufferLength_;
 	unsigned int lineBufferPadding_;
 	unsigned int lineBufferIndex_;
 	unsigned int xShift_; /* Offset of 0/1 applied to window_.x */
 	bool enableInputMemcpy_;
 	bool swapRedBlueGains_;
-	unsigned int measuredFrames_;
+	unsigned int encounteredFrames_;
 	int64_t frameProcessTime_;
-	/* Skip 30 frames for things to stabilize then measure 30 frames */
-	static constexpr unsigned int kFramesToSkip = 30;
-	static constexpr unsigned int kLastFrameToMeasure = 60;
+	unsigned int skipBeforeMeasure_ = 30;
+	unsigned int framesToMeasure_ = 30;
 };
 
 } /* namespace libcamera */

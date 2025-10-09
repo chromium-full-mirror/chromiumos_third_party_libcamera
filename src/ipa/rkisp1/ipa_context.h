@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <linux/rkisp1-config.h>
 
 #include <libcamera/base/utils.h>
@@ -16,8 +18,15 @@
 #include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 
+#include <libcamera/ipa/core_ipa_interface.h>
+
+#include "libcamera/internal/debug_controls.h"
+#include "libcamera/internal/matrix.h"
+#include "libcamera/internal/vector.h"
+
+#include <libipa/camera_sensor_helper.h>
 #include <libipa/fc_queue.h>
-#include <libipa/matrix.h>
+#include "libipa/agc_mean_luminance.h"
 
 namespace libcamera {
 
@@ -28,6 +37,8 @@ struct IPAHwSettings {
 	unsigned int numHistogramBins;
 	unsigned int numHistogramWeights;
 	unsigned int numGammaOutSamples;
+	uint32_t supportedBlocks;
+	bool compand;
 };
 
 struct IPASessionConfiguration {
@@ -41,12 +52,16 @@ struct IPASessionConfiguration {
 	} awb;
 
 	struct {
+		bool supported;
+	} compress;
+
+	struct {
 		bool enabled;
 	} lsc;
 
 	struct {
-		utils::Duration minShutterSpeed;
-		utils::Duration maxShutterSpeed;
+		utils::Duration minExposureTime;
+		utils::Duration maxExposureTime;
 		double minAnalogueGain;
 		double maxAnalogueGain;
 
@@ -56,6 +71,7 @@ struct IPASessionConfiguration {
 	} sensor;
 
 	bool raw;
+	uint32_t paramFormat;
 };
 
 struct IPAActiveState {
@@ -67,32 +83,36 @@ struct IPAActiveState {
 		struct {
 			uint32_t exposure;
 			double gain;
+			double quantizationGain;
+			double yTarget;
 		} automatic;
 
-		bool autoEnabled;
+		bool autoExposureEnabled;
+		bool autoGainEnabled;
+		double exposureValue;
 		controls::AeConstraintModeEnum constraintMode;
 		controls::AeExposureModeEnum exposureMode;
 		controls::AeMeteringModeEnum meteringMode;
+		utils::Duration minFrameDuration;
 		utils::Duration maxFrameDuration;
 	} agc;
 
 	struct {
-		struct {
-			struct {
-				double red;
-				double green;
-				double blue;
-			} manual;
-			struct {
-				double red;
-				double green;
-				double blue;
-			} automatic;
-		} gains;
+		struct AwbState {
+			RGB<double> gains;
+			unsigned int temperatureK;
+		};
 
-		unsigned int temperatureK;
+		AwbState manual;
+		AwbState automatic;
+
 		bool autoEnabled;
 	} awb;
+
+	struct {
+		Matrix<float, 3, 3> manual;
+		Matrix<float, 3, 3> automatic;
+	} ccm;
 
 	struct {
 		int8_t brightness;
@@ -112,29 +132,40 @@ struct IPAActiveState {
 	struct {
 		double gamma;
 	} goc;
+
+	struct {
+		controls::WdrModeEnum mode;
+		AgcMeanLuminance::AgcConstraint constraint;
+		double gain;
+		double strength;
+	} wdr;
 };
 
 struct IPAFrameContext : public FrameContext {
 	struct {
 		uint32_t exposure;
 		double gain;
-		bool autoEnabled;
+		double exposureValue;
+		double quantizationGain;
+		uint32_t vblank;
+		double yTarget;
+		bool autoExposureEnabled;
+		bool autoGainEnabled;
 		controls::AeConstraintModeEnum constraintMode;
 		controls::AeExposureModeEnum exposureMode;
 		controls::AeMeteringModeEnum meteringMode;
+		utils::Duration minFrameDuration;
 		utils::Duration maxFrameDuration;
+		utils::Duration frameDuration;
 		bool updateMetering;
+		bool autoExposureModeChange;
+		bool autoGainModeChange;
 	} agc;
 
 	struct {
-		struct {
-			double red;
-			double green;
-			double blue;
-		} gains;
-
-		unsigned int temperatureK;
+		RGB<double> gains;
 		bool autoEnabled;
+		unsigned int temperatureK;
 	} awb;
 
 	struct {
@@ -143,6 +174,11 @@ struct IPAFrameContext : public FrameContext {
 		uint8_t saturation;
 		bool update;
 	} cproc;
+
+	struct {
+		bool enable;
+		double gain;
+	} compress;
 
 	struct {
 		bool denoise;
@@ -168,16 +204,37 @@ struct IPAFrameContext : public FrameContext {
 	struct {
 		Matrix<float, 3, 3> ccm;
 	} ccm;
+
+	struct {
+		double lux;
+	} lux;
+
+	struct {
+		controls::WdrModeEnum mode;
+		double strength;
+		double gain;
+	} wdr;
 };
 
 struct IPAContext {
-	const IPAHwSettings *hw;
+	IPAContext(unsigned int frameContextSize)
+		: frameContexts(frameContextSize)
+	{
+	}
+
+	IPAHwSettings hw;
+	IPACameraSensorInfo sensorInfo;
 	IPASessionConfiguration configuration;
 	IPAActiveState activeState;
 
 	FCQueue<IPAFrameContext> frameContexts;
 
 	ControlInfoMap::Map ctrlMap;
+
+	DebugMetadata debugMetadata;
+
+	/* Interface to the Camera Helper */
+	std::unique_ptr<CameraSensorHelper> camHelper;
 };
 
 } /* namespace ipa::rkisp1 */

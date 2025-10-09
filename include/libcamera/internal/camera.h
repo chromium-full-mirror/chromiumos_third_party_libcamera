@@ -10,7 +10,9 @@
 #include <atomic>
 #include <list>
 #include <memory>
+#include <queue>
 #include <set>
+#include <stdint.h>
 #include <string>
 
 #include <libcamera/base/class.h>
@@ -32,8 +34,10 @@ public:
 	~Private();
 
 	PipelineHandler *pipe() { return pipe_.get(); }
+	const PipelineHandler *pipe() const { return pipe_.get(); }
 
 	std::list<Request *> queuedRequests_;
+	std::queue<Request *> waitingRequests_;
 	ControlInfoMap controlInfo_;
 	ControlList properties_;
 

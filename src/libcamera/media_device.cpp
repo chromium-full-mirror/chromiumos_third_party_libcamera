@@ -13,6 +13,7 @@
 #include <string>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <tuple>
 #include <unistd.h>
 #include <vector>
 
@@ -164,7 +165,7 @@ void MediaDevice::unlock()
 	if (!fd_.isValid())
 		return;
 
-	lockf(fd_.get(), F_ULOCK, 0);
+	std::ignore = lockf(fd_.get(), F_ULOCK, 0);
 }
 
 /**
@@ -793,7 +794,7 @@ void MediaDevice::fixupEntityFlags(struct media_v2_entity *entity)
  * low-level link setup as it performs no checks on the validity of the \a
  * flags, and assumes that the supplied \a flags are valid for the link (e.g.
  * immutable links cannot be disabled).
-*
+ *
  * \sa MediaLink::setEnabled(bool enable)
  *
  * \return 0 on success or a negative error code otherwise
@@ -818,22 +819,36 @@ int MediaDevice::setupLink(const MediaLink *link, unsigned int flags)
 	if (ret) {
 		ret = -errno;
 		LOG(MediaDevice, Error)
-			<< "Failed to setup link "
-			<< source->entity()->name() << "["
-			<< source->index() << "] -> "
-			<< sink->entity()->name() << "["
-			<< sink->index() << "]: "
+			<< "Failed to setup link " << *link << ": "
 			<< strerror(-ret);
 		return ret;
 	}
 
-	LOG(MediaDevice, Debug)
-		<< source->entity()->name() << "["
-		<< source->index() << "] -> "
-		<< sink->entity()->name() << "["
-		<< sink->index() << "]: " << flags;
+	LOG(MediaDevice, Debug) << *link << ": " << flags;
 
 	return 0;
+}
+
+/**
+ * \brief Identify all entities of a common function in the MediaDevice
+ * \param[in] function The entity function to search for
+ *
+ * Search all entities within the graph of the MediaDevice and return
+ * a vector of those which match the given function.
+ *
+ * \return A vector of matching entities
+ */
+std::vector<MediaEntity *> MediaDevice::locateEntities(unsigned int function)
+{
+	std::vector<MediaEntity *> found;
+
+	/* Gather all the entities matching the function they expose. */
+	for (MediaEntity *entity : entities()) {
+		if (entity->function() == function)
+			found.push_back(entity);
+	}
+
+	return found;
 }
 
 } /* namespace libcamera */

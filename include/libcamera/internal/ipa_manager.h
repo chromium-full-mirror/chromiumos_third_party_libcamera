@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <memory>
 #include <stdint.h>
 #include <vector>
 
@@ -15,6 +16,8 @@
 #include <libcamera/ipa/ipa_interface.h>
 #include <libcamera/ipa/ipa_module_info.h>
 
+#include "libcamera/internal/camera_manager.h"
+#include "libcamera/internal/global_configuration.h"
 #include "libcamera/internal/ipa_module.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/pub_key.h"
@@ -26,7 +29,7 @@ LOG_DECLARE_CATEGORY(IPAManager)
 class IPAManager
 {
 public:
-	IPAManager();
+	IPAManager(const GlobalConfiguration &configuration);
 	~IPAManager();
 
 	template<typename T>
@@ -34,11 +37,21 @@ public:
 					    uint32_t minVersion,
 					    uint32_t maxVersion)
 	{
-		IPAModule *m = self_->module(pipe, minVersion, maxVersion);
+		CameraManager *cm = pipe->cameraManager();
+		IPAManager *self = cm->_d()->ipaManager();
+		IPAModule *m = self->module(pipe, minVersion, maxVersion);
 		if (!m)
 			return nullptr;
 
-		std::unique_ptr<T> proxy = std::make_unique<T>(m, !self_->isSignatureValid(m));
+		const GlobalConfiguration &configuration = cm->_d()->configuration();
+
+		auto proxy = [&]() -> std::unique_ptr<T> {
+			if (self->isSignatureValid(m))
+				return std::make_unique<typename T::Threaded>(m, configuration);
+			else
+				return std::make_unique<typename T::Isolated>(m, configuration);
+		}();
+
 		if (!proxy->isValid()) {
 			LOG(IPAManager, Error) << "Failed to load proxy";
 			return nullptr;
@@ -55,8 +68,6 @@ public:
 #endif
 
 private:
-	static IPAManager *self_;
-
 	void parseDir(const char *libDir, unsigned int maxDepth,
 		      std::vector<std::string> &files);
 	unsigned int addDir(const char *libDir, unsigned int maxDepth = 0);
@@ -66,11 +77,12 @@ private:
 
 	bool isSignatureValid(IPAModule *ipa) const;
 
-	std::vector<IPAModule *> modules_;
+	std::vector<std::unique_ptr<IPAModule>> modules_;
 
 #if HAVE_IPA_PUBKEY
 	static const uint8_t publicKeyData_[];
 	static const PubKey pubKey_;
+	bool forceIsolation_;
 #endif
 };
 

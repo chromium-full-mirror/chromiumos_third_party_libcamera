@@ -5,9 +5,12 @@
  * Camera capture session
  */
 
+#include "camera_session.h"
+
 #include <iomanip>
 #include <iostream>
 #include <limits.h>
+#include <optional>
 #include <sstream>
 
 #include <libcamera/control_ids.h>
@@ -16,7 +19,6 @@
 #include "../common/event_loop.h"
 #include "../common/stream_options.h"
 
-#include "camera_session.h"
 #include "capture_script.h"
 #include "file_sink.h"
 #ifdef HAVE_KMS
@@ -60,11 +62,32 @@ CameraSession::CameraSession(CameraManager *cm,
 		return;
 	}
 
-	std::vector<StreamRole> roles = StreamKeyValueParser::roles(options_[OptStream]);
+	std::vector<StreamRole> roles =
+		StreamKeyValueParser::roles(options_[OptStream]);
+	std::vector<std::vector<StreamRole>> tryRoles;
+	if (!roles.empty()) {
+		/*
+		 * If the roles are explicitly specified then there's no need
+		 * to try other roles
+		 */
+		tryRoles.push_back(roles);
+	} else {
+		tryRoles.push_back({ StreamRole::Viewfinder });
+		tryRoles.push_back({ StreamRole::Raw });
+	}
 
-	std::unique_ptr<CameraConfiguration> config =
-		camera_->generateConfiguration(roles);
-	if (!config || config->size() != roles.size()) {
+	std::unique_ptr<CameraConfiguration> config;
+	bool valid = false;
+	for (std::vector<StreamRole> &rolesIt : tryRoles) {
+		config = camera_->generateConfiguration(rolesIt);
+		if (config && config->size() == rolesIt.size()) {
+			roles = rolesIt;
+			valid = true;
+			break;
+		}
+	}
+
+	if (!valid) {
 		std::cerr << "Failed to get default stream configuration"
 			  << std::endl;
 		return;
@@ -159,8 +182,51 @@ CameraSession::~CameraSession()
 void CameraSession::listControls() const
 {
 	for (const auto &[id, info] : camera_->controls()) {
-		std::cout << "Control: " << id->name() << ": "
-			  << info.toString() << std::endl;
+		std::stringstream io;
+		io << "["
+		   << (id->isInput() ? "in" : "  ")
+		   << (id->isOutput() ? "out" : "   ")
+		   << "] ";
+
+		if (info.values().empty()) {
+			std::cout << "Control: " << io.str()
+				  << id->vendor() << "::" << id->name() << ": "
+				  << info.toString() << std::endl;
+		} else {
+			std::cout << "Control: " << io.str()
+				  << id->vendor() << "::" << id->name() << ":"
+				  << std::endl;
+
+			std::optional<int32_t> def;
+			if (!info.def().isNone())
+				def = info.def().get<int32_t>();
+
+			for (const auto &value : info.values()) {
+				int32_t val = value.get<int32_t>();
+				const auto &it = id->enumerators().find(val);
+
+				std::cout << "  - ";
+				if (it == id->enumerators().end())
+					std::cout << "UNKNOWN";
+				else
+					std::cout << it->second;
+
+				std::cout << " (" << val << ")"
+					  << (val == def ? " [default]" : "")
+					  << std::endl;
+			}
+		}
+
+		if (id->isArray()) {
+			std::size_t size = id->size();
+
+			std::cout << "   Size: ";
+			if (size == std::numeric_limits<std::size_t>::max())
+				std::cout << "n";
+			else
+				std::cout << std::to_string(size);
+			std::cout << std::endl;
+		}
 	}
 }
 
@@ -170,7 +236,17 @@ void CameraSession::listProperties() const
 		const ControlId *id = properties::properties.at(key);
 
 		std::cout << "Property: " << id->name() << " = "
-			  << value.toString() << std::endl;
+			  << value.toString();
+
+		if (!id->enumerators().empty()) {
+			int32_t val = value.get<int32_t>();
+			const auto &iter = id->enumerators().find(val);
+
+			if (iter != id->enumerators().end())
+				std::cout << " (" << iter->second << ")";
+		}
+
+		std::cout << std::endl;
 	}
 }
 
@@ -230,11 +306,16 @@ int CameraSession::start()
 #endif
 
 	if (options_.isSet(OptFile)) {
-		if (!options_[OptFile].toString().empty())
-			sink_ = std::make_unique<FileSink>(camera_.get(), streamNames_,
-							   options_[OptFile]);
-		else
-			sink_ = std::make_unique<FileSink>(camera_.get(), streamNames_);
+		std::unique_ptr<FileSink> sink =
+			std::make_unique<FileSink>(camera_.get(), streamNames_);
+
+		if (!options_[OptFile].toString().empty()) {
+			ret = sink->setFilePattern(options_[OptFile]);
+			if (ret)
+				return ret;
+		}
+
+		sink_ = std::move(sink);
 	}
 
 	if (sink_) {

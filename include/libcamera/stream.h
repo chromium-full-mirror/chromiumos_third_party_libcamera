@@ -8,7 +8,6 @@
 #pragma once
 
 #include <map>
-#include <memory>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -61,6 +60,8 @@ private:
 	Stream *stream_;
 	StreamFormats formats_;
 };
+
+std::ostream &operator<<(std::ostream &out, const StreamConfiguration &cfg);
 
 enum class StreamRole {
 	Raw,

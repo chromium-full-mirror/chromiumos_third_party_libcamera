@@ -36,11 +36,6 @@ namespace RPiController {
  * exposure time, and to convert between the sensor's gain codes and actual
  * gains.
  *
- * A function to return the number of frames of delay between updating exposure,
- * analogue gain and vblanking, and for the changes to take effect. For many
- * sensors these take the values 2, 1 and 2 respectively, but sensors that are
- * different will need to over-ride the default function provided.
- *
  * A function to query if the sensor outputs embedded data that can be parsed.
  *
  * A function to return the sensitivity of a given camera mode.
@@ -76,6 +71,7 @@ public:
 	CamHelper(std::unique_ptr<MdParser> parser, unsigned int frameIntegrationDiff);
 	virtual ~CamHelper();
 	void setCameraMode(const CameraMode &mode);
+	void setHwConfig(const Controller::HardwareConfig &hwConfig);
 	virtual void prepare(libcamera::Span<const uint8_t> buffer,
 			     Metadata &metadata);
 	virtual void process(StatisticsPtr &stats, Metadata &metadata);
@@ -91,8 +87,6 @@ public:
 	libcamera::utils::Duration lineLengthPckToDuration(uint32_t lineLengthPck) const;
 	virtual uint32_t gainCode(double gain) const = 0;
 	virtual double gain(uint32_t gainCode) const = 0;
-	virtual void getDelays(int &exposureDelay, int &gainDelay,
-			       int &vblankDelay, int &hblankDelay) const;
 	virtual bool sensorEmbeddedDataPresent() const;
 	virtual double getModeSensitivity(const CameraMode &mode) const;
 	virtual unsigned int hideFramesStartup() const;
@@ -108,6 +102,7 @@ protected:
 
 	std::unique_ptr<MdParser> parser_;
 	CameraMode mode_;
+	Controller::HardwareConfig hwConfig_;
 
 private:
 	/*

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 project('libcamera', 'c', 'cpp',
-    meson_version : '>= 0.60',
-    version : '0.3.0',
+    meson_version : '>= 1.0.1',
+    version : '0.5.2',
     default_options : [
         'werror=true',
         'warning_level=2',
@@ -74,6 +74,10 @@ cc = meson.get_compiler('c')
 cxx = meson.get_compiler('cpp')
 config_h = configuration_data()
 
+if cc.has_header_symbol('unistd.h', 'close_range', prefix : '#define _GNU_SOURCE')
+    config_h.set('HAVE_CLOSE_RANGE', 1)
+endif
+
 if cc.has_header_symbol('fcntl.h', 'F_ADD_SEALS', prefix : '#define _GNU_SOURCE')
     config_h.set('HAVE_FILE_SEALS', 1)
 endif
@@ -90,6 +94,15 @@ if cc.has_header_symbol('sys/mman.h', 'memfd_create', prefix : '#define _GNU_SOU
     config_h.set('HAVE_MEMFD_CREATE', 1)
 endif
 
+ioctl_posix_test = '''
+#include <sys/ioctl.h>
+int ioctl (int, int, ...);
+'''
+
+if cc.compiles(ioctl_posix_test)
+    config_h.set('HAVE_POSIX_IOCTL', 1)
+endif
+
 if cc.has_header_symbol('stdlib.h', 'secure_getenv', prefix : '#define _GNU_SOURCE')
     config_h.set('HAVE_SECURE_GETENV', 1)
 endif
@@ -101,7 +114,11 @@ common_arguments = [
 ]
 
 c_arguments = []
-cpp_arguments = []
+cpp_arguments = [
+    '-Wnon-virtual-dtor',
+]
+
+cxx_stdlib = 'libstdc++'
 
 if cc.get_id() == 'clang'
     if cc.version().version_compare('<9')
@@ -128,6 +145,7 @@ if cc.get_id() == 'clang'
         cpp_arguments += [
             '-stdlib=libc++',
         ]
+        cxx_stdlib = 'libc++'
     endif
 
     cpp_arguments += [
@@ -137,16 +155,8 @@ if cc.get_id() == 'clang'
 endif
 
 if cc.get_id() == 'gcc'
-    if cc.version().version_compare('<8')
-        error('gcc version is too old, libcamera requires 8.0 or newer')
-    endif
-
-    # On gcc 8, the file system library is provided in a separate static
-    # library.
     if cc.version().version_compare('<9')
-        cpp_arguments += [
-            '-lstdc++fs',
-        ]
+        error('gcc version is too old, libcamera requires 9.0 or newer')
     endif
 
     # gcc 13 implements the C++23 version of automatic move from local
@@ -200,7 +210,7 @@ liblttng = dependency('lttng-ust', required : get_option('tracing'))
 
 # Pipeline handlers
 #
-pipelines = get_option('pipelines')
+wanted_pipelines = get_option('pipelines')
 
 arch_arm = ['arm', 'aarch64']
 arch_x86 = ['x86', 'x86_64']
@@ -209,22 +219,26 @@ pipelines_support = {
     'ipu3':         arch_x86,
     'mali-c55':     arch_arm,
     'rkisp1':       arch_arm,
+    'rpi/pisp':     arch_arm,
     'rpi/vc4':      arch_arm,
-    'simple':       arch_arm,
+    'simple':       ['any'],
     'uvcvideo':     ['any'],
     'vimc':         ['test'],
+    'virtual':      ['test'],
 }
 
-if pipelines.contains('all')
+if wanted_pipelines.contains('all')
     pipelines = pipelines_support.keys()
-elif pipelines.contains('auto')
+elif wanted_pipelines.contains('auto')
     host_cpu = host_machine.cpu_family()
     pipelines = []
     foreach pipeline, archs : pipelines_support
-        if host_cpu in archs or 'any' in archs
+        if pipeline in wanted_pipelines or host_cpu in archs or 'any' in archs
             pipelines += pipeline
         endif
     endforeach
+else
+    pipelines = wanted_pipelines
 endif
 
 # Tests require the vimc pipeline handler, include it automatically when tests
@@ -251,7 +265,7 @@ subdir('Documentation')
 subdir('test')
 
 if not meson.is_cross_build()
-    kernel_version_req = '>= 5.0.0'
+    kernel_version_req = '>= 5.4.0'
     kernel_version = run_command('uname', '-r', check : true).stdout().strip()
     if not kernel_version.version_compare(kernel_version_req)
         warning('The current running kernel version @0@ is too old to run libcamera.'
@@ -269,16 +283,21 @@ run_command('ln', '-fsT', meson.project_source_root(), meson.project_build_root(
 
 configure_file(output : 'config.h', configuration : config_h)
 
-# Check for python installation and modules.
-py_mod = import('python')
-py_mod.find_installation('python3', modules : py_modules)
+# Check for python modules.
+foreach module : py_modules
+    result = run_command('python3', '-c' , 'import @0@'.format(module),
+                         capture : false, check : false)
+    if result.returncode() != 0
+        error('Python module \'@0@\' not found'.format(module))
+    endif
+endforeach
 
 ## Summarise Configurations
 summary({
             'Enabled pipelines': pipelines,
             'Enabled IPA modules': enabled_ipa_names,
-            'Controls files': controls_files,
-            'Properties files': properties_files,
+            'Controls files': controls_files_names,
+            'Properties files': properties_files_names,
             'Hotplug support': libudev.found(),
             'Tracing support': tracing_enabled,
             'Android support': android_enabled,

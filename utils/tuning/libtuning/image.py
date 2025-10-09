@@ -13,6 +13,9 @@ import re
 
 import libtuning as lt
 import libtuning.utils as utils
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Image:
@@ -21,17 +24,18 @@ class Image:
         self.lsc_only = False
         self.color = -1
         self.lux = -1
+        self.macbeth = None
 
         try:
             self._load_metadata_exif()
         except Exception as e:
-            utils.eprint(f'Failed to load metadata from {self.path}: {e}')
+            logger.error(f'Failed to load metadata from {self.path}: {e}')
             raise e
 
         try:
             self._read_image_dng()
         except Exception as e:
-            utils.eprint(f'Failed to load image data from {self.path}: {e}')
+            logger.error(f'Failed to load image data from {self.path}: {e}')
             raise e
 
     @property
@@ -131,6 +135,6 @@ class Image:
 
             all_patches.append(ch_patches)
 
-        self.patches = all_patches
+        self.patches = np.array(all_patches)
 
         return not saturated

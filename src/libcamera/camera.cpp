@@ -9,19 +9,24 @@
 
 #include <array>
 #include <atomic>
-#include <iomanip>
+#include <ios>
+#include <memory>
+#include <optional>
+#include <set>
+#include <sstream>
 
 #include <libcamera/base/log.h>
 #include <libcamera/base/thread.h>
 
 #include <libcamera/color_space.h>
+#include <libcamera/control_ids.h>
 #include <libcamera/framebuffer_allocator.h>
+#include <libcamera/property_ids.h>
 #include <libcamera/request.h>
 #include <libcamera/stream.h>
 
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/camera_controls.h"
-#include "libcamera/internal/formats.h"
 #include "libcamera/internal/pipeline_handler.h"
 #include "libcamera/internal/request.h"
 
@@ -115,6 +120,12 @@
  * on the crop rectangle and the output stream size. The crop rectangle is
  * expressed relatively to the full pixel array size and indicates how the field
  * of view is affected by the pipeline.
+ */
+
+/**
+ * \internal
+ * \file libcamera/internal/camera.h
+ * \brief Internal camera device handling
  */
 
 namespace libcamera {
@@ -327,7 +338,7 @@ void CameraConfiguration::addConfiguration(const StreamConfiguration &cfg)
  * \retval CameraConfiguration::Invalid The configuration is invalid and can't
  * be adjusted. This may only occur in extreme cases such as when the
  * configuration is empty.
- * \retval CameraConfigutation::Adjusted The configuration has been adjusted
+ * \retval CameraConfiguration::Adjusted The configuration has been adjusted
  * and is now valid. Parameters may have changed for any stream, and stream
  * configurations may have been removed. The caller shall check the
  * configuration carefully.
@@ -477,7 +488,7 @@ std::size_t CameraConfiguration::size() const
  *
  * \return A CameraConfiguration::Status value that describes the validation
  * status.
- * \retval CameraConfigutation::Adjusted The configuration has been adjusted
+ * \retval CameraConfiguration::Adjusted The configuration has been adjusted
  * and is now valid. The color space of some or all of the streams may have
  * been changed. The caller shall check the color spaces carefully.
  * \retval CameraConfiguration::Valid The configuration was already valid and
@@ -559,6 +570,7 @@ CameraConfiguration::Status CameraConfiguration::validateColorSpaces(ColorSpaceF
  * \brief The vector of stream configurations
  */
 
+#ifndef __DOXYGEN_PUBLIC__
 /**
  * \class Camera::Private
  * \brief Base class for camera private data
@@ -576,7 +588,8 @@ CameraConfiguration::Status CameraConfiguration::validateColorSpaces(ColorSpaceF
  * \param[in] pipe The pipeline handler responsible for the camera device
  */
 Camera::Private::Private(PipelineHandler *pipe)
-	: requestSequence_(0), pipe_(pipe->shared_from_this()),
+	: controlInfo_({}, controls::controls), properties_(properties::properties),
+	  requestSequence_(0), pipe_(pipe->shared_from_this()),
 	  disconnected_(false), state_(CameraAvailable)
 {
 }
@@ -594,6 +607,11 @@ Camera::Private::~Private()
  */
 
 /**
+ * \fn Camera::Private::pipe() const
+ * \copydoc Camera::Private::pipe()
+ */
+
+/**
  * \fn Camera::Private::validator()
  * \brief Retrieve the control validator related to this camera
  * \return The control validator associated with this camera
@@ -608,6 +626,15 @@ Camera::Private::~Private()
  *
  * \sa PipelineHandler::queueRequest(), PipelineHandler::stop(),
  * PipelineHandler::completeRequest()
+ */
+
+/**
+ * \var Camera::Private::waitingRequests_
+ * \brief The queue of waiting requests
+ *
+ * This queue tracks all requests that can not yet be queued to the device.
+ * Either because they are not yet prepared or because the maximum number of
+ * queued requests was reached.
  */
 
 /**
@@ -719,6 +746,7 @@ void Camera::Private::setState(State state)
 {
 	state_.store(state, std::memory_order_release);
 }
+#endif /* __DOXYGEN_PUBLIC__ */
 
 /**
  * \class Camera
@@ -813,6 +841,7 @@ void Camera::Private::setState(State state)
  */
 
 /**
+ * \internal
  * \brief Create a camera instance
  * \param[in] d Camera private data
  * \param[in] id The ID of the camera device
@@ -986,7 +1015,8 @@ int Camera::acquire()
 	if (ret < 0)
 		return ret == -EACCES ? -EBUSY : ret;
 
-	if (!d->pipe_->acquire()) {
+	if (!d->pipe_->invokeMethod(&PipelineHandler::acquire,
+				    ConnectionTypeBlocking, this)) {
 		LOG(Camera, Info)
 			<< "Pipeline handler in use by another process";
 		return -EBUSY;
@@ -1021,7 +1051,8 @@ int Camera::release()
 		return ret == -EACCES ? -EBUSY : ret;
 
 	if (d->isAcquired())
-		d->pipe_->release(this);
+		d->pipe_->invokeMethod(&PipelineHandler::release,
+				       ConnectionTypeBlocking, this);
 
 	d->setState(Private::CameraAvailable);
 
@@ -1100,7 +1131,8 @@ std::unique_ptr<CameraConfiguration> Camera::generateConfiguration(Span<const St
 		return nullptr;
 
 	std::unique_ptr<CameraConfiguration> config =
-		d->pipe_->generateConfiguration(this, roles);
+		d->pipe_->invokeMethod(&PipelineHandler::generateConfiguration,
+				       ConnectionTypeBlocking, this, roles);
 	if (!config) {
 		LOG(Camera, Debug)
 			<< "Pipeline handler failed to generate configuration";
@@ -1164,8 +1196,8 @@ int Camera::configure(CameraConfiguration *config)
 	if (ret < 0)
 		return ret;
 
-	for (auto it : *config)
-		it.setStream(nullptr);
+	for (auto &cfg : *config)
+		cfg.setStream(nullptr);
 
 	if (config->validate() != CameraConfiguration::Valid) {
 		LOG(Camera, Error)
@@ -1245,6 +1277,33 @@ std::unique_ptr<Request> Camera::createRequest(uint64_t cookie)
 }
 
 /**
+ * \brief Patch a control list that contains the AeEnable control
+ * \param[inout] controls The control list to be patched
+ *
+ * The control list is patched in place, turning the AeEnable control into
+ * the equivalent ExposureTimeMode/AnalogueGainMode controls.
+ */
+void Camera::patchControlList(ControlList &controls)
+{
+	const auto &aeEnable = controls.get(controls::AeEnable);
+	if (aeEnable) {
+		if (_d()->controlInfo_.count(controls::AnalogueGainMode.id()) &&
+		    !controls.contains(controls::AnalogueGainMode.id())) {
+			controls.set(controls::AnalogueGainMode,
+				     *aeEnable ? controls::AnalogueGainModeAuto
+					       : controls::AnalogueGainModeManual);
+		}
+
+		if (_d()->controlInfo_.count(controls::ExposureTimeMode.id()) &&
+		    !controls.contains(controls::ExposureTimeMode.id())) {
+			controls.set(controls::ExposureTimeMode,
+				     *aeEnable ? controls::ExposureTimeModeAuto
+					       : controls::ExposureTimeModeManual);
+		}
+	}
+}
+
+/**
  * \brief Queue a request to the camera
  * \param[in] request The request to queue to the camera
  *
@@ -1306,6 +1365,9 @@ int Camera::queueRequest(Request *request)
 		}
 	}
 
+	/* Pre-process AeEnable. */
+	patchControlList(request->controls());
+
 	d->pipe_->invokeMethod(&PipelineHandler::queueRequest,
 			       ConnectionTypeQueued, request);
 
@@ -1342,8 +1404,16 @@ int Camera::start(const ControlList *controls)
 
 	ASSERT(d->requestSequence_ == 0);
 
-	ret = d->pipe_->invokeMethod(&PipelineHandler::start,
-				     ConnectionTypeBlocking, this, controls);
+	if (controls) {
+		ControlList copy(*controls);
+		patchControlList(copy);
+		ret = d->pipe_->invokeMethod(&PipelineHandler::start,
+					     ConnectionTypeBlocking, this, &copy);
+	} else {
+		ret = d->pipe_->invokeMethod(&PipelineHandler::start,
+					     ConnectionTypeBlocking, this, nullptr);
+	}
+
 	if (ret)
 		return ret;
 

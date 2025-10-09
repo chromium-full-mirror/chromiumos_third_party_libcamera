@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <assert.h>
 #include <limits>
 #include <memory>
 #include <stdint.h>
@@ -27,6 +26,7 @@ struct FrameMetadata {
 		FrameSuccess,
 		FrameError,
 		FrameCancelled,
+		FrameStartup,
 	};
 
 	struct Plane {
@@ -58,11 +58,11 @@ public:
 		unsigned int length;
 	};
 
-	FrameBuffer(const std::vector<Plane> &planes, unsigned int cookie = 0);
+	FrameBuffer(Span<const Plane> planes, unsigned int cookie = 0);
 	FrameBuffer(std::unique_ptr<Private> d);
 	virtual ~FrameBuffer() {}
 
-	const std::vector<Plane> &planes() const;
+	Span<const Plane> planes() const;
 	Request *request() const;
 	const FrameMetadata &metadata() const;
 

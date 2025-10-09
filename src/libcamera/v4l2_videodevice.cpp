@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <array>
 #include <fcntl.h>
-#include <iomanip>
 #include <sstream>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -191,7 +190,7 @@ V4L2BufferCache::V4L2BufferCache(const std::vector<std::unique_ptr<FrameBuffer>>
 {
 	for (const std::unique_ptr<FrameBuffer> &buffer : buffers)
 		cache_.emplace_back(true,
-				    lastUsedCounter_.fetch_add(1, std::memory_order_acq_rel),
+				    lastUsedCounter_++,
 				    *buffer.get());
 }
 
@@ -259,7 +258,7 @@ int V4L2BufferCache::get(const FrameBuffer &buffer)
 		return -ENOENT;
 
 	cache_[use] = Entry(false,
-			    lastUsedCounter_.fetch_add(1, std::memory_order_acq_rel),
+			    lastUsedCounter_++,
 			    buffer);
 
 	return use;
@@ -289,7 +288,7 @@ V4L2BufferCache::Entry::Entry(bool free, uint64_t lastUsed, const FrameBuffer &b
 
 bool V4L2BufferCache::Entry::operator==(const FrameBuffer &buffer) const
 {
-	const std::vector<FrameBuffer::Plane> &planes = buffer.planes();
+	Span<const FrameBuffer::Plane> planes = buffer.planes();
 
 	if (planes_.size() != planes.size())
 		return false;
@@ -430,7 +429,7 @@ bool V4L2BufferCache::Entry::operator==(const FrameBuffer &buffer) const
  * \brief Assemble and return a string describing the format
  * \return A string describing the V4L2DeviceFormat
  */
-const std::string V4L2DeviceFormat::toString() const
+std::string V4L2DeviceFormat::toString() const
 {
 	std::stringstream ss;
 	ss << *this;
@@ -447,7 +446,8 @@ const std::string V4L2DeviceFormat::toString() const
  */
 std::ostream &operator<<(std::ostream &out, const V4L2DeviceFormat &f)
 {
-	out << f.size << "-" << f.fourcc;
+	out << f.size << "-" << f.fourcc << "/"
+	    << ColorSpace::toString(f.colorSpace);
 	return out;
 }
 
@@ -803,12 +803,19 @@ std::string V4L2VideoDevice::logPrefix() const
  */
 int V4L2VideoDevice::getFormat(V4L2DeviceFormat *format)
 {
-	if (caps_.isMeta())
-		return getFormatMeta(format);
-	else if (caps_.isMultiplanar())
-		return getFormatMultiplane(format);
-	else
+	switch (bufferType_) {
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		return getFormatSingleplane(format);
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		return getFormatMultiplane(format);
+	case V4L2_BUF_TYPE_META_CAPTURE:
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		return getFormatMeta(format);
+	default:
+		return -EINVAL;
+	}
 }
 
 /**
@@ -823,12 +830,19 @@ int V4L2VideoDevice::getFormat(V4L2DeviceFormat *format)
  */
 int V4L2VideoDevice::tryFormat(V4L2DeviceFormat *format)
 {
-	if (caps_.isMeta())
-		return trySetFormatMeta(format, false);
-	else if (caps_.isMultiplanar())
-		return trySetFormatMultiplane(format, false);
-	else
+	switch (bufferType_) {
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		return trySetFormatSingleplane(format, false);
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		return trySetFormatMultiplane(format, false);
+	case V4L2_BUF_TYPE_META_CAPTURE:
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		return trySetFormatMeta(format, false);
+	default:
+		return -EINVAL;
+	}
 }
 
 /**
@@ -842,13 +856,25 @@ int V4L2VideoDevice::tryFormat(V4L2DeviceFormat *format)
  */
 int V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)
 {
-	int ret = 0;
-	if (caps_.isMeta())
-		ret = trySetFormatMeta(format, true);
-	else if (caps_.isMultiplanar())
-		ret = trySetFormatMultiplane(format, true);
-	else
+	int ret;
+
+	switch (bufferType_) {
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		ret = trySetFormatSingleplane(format, true);
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		ret = trySetFormatMultiplane(format, true);
+		break;
+	case V4L2_BUF_TYPE_META_CAPTURE:
+	case V4L2_BUF_TYPE_META_OUTPUT:
+		ret = trySetFormatMeta(format, true);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
 
 	/* Cache the set format on success. */
 	if (ret)
@@ -863,7 +889,7 @@ int V4L2VideoDevice::setFormat(V4L2DeviceFormat *format)
 int V4L2VideoDevice::getFormatMeta(V4L2DeviceFormat *format)
 {
 	struct v4l2_format v4l2Format = {};
-	struct v4l2_meta_format *pix = &v4l2Format.fmt.meta;
+	struct v4l2_meta_format *meta = &v4l2Format.fmt.meta;
 	int ret;
 
 	v4l2Format.type = bufferType_;
@@ -873,25 +899,42 @@ int V4L2VideoDevice::getFormatMeta(V4L2DeviceFormat *format)
 		return ret;
 	}
 
-	format->size.width = 0;
-	format->size.height = 0;
-	format->fourcc = V4L2PixelFormat(pix->dataformat);
+	format->fourcc = V4L2PixelFormat(meta->dataformat);
+	format->planes[0].size = meta->buffersize;
 	format->planesCount = 1;
-	format->planes[0].bpl = pix->buffersize;
-	format->planes[0].size = pix->buffersize;
+
+	bool genericLineBased = caps_.isMetaCapture() &&
+				format->fourcc.isGenericLineBasedMetadata();
+
+	if (genericLineBased) {
+		format->size.width = meta->width;
+		format->size.height = meta->height;
+		format->planes[0].bpl = meta->bytesperline;
+	} else {
+		format->size.width = 0;
+		format->size.height = 0;
+		format->planes[0].bpl = meta->buffersize;
+	}
 
 	return 0;
 }
 
 int V4L2VideoDevice::trySetFormatMeta(V4L2DeviceFormat *format, bool set)
 {
+	bool genericLineBased = caps_.isMetaCapture() &&
+				format->fourcc.isGenericLineBasedMetadata();
 	struct v4l2_format v4l2Format = {};
-	struct v4l2_meta_format *pix = &v4l2Format.fmt.meta;
+	struct v4l2_meta_format *meta = &v4l2Format.fmt.meta;
 	int ret;
 
 	v4l2Format.type = bufferType_;
-	pix->dataformat = format->fourcc;
-	pix->buffersize = format->planes[0].size;
+	meta->dataformat = format->fourcc;
+	meta->buffersize = format->planes[0].size;
+	if (genericLineBased) {
+		meta->width = format->size.width;
+		meta->height = format->size.height;
+		meta->bytesperline = format->planes[0].bpl;
+	}
 	ret = ioctl(set ? VIDIOC_S_FMT : VIDIOC_TRY_FMT, &v4l2Format);
 	if (ret) {
 		LOG(V4L2, Error)
@@ -904,12 +947,18 @@ int V4L2VideoDevice::trySetFormatMeta(V4L2DeviceFormat *format, bool set)
 	 * Return to caller the format actually applied on the video device,
 	 * which might differ from the requested one.
 	 */
-	format->size.width = 0;
-	format->size.height = 0;
-	format->fourcc = V4L2PixelFormat(pix->dataformat);
+	format->fourcc = V4L2PixelFormat(meta->dataformat);
 	format->planesCount = 1;
-	format->planes[0].bpl = pix->buffersize;
-	format->planes[0].size = pix->buffersize;
+	format->planes[0].size = meta->buffersize;
+	if (genericLineBased) {
+		format->size.width = meta->width;
+		format->size.height = meta->height;
+		format->planes[0].bpl = meta->bytesperline;
+	} else {
+		format->size.width = 0;
+		format->size.height = 0;
+		format->planes[0].bpl = meta->buffersize;
+	}
 
 	return 0;
 }
@@ -1190,6 +1239,38 @@ std::vector<SizeRange> V4L2VideoDevice::enumSizes(V4L2PixelFormat pixelFormat)
 }
 
 /**
+ * \brief Get the selection rectangle for \a target
+ * \param[in] target The selection target defined by the V4L2_SEL_TGT_* flags
+ * \param[out] rect The selection rectangle to retrieve
+ *
+ * \todo Define a V4L2SelectionTarget enum for the selection target
+ *
+ * \return 0 on success or a negative error code otherwise
+ */
+int V4L2VideoDevice::getSelection(unsigned int target, Rectangle *rect)
+{
+	struct v4l2_selection sel = {};
+
+	sel.type = bufferType_;
+	sel.target = target;
+	sel.flags = 0;
+
+	int ret = ioctl(VIDIOC_G_SELECTION, &sel);
+	if (ret < 0) {
+		LOG(V4L2, Error) << "Unable to get rectangle " << target
+				 << ": " << strerror(-ret);
+		return ret;
+	}
+
+	rect->x = sel.r.left;
+	rect->y = sel.r.top;
+	rect->width = sel.r.width;
+	rect->height = sel.r.height;
+
+	return 0;
+}
+
+/**
  * \brief Set a selection rectangle \a rect for \a target
  * \param[in] target The selection target defined by the V4L2_SEL_TGT_* flags
  * \param[inout] rect The selection rectangle to be applied
@@ -1246,7 +1327,8 @@ int V4L2VideoDevice::requestBuffers(unsigned int count,
 
 	if (rb.count < count) {
 		LOG(V4L2, Error)
-			<< "Not enough buffers provided by V4L2VideoDevice";
+			<< "Not enough buffers provided by V4L2VideoDevice. Wanted "
+			<< count << ", got " << rb.count;
 		requestBuffers(0, memoryType);
 		return -ENOMEM;
 	}
@@ -1586,13 +1668,15 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer)
 	if (ret < 0)
 		return ret;
 
+	auto guard = utils::scope_exit{ [&]() { cache_->put(buf.index); } };
+
 	buf.index = ret;
 	buf.type = bufferType_;
 	buf.memory = memoryType_;
 	buf.field = V4L2_FIELD_NONE;
 
 	bool multiPlanar = V4L2_TYPE_IS_MULTIPLANAR(buf.type);
-	const std::vector<FrameBuffer::Plane> &planes = buffer->planes();
+	Span<const FrameBuffer::Plane> planes = buffer->planes();
 	const unsigned int numV4l2Planes = format_.planesCount;
 
 	/*
@@ -1708,6 +1792,7 @@ int V4L2VideoDevice::queueBuffer(FrameBuffer *buffer)
 
 	queuedBuffers_[buf.index] = buffer;
 
+	guard.release();
 	return 0;
 }
 
@@ -1815,7 +1900,7 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 	 * Detect kernel drivers which do not reset the sequence number to zero
 	 * on stream start.
 	 */
-	if (!firstFrame_) {
+	if (!firstFrame_.has_value()) {
 		if (buf.sequence)
 			LOG(V4L2, Info)
 				<< "Zero sequence expected for first frame (got "
@@ -1824,9 +1909,10 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 	}
 	metadata.sequence -= firstFrame_.value();
 
+	Span<const FrameBuffer::Plane> framebufferPlanes = buffer->planes();
 	unsigned int numV4l2Planes = multiPlanar ? buf.length : 1;
 
-	if (numV4l2Planes != buffer->planes().size()) {
+	if (numV4l2Planes != framebufferPlanes.size()) {
 		/*
 		 * If we have a multi-planar buffer with a V4L2
 		 * single-planar format, split the V4L2 buffer across
@@ -1836,7 +1922,7 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 		if (numV4l2Planes != 1) {
 			LOG(V4L2, Error)
 				<< "Invalid number of planes (" << numV4l2Planes
-				<< " != " << buffer->planes().size() << ")";
+				<< " != " << framebufferPlanes.size() << ")";
 
 			metadata.status = FrameMetadata::FrameError;
 			return buffer;
@@ -1853,12 +1939,12 @@ FrameBuffer *V4L2VideoDevice::dequeueBuffer()
 				       : buf.bytesused;
 		unsigned int remaining = bytesused;
 
-		for (auto [i, plane] : utils::enumerate(buffer->planes())) {
+		for (auto [i, plane] : utils::enumerate(framebufferPlanes)) {
 			if (!remaining) {
 				LOG(V4L2, Error)
 					<< "Dequeued buffer (" << bytesused
 					<< " bytes) too small for plane lengths "
-					<< utils::join(buffer->planes(), "/",
+					<< utils::join(framebufferPlanes, "/",
 						       [](const FrameBuffer::Plane &p) {
 							       return p.length;
 						       });
@@ -1950,10 +2036,9 @@ int V4L2VideoDevice::streamOff()
 	/* Send back all queued buffers. */
 	for (auto it : queuedBuffers_) {
 		FrameBuffer *buffer = it.second;
-		FrameMetadata &metadata = buffer->_d()->metadata();
 
 		cache_->put(it.first);
-		metadata.status = FrameMetadata::FrameCancelled;
+		buffer->_d()->cancel();
 		bufferReady.emit(buffer);
 	}
 
@@ -2067,15 +2152,24 @@ V4L2PixelFormat V4L2VideoDevice::toV4L2PixelFormat(const PixelFormat &pixelForma
  * \class V4L2M2MDevice
  * \brief Memory-to-Memory video device
  *
+ * Memory to Memory devices in the kernel using the V4L2 M2M API can
+ * operate with multiple contexts for parallel operations on a single
+ * device. Each instance of a V4L2M2MDevice represents a single context.
+ *
  * The V4L2M2MDevice manages two V4L2VideoDevice instances on the same
  * deviceNode which operate together using two queues to implement the V4L2
  * Memory to Memory API.
  *
- * The two devices should be opened by calling open() on the V4L2M2MDevice, and
- * can be closed by calling close on the V4L2M2MDevice.
+ * Users of this class should create a new instance of the V4L2M2MDevice for
+ * each desired execution context and then open it by calling open() on the
+ * V4L2M2MDevice and close it by calling close() on the V4L2M2MDevice.
  *
  * Calling V4L2VideoDevice::open() and V4L2VideoDevice::close() on the capture
  * or output V4L2VideoDevice is not permitted.
+ *
+ * Once the M2M device is open, users can operate on the output and capture
+ * queues represented by the V4L2VideoDevice returned by the output() and
+ * capture() functions.
  */
 
 /**

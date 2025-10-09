@@ -67,6 +67,14 @@ namespace libcamera::ipa::rkisp1 {
  */
 
 /**
+ * \var IPASessionConfiguration::compress
+ * \brief Compress parameters configuration of the IPA
+ *
+ * \var IPASessionConfiguration::agc.supported
+ * \brief true if compression is supported and the algorithm is loaded
+ */
+
+/**
  * \var IPASessionConfiguration::lsc
  * \brief Lens Shading Correction configuration of the IPA
  *
@@ -78,11 +86,11 @@ namespace libcamera::ipa::rkisp1 {
  * \var IPASessionConfiguration::sensor
  * \brief Sensor-specific configuration of the IPA
  *
- * \var IPASessionConfiguration::sensor.minShutterSpeed
- * \brief Minimum shutter speed supported with the sensor
+ * \var IPASessionConfiguration::sensor.minExposureTime
+ * \brief Minimum exposure time supported with the sensor
  *
- * \var IPASessionConfiguration::sensor.maxShutterSpeed
- * \brief Maximum shutter speed supported with the sensor
+ * \var IPASessionConfiguration::sensor.maxExposureTime
+ * \brief Maximum exposure time supported with the sensor
  *
  * \var IPASessionConfiguration::sensor.minAnalogueGain
  * \brief Minimum analogue gain supported with the sensor
@@ -103,6 +111,11 @@ namespace libcamera::ipa::rkisp1 {
 /**
  * \var IPASessionConfiguration::raw
  * \brief Indicates if the camera is configured to capture raw frames
+ */
+
+/**
+ * \var IPASessionConfiguration::paramFormat
+ * \brief The fourcc of the parameters buffers format
  */
 
 /**
@@ -160,8 +173,11 @@ namespace libcamera::ipa::rkisp1 {
  * \var IPAActiveState::agc.automatic.gain
  * \brief Automatic analogue gain multiplier
  *
- * \var IPAActiveState::agc.autoEnabled
- * \brief Manual/automatic AGC state as set by the AeEnable control
+ * \var IPAActiveState::agc.autoExposureEnabled
+ * \brief Manual/automatic AGC state (exposure) as set by the ExposureTimeMode control
+ *
+ * \var IPAActiveState::agc.autoGainEnabled
+ * \brief Manual/automatic AGC state (gain) as set by the AnalogueGainMode control
  *
  * \var IPAActiveState::agc.constraintMode
  * \brief Constraint mode as set by the AeConstraintMode control
@@ -172,6 +188,9 @@ namespace libcamera::ipa::rkisp1 {
  * \var IPAActiveState::agc.meteringMode
  * \brief Metering mode as set by the AeMeteringMode control
  *
+ * \var IPAActiveState::agc.minFrameDuration
+ * \brief Minimum frame duration as set by the FrameDurationLimits control
+ *
  * \var IPAActiveState::agc.maxFrameDuration
  * \brief Maximum frame duration as set by the FrameDurationLimits control
  */
@@ -180,38 +199,34 @@ namespace libcamera::ipa::rkisp1 {
  * \var IPAActiveState::awb
  * \brief State for the Automatic White Balance algorithm
  *
- * \struct IPAActiveState::awb.gains
+ * \struct IPAActiveState::awb::AwbState
+ * \brief Struct for the AWB regulation state
+ *
+ * \var IPAActiveState::awb::AwbState.gains
  * \brief White balance gains
  *
- * \struct IPAActiveState::awb.gains.manual
- * \brief Manual white balance gains (set through requests)
+ * \var IPAActiveState::awb::AwbState.temperatureK
+ * \brief Color temperature
  *
- * \var IPAActiveState::awb.gains.manual.red
- * \brief Manual white balance gain for R channel
+ * \var IPAActiveState::awb.manual
+ * \brief Manual regulation state (set through requests)
  *
- * \var IPAActiveState::awb.gains.manual.green
- * \brief Manual white balance gain for G channel
- *
- * \var IPAActiveState::awb.gains.manual.blue
- * \brief Manual white balance gain for B channel
- *
- * \struct IPAActiveState::awb.gains.automatic
- * \brief Automatic white balance gains (computed by the algorithm)
- *
- * \var IPAActiveState::awb.gains.automatic.red
- * \brief Automatic white balance gain for R channel
- *
- * \var IPAActiveState::awb.gains.automatic.green
- * \brief Automatic white balance gain for G channel
- *
- * \var IPAActiveState::awb.gains.automatic.blue
- * \brief Automatic white balance gain for B channel
- *
- * \var IPAActiveState::awb.temperatureK
- * \brief Estimated color temperature
+ * \var IPAActiveState::awb.automatic
+ * \brief Automatic regulation state (computed by the algorithm)
  *
  * \var IPAActiveState::awb.autoEnabled
  * \brief Whether the Auto White Balance algorithm is enabled
+ */
+
+/**
+ * \var IPAActiveState::ccm
+ * \brief State for the Colour Correction Matrix algorithm
+ *
+ * \var IPAActiveState::ccm.manual
+ * \brief Manual CCM (set through requests)
+ *
+ * \var IPAActiveState::awb.automatic
+ * \brief Automatic CCM (computed by the algorithm)
  */
 
 /**
@@ -292,7 +307,9 @@ namespace libcamera::ipa::rkisp1 {
  * \brief Automatic Gain Control parameters for this frame
  *
  * The exposure and gain are provided by the AGC algorithm, and are to be
- * applied to the sensor in order to take effect for this frame.
+ * applied to the sensor in order to take effect for this frame. Additionally
+ * the vertical blanking period is determined to maintain a consistent frame
+ * rate matched to the FrameDurationLimits as set by the user.
  *
  * \var IPAFrameContext::agc.exposure
  * \brief Exposure time expressed as a number of lines computed by the algorithm
@@ -302,8 +319,14 @@ namespace libcamera::ipa::rkisp1 {
  *
  * The gain should be adapted to the sensor specific gain code before applying.
  *
- * \var IPAFrameContext::agc.autoEnabled
- * \brief Manual/automatic AGC state as set by the AeEnable control
+ * \var IPAFrameContext::agc.vblank
+ * \brief Vertical blanking parameter computed by the algorithm
+ *
+ * \var IPAFrameContext::agc.autoExposureEnabled
+ * \brief Manual/automatic AGC state (exposure) as set by the ExposureTimeMode control
+ *
+ * \var IPAFrameContext::agc.autoGainEnabled
+ * \brief Manual/automatic AGC state (gain) as set by the AnalogueGainMode control
  *
  * \var IPAFrameContext::agc.constraintMode
  * \brief Constraint mode as set by the AeConstraintMode control
@@ -314,11 +337,27 @@ namespace libcamera::ipa::rkisp1 {
  * \var IPAFrameContext::agc.meteringMode
  * \brief Metering mode as set by the AeMeteringMode control
  *
+ * \var IPAFrameContext::agc.minFrameDuration
+ * \brief Minimum frame duration as set by the FrameDurationLimits control
+ *
  * \var IPAFrameContext::agc.maxFrameDuration
  * \brief Maximum frame duration as set by the FrameDurationLimits control
  *
+ * \var IPAFrameContext::agc.frameDuration
+ * \brief The actual FrameDuration used by the algorithm for the frame
+ *
  * \var IPAFrameContext::agc.updateMetering
  * \brief Indicate if new ISP AGC metering parameters need to be applied
+ *
+ * \var IPAFrameContext::agc.autoExposureModeChange
+ * \brief Indicate if autoExposureEnabled has changed from true in the previous
+ * frame to false in the current frame, and no manual exposure value has been
+ * supplied in the current frame.
+ *
+ * \var IPAFrameContext::agc.autoGainModeChange
+ * \brief Indicate if autoGainEnabled has changed from true in the previous
+ * frame to false in the current frame, and no manual gain value has been
+ * supplied in the current frame.
  */
 
 /**
@@ -328,20 +367,33 @@ namespace libcamera::ipa::rkisp1 {
  * \struct IPAFrameContext::awb.gains
  * \brief White balance gains
  *
- * \var IPAFrameContext::awb.gains.red
- * \brief White balance gain for R channel
- *
- * \var IPAFrameContext::awb.gains.green
- * \brief White balance gain for G channel
- *
- * \var IPAFrameContext::awb.gains.blue
- * \brief White balance gain for B channel
- *
  * \var IPAFrameContext::awb.temperatureK
- * \brief Estimated color temperature
+ * \brief Color temperature used for processing this frame
+ *
+ * This does not match the color temperature estimated for this frame as the
+ * measurements were taken on a previous frame.
  *
  * \var IPAFrameContext::awb.autoEnabled
  * \brief Whether the Auto White Balance algorithm is enabled
+ */
+
+/**
+ * \var IPAFrameContext::ccm
+ * \brief Colour Correction Matrix parameters for this frame
+ *
+ * \struct IPAFrameContext::ccm.ccm
+ * \brief Colour Correction Matrix
+ */
+
+/**
+ * \var IPAFrameContext::compress
+ * \brief Compress parameters for this frame
+ *
+ * \struct IPAFrameContext::compress.enable
+ * \brief True if compression is enabled
+ *
+ * \var IPAFrameContext::compress.gain
+ * \brief The gain applied with the compression curve
  */
 
 /**
@@ -418,6 +470,9 @@ namespace libcamera::ipa::rkisp1 {
  *
  * \var IPAContext::hw
  * \brief RkISP1 version-specific hardware parameters
+ *
+ * \var IPAContext::sensorInfo
+ * \brief The IPA session sensorInfo, immutable during the session
  *
  * \var IPAContext::configuration
  * \brief The IPA session configuration, immutable during the session

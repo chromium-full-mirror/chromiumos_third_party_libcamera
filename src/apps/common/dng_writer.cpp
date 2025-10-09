@@ -8,8 +8,10 @@
 #include "dng_writer.h"
 
 #include <algorithm>
+#include <endian.h>
 #include <iostream>
 #include <map>
+#include <vector>
 
 #include <tiffio.h>
 
@@ -138,29 +140,29 @@ void packScanlineRaw8(void *output, const void *input, unsigned int width)
 
 void packScanlineRaw10(void *output, const void *input, unsigned int width)
 {
-	const uint16_t *in = static_cast<const uint16_t *>(input);
+	const uint8_t *in = static_cast<const uint8_t *>(input);
 	uint8_t *out = static_cast<uint8_t *>(output);
 
 	for (unsigned int i = 0; i < width; i += 4) {
-		*out++ = (in[0] & 0x3fc) >> 2;
-		*out++ = (in[0] & 0x003) << 6 | (in[1] & 0x3f0) >> 4;
-		*out++ = (in[1] & 0x00f) << 4 | (in[2] & 0x3c0) >> 6;
-		*out++ = (in[2] & 0x03f) << 2 | (in[3] & 0x300) >> 8;
-		*out++ = (in[3] & 0x0ff);
-		in += 4;
+		*out++ = in[1] << 6 | in[0] >> 2;
+		*out++ = in[0] << 6 | (in[3] & 0x03) << 4 | in[2] >> 4;
+		*out++ = in[2] << 4 | (in[5] & 0x03) << 2 | in[4] >> 6;
+		*out++ = in[4] << 2 | (in[7] & 0x03) << 0;
+		*out++ = in[6];
+		in += 8;
 	}
 }
 
 void packScanlineRaw12(void *output, const void *input, unsigned int width)
 {
-	const uint16_t *in = static_cast<const uint16_t *>(input);
+	const uint8_t *in = static_cast<const uint8_t *>(input);
 	uint8_t *out = static_cast<uint8_t *>(output);
 
 	for (unsigned int i = 0; i < width; i += 2) {
-		*out++ = (in[0] & 0xff0) >> 4;
-		*out++ = (in[0] & 0x00f) << 4 | (in[1] & 0xf00) >> 8;
-		*out++ = (in[1] & 0x0ff);
-		in += 2;
+		*out++ = in[1] << 4 | in[0] >> 4;
+		*out++ = in[0] << 4 | (in[3] & 0x0f);
+		*out++ = in[2];
+		in += 4;
 	}
 }
 
@@ -185,7 +187,8 @@ void thumbScanlineRaw(const FormatInfo &info, void *output, const void *input,
 
 	/* Simple averaging that produces greyscale RGB values. */
 	for (unsigned int x = 0; x < width; x++) {
-		uint16_t value = (in[0] + in[1] + in2[0] + in2[1]) >> 2;
+		uint16_t value = (le16toh(in[0]) + le16toh(in[1]) +
+				  le16toh(in2[0]) + le16toh(in2[1])) >> 2;
 		value = value >> shift;
 		*out++ = value;
 		*out++ = value;
@@ -542,7 +545,7 @@ int DNGWriter::write(const char *filename, const Camera *camera,
 	 * or a thumbnail scanline. The latter will always be much smaller than
 	 * the former as we downscale by 16 in both directions.
 	 */
-	uint8_t scanline[(config.size.width * info->bitsPerSample + 7) / 8];
+	std::vector<uint8_t> scanline((config.size.width * info->bitsPerSample + 7) / 8);
 
 	toff_t rawIFDOffset = 0;
 	toff_t exifIFDOffset = 0;
@@ -642,10 +645,10 @@ int DNGWriter::write(const char *filename, const Camera *camera,
 	/* Write the thumbnail. */
 	const uint8_t *row = static_cast<const uint8_t *>(data);
 	for (unsigned int y = 0; y < config.size.height / 16; y++) {
-		info->thumbScanline(*info, &scanline, row,
+		info->thumbScanline(*info, scanline.data(), row,
 				    config.size.width / 16, config.stride);
 
-		if (TIFFWriteScanline(tif, &scanline, y, 0) != 1) {
+		if (TIFFWriteScanline(tif, scanline.data(), y, 0) != 1) {
 			std::cerr << "Failed to write thumbnail scanline"
 				  << std::endl;
 			TIFFClose(tif);
@@ -745,9 +748,9 @@ int DNGWriter::write(const char *filename, const Camera *camera,
 	/* Write RAW content. */
 	row = static_cast<const uint8_t *>(data);
 	for (unsigned int y = 0; y < config.size.height; y++) {
-		info->packScanline(&scanline, row, config.size.width);
+		info->packScanline(scanline.data(), row, config.size.width);
 
-		if (TIFFWriteScanline(tif, &scanline, y, 0) != 1) {
+		if (TIFFWriteScanline(tif, scanline.data(), y, 0) != 1) {
 			std::cerr << "Failed to write RAW scanline"
 				  << std::endl;
 			TIFFClose(tif);

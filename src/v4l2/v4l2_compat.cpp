@@ -8,7 +8,6 @@
 #include "v4l2_compat_manager.h"
 
 #include <assert.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
@@ -154,7 +153,11 @@ LIBCAMERA_PUBLIC int munmap(void *addr, size_t length)
 	return V4L2CompatManager::instance()->munmap(addr, length);
 }
 
+#if HAVE_POSIX_IOCTL
+LIBCAMERA_PUBLIC int ioctl(int fd, int request, ...)
+#else
 LIBCAMERA_PUBLIC int ioctl(int fd, unsigned long request, ...)
+#endif
 {
 	void *arg;
 	extract_va_arg(void *, arg, request);

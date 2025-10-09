@@ -20,6 +20,7 @@
 #include "libcamera/internal/bayer_format.h"
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/camera_sensor.h"
+#include "libcamera/internal/clock_recovery.h"
 #include "libcamera/internal/framebuffer.h"
 #include "libcamera/internal/media_device.h"
 #include "libcamera/internal/media_object.h"
@@ -48,8 +49,7 @@ class CameraData : public Camera::Private
 public:
 	CameraData(PipelineHandler *pipe)
 		: Camera::Private(pipe), state_(State::Stopped),
-		  dropFrameCount_(0), buffersAllocated_(false),
-		  ispOutputCount_(0), ispOutputTotal_(0)
+		  startupFrameCount_(0), invalidFrameCount_(0), buffersAllocated_(false)
 	{
 	}
 
@@ -68,7 +68,7 @@ public:
 	void freeBuffers();
 	virtual void platformFreeBuffers() = 0;
 
-	void enumerateVideoDevices(MediaLink *link, const std::string &frontend);
+	bool enumerateVideoDevices(MediaLink *link, const std::string &frontend);
 
 	int loadPipelineConfiguration();
 	int loadIPA(ipa::RPi::InitResult *result);
@@ -83,7 +83,7 @@ public:
 
 	Rectangle scaleIspCrop(const Rectangle &ispCrop) const;
 	void applyScalerCrop(const ControlList &controls);
-	virtual void platformSetIspCrop() = 0;
+	virtual void platformSetIspCrop(unsigned int index, const Rectangle &ispCrop) = 0;
 
 	void cameraTimeout();
 	void frameStarted(uint32_t sequence);
@@ -133,11 +133,26 @@ public:
 
 	/* For handling digital zoom. */
 	IPACameraSensorInfo sensorInfo_;
-	Rectangle ispCrop_; /* crop in ISP (camera mode) pixels */
-	Rectangle scalerCrop_; /* crop in sensor native pixels */
-	Size ispMinCropSize_;
 
-	unsigned int dropFrameCount_;
+	struct CropParams {
+		CropParams(Rectangle ispCrop_, Size ispMinCropSize_, unsigned int ispIndex_)
+			: ispCrop(ispCrop_), ispMinCropSize(ispMinCropSize_), ispIndex(ispIndex_)
+		{
+		}
+
+		/* Crop in ISP (camera mode) pixels */
+		Rectangle ispCrop;
+		/* Minimum crop size in ISP output pixels */
+		Size ispMinCropSize;
+		/* Index of the ISP output channel for this crop */
+		unsigned int ispIndex;
+	};
+
+	/* Mapping of CropParams keyed by the output stream order in CameraConfiguration */
+	std::map<unsigned int, CropParams> cropParams_;
+
+	unsigned int startupFrameCount_;
+	unsigned int invalidFrameCount_;
 
 	/*
 	 * If set, this stores the value that represets a gain of one for
@@ -150,11 +165,6 @@ public:
 
 	struct Config {
 		/*
-		 * Override any request from the IPA to drop a number of startup
-		 * frames.
-		 */
-		bool disableStartupFrameDrops;
-		/*
 		 * Override the camera timeout value calculated by the IPA based
 		 * on frame durations.
 		 */
@@ -163,14 +173,13 @@ public:
 
 	Config config_;
 
+	ClockRecovery wallClockRecovery_;
+
 protected:
 	void fillRequestMetadata(const ControlList &bufferControls,
 				 Request *request);
 
 	virtual void tryRunPipeline() = 0;
-
-	unsigned int ispOutputCount_;
-	unsigned int ispOutputTotal_;
 
 private:
 	void checkRequestCompleted();

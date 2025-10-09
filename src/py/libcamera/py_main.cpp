@@ -7,6 +7,7 @@
 
 #include "py_main.h"
 
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -371,7 +372,13 @@ PYBIND11_MODULE(_libcamera, m)
 		.def(py::init<std::vector<FrameBuffer::Plane>, unsigned int>(),
 		     py::arg("planes"), py::arg("cookie") = 0)
 		.def_property_readonly("metadata", &FrameBuffer::metadata, py::return_value_policy::reference_internal)
-		.def_property_readonly("planes", &FrameBuffer::planes)
+		.def_property_readonly("planes", [](const FrameBuffer &self) {
+			/* Convert from Span<> to std::vector<> */
+			/* Note: this creates copies */
+			auto planes = self.planes();
+			std::vector<FrameBuffer::Plane> v(planes.begin(), planes.end());
+			return v;
+		})
 		.def_property("cookie", &FrameBuffer::cookie, &FrameBuffer::setCookie);
 
 	pyFrameBufferPlane
@@ -399,12 +406,26 @@ PYBIND11_MODULE(_libcamera, m)
 	pyControlId
 		.def_property_readonly("id", &ControlId::id)
 		.def_property_readonly("name", &ControlId::name)
+		.def_property_readonly("vendor", &ControlId::vendor)
 		.def_property_readonly("type", &ControlId::type)
+		.def_property_readonly("isArray", &ControlId::isArray)
+		.def_property_readonly("size", &ControlId::size)
 		.def("__str__", [](const ControlId &self) { return self.name(); })
 		.def("__repr__", [](const ControlId &self) {
-			return py::str("libcamera.ControlId({}, {}, {})")
-				.format(self.id(), self.name(), self.type());
-		});
+			std::string sizeStr = "";
+			if (self.isArray()) {
+				sizeStr = "[";
+				size_t size = self.size();
+				if (size == std::numeric_limits<size_t>::max())
+					sizeStr += "n";
+				else
+					sizeStr += std::to_string(size);
+				sizeStr += "]";
+			}
+			return py::str("libcamera.ControlId({}, {}.{}{}, {})")
+				.format(self.id(), self.vendor(), self.name(), sizeStr, self.type());
+		})
+		.def("enumerators", &ControlId::enumerators);
 
 	pyControlInfo
 		.def_property_readonly("min", [](const ControlInfo &self) {
@@ -480,7 +501,8 @@ PYBIND11_MODULE(_libcamera, m)
 		.def_property_readonly("planes", [](const FrameMetadata &self) {
 			/* Convert from Span<> to std::vector<> */
 			/* Note: this creates a copy */
-			std::vector<FrameMetadata::Plane> v(self.planes().begin(), self.planes().end());
+			auto planes = self.planes();
+			std::vector<FrameMetadata::Plane> v(planes.begin(), planes.end());
 			return v;
 		});
 

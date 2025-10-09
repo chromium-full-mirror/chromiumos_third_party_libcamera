@@ -15,7 +15,6 @@
 #include <libcamera/geometry.h>
 
 #include "libipa/agc_mean_luminance.h"
-#include "libipa/histogram.h"
 
 #include "algorithm.h"
 
@@ -37,7 +36,7 @@ public:
 			  const ControlList &controls) override;
 	void prepare(IPAContext &context, const uint32_t frame,
 		     IPAFrameContext &frameContext,
-		     rkisp1_params_cfg *params) override;
+		     RkISP1Params *params) override;
 	void process(IPAContext &context, const uint32_t frame,
 		     IPAFrameContext &frameContext,
 		     const rkisp1_stat_buffer *stats,
@@ -51,8 +50,12 @@ private:
 	void fillMetadata(IPAContext &context, IPAFrameContext &frameContext,
 			  ControlList &metadata);
 	double estimateLuminance(double gain) const override;
+	void processFrameDuration(IPAContext &context,
+				  IPAFrameContext &frameContext,
+				  utils::Duration frameDuration);
 
 	Span<const uint8_t> expMeans_;
+	Span<const uint8_t> weights_;
 
 	std::map<int32_t, std::vector<uint8_t>> meteringModes_;
 };

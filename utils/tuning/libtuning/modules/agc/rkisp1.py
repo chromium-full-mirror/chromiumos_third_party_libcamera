@@ -47,9 +47,9 @@ class AGCRkISP1(AGC):
         }
 
     def _generate_exposure_modes(self) -> dict:
-        normal = {'shutter': [100, 10000, 30000, 60000, 120000],
+        normal = {'exposureTime': [100, 10000, 30000, 60000, 120000],
                   'gain': [2.0, 4.0, 6.0, 6.0, 6.0]}
-        short = {'shutter': [100, 5000, 10000, 20000, 120000],
+        short = {'exposureTime': [100, 5000, 10000, 20000, 120000],
                  'gain': [2.0, 4.0, 6.0, 6.0, 6.0]}
 
         return {'ExposureNormal': normal, 'ExposureShort': short}
@@ -64,7 +64,7 @@ class AGCRkISP1(AGC):
         return {'ConstraintNormal': normal, 'ConstraintHighlight': highlight}
 
     def _generate_y_target(self) -> list:
-        return 0.16
+        return 0.5
 
     def process(self, config: dict, images: list, outputs: dict) -> dict:
         output = {}

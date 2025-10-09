@@ -139,6 +139,8 @@ const std::map<V4L2PixelFormat, V4L2PixelFormat::Info> vpf2pf{
 		{ formats::R10_CSI2P, "10-bit Greyscale Packed" } },
 	{ V4L2PixelFormat(V4L2_PIX_FMT_Y12),
 		{ formats::R12, "12-bit Greyscale" } },
+	{ V4L2PixelFormat(V4L2_PIX_FMT_Y12P),
+		{ formats::R12_CSI2P, "12-bit Greyscale Packed" } },
 	{ V4L2PixelFormat(V4L2_PIX_FMT_Y16),
 		{ formats::R16, "16-bit Greyscale" } },
 
@@ -368,6 +370,40 @@ V4L2PixelFormat::fromPixelFormat(const PixelFormat &pixelFormat)
 		return empty;
 
 	return info.v4l2Formats;
+}
+
+/**
+ * \brief Test if a V4L2PixelFormat is one of the line based generic metadata
+ * formats
+ *
+ * A limited number of metadata formats, the ones that represents generic
+ * line-based metadata buffers, need to have their width, height and
+ * bytesperline set by userspace.
+ *
+ * This function tests if the current V4L2PixelFormat is one of those.
+ *
+ * Note: It would have been nicer to store this information in a
+ * V4L2PixelFormat::Info instance, but as metadata format are not exposed to
+ * applications, there are no PixelFormat and DRM fourcc codes associated to
+ * them.
+ *
+ * \return True if the V4L2PixelFormat() is a generic line based format, false
+ * otherwise
+ */
+bool V4L2PixelFormat::isGenericLineBasedMetadata() const
+{
+	switch (fourcc_) {
+	case V4L2_META_FMT_GENERIC_8:
+	case V4L2_META_FMT_GENERIC_CSI2_10:
+	case V4L2_META_FMT_GENERIC_CSI2_12:
+	case V4L2_META_FMT_GENERIC_CSI2_14:
+	case V4L2_META_FMT_GENERIC_CSI2_16:
+	case V4L2_META_FMT_GENERIC_CSI2_20:
+	case V4L2_META_FMT_GENERIC_CSI2_24:
+		return true;
+	default:
+		return false;
+	}
 }
 
 /**

@@ -105,7 +105,7 @@ CameraConfiguration::Status RPiCameraConfiguration::validateColorSpaces([[maybe_
 	Status status = Valid;
 	yuvColorSpace_.reset();
 
-	for (auto cfg : config_) {
+	for (auto &cfg : config_) {
 		/* First fix up raw streams to have the "raw" colour space. */
 		if (PipelineHandlerBase::isRaw(cfg.pixelFormat)) {
 			/* If there was no value here, that doesn't count as "adjusted". */
@@ -130,7 +130,7 @@ CameraConfiguration::Status RPiCameraConfiguration::validateColorSpaces([[maybe_
 	rgbColorSpace_->range = ColorSpace::Range::Full;
 
 	/* Go through the streams again and force everyone to the same colour space. */
-	for (auto cfg : config_) {
+	for (auto &cfg : config_) {
 		if (cfg.colorSpace == ColorSpace::Raw)
 			continue;
 
@@ -181,12 +181,14 @@ CameraConfiguration::Status RPiCameraConfiguration::validate()
 
 	rawStreams_.clear();
 	outStreams_.clear();
+	unsigned int rawStreamIndex = 0;
+	unsigned int outStreamIndex = 0;
 
-	for (const auto &[index, cfg] : utils::enumerate(config_)) {
+	for (auto &cfg : config_) {
 		if (PipelineHandlerBase::isRaw(cfg.pixelFormat))
-			rawStreams_.emplace_back(index, &cfg);
+			rawStreams_.emplace_back(rawStreamIndex++, &cfg);
 		else
-			outStreams_.emplace_back(index, &cfg);
+			outStreams_.emplace_back(outStreamIndex++, &cfg);
 	}
 
 	/* Sort the streams so the highest resolution is first. */
@@ -533,6 +535,7 @@ int PipelineHandlerBase::configure(Camera *camera, CameraConfiguration *config)
 	 * Platform specific internal stream configuration. This also assigns
 	 * external streams which get configured below.
 	 */
+	data->cropParams_.clear();
 	ret = data->platformConfigure(rpiConfig);
 	if (ret)
 		return ret;
@@ -543,12 +546,6 @@ int PipelineHandlerBase::configure(Camera *camera, CameraConfiguration *config)
 		LOG(RPI, Error) << "Failed to configure the IPA: " << ret;
 		return ret;
 	}
-
-	/*
-	 * Set the scaler crop to the value we are using (scaled to native sensor
-	 * coordinates).
-	 */
-	data->scalerCrop_ = data->scaleIspCrop(data->ispCrop_);
 
 	/*
 	 * Update the ScalerCropMaximum to the correct value for this camera mode.
@@ -567,9 +564,28 @@ int PipelineHandlerBase::configure(Camera *camera, CameraConfiguration *config)
 	for (auto const &c : result.controlInfo)
 		ctrlMap.emplace(c.first, c.second);
 
-	/* Add the ScalerCrop control limits based on the current mode. */
-	Rectangle ispMinCrop = data->scaleIspCrop(Rectangle(data->ispMinCropSize_));
-	ctrlMap[&controls::ScalerCrop] = ControlInfo(ispMinCrop, data->sensorInfo_.analogCrop, data->scalerCrop_);
+	const auto cropParamsIt = data->cropParams_.find(0);
+	if (cropParamsIt != data->cropParams_.end()) {
+		const CameraData::CropParams &cropParams = cropParamsIt->second;
+		/*
+		 * Add the ScalerCrop control limits based on the current mode and
+		 * the first configured stream.
+		 */
+		Rectangle ispMinCrop = data->scaleIspCrop(Rectangle(cropParams.ispMinCropSize));
+		ctrlMap[&controls::ScalerCrop] = ControlInfo(ispMinCrop, data->sensorInfo_.analogCrop,
+							     data->scaleIspCrop(cropParams.ispCrop));
+		if (data->cropParams_.size() == 2) {
+			/*
+			 * The control map for rpi::ScalerCrops has the min value
+			 * as the default crop for stream 0, max value as the default
+			 * value for stream 1.
+			 */
+			ctrlMap[&controls::rpi::ScalerCrops] =
+				ControlInfo(data->scaleIspCrop(data->cropParams_.at(0).ispCrop),
+					    data->scaleIspCrop(data->cropParams_.at(1).ispCrop),
+					    ctrlMap[&controls::ScalerCrop].def());
+		}
+	}
 
 	data->controlInfo_ = ControlInfoMap(std::move(ctrlMap), result.controlInfo.idmap());
 
@@ -643,9 +659,9 @@ int PipelineHandlerBase::start(Camera *camera, const ControlList *controls)
 	if (!result.controls.empty())
 		data->setSensorControls(result.controls);
 
-	/* Configure the number of dropped frames required on startup. */
-	data->dropFrameCount_ = data->config_.disableStartupFrameDrops
-			      ? 0 : result.dropFrameCount;
+	/* Configure the number of startup and invalid frames reported by the IPA. */
+	data->startupFrameCount_ = result.startupFrameCount;
+	data->invalidFrameCount_ = result.invalidFrameCount;
 
 	for (auto const stream : data->streams_)
 		stream->resetBuffers();
@@ -662,13 +678,15 @@ int PipelineHandlerBase::start(Camera *camera, const ControlList *controls)
 		data->buffersAllocated_ = true;
 	}
 
-	/* We need to set the dropFrameCount_ before queueing buffers. */
 	ret = queueAllBuffers(camera);
 	if (ret) {
 		LOG(RPI, Error) << "Failed to queue buffers";
 		stop(camera);
 		return ret;
 	}
+
+	/* A good moment to add an initial clock sample. */
+	data->wallClockRecovery_.addSample();
 
 	/*
 	 * Reset the delayed controls with the gain and exposure values set by
@@ -774,11 +792,8 @@ int PipelineHandlerBase::registerCamera(std::unique_ptr<RPi::CameraData> &camera
 	CameraData *data = cameraData.get();
 	int ret;
 
-	data->sensor_ = std::make_unique<CameraSensor>(sensorEntity);
+	data->sensor_ = CameraSensorFactoryBase::create(sensorEntity);
 	if (!data->sensor_)
-		return -EINVAL;
-
-	if (data->sensor_->init())
 		return -EINVAL;
 
 	/* Populate the map of sensor supported formats and sizes. */
@@ -791,7 +806,8 @@ int PipelineHandlerBase::registerCamera(std::unique_ptr<RPi::CameraData> &camera
 	 * chain. There may be a cascade of devices in this chain!
 	 */
 	MediaLink *link = sensorEntity->getPadByIndex(0)->links()[0];
-	data->enumerateVideoDevices(link, frontendName);
+	if (!data->enumerateVideoDevices(link, frontendName))
+		return -EINVAL;
 
 	ipa::RPi::InitResult result;
 	if (data->loadIPA(&result)) {
@@ -803,11 +819,12 @@ int PipelineHandlerBase::registerCamera(std::unique_ptr<RPi::CameraData> &camera
 	 * Setup our delayed control writer with the sensor default
 	 * gain and exposure delays. Mark VBLANK for priority write.
 	 */
+	const CameraSensorProperties::SensorDelays &delays = data->sensor_->sensorDelays();
 	std::unordered_map<uint32_t, RPi::DelayedControls::ControlParams> params = {
-		{ V4L2_CID_ANALOGUE_GAIN, { result.sensorConfig.gainDelay, false } },
-		{ V4L2_CID_EXPOSURE, { result.sensorConfig.exposureDelay, false } },
-		{ V4L2_CID_HBLANK, { result.sensorConfig.hblankDelay, false } },
-		{ V4L2_CID_VBLANK, { result.sensorConfig.vblankDelay, true } }
+		{ V4L2_CID_ANALOGUE_GAIN, { delays.gainDelay, false } },
+		{ V4L2_CID_EXPOSURE, { delays.exposureDelay, false } },
+		{ V4L2_CID_HBLANK, { delays.hblankDelay, false } },
+		{ V4L2_CID_VBLANK, { delays.vblankDelay, true } }
 	};
 	data->delayedCtrls_ = std::make_unique<RPi::DelayedControls>(data->sensor_->device(), params);
 	data->sensorMetadata_ = result.sensorConfig.sensorMetadata;
@@ -865,10 +882,12 @@ void PipelineHandlerBase::mapBuffers(Camera *camera, const BufferMap &buffers, u
 	 * This will allow us to identify buffers passed between the pipeline
 	 * handler and the IPA.
 	 */
-	for (auto const &it : buffers) {
-		bufferIds.push_back(IPABuffer(mask | it.first,
-					      it.second.buffer->planes()));
-		data->bufferIds_.insert(mask | it.first);
+	for (auto const &[id, buffer] : buffers) {
+		Span<const FrameBuffer::Plane> planes = buffer.buffer->planes();
+
+		bufferIds.emplace_back(mask | id,
+				       std::vector<FrameBuffer::Plane>{ planes.begin(), planes.end() });
+		data->bufferIds_.insert(mask | id);
 	}
 
 	data->ipa_->mapBuffers(bufferIds);
@@ -880,28 +899,12 @@ int PipelineHandlerBase::queueAllBuffers(Camera *camera)
 	int ret;
 
 	for (auto const stream : data->streams_) {
-		if (!(stream->getFlags() & StreamFlag::External)) {
-			ret = stream->queueAllBuffers();
-			if (ret < 0)
-				return ret;
-		} else {
-			/*
-			 * For external streams, we must queue up a set of internal
-			 * buffers to handle the number of drop frames requested by
-			 * the IPA. This is done by passing nullptr in queueBuffer().
-			 *
-			 * The below queueBuffer() call will do nothing if there
-			 * are not enough internal buffers allocated, but this will
-			 * be handled by queuing the request for buffers in the
-			 * RPiStream object.
-			 */
-			unsigned int i;
-			for (i = 0; i < data->dropFrameCount_; i++) {
-				ret = stream->queueBuffer(nullptr);
-				if (ret)
-					return ret;
-			}
-		}
+		if (stream->getFlags() & StreamFlag::External)
+			continue;
+
+		ret = stream->queueAllBuffers();
+		if (ret < 0)
+			return ret;
 	}
 
 	return 0;
@@ -1018,16 +1021,20 @@ void CameraData::freeBuffers()
  *          | Sensor2 |   | Sensor3 |
  *          +---------+   +---------+
  */
-void CameraData::enumerateVideoDevices(MediaLink *link, const std::string &frontend)
+bool CameraData::enumerateVideoDevices(MediaLink *link, const std::string &frontend)
 {
 	const MediaPad *sinkPad = link->sink();
 	const MediaEntity *entity = sinkPad->entity();
 	bool frontendFound = false;
 
+	/* Once we reach the Frontend entity, we are done. */
+	if (link->sink()->entity()->name() == frontend)
+		return true;
+
 	/* We only deal with Video Mux and Bridge devices in cascade. */
 	if (entity->function() != MEDIA_ENT_F_VID_MUX &&
 	    entity->function() != MEDIA_ENT_F_VID_IF_BRIDGE)
-		return;
+		return false;
 
 	/* Find the source pad for this Video Mux or Bridge device. */
 	const MediaPad *sourcePad = nullptr;
@@ -1039,7 +1046,7 @@ void CameraData::enumerateVideoDevices(MediaLink *link, const std::string &front
 			 * and this branch in the cascade.
 			 */
 			if (sourcePad)
-				return;
+				return false;
 
 			sourcePad = pad;
 		}
@@ -1056,12 +1063,9 @@ void CameraData::enumerateVideoDevices(MediaLink *link, const std::string &front
 	 * other Video Mux and Bridge devices.
 	 */
 	for (MediaLink *l : sourcePad->links()) {
-		enumerateVideoDevices(l, frontend);
-		/* Once we reach the Frontend entity, we are done. */
-		if (l->sink()->entity()->name() == frontend) {
-			frontendFound = true;
+		frontendFound = enumerateVideoDevices(l, frontend);
+		if (frontendFound)
 			break;
-		}
 	}
 
 	/* This identifies the end of our entity enumeration recursion. */
@@ -1076,12 +1080,13 @@ void CameraData::enumerateVideoDevices(MediaLink *link, const std::string &front
 			bridgeDevices_.clear();
 		}
 	}
+
+	return frontendFound;
 }
 
 int CameraData::loadPipelineConfiguration()
 {
 	config_ = {
-		.disableStartupFrameDrops = false,
 		.cameraTimeoutValue = 0,
 	};
 
@@ -1118,8 +1123,10 @@ int CameraData::loadPipelineConfiguration()
 
 	const YamlObject &phConfig = (*root)["pipeline_handler"];
 
-	config_.disableStartupFrameDrops =
-		phConfig["disable_startup_frame_drops"].get<bool>(config_.disableStartupFrameDrops);
+	if (phConfig.contains("disable_startup_frame_drops"))
+		LOG(RPI, Warning)
+			<< "The disable_startup_frame_drops key is now deprecated, "
+			<< "startup frames are now identified by the FrameMetadata::Status::FrameStartup flag";
 
 	config_.cameraTimeoutValue =
 		phConfig["camera_timeout_value_ms"].get<unsigned int>(config_.cameraTimeoutValue);
@@ -1142,20 +1149,11 @@ int CameraData::loadIPA(ipa::RPi::InitResult *result)
 	if (!ipa_)
 		return -ENOENT;
 
-	/*
-	 * The configuration (tuning file) is made from the sensor name unless
-	 * the environment variable overrides it.
-	 */
-	std::string configurationFile;
-	char const *configFromEnv = utils::secure_getenv("LIBCAMERA_RPI_TUNING_FILE");
-	if (!configFromEnv || *configFromEnv == '\0') {
-		std::string model = sensor_->model();
-		if (isMonoSensor(sensor_))
-			model += "_mono";
-		configurationFile = ipa_->configurationFile(model + ".json");
-	} else {
-		configurationFile = std::string(configFromEnv);
-	}
+	/* The configuration (tuning file) is made from the sensor name. */
+	std::string model = sensor_->model();
+	if (isMonoSensor(sensor_))
+		model += "_mono";
+	std::string configurationFile = ipa_->configurationFile(model + ".json");
 
 	IPASettings settings(configurationFile, sensor_->model());
 	ipa::RPi::InitParams params;
@@ -1295,9 +1293,30 @@ Rectangle CameraData::scaleIspCrop(const Rectangle &ispCrop) const
 
 void CameraData::applyScalerCrop(const ControlList &controls)
 {
-	const auto &scalerCrop = controls.get<Rectangle>(controls::ScalerCrop);
-	if (scalerCrop) {
-		Rectangle nativeCrop = *scalerCrop;
+	const auto &scalerCropRPi = controls.get<Span<const Rectangle>>(controls::rpi::ScalerCrops);
+	const auto &scalerCropCore = controls.get<Rectangle>(controls::ScalerCrop);
+	std::vector<Rectangle> scalerCrops;
+
+	/*
+	 * First thing to do is create a vector of crops to apply to each ISP output
+	 * based on either controls::ScalerCrop or controls::rpi::ScalerCrops if
+	 * present.
+	 *
+	 * If controls::rpi::ScalerCrops is preset, apply the given crops to the
+	 * ISP output streams, indexed by the same order in which they had been
+	 * configured. This is not the same as the ISP output index. Otherwise
+	 * if controls::ScalerCrop is present, apply the same crop to all ISP
+	 * output streams.
+	 */
+	for (unsigned int i = 0; i < cropParams_.size(); i++) {
+		if (scalerCropRPi && i < scalerCropRPi->size())
+			scalerCrops.push_back(scalerCropRPi->data()[i]);
+		else if (scalerCropCore)
+			scalerCrops.push_back(*scalerCropCore);
+	}
+
+	for (auto const &[i, scalerCrop] : utils::enumerate(scalerCrops)) {
+		Rectangle nativeCrop = scalerCrop;
 
 		if (!nativeCrop.width || !nativeCrop.height)
 			nativeCrop = { 0, 0, 1, 1 };
@@ -1313,20 +1332,13 @@ void CameraData::applyScalerCrop(const ControlList &controls)
 		 * 2. With the same mid-point, if possible.
 		 * 3. But it can't go outside the sensor area.
 		 */
-		Size minSize = ispMinCropSize_.expandedToAspectRatio(nativeCrop.size());
+		Size minSize = cropParams_.at(i).ispMinCropSize.expandedToAspectRatio(nativeCrop.size());
 		Size size = ispCrop.size().expandedTo(minSize);
 		ispCrop = size.centeredTo(ispCrop.center()).enclosedIn(Rectangle(sensorInfo_.outputSize));
 
-		if (ispCrop != ispCrop_) {
-			ispCrop_ = ispCrop;
-			platformSetIspCrop();
-
-			/*
-			 * Also update the ScalerCrop in the metadata with what we actually
-			 * used. But we must first rescale that from ISP (camera mode) pixels
-			 * back into sensor native pixels.
-			 */
-			scalerCrop_ = scaleIspCrop(ispCrop_);
+		if (ispCrop != cropParams_.at(i).ispCrop) {
+			cropParams_.at(i).ispCrop = ispCrop;
+			platformSetIspCrop(cropParams_.at(i).ispIndex, ispCrop);
 		}
 	}
 }
@@ -1393,7 +1405,15 @@ void CameraData::handleStreamBuffer(FrameBuffer *buffer, RPi::Stream *stream)
 	 * buffer back to the stream.
 	 */
 	Request *request = requestQueue_.empty() ? nullptr : requestQueue_.front();
-	if (!dropFrameCount_ && request && request->findBuffer(stream) == buffer) {
+	if (request && request->findBuffer(stream) == buffer) {
+		FrameMetadata &md = buffer->_d()->metadata();
+
+		/* Mark the non-converged and invalid frames in the metadata. */
+		if (invalidFrameCount_)
+			md.status = FrameMetadata::Status::FrameError;
+		else if (startupFrameCount_)
+			md.status = FrameMetadata::Status::FrameStartup;
+
 		/*
 		 * Tag the buffer as completed, returning it to the
 		 * application.
@@ -1439,51 +1459,53 @@ void CameraData::handleState()
 
 void CameraData::checkRequestCompleted()
 {
-	bool requestCompleted = false;
-	/*
-	 * If we are dropping this frame, do not touch the request, simply
-	 * change the state to IDLE when ready.
-	 */
-	if (!dropFrameCount_) {
-		Request *request = requestQueue_.front();
-		if (request->hasPendingBuffers())
-			return;
+	Request *request = requestQueue_.front();
+	if (request->hasPendingBuffers())
+		return;
 
-		/* Must wait for metadata to be filled in before completing. */
-		if (state_ != State::IpaComplete)
-			return;
+	/* Must wait for metadata to be filled in before completing. */
+	if (state_ != State::IpaComplete)
+		return;
 
-		LOG(RPI, Debug) << "Completing request sequence: "
-				<< request->sequence();
+	LOG(RPI, Debug) << "Completing request sequence: "
+			<< request->sequence();
 
-		pipe()->completeRequest(request);
-		requestQueue_.pop();
-		requestCompleted = true;
-	}
+	pipe()->completeRequest(request);
+	requestQueue_.pop();
 
-	/*
-	 * Make sure we have three outputs completed in the case of a dropped
-	 * frame.
-	 */
-	if (state_ == State::IpaComplete &&
-	    ((ispOutputCount_ == ispOutputTotal_ && dropFrameCount_) ||
-	     requestCompleted)) {
-		LOG(RPI, Debug) << "Going into Idle state";
-		state_ = State::Idle;
-		if (dropFrameCount_) {
-			dropFrameCount_--;
-			LOG(RPI, Debug) << "Dropping frame at the request of the IPA ("
-					<< dropFrameCount_ << " left)";
-		}
+	LOG(RPI, Debug) << "Going into Idle state";
+	state_ = State::Idle;
+
+	if (invalidFrameCount_) {
+		invalidFrameCount_--;
+		LOG(RPI, Debug) << "Decrementing invalid frames to "
+				<< invalidFrameCount_;
+	} else if (startupFrameCount_) {
+		startupFrameCount_--;
+		LOG(RPI, Debug) << "Decrementing startup frames to "
+				<< startupFrameCount_;
 	}
 }
 
 void CameraData::fillRequestMetadata(const ControlList &bufferControls, Request *request)
 {
-	request->metadata().set(controls::SensorTimestamp,
-				bufferControls.get(controls::SensorTimestamp).value_or(0));
+	if (auto x = bufferControls.get(controls::SensorTimestamp))
+		request->metadata().set(controls::SensorTimestamp, *x);
+	if (auto x = bufferControls.get(controls::FrameWallClock))
+		request->metadata().set(controls::FrameWallClock, *x);
 
-	request->metadata().set(controls::ScalerCrop, scalerCrop_);
+	if (cropParams_.size()) {
+		std::vector<Rectangle> crops;
+
+		for (auto const &[k, v] : cropParams_)
+			crops.push_back(scaleIspCrop(v.ispCrop));
+
+		request->metadata().set(controls::ScalerCrop, crops[0]);
+		if (crops.size() > 1) {
+			request->metadata().set(controls::rpi::ScalerCrops,
+						Span<const Rectangle>(crops.data(), crops.size()));
+		}
+	}
 }
 
 } /* namespace libcamera */

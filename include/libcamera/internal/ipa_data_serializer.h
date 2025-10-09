@@ -7,8 +7,7 @@
 
 #pragma once
 
-#include <deque>
-#include <iostream>
+#include <stdint.h>
 #include <string.h>
 #include <tuple>
 #include <type_traits>
@@ -20,10 +19,9 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/framebuffer.h>
 #include <libcamera/geometry.h>
+
 #include <libcamera/ipa/ipa_interface.h>
 
-#include "libcamera/internal/byte_stream_buffer.h"
-#include "libcamera/internal/camera_sensor.h"
 #include "libcamera/internal/control_serializer.h"
 
 namespace libcamera {
@@ -165,7 +163,7 @@ public:
 		std::vector<SharedFD>::const_iterator fdIter = fdsBegin;
 		for (uint32_t i = 0; i < vecLen; i++) {
 			uint32_t sizeofData = readPOD<uint32_t>(dataIter, 0, dataEnd);
-			uint32_t sizeofFds  = readPOD<uint32_t>(dataIter, 4, dataEnd);
+			uint32_t sizeofFds = readPOD<uint32_t>(dataIter, 4, dataEnd);
 			dataIter += 8;
 
 			ret[i] = IPADataSerializer<V>::deserialize(dataIter,
@@ -272,7 +270,7 @@ public:
 		std::vector<SharedFD>::const_iterator fdIter = fdsBegin;
 		for (uint32_t i = 0; i < mapLen; i++) {
 			uint32_t sizeofData = readPOD<uint32_t>(dataIter, 0, dataEnd);
-			uint32_t sizeofFds  = readPOD<uint32_t>(dataIter, 4, dataEnd);
+			uint32_t sizeofFds = readPOD<uint32_t>(dataIter, 4, dataEnd);
 			dataIter += 8;
 
 			K key = IPADataSerializer<K>::deserialize(dataIter,
@@ -284,7 +282,7 @@ public:
 			dataIter += sizeofData;
 			fdIter += sizeofFds;
 			sizeofData = readPOD<uint32_t>(dataIter, 0, dataEnd);
-			sizeofFds  = readPOD<uint32_t>(dataIter, 4, dataEnd);
+			sizeofFds = readPOD<uint32_t>(dataIter, 4, dataEnd);
 			dataIter += 8;
 
 			const V value = IPADataSerializer<V>::deserialize(dataIter,
@@ -311,7 +309,6 @@ public:
 	serialize(const Flags<E> &data, [[maybe_unused]] ControlSerializer *cs = nullptr)
 	{
 		std::vector<uint8_t> dataVec;
-		dataVec.reserve(sizeof(Flags<E>));
 		appendPOD<uint32_t>(dataVec, static_cast<typename Flags<E>::Type>(data));
 
 		return { dataVec, {} };

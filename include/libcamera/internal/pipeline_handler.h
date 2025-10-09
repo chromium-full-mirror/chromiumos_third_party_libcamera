@@ -8,19 +8,14 @@
 #pragma once
 
 #include <memory>
-#include <queue>
-#include <set>
 #include <string>
 #include <sys/types.h>
 #include <vector>
 
-#include <libcamera/base/mutex.h>
 #include <libcamera/base/object.h>
 
 #include <libcamera/controls.h>
 #include <libcamera/stream.h>
-
-#include "libcamera/internal/ipa_proxy.h"
 
 namespace libcamera {
 
@@ -38,14 +33,15 @@ class PipelineHandler : public std::enable_shared_from_this<PipelineHandler>,
 			public Object
 {
 public:
-	PipelineHandler(CameraManager *manager);
+	PipelineHandler(CameraManager *manager,
+			unsigned int maxQueuedRequestsDevice = 32);
 	virtual ~PipelineHandler();
 
 	virtual bool match(DeviceEnumerator *enumerator) = 0;
 	MediaDevice *acquireMediaDevice(DeviceEnumerator *enumerator,
 					const DeviceMatch &dm);
 
-	bool acquire();
+	bool acquire(Camera *camera);
 	void release(Camera *camera);
 
 	virtual std::unique_ptr<CameraConfiguration> generateConfiguration(Camera *camera,
@@ -64,11 +60,15 @@ public:
 
 	bool completeBuffer(Request *request, FrameBuffer *buffer);
 	void completeRequest(Request *request);
+	void cancelRequest(Request *request);
 
 	std::string configurationFile(const std::string &subdir,
-				      const std::string &name) const;
+				      const std::string &name,
+				      bool silent = false) const;
 
 	const char *name() const { return name_; }
+
+	CameraManager *cameraManager() const { return manager_; }
 
 protected:
 	void registerCamera(std::shared_ptr<Camera> camera);
@@ -77,9 +77,11 @@ protected:
 	virtual int queueRequestDevice(Camera *camera, Request *request) = 0;
 	virtual void stopDevice(Camera *camera) = 0;
 
+	virtual bool acquireDevice(Camera *camera);
 	virtual void releaseDevice(Camera *camera);
 
 	CameraManager *manager_;
+	const unsigned int maxQueuedRequestsDevice_;
 
 private:
 	void unlockMediaDevices();
@@ -88,17 +90,13 @@ private:
 	virtual void disconnect();
 
 	void doQueueRequest(Request *request);
-	void doQueueRequests();
+	void doQueueRequests(Camera *camera);
 
 	std::vector<std::shared_ptr<MediaDevice>> mediaDevices_;
 	std::vector<std::weak_ptr<Camera>> cameras_;
 
-	std::queue<Request *> waitingRequests_;
-
 	const char *name_;
-
-	Mutex lock_;
-	unsigned int useCount_ LIBCAMERA_TSA_GUARDED_BY(lock_);
+	unsigned int useCount_;
 
 	friend class PipelineHandlerFactoryBase;
 };

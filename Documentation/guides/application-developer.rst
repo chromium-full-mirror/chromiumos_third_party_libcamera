@@ -44,15 +44,14 @@ defined names and types without the need of prefixing them.
 Camera Manager
 --------------
 
-Every libcamera-based application needs an instance of a `CameraManager`_ that
-runs for the life of the application. When the Camera Manager starts, it
+Every libcamera-based application needs an instance of a :doxy-pub:`CameraManager`
+that runs for the life of the application. When the Camera Manager starts, it
 enumerates all the cameras detected in the system. Behind the scenes, libcamera
 abstracts and manages the complex pipelines that kernel drivers expose through
 the `Linux Media Controller`_ and `Video for Linux`_ (V4L2) APIs, meaning that
 an application doesn't need to handle device or driver specific details.
 
-.. _CameraManager: https://libcamera.org/api-html/classlibcamera_1_1CameraManager.html
-.. _Linux Media Controller: https://www.kernel.org/doc/html/latest/media/uapi/mediactl/media-controller-intro.html
+.. _Linux Media Controller: https://www.kernel.org/doc/html/latest/userspace-api/media/mediactl/media-controller.html
 .. _Video for Linux: https://www.linuxtv.org/docs.php
 
 Before the ``int main()`` function, create a global shared pointer
@@ -126,7 +125,7 @@ available.
 
    std::string cameraId = cameras[0]->id();
 
-   auto camera = cm->get(cameraId);
+   camera = cm->get(cameraId);
    /*
     * Note that `camera` may not compare equal to `cameras[0]`.
     * In fact, it might simply be a `nullptr`, as the particular
@@ -208,10 +207,9 @@ function. If the new values are not supported by the ``Camera`` device, the
 validation process adjusts the parameters to what it considers to be the closest
 supported values.
 
-The ``validate`` function returns a `Status`_ which applications shall check to
-see if the Pipeline Handler adjusted the configuration.
-
-.. _Status: https://libcamera.org/api-html/classlibcamera_1_1CameraConfiguration.html#a64163f21db2fe1ce0a6af5a6f6847744
+The ``validate`` function returns a :doxy-pub:`CameraConfiguration::Status`
+which applications shall check to see if the Pipeline Handler adjusted the
+configuration.
 
 For example, the code above set the width and height to 640x480, but if the
 camera cannot produce an image that large, it might adjust the configuration to
@@ -346,10 +344,10 @@ camera device, and associate a buffer for each of them for the ``Stream``.
 Event handling and callbacks
 ----------------------------
 
-The libcamera library uses the concept of `signals and slots` (similar to `Qt
-Signals and Slots`_) to connect events with callbacks to handle them.
+The libcamera library uses the concept of :doxy-pub:`signals and slots <Signal>`
+(similar to `Qt Signals and Slots`_) to connect events with callbacks to handle
+them.
 
-.. _signals and slots: https://libcamera.org/api-html/classlibcamera_1_1Signal.html#details
 .. _Qt Signals and Slots: https://doc.qt.io/qt-6/signalsandslots.html
 
 The ``Camera`` device emits two signals that applications can connect to in
@@ -398,9 +396,7 @@ Request completion events can be emitted for requests which have been canceled,
 for example, by unexpected application shutdown. To avoid an application
 processing invalid image data, it's worth checking that the request has
 completed successfully. The list of request completion statuses is available in
-the `Request::Status`_ class enum documentation.
-
-.. _Request::Status: https://www.libcamera.org/api-html/classlibcamera_1_1Request.html#a2209ba8d51af8167b25f6e3e94d5c45b
+the :doxy-pub:`Request::Status` class enum documentation.
 
 .. code:: cpp
 
@@ -420,9 +416,7 @@ Iterating through the map allows applications to inspect each completed buffer
 in this request, and access the metadata associated to each frame.
 
 The metadata buffer contains information such the capture status, a timestamp,
-and the bytes used, as described in the `FrameMetadata`_ documentation.
-
-.. _FrameMetaData: https://libcamera.org/api-html/structlibcamera_1_1FrameMetadata.html
+and the bytes used, as described in the :doxy-pub:`FrameMetadata` documentation.
 
 .. code:: cpp
 
@@ -481,7 +475,7 @@ instance. An example of how to write image data to disk is available in the
 `FileSink class`_ which is a part of the ``cam`` utility application in the
 libcamera repository.
 
-.. _FileSink class: https://git.libcamera.org/libcamera/libcamera.git/tree/src/cam/file_sink.cpp
+.. _FileSink class: https://git.libcamera.org/libcamera/libcamera.git/tree/src/apps/cam/file_sink.cpp
 
 With the handling of this request completed, it is possible to re-use the
 request and the associated buffers and re-queue it to the camera
@@ -513,12 +507,10 @@ and queue all the previously created requests.
 Event processing
 ~~~~~~~~~~~~~~~~
 
-libcamera creates an internal execution thread at `CameraManager::start()`_
+libcamera creates an internal execution thread at :doxy-pub:`CameraManager::start()`
 time to decouple its own event processing from the application's main thread.
 Applications are thus free to manage their own execution opportunely, and only
 need to respond to events generated by libcamera emitted through signals.
-
-.. _CameraManager::start(): https://libcamera.org/api-html/classlibcamera_1_1CameraManager.html#a49e322880a2a26013bb0076788b298c5
 
 Real-world applications will likely either integrate with the event loop of the
 framework they use, or create their own event loop to respond to user events.
@@ -616,7 +608,7 @@ accordingly. In this example, the application file has been named
 
    simple_cam = executable('simple-cam',
        'simple-cam.cpp',
-       dependencies: dependency('libcamera', required : true))
+       dependencies: dependency('libcamera'))
 
 The ``dependencies`` line instructs meson to ask ``pkgconfig`` (or ``cmake``) to
 locate the ``libcamera`` library,  which the test application will be

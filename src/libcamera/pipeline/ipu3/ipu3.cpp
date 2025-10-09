@@ -6,7 +6,6 @@
  */
 
 #include <algorithm>
-#include <iomanip>
 #include <memory>
 #include <queue>
 #include <vector>
@@ -19,15 +18,17 @@
 #include <libcamera/camera.h>
 #include <libcamera/control_ids.h>
 #include <libcamera/formats.h>
-#include <libcamera/ipa/ipu3_ipa_interface.h>
-#include <libcamera/ipa/ipu3_ipa_proxy.h>
 #include <libcamera/property_ids.h>
 #include <libcamera/request.h>
 #include <libcamera/stream.h>
 
+#include <libcamera/ipa/ipu3_ipa_interface.h>
+#include <libcamera/ipa/ipu3_ipa_proxy.h>
+
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/camera_lens.h"
 #include "libcamera/internal/camera_sensor.h"
+#include "libcamera/internal/camera_sensor_properties.h"
 #include "libcamera/internal/delayed_controls.h"
 #include "libcamera/internal/device_enumerator.h"
 #include "libcamera/internal/framebuffer.h"
@@ -88,7 +89,7 @@ public:
 
 private:
 	void metadataReady(unsigned int id, const ControlList &metadata);
-	void paramsBufferReady(unsigned int id);
+	void paramsComputed(unsigned int id);
 	void setSensorControls(unsigned int id, const ControlList &sensorControls,
 			       const ControlList &lensControls);
 };
@@ -104,7 +105,7 @@ public:
 	Status validate() override;
 
 	const StreamConfiguration &cio2Format() const { return cio2Configuration_; }
-	const ImgUDevice::PipeConfig imguConfig() const { return pipeConfig_; }
+	const ImgUDevice::PipeConfig &imguConfig() const { return pipeConfig_; }
 
 	/* Cache the combinedTransform_ that will be applied to the sensor */
 	Transform combinedTransform_;
@@ -677,15 +678,19 @@ int PipelineHandlerIPU3::allocateBuffers(Camera *camera)
 	/* Map buffers to the IPA. */
 	unsigned int ipaBufferId = 1;
 
-	for (const std::unique_ptr<FrameBuffer> &buffer : imgu->paramBuffers_) {
-		buffer->setCookie(ipaBufferId++);
-		ipaBuffers_.emplace_back(buffer->cookie(), buffer->planes());
-	}
+	auto pushBuffers = [&](const std::vector<std::unique_ptr<FrameBuffer>> &buffers) {
+		for (const std::unique_ptr<FrameBuffer> &buffer : buffers) {
+			Span<const FrameBuffer::Plane> planes = buffer->planes();
 
-	for (const std::unique_ptr<FrameBuffer> &buffer : imgu->statBuffers_) {
-		buffer->setCookie(ipaBufferId++);
-		ipaBuffers_.emplace_back(buffer->cookie(), buffer->planes());
-	}
+			buffer->setCookie(ipaBufferId++);
+			ipaBuffers_.emplace_back(buffer->cookie(),
+						 std::vector<FrameBuffer::Plane>{ planes.begin(),
+										  planes.end() });
+		}
+	};
+
+	pushBuffers(imgu->paramBuffers_);
+	pushBuffers(imgu->statBuffers_);
 
 	data->ipa_->mapBuffers(ipaBuffers_);
 
@@ -958,7 +963,7 @@ int PipelineHandlerIPU3::updateControls(IPU3CameraData *data)
 		values.reserve(testPatternModes.size());
 
 		for (auto pattern : testPatternModes)
-			values.emplace_back(static_cast<int32_t>(pattern));
+			values.emplace_back(pattern);
 
 		controls[&controls::draft::TestPatternMode] = ControlInfo(values);
 	}
@@ -1077,14 +1082,10 @@ int PipelineHandlerIPU3::registerCameras()
 		if (ret)
 			continue;
 
-		/*
-		 * \todo Read delay values from the sensor itself or from a
-		 * a sensor database. For now use generic values taken from
-		 * the Raspberry Pi and listed as 'generic values'.
-		 */
+		const CameraSensorProperties::SensorDelays &delays = cio2->sensor()->sensorDelays();
 		std::unordered_map<uint32_t, DelayedControls::ControlParams> params = {
-			{ V4L2_CID_ANALOGUE_GAIN, { 1, false } },
-			{ V4L2_CID_EXPOSURE, { 2, false } },
+			{ V4L2_CID_ANALOGUE_GAIN, { delays.gainDelay, false } },
+			{ V4L2_CID_EXPOSURE, { delays.exposureDelay, false } },
 		};
 
 		data->delayedCtrls_ =
@@ -1117,19 +1118,19 @@ int PipelineHandlerIPU3::registerCameras()
 		 * returned through the ImgU main and secondary outputs.
 		 */
 		data->cio2_.bufferReady().connect(data.get(),
-					&IPU3CameraData::cio2BufferReady);
+						  &IPU3CameraData::cio2BufferReady);
 		data->cio2_.bufferAvailable.connect(
 			data.get(), &IPU3CameraData::queuePendingRequests);
 		data->imgu_->input_->bufferReady.connect(&data->cio2_,
-					&CIO2Device::tryReturnBuffer);
+							 &CIO2Device::tryReturnBuffer);
 		data->imgu_->output_->bufferReady.connect(data.get(),
-					&IPU3CameraData::imguOutputBufferReady);
+							  &IPU3CameraData::imguOutputBufferReady);
 		data->imgu_->viewfinder_->bufferReady.connect(data.get(),
-					&IPU3CameraData::imguOutputBufferReady);
+							      &IPU3CameraData::imguOutputBufferReady);
 		data->imgu_->param_->bufferReady.connect(data.get(),
-					&IPU3CameraData::paramBufferReady);
+							 &IPU3CameraData::paramBufferReady);
 		data->imgu_->stat_->bufferReady.connect(data.get(),
-					&IPU3CameraData::statBufferReady);
+							&IPU3CameraData::statBufferReady);
 
 		/* Create and register the Camera instance. */
 		const std::string &cameraId = cio2->sensor()->id();
@@ -1156,7 +1157,7 @@ int IPU3CameraData::loadIPA()
 		return -ENOENT;
 
 	ipa_->setSensorControls.connect(this, &IPU3CameraData::setSensorControls);
-	ipa_->paramsBufferReady.connect(this, &IPU3CameraData::paramsBufferReady);
+	ipa_->paramsComputed.connect(this, &IPU3CameraData::paramsComputed);
 	ipa_->metadataReady.connect(this, &IPU3CameraData::metadataReady);
 
 	/*
@@ -1186,9 +1187,8 @@ int IPU3CameraData::loadIPA()
 	 * The API tuning file is made from the sensor name. If the tuning file
 	 * isn't found, fall back to the 'uncalibrated' file.
 	 */
-	std::string ipaTuningFile = ipa_->configurationFile(sensor->model() + ".yaml");
-	if (ipaTuningFile.empty())
-		ipaTuningFile = ipa_->configurationFile("uncalibrated.yaml");
+	std::string ipaTuningFile =
+		ipa_->configurationFile(sensor->model() + ".yaml", "uncalibrated.yaml");
 
 	ret = ipa_->init(IPASettings{ ipaTuningFile, sensor->model() },
 			 sensorInfo, sensor->controls(), &ipaControls_);
@@ -1218,7 +1218,7 @@ void IPU3CameraData::setSensorControls([[maybe_unused]] unsigned int id,
 	focusLens->setFocusPosition(focusValue.get<int32_t>());
 }
 
-void IPU3CameraData::paramsBufferReady(unsigned int id)
+void IPU3CameraData::paramsComputed(unsigned int id)
 {
 	IPU3Frames::Info *info = frameInfos_.find(id);
 	if (!info)
@@ -1329,7 +1329,7 @@ void IPU3CameraData::cio2BufferReady(FrameBuffer *buffer)
 	if (request->findBuffer(&rawStream_))
 		pipe()->completeBuffer(request, buffer);
 
-	ipa_->fillParamsBuffer(info->id, info->paramBuffer->cookie());
+	ipa_->computeParams(info->id, info->paramBuffer->cookie());
 }
 
 void IPU3CameraData::paramBufferReady(FrameBuffer *buffer)
@@ -1373,8 +1373,8 @@ void IPU3CameraData::statBufferReady(FrameBuffer *buffer)
 		return;
 	}
 
-	ipa_->processStatsBuffer(info->id, request->metadata().get(controls::SensorTimestamp).value_or(0),
-				 info->statBuffer->cookie(), info->effectiveSensorControls);
+	ipa_->processStats(info->id, request->metadata().get(controls::SensorTimestamp).value_or(0),
+			   info->statBuffer->cookie(), info->effectiveSensorControls);
 }
 
 /*

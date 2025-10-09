@@ -33,14 +33,15 @@ public:
 	virtual ~Debayer() = 0;
 
 	virtual int configure(const StreamConfiguration &inputCfg,
-			      const std::vector<std::reference_wrapper<StreamConfiguration>> &outputCfgs) = 0;
+			      const std::vector<std::reference_wrapper<StreamConfiguration>> &outputCfgs,
+			      bool ccmEnabled) = 0;
 
 	virtual std::vector<PixelFormat> formats(PixelFormat inputFormat) = 0;
 
 	virtual std::tuple<unsigned int, unsigned int>
 	strideAndFrameSize(const PixelFormat &outputFormat, const Size &size) = 0;
 
-	virtual void process(FrameBuffer *input, FrameBuffer *output, DebayerParams params) = 0;
+	virtual void process(uint32_t frame, FrameBuffer *input, FrameBuffer *output, DebayerParams params) = 0;
 
 	virtual SizeRange sizes(PixelFormat inputFormat, const Size &inputSize) = 0;
 

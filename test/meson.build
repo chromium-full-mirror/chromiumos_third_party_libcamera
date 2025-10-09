@@ -60,6 +60,7 @@ internal_tests = [
     {'name': 'file', 'sources': ['file.cpp']},
     {'name': 'flags', 'sources': ['flags.cpp']},
     {'name': 'hotplug-cameras', 'sources': ['hotplug-cameras.cpp']},
+    {'name': 'matrix', 'sources': ['matrix.cpp']},
     {'name': 'message', 'sources': ['message.cpp']},
     {'name': 'object', 'sources': ['object.cpp']},
     {'name': 'object-delete', 'sources': ['object-delete.cpp']},
@@ -73,6 +74,7 @@ internal_tests = [
     {'name': 'timer-thread', 'sources': ['timer-thread.cpp']},
     {'name': 'unique-fd', 'sources': ['unique-fd.cpp']},
     {'name': 'utils', 'sources': ['utils.cpp']},
+    {'name': 'vector', 'sources': ['vector.cpp']},
     {'name': 'yaml-parser', 'sources': ['yaml-parser.cpp']},
 ]
 

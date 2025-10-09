@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <assert.h>
 #include <limits.h>
 #include <stdint.h>
 #include <type_traits>
@@ -37,6 +36,7 @@ public:
 	}
 
 	size_t bins() const { return cumulative_.size() - 1; }
+	Span<const uint64_t> data() const { return cumulative_; }
 	uint64_t total() const { return cumulative_[cumulative_.size() - 1]; }
 	uint64_t cumulativeFrequency(double bin) const;
 	double quantile(double q, uint32_t first = 0, uint32_t last = UINT_MAX) const;

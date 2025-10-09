@@ -1,7 +1,5 @@
 .. SPDX-License-Identifier: CC-BY-SA-4.0
 
-.. section-begin-libcamera
-
 ===========
  libcamera
 ===========
@@ -22,7 +20,6 @@ open-source-friendly while still protecting vendor core IP. libcamera was born
 out of that collaboration and will offer modern camera support to Linux-based
 systems, including traditional Linux distributions, ChromeOS and Android.
 
-.. section-end-libcamera
 .. section-begin-getting-started
 
 Getting Started
@@ -47,7 +44,7 @@ A C++ toolchain: [required]
         Either {g++, clang}
 
 Meson Build system: [required]
-        meson (>= 0.60) ninja-build pkg-config
+        meson (>= 1.0.1) ninja-build pkg-config
 
 for the libcamera core: [required]
         libyaml-dev python3-yaml python3-ply python3-jinja2
@@ -70,7 +67,8 @@ for device hotplug enumeration: [optional]
         libudev-dev
 
 for documentation: [optional]
-        python3-sphinx doxygen graphviz texlive-latex-extra
+        doxygen graphviz python3-sphinx python3-sphinx-book-theme
+        python3-sphinxcontrib.doxylink (>= 1.6.1) texlive-latex-extra
 
 for gstreamer: [optional]
         libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
@@ -86,18 +84,16 @@ for cam: [optional]
         - libdrm-dev: Enables the KMS sink
         - libjpeg-dev: Enables MJPEG on the SDL sink
         - libsdl2-dev: Enables the SDL sink
+        - libtiff-dev: Enables writing DNG
 
 for qcam: [optional]
-        libtiff-dev qtbase5-dev qttools5-dev-tools
+        libtiff-dev qt6-base-dev
 
 for tracing with lttng: [optional]
         liblttng-ust-dev python3-jinja2 lttng-tools
 
 for android: [optional]
         libexif-dev libjpeg-dev
-
-for Python bindings: [optional]
-        pybind11-dev
 
 for lc-compliance: [optional]
         libevent-dev libgtest-dev
@@ -177,6 +173,22 @@ Which can be received on another device over the network with:
 
    gst-launch-1.0 tcpclientsrc host=$DEVICE_IP port=5000 ! \
         multipartdemux ! jpegdec ! autovideosink
+
+The GStreamer element also supports multiple streams. This is achieved by
+requesting additional source pads. Downstream caps filters can be used
+to choose specific parameters like resolution and pixel format. The pad
+property ``stream-role`` can be used to select a role.
+
+The following example displays a 640x480 view finder while streaming JPEG
+encoded 800x600 video. You can use the receiver pipeline above to view the
+remote stream from another device.
+
+.. code::
+
+   gst-launch-1.0 libcamerasrc name=cs src::stream-role=view-finder src_0::stream-role=video-recording \
+       cs.src ! queue ! video/x-raw,width=640,height=480 ! videoconvert ! autovideosink \
+       cs.src_0 ! queue ! video/x-raw,width=800,height=600 ! videoconvert ! \
+       jpegenc ! multipartmux ! tcpserversink host=0.0.0.0 port=5000
 
 .. section-end-getting-started
 

@@ -8,7 +8,6 @@
 #pragma once
 
 #include <map>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -55,6 +54,8 @@ public:
 	int disableLinks();
 
 	Signal<> disconnected;
+
+	std::vector<MediaEntity *> locateEntities(unsigned int function);
 
 protected:
 	std::string logPrefix() const override;

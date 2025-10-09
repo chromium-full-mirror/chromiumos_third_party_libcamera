@@ -6,14 +6,15 @@
  */
 
 #include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <map>
-#include <math.h>
 #include <tuple>
 
 #include <linux/media-bus-format.h>
 #include <linux/version.h>
 
+#include <libcamera/base/flags.h>
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 
@@ -21,6 +22,8 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/formats.h>
+#include <libcamera/framebuffer.h>
+#include <libcamera/geometry.h>
 #include <libcamera/request.h>
 #include <libcamera/stream.h>
 
@@ -53,8 +56,8 @@ public:
 
 	int init();
 	int allocateMockIPABuffers();
-	void bufferReady(FrameBuffer *buffer);
-	void paramsBufferReady(unsigned int id, const Flags<ipa::vimc::TestFlag> flags);
+	void imageBufferReady(FrameBuffer *buffer);
+	void paramsComputed(unsigned int id, const Flags<ipa::vimc::TestFlag> flags);
 
 	MediaDevice *media_;
 	std::unique_ptr<CameraSensor> sensor_;
@@ -360,8 +363,11 @@ int PipelineHandlerVimc::start(Camera *camera, [[maybe_unused]] const ControlLis
 	/* Map the mock IPA buffers to VIMC IPA to exercise IPC code paths. */
 	std::vector<IPABuffer> ipaBuffers;
 	for (auto [i, buffer] : utils::enumerate(data->mockIPABufs_)) {
+		Span<const FrameBuffer::Plane> planes = buffer->planes();
+
 		buffer->setCookie(i + 1);
-		ipaBuffers.emplace_back(buffer->cookie(), buffer->planes());
+		ipaBuffers.emplace_back(buffer->cookie(),
+					std::vector<FrameBuffer::Plane>{ planes.begin(), planes.end() });
 	}
 	data->ipa_->mapBuffers(ipaBuffers);
 
@@ -417,7 +423,7 @@ int PipelineHandlerVimc::processControls(VimcCameraData *data, Request *request)
 			continue;
 		}
 
-		int32_t value = lroundf(it.second.get<float>() * 128 + offset);
+		int32_t value = std::lround(it.second.get<float>() * 128 + offset);
 		controls.set(cid, std::clamp(value, 0, 255));
 	}
 
@@ -489,7 +495,7 @@ bool PipelineHandlerVimc::match(DeviceEnumerator *enumerator)
 		return false;
 	}
 
-	data->ipa_->paramsBufferReady.connect(data.get(), &VimcCameraData::paramsBufferReady);
+	data->ipa_->paramsComputed.connect(data.get(), &VimcCameraData::paramsComputed);
 
 	std::string conf = data->ipa_->configurationFile("vimc.conf");
 	Flags<ipa::vimc::TestFlag> inFlags = ipa::vimc::TestFlag::Flag2;
@@ -529,10 +535,9 @@ int VimcCameraData::init()
 		return ret;
 
 	/* Create and open the camera sensor, debayer, scaler and video device. */
-	sensor_ = std::make_unique<CameraSensor>(media_->getEntityByName("Sensor B"));
-	ret = sensor_->init();
-	if (ret)
-		return ret;
+	sensor_ = CameraSensorFactoryBase::create(media_->getEntityByName("Sensor B"));
+	if (!sensor_)
+		return -ENODEV;
 
 	debayer_ = V4L2Subdevice::fromEntityName(media_, "Debayer B");
 	if (debayer_->open())
@@ -546,7 +551,7 @@ int VimcCameraData::init()
 	if (video_->open())
 		return -ENODEV;
 
-	video_->bufferReady.connect(this, &VimcCameraData::bufferReady);
+	video_->bufferReady.connect(this, &VimcCameraData::imageBufferReady);
 
 	raw_ = V4L2VideoDevice::fromEntityName(media_, "Raw Capture 1");
 	if (raw_->open())
@@ -594,7 +599,7 @@ int VimcCameraData::init()
 	return 0;
 }
 
-void VimcCameraData::bufferReady(FrameBuffer *buffer)
+void VimcCameraData::imageBufferReady(FrameBuffer *buffer)
 {
 	PipelineHandlerVimc *pipe =
 		static_cast<PipelineHandlerVimc *>(this->pipe());
@@ -619,7 +624,7 @@ void VimcCameraData::bufferReady(FrameBuffer *buffer)
 	pipe->completeBuffer(request, buffer);
 	pipe->completeRequest(request);
 
-	ipa_->fillParamsBuffer(request->sequence(), mockIPABufs_[0]->cookie());
+	ipa_->computeParams(request->sequence(), mockIPABufs_[0]->cookie());
 }
 
 int VimcCameraData::allocateMockIPABuffers()
@@ -637,8 +642,8 @@ int VimcCameraData::allocateMockIPABuffers()
 	return video_->exportBuffers(kBufCount, &mockIPABufs_);
 }
 
-void VimcCameraData::paramsBufferReady([[maybe_unused]] unsigned int id,
-				       [[maybe_unused]] const Flags<ipa::vimc::TestFlag> flags)
+void VimcCameraData::paramsComputed([[maybe_unused]] unsigned int id,
+				    [[maybe_unused]] const Flags<ipa::vimc::TestFlag> flags)
 {
 }
 

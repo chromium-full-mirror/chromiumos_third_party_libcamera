@@ -42,10 +42,16 @@ public:
 		double yTarget;
 	};
 
+	void configure(utils::Duration lineDuration, const CameraSensorHelper *sensorHelper);
 	int parseTuningData(const YamlObject &tuningData);
 
-	void setLimits(utils::Duration minShutter, utils::Duration maxShutter,
-		       double minGain, double maxGain);
+	void setExposureCompensation(double gain)
+	{
+		exposureCompensation_ = gain;
+	}
+
+	void setLimits(utils::Duration minExposureTime, utils::Duration maxExposureTime,
+		       double minGain, double maxGain, std::vector<AgcConstraint> constraints);
 
 	std::map<int32_t, std::vector<AgcConstraint>> constraintModes()
 	{
@@ -62,9 +68,11 @@ public:
 		return controls_;
 	}
 
-	std::tuple<utils::Duration, double, double>
+	std::tuple<utils::Duration, double, double, double>
 	calculateNewEv(uint32_t constraintModeIndex, uint32_t exposureModeIndex,
 		       const Histogram &yHist, utils::Duration effectiveExposureValue);
+
+	double effectiveYTarget() const;
 
 	void resetFrameCount()
 	{
@@ -84,10 +92,12 @@ private:
 				   double gain);
 	utils::Duration filterExposure(utils::Duration exposureValue);
 
+	double exposureCompensation_;
 	uint64_t frameCount_;
 	utils::Duration filteredExposure_;
 	double relativeLuminanceTarget_;
 
+	std::vector<AgcConstraint> additionalConstraints_;
 	std::map<int32_t, std::vector<AgcConstraint>> constraintModes_;
 	std::map<int32_t, std::shared_ptr<ExposureModeHelper>> exposureModeHelpers_;
 	ControlInfoMap::Map controls_;

@@ -14,6 +14,8 @@
 #include <libcamera/base/span.h>
 #include <libcamera/base/utils.h>
 
+#include "camera_sensor_helper.h"
+
 namespace libcamera {
 
 namespace ipa {
@@ -24,28 +26,32 @@ public:
 	ExposureModeHelper(const Span<std::pair<utils::Duration, double>> stages);
 	~ExposureModeHelper() = default;
 
-	void setLimits(utils::Duration minShutter, utils::Duration maxShutter,
+	void configure(utils::Duration lineLength, const CameraSensorHelper *sensorHelper);
+	void setLimits(utils::Duration minExposureTime, utils::Duration maxExposureTime,
 		       double minGain, double maxGain);
 
-	std::tuple<utils::Duration, double, double>
+	std::tuple<utils::Duration, double, double, double>
 	splitExposure(utils::Duration exposure) const;
 
-	utils::Duration minShutter() const { return minShutter_; }
-	utils::Duration maxShutter() const { return maxShutter_; }
+	utils::Duration minExposureTime() const { return minExposureTime_; }
+	utils::Duration maxExposureTime() const { return maxExposureTime_; }
 	double minGain() const { return minGain_; }
 	double maxGain() const { return maxGain_; }
 
 private:
-	utils::Duration clampShutter(utils::Duration shutter) const;
-	double clampGain(double gain) const;
+	utils::Duration clampExposureTime(utils::Duration exposureTime,
+					  double *quantizationGain = nullptr) const;
+	double clampGain(double gain, double *quantizationGain = nullptr) const;
 
-	std::vector<utils::Duration> shutters_;
+	std::vector<utils::Duration> exposureTimes_;
 	std::vector<double> gains_;
 
-	utils::Duration minShutter_;
-	utils::Duration maxShutter_;
+	utils::Duration lineDuration_;
+	utils::Duration minExposureTime_;
+	utils::Duration maxExposureTime_;
 	double minGain_;
 	double maxGain_;
+	const CameraSensorHelper *sensorHelper_;
 };
 
 } /* namespace ipa */

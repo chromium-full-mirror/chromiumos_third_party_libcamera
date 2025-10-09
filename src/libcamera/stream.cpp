@@ -9,15 +9,15 @@
 
 #include <algorithm>
 #include <array>
-#include <iomanip>
 #include <limits.h>
-#include <sstream>
-
-#include <libcamera/request.h>
+#include <ostream>
+#include <string>
+#include <vector>
 
 #include <libcamera/base/log.h>
 #include <libcamera/base/utils.h>
 
+#include <libcamera/request.h>
 
 /**
  * \file stream.h
@@ -392,7 +392,24 @@ StreamConfiguration::StreamConfiguration(const StreamFormats &formats)
  */
 std::string StreamConfiguration::toString() const
 {
-	return size.toString() + "-" + pixelFormat.toString();
+	std::stringstream ss;
+	ss << *this;
+
+	return ss.str();
+}
+
+/**
+ * \brief Insert a text representation of a StreamConfiguration into an output
+ * stream
+ * \param[in] out The output stream
+ * \param[in] cfg The StreamConfiguration
+ * \return The output stream \a out
+ */
+std::ostream &operator<<(std::ostream &out, const StreamConfiguration &cfg)
+{
+	out << cfg.size << "-" << cfg.pixelFormat << "/"
+	    << ColorSpace::toString(cfg.colorSpace);
+	return out;
 }
 
 /**

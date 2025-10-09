@@ -16,7 +16,10 @@
 /**
  * \file libcamera/framebuffer.h
  * \brief Frame buffer handling
- *
+ */
+
+/**
+ * \internal
  * \file libcamera/internal/framebuffer.h
  * \brief Internal frame buffer handling support
  */
@@ -40,12 +43,19 @@ LOG_DEFINE_CATEGORY(Buffer)
  * The frame has been captured with success and contains valid data. All fields
  * of the FrameMetadata structure are valid.
  * \var FrameMetadata::FrameError
- * An error occurred during capture of the frame. The frame data may be partly
- * or fully invalid. The sequence and timestamp fields of the FrameMetadata
- * structure is valid, the other fields may be invalid.
+ * The frame data is partly or fully corrupted, missing or otherwise invalid.
+ * This can for instance indicate a hardware transmission error, or invalid data
+ * produced by the sensor during its startup phase. The sequence and timestamp
+ * fields of the FrameMetadata structure is valid, all the other fields may be
+ * invalid.
  * \var FrameMetadata::FrameCancelled
  * Capture stopped before the frame completed. The frame data is not valid. All
  * fields of the FrameMetadata structure but the status field are invalid.
+ * \var FrameMetadata::FrameStartup
+ * The frame has been successfully captured. However, the IPA is in a
+ * cold-start or reset phase and will result in image quality parameters
+ * producing unusable images. Applications are recommended to not consume these
+ * frames. All other fields of the FrameMetadata structure are valid.
  */
 
 /**
@@ -104,6 +114,7 @@ LOG_DEFINE_CATEGORY(Buffer)
  * \return The array of per-plane metadata
  */
 
+#ifndef __DOXYGEN_PUBLIC__
 /**
  * \class FrameBuffer::Private
  * \brief Base class for FrameBuffer private data
@@ -119,9 +130,9 @@ LOG_DEFINE_CATEGORY(Buffer)
  * \param[in] planes The frame memory planes
  * \param[in] cookie Cookie
  */
-FrameBuffer::Private::Private(const std::vector<Plane> &planes, uint64_t cookie)
-	: planes_(planes), cookie_(cookie), request_(nullptr),
-	  isContiguous_(true)
+FrameBuffer::Private::Private(Span<const Plane> planes, uint64_t cookie)
+	: planes_(planes.begin(), planes.end()), cookie_(cookie),
+	  request_(nullptr), isContiguous_(true)
 {
 	metadata_.planes_.resize(planes_.size());
 }
@@ -206,6 +217,7 @@ FrameBuffer::Private::~Private()
  * \brief Retrieve the dynamic metadata
  * \return Dynamic metadata for the frame contained in the buffer
  */
+#endif /* __DOXYGEN_PUBLIC__ */
 
 /**
  * \class FrameBuffer
@@ -303,7 +315,7 @@ ino_t fileDescriptorInode(const SharedFD &fd)
  * \param[in] planes The frame memory planes
  * \param[in] cookie Cookie
  */
-FrameBuffer::FrameBuffer(const std::vector<Plane> &planes, unsigned int cookie)
+FrameBuffer::FrameBuffer(Span<const Plane> planes, unsigned int cookie)
 	: FrameBuffer(std::make_unique<Private>(planes, cookie))
 {
 }
@@ -353,7 +365,7 @@ FrameBuffer::FrameBuffer(std::unique_ptr<Private> d)
  * \brief Retrieve the static plane descriptors
  * \return Array of plane descriptors
  */
-const std::vector<FrameBuffer::Plane> &FrameBuffer::planes() const
+Span<const FrameBuffer::Plane> FrameBuffer::planes() const
 {
 	return _d()->planes_;
 }

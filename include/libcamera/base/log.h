@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include <chrono>
+#include <atomic>
 #include <sstream>
+#include <string_view>
 
 #include <libcamera/base/private.h>
 
@@ -29,19 +30,22 @@ enum LogSeverity {
 class LogCategory
 {
 public:
-	static LogCategory *create(const char *name);
+	static LogCategory *create(std::string_view name);
 
 	const std::string &name() const { return name_; }
-	LogSeverity severity() const { return severity_; }
-	void setSeverity(LogSeverity severity);
+	LogSeverity severity() const { return severity_.load(std::memory_order_relaxed); }
+	void setSeverity(LogSeverity severity) { severity_.store(severity, std::memory_order_relaxed); }
 
 	static const LogCategory &defaultCategory();
 
 private:
-	explicit LogCategory(const char *name);
+	friend class Logger;
+	explicit LogCategory(std::string_view name);
 
 	const std::string name_;
-	LogSeverity severity_;
+
+	std::atomic<LogSeverity> severity_;
+	static_assert(decltype(severity_)::is_always_lock_free);
 };
 
 #define LOG_DECLARE_CATEGORY(name)					\
@@ -61,9 +65,7 @@ class LogMessage
 public:
 	LogMessage(const char *fileName, unsigned int line,
 		   const LogCategory &category, LogSeverity severity,
-		   const std::string &prefix = std::string());
-
-	LogMessage(LogMessage &&);
+		   std::string prefix = {});
 	~LogMessage();
 
 	std::ostream &stream() { return msgStream_; }
@@ -73,12 +75,10 @@ public:
 	const LogCategory &category() const { return category_; }
 	const std::string &fileInfo() const { return fileInfo_; }
 	const std::string &prefix() const { return prefix_; }
-	const std::string msg() const { return msgStream_.str(); }
+	std::string msg() const { return msgStream_.str(); }
 
 private:
-	LIBCAMERA_DISABLE_COPY(LogMessage)
-
-	void init(const char *fileName, unsigned int line);
+	LIBCAMERA_DISABLE_COPY_AND_MOVE(LogMessage)
 
 	std::ostringstream msgStream_;
 	const LogCategory &category_;
@@ -96,12 +96,12 @@ public:
 protected:
 	virtual std::string logPrefix() const = 0;
 
-	LogMessage _log(const LogCategory *category, LogSeverity severity,
+	LogMessage _log(const LogCategory &category, LogSeverity severity,
 			const char *fileName = __builtin_FILE(),
 			unsigned int line = __builtin_LINE()) const;
 };
 
-LogMessage _log(const LogCategory *category, LogSeverity severity,
+LogMessage _log(const LogCategory &category, LogSeverity severity,
 		const char *fileName = __builtin_FILE(),
 		unsigned int line = __builtin_LINE());
 
@@ -109,9 +109,9 @@ LogMessage _log(const LogCategory *category, LogSeverity severity,
 #define _LOG_CATEGORY(name) logCategory##name
 
 #define _LOG1(severity) \
-	_log(nullptr, Log##severity).stream()
+	_log(LogCategory::defaultCategory(), Log##severity).stream()
 #define _LOG2(category, severity) \
-	_log(&_LOG_CATEGORY(category)(), Log##severity).stream()
+	_log(_LOG_CATEGORY(category)(), Log##severity).stream()
 
 /*
  * Expand the LOG() macro to _LOG1() or _LOG2() based on the number of

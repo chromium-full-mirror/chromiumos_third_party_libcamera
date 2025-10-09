@@ -16,14 +16,22 @@
 #include <gst/video/video.h>
 
 GstCaps *gst_libcamera_stream_formats_to_caps(const libcamera::StreamFormats &formats);
-GstCaps *gst_libcamera_stream_configuration_to_caps(const libcamera::StreamConfiguration &stream_cfg);
+GstCaps *gst_libcamera_stream_configuration_to_caps(const libcamera::StreamConfiguration &stream_cfg,
+						    GstVideoTransferFunction transfer);
 void gst_libcamera_configure_stream_from_caps(libcamera::StreamConfiguration &stream_cfg,
-					      GstCaps *caps);
+					      GstCaps *caps, GstVideoTransferFunction *transfer);
 void gst_libcamera_get_framerate_from_caps(GstCaps *caps, GstStructure *element_caps);
 void gst_libcamera_clamp_and_set_frameduration(libcamera::ControlList &controls,
 					       const libcamera::ControlInfoMap &camera_controls,
 					       GstStructure *element_caps);
 void gst_libcamera_framerate_to_caps(GstCaps *caps, const GstStructure *element_caps);
+void gst_libcamera_gvalue_set_point(GValue *value, const libcamera::Point &point);
+void gst_libcamera_gvalue_set_size(GValue *value, const libcamera::Size &size);
+void gst_libcamera_gvalue_set_rectangle(GValue *value, const libcamera::Rectangle &rect);
+libcamera::Rectangle gst_libcamera_gvalue_get_rectangle(const GValue *value);
+int gst_libcamera_set_structure_field(GstStructure *structure,
+				      const libcamera::ControlId *id,
+				      const libcamera::ControlValue &value);
 
 #if !GST_CHECK_VERSION(1, 16, 0)
 static inline void gst_clear_event(GstEvent **event_ptr)
@@ -35,6 +43,11 @@ static inline void gst_clear_event(GstEvent **event_ptr)
 #if !GST_CHECK_VERSION(1, 17, 1)
 gboolean gst_task_resume(GstTask *task);
 #endif
+
+#if !GST_CHECK_VERSION(1, 22, 0)
+gint gst_video_format_info_extrapolate_stride(const GstVideoFormatInfo *finfo, gint plane, gint stride);
+#endif
+
 std::shared_ptr<libcamera::CameraManager> gst_libcamera_get_camera_manager(int &ret);
 
 /**

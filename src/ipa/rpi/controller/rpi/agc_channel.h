@@ -30,7 +30,7 @@ struct AgcMeteringMode {
 };
 
 struct AgcExposureMode {
-	std::vector<libcamera::utils::Duration> shutter;
+	std::vector<libcamera::utils::Duration> exposureTime;
 	std::vector<double> gain;
 	int read(const libcamera::YamlObject &params);
 };
@@ -78,6 +78,7 @@ struct AgcConfig {
 	double defaultAnalogueGain;
 	double stableRegion;
 	bool desaturate;
+	double maxDigitalGain;
 };
 
 class AgcChannel
@@ -90,14 +91,18 @@ public:
 	std::vector<double> const &getWeights() const;
 	void setEv(double ev);
 	void setFlickerPeriod(libcamera::utils::Duration flickerPeriod);
-	void setMaxShutter(libcamera::utils::Duration maxShutter);
-	void setFixedShutter(libcamera::utils::Duration fixedShutter);
-	void setFixedAnalogueGain(double fixedAnalogueGain);
+	void setMaxExposureTime(libcamera::utils::Duration maxExposureTime);
+	void setFixedExposureTime(libcamera::utils::Duration fixedExposureTime);
+	void setFixedGain(double fixedGain);
 	void setMeteringMode(std::string const &meteringModeName);
 	void setExposureMode(std::string const &exposureModeName);
 	void setConstraintMode(std::string const &contraintModeName);
-	void enableAuto();
-	void disableAuto();
+	void enableAutoExposure();
+	void disableAutoExposure();
+	bool autoExposureEnabled() const;
+	void enableAutoGain();
+	void disableAutoGain();
+	bool autoGainEnabled() const;
 	void switchMode(CameraMode const &cameraMode, Metadata *metadata);
 	void prepare(Metadata *imageMetadata);
 	void process(StatisticsPtr &stats, DeviceStatus const &deviceStatus, Metadata *imageMetadata,
@@ -117,7 +122,7 @@ private:
 	bool applyDigitalGain(double gain, double targetY, bool channelBound);
 	void divideUpExposure();
 	void writeAndFinish(Metadata *imageMetadata, bool desaturate);
-	libcamera::utils::Duration limitShutter(libcamera::utils::Duration shutter);
+	libcamera::utils::Duration limitExposureTime(libcamera::utils::Duration exposureTime);
 	double limitGain(double gain) const;
 	AgcMeteringMode *meteringMode_;
 	AgcExposureMode *exposureMode_;
@@ -128,8 +133,9 @@ private:
 	struct ExposureValues {
 		ExposureValues();
 
-		libcamera::utils::Duration shutter;
+		libcamera::utils::Duration exposureTime;
 		double analogueGain;
+		double digitalGain;
 		libcamera::utils::Duration totalExposure;
 		libcamera::utils::Duration totalExposureNoDG; /* without digital gain */
 	};
@@ -146,9 +152,9 @@ private:
 	std::string constraintModeName_;
 	double ev_;
 	libcamera::utils::Duration flickerPeriod_;
-	libcamera::utils::Duration maxShutter_;
-	libcamera::utils::Duration fixedShutter_;
-	double fixedAnalogueGain_;
+	libcamera::utils::Duration maxExposureTime_;
+	libcamera::utils::Duration fixedExposureTime_;
+	double fixedGain_;
 };
 
 } /* namespace RPiController */

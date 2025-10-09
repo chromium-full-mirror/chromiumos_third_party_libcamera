@@ -13,8 +13,10 @@
 
 #include <libcamera/base/private.h>
 
+#include <libcamera/base/class.h>
 #include <libcamera/base/message.h>
 #include <libcamera/base/signal.h>
+#include <libcamera/base/span.h>
 #include <libcamera/base/utils.h>
 
 namespace libcamera {
@@ -35,6 +37,8 @@ public:
 	void exit(int code = 0);
 	bool wait(utils::duration duration = utils::duration::max());
 
+	int setThreadAffinity(const Span<const unsigned int> &cpus);
+
 	bool isRunning();
 
 	Signal<> finished;
@@ -44,18 +48,23 @@ public:
 
 	EventDispatcher *eventDispatcher();
 
-	void dispatchMessages(Message::Type type = Message::Type::None);
+	void dispatchMessages(Message::Type type = Message::Type::None,
+			      Object *receiver = nullptr);
+	void removeMessages(Object *receiver);
 
 protected:
 	int exec();
 	virtual void run();
 
 private:
+	LIBCAMERA_DISABLE_COPY_AND_MOVE(Thread)
+
 	void startThread();
 	void finishThread();
 
+	void setThreadAffinityInternal();
+
 	void postMessage(std::unique_ptr<Message> msg, Object *receiver);
-	void removeMessages(Object *receiver);
 
 	friend class Object;
 	friend class ThreadData;

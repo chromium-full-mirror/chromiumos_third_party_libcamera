@@ -15,6 +15,8 @@
 
 #include "libcamera/internal/camera.h"
 #include "libcamera/internal/device_enumerator.h"
+#include "libcamera/internal/global_configuration.h"
+#include "libcamera/internal/ipa_manager.h"
 #include "libcamera/internal/pipeline_handler.h"
 
 /**
@@ -23,6 +25,7 @@
  */
 
 /**
+ * \internal
  * \file libcamera/internal/camera_manager.h
  * \brief Internal camera manager support
  */
@@ -34,9 +37,11 @@ namespace libcamera {
 
 LOG_DEFINE_CATEGORY(Camera)
 
+#ifndef __DOXYGEN_PUBLIC__
 CameraManager::Private::Private()
 	: initialized_(false)
 {
+	ipaManager_ = std::make_unique<IPAManager>(this->configuration());
 }
 
 int CameraManager::Private::start()
@@ -76,8 +81,10 @@ void CameraManager::Private::run()
 	mutex_.unlock();
 	cv_.notify_one();
 
-	if (ret < 0)
+	if (ret < 0) {
+		cleanup();
 		return;
+	}
 
 	/* Now start processing events and messages. */
 	exec();
@@ -104,14 +111,16 @@ void CameraManager::Private::createPipelineHandlers()
 	 * file and only fallback on environment variable or all handlers, if
 	 * there is no configuration file.
 	 */
-	const char *pipesList =
-		utils::secure_getenv("LIBCAMERA_PIPELINES_MATCH_LIST");
-	if (pipesList) {
+	const auto pipesList =
+		configuration().envListOption("LIBCAMERA_PIPELINES_MATCH_LIST",
+					      { "pipelines_match_list" },
+					      ",");
+	if (pipesList.has_value()) {
 		/*
 		 * When a list of preferred pipelines is defined, iterate
 		 * through the ordered list to match the enumerated devices.
 		 */
-		for (const auto &pipeName : utils::split(pipesList, ",")) {
+		for (const auto &pipeName : pipesList.value()) {
 			const PipelineHandlerFactoryBase *factory;
 			factory = PipelineHandlerFactoryBase::getFactoryByName(pipeName);
 			if (!factory)
@@ -196,24 +205,28 @@ void CameraManager::Private::addCamera(std::shared_ptr<Camera> camera)
 {
 	ASSERT(Thread::current() == this);
 
-	MutexLocker locker(mutex_);
+	{
+		MutexLocker locker(mutex_);
 
-	for (const std::shared_ptr<Camera> &c : cameras_) {
-		if (c->id() == camera->id()) {
-			LOG(Camera, Fatal)
-				<< "Trying to register a camera with a duplicated ID '"
-				<< camera->id() << "'";
-			return;
+		for (const std::shared_ptr<Camera> &c : cameras_) {
+			if (c->id() == camera->id()) {
+				LOG(Camera, Fatal)
+					<< "Trying to register a camera with a duplicated ID '"
+					<< camera->id() << "'";
+				return;
+			}
 		}
+
+		cameras_.push_back(camera);
 	}
 
-	cameras_.push_back(std::move(camera));
-
-	unsigned int index = cameras_.size() - 1;
+	LOG(Camera, Info)
+		<< "Adding camera '" << camera->id() << "' for pipeline handler "
+		<< camera->_d()->pipe()->name();
 
 	/* Report the addition to the public signal */
 	CameraManager *const o = LIBCAMERA_O_PTR();
-	o->cameraAdded.emit(cameras_[index]);
+	o->cameraAdded.emit(camera);
 }
 
 /**
@@ -230,24 +243,38 @@ void CameraManager::Private::removeCamera(std::shared_ptr<Camera> camera)
 {
 	ASSERT(Thread::current() == this);
 
-	MutexLocker locker(mutex_);
+	{
+		MutexLocker locker(mutex_);
 
-	auto iter = std::find_if(cameras_.begin(), cameras_.end(),
-				 [camera](std::shared_ptr<Camera> &c) {
-					 return c.get() == camera.get();
-				 });
-	if (iter == cameras_.end())
-		return;
+		auto iter = std::find(cameras_.begin(), cameras_.end(), camera);
+		if (iter == cameras_.end())
+			return;
+
+		cameras_.erase(iter);
+	}
 
 	LOG(Camera, Debug)
 		<< "Unregistering camera '" << camera->id() << "'";
-
-	cameras_.erase(iter);
 
 	/* Report the removal to the public signal */
 	CameraManager *const o = LIBCAMERA_O_PTR();
 	o->cameraRemoved.emit(camera);
 }
+
+/**
+ * \fn const GlobalConfiguration &CameraManager::Private::configuration() const
+ * \brief Get global configuration bound to the camera manager
+ *
+ * \return Reference to the configuration
+ */
+
+/**
+ * \fn CameraManager::Private::ipaManager() const
+ * \brief Retrieve the IPAManager
+ * \context This function is \threadsafe.
+ * \return The IPAManager for this CameraManager
+ */
+#endif /* __DOXYGEN_PUBLIC__ */
 
 /**
  * \class CameraManager
@@ -368,13 +395,13 @@ std::vector<std::shared_ptr<Camera>> CameraManager::cameras() const
  *
  * \return Shared pointer to Camera object or nullptr if camera not found
  */
-std::shared_ptr<Camera> CameraManager::get(const std::string &id)
+std::shared_ptr<Camera> CameraManager::get(std::string_view id)
 {
 	Private *const d = _d();
 
 	MutexLocker locker(d->mutex_);
 
-	for (std::shared_ptr<Camera> camera : d->cameras_) {
+	for (const std::shared_ptr<Camera> &camera : d->cameras_) {
 		if (camera->id() == id)
 			return camera;
 	}
