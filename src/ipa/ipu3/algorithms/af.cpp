@@ -63,7 +63,8 @@ LOG_DEFINE_CATEGORY(IPU3Af)
  * Maximum focus steps of the VCM control
  * \todo should be obtained from the VCM driver
  */
-static constexpr uint32_t kMaxFocusSteps = 1023;
+static constexpr uint32_t kMaxFocusSteps = 650;
+static constexpr uint32_t kMinFocusSteps = 350;
 
 /* Minimum focus step for searching appropriate focus */
 static constexpr uint32_t kCoarseSearchStep = 30;
@@ -105,7 +106,7 @@ static struct ipu3_uapi_af_filter_config afFilterConfigDefault = {
  * image.
  */
 Af::Af()
-	: focus_(0), bestFocus_(0), currentVariance_(0.0), previousVariance_(0.0),
+	: focus_(kMinFocusSteps), bestFocus_(kMinFocusSteps), currentVariance_(0.0), previousVariance_(0.0),
 	  coarseCompleted_(false), fineCompleted_(false)
 {
 }
@@ -212,12 +213,13 @@ void Af::afCoarseScan(IPAContext &context)
 	if (afScan(context, kCoarseSearchStep)) {
 		coarseCompleted_ = true;
 		context.activeState.af.maxVariance = 0;
-		focus_ = context.activeState.af.focus -
-			 (context.activeState.af.focus * kFineRange);
+		focus_ = std::max(kMinFocusSteps,
+        static_cast<uint32_t>(context.activeState.af.focus -
+                              (context.activeState.af.focus * kFineRange)));
 		context.activeState.af.focus = focus_;
 		previousVariance_ = 0;
 		maxStep_ = std::clamp(focus_ + static_cast<uint32_t>((focus_ * kFineRange)),
-				      0U, kMaxFocusSteps);
+				      kMinFocusSteps, kMaxFocusSteps);
 	}
 }
 
@@ -253,8 +255,8 @@ void Af::afReset(IPAContext &context)
 		return;
 
 	context.activeState.af.maxVariance = 0;
-	context.activeState.af.focus = 0;
-	focus_ = 0;
+	context.activeState.af.focus = kMinFocusSteps;
+	focus_ = kMinFocusSteps;
 	context.activeState.af.stable = false;
 	ignoreCounter_ = kIgnoreFrame;
 	previousVariance_ = 0.0;

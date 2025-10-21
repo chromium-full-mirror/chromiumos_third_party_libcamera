@@ -47,21 +47,12 @@ BlackLevelCorrection::BlackLevelCorrection()
 void BlackLevelCorrection::prepare([[maybe_unused]] IPAContext &context,
 				   [[maybe_unused]] const uint32_t frame,
 				   [[maybe_unused]] IPAFrameContext &frameContext,
-				   ipu3_uapi_params *params)
+				   [[maybe_unused]] ipu3_uapi_params *params)
 {
 	/*
-	 * The Optical Black Level correction values
-	 * \todo The correction values should come from sensor specific
-	 * tuning processes. This is a first rough approximation.
+   * Default black level values work better than the configured ones
+   * so we can just use those.
 	 */
-	params->obgrid_param.gr = 64;
-	params->obgrid_param.r = 64;
-	params->obgrid_param.b = 64;
-	params->obgrid_param.gb = 64;
-
-	/* Enable the custom black level correction processing */
-	params->use.obgrid = 1;
-	params->use.obgrid_param = 1;
 }
 
 REGISTER_IPA_ALGORITHM(BlackLevelCorrection, "BlackLevelCorrection")
