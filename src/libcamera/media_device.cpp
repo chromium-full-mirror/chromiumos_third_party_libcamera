@@ -165,7 +165,8 @@ void MediaDevice::unlock()
 	if (!fd_.isValid())
 		return;
 
-	lockf(fd_.get(), F_ULOCK, 0);
+	if (lockf(fd_.get(), F_ULOCK, 0))
+		LOG(MediaDevice, Warning) << "Failed to unlock device";
 }
 
 /**
