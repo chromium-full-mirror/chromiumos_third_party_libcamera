@@ -11,6 +11,8 @@
 
 #include "swstats_cpu.h"
 
+#include <algorithm>
+
 #include <libcamera/base/log.h>
 
 #include <libcamera/stream.h>
@@ -157,7 +159,9 @@ static constexpr unsigned int kBlueYMul = 29; /* 0.114 * 256 */
 	yVal = r * kRedYMul;               \
 	yVal += g * kGreenYMul;            \
 	yVal += b * kBlueYMul;             \
-	stats_.yHistogram[yVal * SwIspStats::kYHistogramSize / (256 * 256 * (div))]++;
+	yVal = yVal * SwIspStats::kYHistogramSize / (256 * 256 * (div)); \
+	stats_.yHistogram[std::min<uint64_t>(                            \
+		yVal, SwIspStats::kYHistogramSize - 1)]++;
 
 #define SWSTATS_FINISH_LINE_STATS() \
 	stats_.sumR_ += sumR;       \
@@ -201,10 +205,10 @@ void SwStatsCpu::statsBGGR10Line0(const uint8_t *src[])
 
 	/* x += 4 sample every other 2x2 block */
 	for (int x = 0; x < (int)window_.width; x += 4) {
-		b = src0[x];
-		g = src0[x + 1];
-		g2 = src1[x];
-		r = src1[x + 1];
+		b = src0[x] & 0x3ff;
+		g = src0[x + 1] & 0x3ff;
+		g2 = src1[x] & 0x3ff;
+		r = src1[x + 1] & 0x3ff;
 
 		g = (g + g2) / 2;
 
@@ -227,10 +231,10 @@ void SwStatsCpu::statsBGGR12Line0(const uint8_t *src[])
 
 	/* x += 4 sample every other 2x2 block */
 	for (int x = 0; x < (int)window_.width; x += 4) {
-		b = src0[x];
-		g = src0[x + 1];
-		g2 = src1[x];
-		r = src1[x + 1];
+		b = src0[x] & 0xfff;
+		g = src0[x + 1] & 0xfff;
+		g2 = src1[x] & 0xfff;
+		r = src1[x + 1] & 0xfff;
 
 		g = (g + g2) / 2;
 
