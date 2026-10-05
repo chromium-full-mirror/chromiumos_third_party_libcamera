@@ -8,6 +8,7 @@
 #pragma once
 
 #include <string>
+#include <sys/types.h>
 
 #include <libcamera/base/class.h>
 #include <libcamera/base/signal.h>
